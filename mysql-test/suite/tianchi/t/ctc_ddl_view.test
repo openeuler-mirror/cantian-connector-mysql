@@ -1,0 +1,50 @@
+--disable_warnings
+drop table if exists DEMO;
+drop table if exists DEMO2;
+--enable_warnings
+
+# create a table.
+create table DEMO (ID integer not null, NAME varchar(20), AGE integer, GRADE real);
+DESC DEMO;
+# insert some data to table.
+insert into DEMO values (1, 'LIOR', 35, 6.9);
+insert into DEMO values (4, 'MIKE', 55, 99.92);
+insert into DEMO values (8, 'ROMAN', 40, 94.1);
+insert into DEMO values (16, 'DAN', 60, 1234567890);
+insert into DEMO values (32, 'ZVI', 35, 777.666);
+insert into DEMO values (1, 'KSLDK', 90, 123.36);
+insert into DEMO values (1, 'BILL', 31, 76.1);
+select * from DEMO;
+#create a view
+create view id_name as select ID, NAME from DEMO where ID = 1;
+desc id_name;
+select * from id_name;
+insert into DEMO values (2, 'ALEX', 54, 22.45);
+insert into DEMO values (7, 'ALICE', 73, 793);
+#alter view
+alter view id_name as select NAME, AGE from DEMO;
+desc id_name;
+select * from id_name;
+#drop view
+drop view id_name;
+# create a table.
+create table DEMO2 (CLASS integer not null, COURSE varchar(20), NAME varchar(20));
+DESC DEMO2;
+insert into DEMO2 values (1011, 'CHINESE','LIOR');
+insert into DEMO2 values (1016, 'BIOLOGY', 'ALEX');
+insert into DEMO2 values (2033, 'HISTORY', 'ALICE');
+insert into DEMO2 values (3210, 'PE', 'SS');
+#create a view
+create view combine_view as select DEMO.ID, DEMO.NAME, DEMO2.COURSE from DEMO, DEMO2 where DEMO.NAME = DEMO2.NAME;
+desc combine_view;
+select * from combine_view;
+#drop view
+drop view combine_view;
+#drop Table
+drop table DEMO;
+drop table DEMO2;
+
+
+
+
+

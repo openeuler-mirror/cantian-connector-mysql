@@ -1,0 +1,82 @@
+--disable_warnings
+drop database if exists `db-1`;
+drop database if exists `db-2`;
+--enable_warnings
+
+# 跨库操作
+create database `db-1`;
+show databases;
+create table `db-1`.`t-1`(c1 int, c2 varchar(10));
+create table `db-1`.`t-2`(c1 int, c2 varchar(10));
+insert into `db-1`.`t-1` values (1,'db1_t1_aa');
+insert into `db-1`.`t-1` values (2,'db1_t1_bb');
+select * from `db-1`.`t-1`;
+alter table `db-1`.`t-2` add constraint fk_db1_t2 primary key (c1);
+insert into `db-1`.`t-2` values (1,'db1_t2_abc');
+--error 1062
+insert into `db-1`.`t-2` values (1,'db1_t2_cde');
+insert into `db-1`.`t-2` values (2,'db1_t2_cde');
+select * from `db-1`.`t-2`;
+drop table `db-1`.`t-1`;
+show tables;
+drop database `db-1`;
+show databases;
+
+
+# 切库后操作
+create database `db-2`;
+show databases;
+use `db-2`;
+create table `t-1`(c1 int, c2 varchar(10));
+create table `t-2`(c1 int, c2 varchar(10));
+show tables;
+insert into `t-1` values (1,'db2_t1_aa');
+insert into `t-1` values (2,'db2_t1_bb');
+select * from `t-1`;
+alter table `t-2` add constraint fk_db2_t2 primary key (c1);
+insert into `t-2` values (1,'db2_t2_abc');
+--error 1062
+insert into `t-2` values (1,'db2_t2_cde');
+insert into `t-2` values (2,'db2_t2_cde');
+select * from `t-2`;
+drop table `t-1`;
+show tables;
+drop database `db-2`;
+show databases;
+
+
+# 重复创删库
+create database `db-3`;
+--error ER_DB_CREATE_EXISTS
+create database `db-3`;
+drop database `db-3`;
+--error ER_DB_DROP_EXISTS
+drop database `db-3`;
+
+
+# 创建超长库名的库
+create database aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa;
+--error ER_TOO_LONG_IDENT
+create database aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa;
+drop database aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa;
+
+
+# 创大小写敏感库
+# 参天存在PUBLIC user
+create database public;
+use public;
+create table t(c1 int);
+create table T(c1 int);
+show tables;
+#create database PUBLIC;
+#use PUBLIC;
+#create table t(c1 int);
+#create table T(c1 int);
+#show tables;
+drop database public;
+#drop database PUBLIC;
+
+
+# 创建参天系统重名库
+#create database SYS;
+#drop database SYS;

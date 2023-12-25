@@ -1,0 +1,140 @@
+--disable_warnings
+drop table if exists t1, t2, t3, t4, t5, t6, t7;
+
+CREATE TABLE t1(c1 TINYINT, c2 SMALLINT not null, c3 MEDIUMINT, c4 INT unsigned, c5 INT, c6 BIGINT, c7 BIGINT unsigned);
+INSERT INTO t1 VALUES (1,1,1,1,1,1,1), (2,2,2,2,2,2,2);
+INSERT INTO t1 VALUES (null, 5, null, null, null, null,null);
+INSERT INTO t1 VALUES (3,3,3,3,3,3,3), (4,4,4,4,4,4,4);
+INSERT INTO t1 VALUES (null, 7, null, null, null, null,null);
+INSERT INTO t1 VALUES (8,8,127,255,8,8,8);
+select * from t1;
+
+# > < = >= <= != <=> and integer type supported to push down
+select * from t1 where c1 > 1;
+explain select * from t1 where c1 > 1;
+select * from t1 where c2 < 7;
+explain select * from t1 where c2 < 7;
+select * from t1 where c3 = 3;
+explain select * from t1 where c3 = 3;
+select * from t1 where c4 >= 4;
+explain select * from t1 where c4 >= 4;
+select * from t1 where c5 <= 8;
+explain select * from t1 where c5 <= 8;
+select * from t1 where c6 != 2;
+explain select * from t1 where c6 != 2;
+select * from t1 where c5 <=> null;
+explain select * from t1 where c5 <=> null;
+select * from t1 where c1 = null;
+explain select * from t1 where c1 = null;
+
+# bigint unsigned not supported to push down
+select * from t1 where c7 = 8;
+explain select * from t1 where c7 = 8;
+
+# like is null is not null supported to push down
+CREATE TABLE t2(c1 char(10), c2 varchar(20), c3 varchar(20) binary);
+INSERT INTO t2 VALUES ('1234','abcd','abcd'), ('123','ABCD','ABCD'),('123456','aBcD','aBcD'),('23456','abCD','abCD'),('','',''),(null, null, null);
+select * from t2;
+select * from t2 where c1 like '%123%';
+explain select * from t2 where c1 like '%123%';
+select * from t2 where c2 like '%abc%';
+explain select * from t2 where c2 like '%abc%';
+select * from t2 where c1 is null;
+explain select * from t2 where c1 is null;
+select * from t2 where c2 is null;
+explain select * from t2 where c2 is null;
+select * from t2 where c1 is not null;
+explain select * from t2 where c1 is not null;
+select * from t2 where c2 is not null;
+explain select * from t2 where c2 is not null;
+
+# varchar binary is case sensitive
+select * from t2 where c3 like '%abc%';
+explain select * from t2 where c3 like '%abc%';
+
+# float double supported to push down
+CREATE TABLE t3(c1 float , c2 float(6,3), c3 double, c4 double(6,3));
+INSERT INTO t3 VALUES (1.1,11.11,1.1,11.11), (2.2,22.22,2.2,22.22), (3.3,33.33,3.3,33.33);
+select * from t3;
+select * from t3 where c1 = 1.1;
+explain select * from t3 where c1 = 1.1;
+select * from t3 where c2 > 1.1;
+explain select * from t3 where c2 > 1.1;
+select * from t3 where c3 < 3.3;
+explain select * from t3 where c3 < 3.3;
+select * from t3 where c4 >= 11.11;
+explain select * from t3 where c4 >= 11.11;
+select * from t3 where c1 <= 3.3;
+explain select * from t3 where c1 <= 3.3;
+select * from t3 where c2 != 22.22;
+explain select * from t3 where c2 != 22.22;
+select * from t3 where c3 <=> 2.2;
+explain select * from t3 where c3 <=> 2.2;
+
+# decimal supported to push down
+CREATE TABLE t4(c1 DECIMAL(10,5) UNSIGNED NOT NULL, c2 DECIMAL(10,5) SIGNED NULL, c3 DECIMAL);
+INSERT INTO t4 VALUES ('11111.11111','11111.11111','1111111111'),('22222.22222','22222.22222','2222222222'),('33333.33333','33333.33333','3333333333');
+select * from t4;
+select * from t4 where c1 = '11111.11111';
+explain select * from t4 where c1 = '11111.11111';
+select * from t4 where c1 > '22222.22222';
+explain select * from t4 where c1 > '22222.22222';
+select * from t4 where c1 < '33333.33333';
+explain select * from t4 where c1 < '33333.33333';
+select * from t4 where c2 >= '11111.11111';
+explain select * from t4 where c2 >= '11111.11111';
+select * from t4 where c2 <= '22222.22222';
+explain select * from t4 where c2 <= '22222.22222';
+select * from t4 where c2 != '33333.33333';
+explain select * from t4 where c2 != '33333.33333';
+select * from t4 where c3 <=> '1111111111';
+explain select * from t4 where c3 <=> '1111111111';
+
+# year time date datetime timestamp supported to push down
+CREATE TABLE t5(c1 year, c2 TIME, c3 DATE, c4 DATETIME, c5 TIMESTAMP);
+INSERT INTO t5 VALUES (94, '1999-12-31 23:59:59', '2000-01-01', '2008-02-29 13:13:13', '2012-03-04 11:21:14');
+INSERT INTO t5 VALUES (2014, '2001-12-31 23:59:59', '2004-01-01', '2007-01-29 13:13:13', '2014-03-04 11:21:14');
+INSERT INTO t5 VALUES (2023, '2009-12-31 23:59:59', '2012-01-01', '2015-05-29 13:13:13', '2020-03-04 11:21:14');
+select * from t5;
+select * from t5 where c1 = 1994;
+explain select * from t5 where c1 = 1994;
+select * from t5 where c2 > '23:59:50';
+explain select * from t5 where c2 > '23:59:50';
+select * from t5 where c3 < '2012-01-01';
+explain select * from t5 where c3 < '2012-01-01';
+select * from t5 where c4 >= '2008-02-29 13:13:13';
+explain select * from t5 where c4 >= '2008-02-29 13:13:13';
+select * from t5 where c5 <=> '2020-03-04 11:21:14';
+explain select * from t5 where c5 <=> '2020-03-04 11:21:14';
+
+CREATE TABLE t6(x VARCHAR(10), gc INTEGER GENERATED ALWAYS AS (x LIKE 'abba' ESCAPE 'b'), y INTEGER, gc_1 INTEGER GENERATED ALWAYS AS (y + 1), z varchar(20));
+insert into t6 values('abba', default, 1, default, 'aasf');
+insert into t6 values('aba', default, 2, default, 'afgc');
+insert into t6 values('bbba', default, 4, default, 'test');
+select * from t6;
+# gcol not supported to push down
+explain select * from t6 where gc <> 0;
+select * from t6 where x = 'abba';
+explain select * from t6 where x = 'abba';
+select * from t6 where y = 2;
+explain select * from t6 where y = 2;
+select * from t6 where z = 'test';
+explain select * from t6 where z = 'test';
+
+# push cache item for integer type
+CREATE TABLE t7(c1 TINYINT, c2 SMALLINT not null, c3 MEDIUMINT, c4 INT);
+insert into t7 values(-1, -5, -7, -9);
+insert into t7 values(-11, -15, -17, -19);
+insert into t7 values(-21, -25, -27, -29);
+insert into t7 values(-31, -35, -37, -39);
+select * from t7 where c1 < -10;
+explain select * from t7 where c1 < -10;
+select * from t7 where c2 >= -15;
+explain select * from t7 where c2 >= -15;
+select * from t7 where c3 = -27;
+explain select * from t7 where c3 = -27;
+select * from t7 where c4 != -39;
+explain select * from t7 where c4 != -39;
+
+--enable_warnings
+drop table t1, t2, t3, t4, t5, t6, t7;

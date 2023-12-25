@@ -1,0 +1,23 @@
+# test for lock/unlock instance
+LOCK INSTANCE FOR BACKUP;
+--error ER_DISALLOWED_OPERATION
+set global ctc_db_datafile_size=32;
+--error ER_DISALLOWED_OPERATION
+create database test;
+--error ER_DISALLOWED_OPERATION
+create table DEMO(id int);
+FLUSH NO_WRITE_TO_BINLOG BINARY LOGS;
+set session ctc_sampling_ratio=90;
+set session ctc_sampling_ratio=100;
+UNLOCK INSTANCE;
+SET SESSION wait_timeout=2147483;
+SET SESSION lock_wait_timeout=31536000;
+SET SESSION autocommit=1;
+SET NAMES utf8;
+LOCK INSTANCE FOR BACKUP;
+SET SESSION wait_timeout=2147483;
+SET SESSION lock_wait_timeout=31536000;
+SET SESSION autocommit=1;
+SET NAMES utf8;
+UNLOCK INSTANCE;
+set @ctc_ddl_enabled=true;

@@ -1,0 +1,204 @@
+let $engine_type= CTC;
+
+--disable_warnings
+drop table if exists t1;
+
+
+--echo ######## test case 1, test create index will open new dc
+connect (a,localhost,root,,);
+connect (b,localhost,root,,);
+connection a;
+create table t1(a int not null, b int, c int, primary key(a)) ENGINE=CTC;
+insert into t1 values(1,1,1),(2,2,2),(3,3,3);
+commit;
+begin;
+explain select * from t1 where b > 2;
+
+connection b;
+--send
+create index b_index ON t1 (b);
+
+connection a;
+explain select * from t1 where b > 2;
+commit;
+
+connection b;
+reap;
+
+connection a;
+explain select * from t1 where b > 2;
+DROP INDEX b_index ON t1;
+drop table t1;
+disconnect a;
+disconnect b;
+
+
+--echo ######## test case 2, test add index will open new dc
+connect (a,localhost,root,,);
+connect (b,localhost,root,,);
+connection a;
+create table t1(a int not null, b int, c int, primary key(a)) ENGINE=CTC;
+insert into t1 values(1,1,1),(2,2,2),(3,3,3);
+commit;
+begin;
+explain select * from t1 where b > 2;
+
+connection b;
+--send
+ALTER TABLE t1 ADD INDEX b_index (b);
+
+connection a;
+explain select * from t1 where b > 2;
+commit;
+
+connection b;
+reap;
+
+connection a;
+explain select * from t1 where b > 2;
+DROP INDEX b_index ON t1;
+drop table t1;
+disconnect a;
+disconnect b;
+
+
+--echo ######## test case 3, test drop index will open new dc
+connect (a,localhost,root,,);
+connect (b,localhost,root,,);
+connection a;
+create table t1(a int not null, b int, c int, primary key(a)) ENGINE=CTC;
+ALTER TABLE t1 ADD INDEX b_index (b);
+insert into t1 values(1,1,1),(2,2,2),(3,3,3);
+commit;
+begin;
+explain select * from t1 where b > 2;
+
+connection b;
+--send
+DROP INDEX b_index ON t1;
+
+connection a;
+explain select * from t1 where b > 2;
+commit;
+
+connection b;
+reap;
+
+connection a;
+explain select * from t1 where b > 2;
+drop table t1;
+disconnect a;
+disconnect b;
+--enable_warnings
+
+
+--echo ######## test case 4, test add column will open new dc
+connect (a,localhost,root,,);
+connect (b,localhost,root,,);
+connection a;
+create table t1(a int not null, b int, c int, primary key(a)) ENGINE=CTC;
+insert into t1 values(1,1,1),(2,2,2),(3,3,3);
+commit;
+begin;
+select * from t1;
+
+connection b;
+--send
+ALTER TABLE t1 ADD COLUMN test INT default 0;
+
+connection a;
+select * from t1;
+commit;
+
+connection b;
+reap;
+
+connection a;
+select * from t1;
+drop table t1;
+disconnect a;
+disconnect b;
+
+
+--echo ######## test case 5, test renaming column will open new dc
+connect (a,localhost,root,,);
+connect (b,localhost,root,,);
+connection a;
+create table t1(a int not null, b int, c int, primary key(a)) ENGINE=CTC;
+insert into t1 values(1,1,1),(2,2,2),(3,3,3);
+commit;
+begin;
+select * from t1;
+
+connection b;
+--send
+ALTER TABLE t1 RENAME COLUMN c TO c_new;
+
+connection a;
+select * from t1;
+commit;
+
+connection b;
+reap;
+
+connection a;
+select * from t1;
+drop table t1;
+disconnect a;
+disconnect b;
+
+
+--echo ######## test case 6, test changing the column data type will open new dc
+connect (a,localhost,root,,);
+connect (b,localhost,root,,);
+connection a;
+create table t1(a int not null, b int, c int, primary key(a)) ENGINE=CTC;
+insert into t1(a, b) values(1,1),(2,2),(3,3);
+commit;
+begin;
+select * from t1;
+
+connection b;
+--send
+ALTER TABLE t1 MODIFY c FLOAT;
+
+connection a;
+select * from t1;
+commit;
+
+connection b;
+reap;
+
+connection a;
+select * from t1;
+desc t1;
+drop table t1;
+disconnect a;
+disconnect b;
+
+# --echo ######## test case 7, test dropping a column will open new dc
+# connect (a,localhost,root,,);
+# connect (b,localhost,root,,);
+# connection a;
+# create table t1(a int not null, b int, c int, primary key(a)) ENGINE=CTC;
+# insert into t1 values(1,1,1),(2,2,2),(3,3,3);
+# commit;
+# begin;
+# select * from t1;
+#
+# connection b;
+# --send
+# ALTER TABLE t1 DROP COLUMN c;
+#
+# connection a;
+# select * from t1;
+# commit;
+#
+# connection b;
+# reap;
+#
+# connection a;
+# select * from t1;
+# drop table t1; can not drop table here will core
+# disconnect a;
+# disconnect b;

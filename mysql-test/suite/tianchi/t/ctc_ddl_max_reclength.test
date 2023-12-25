@@ -1,0 +1,54 @@
+DELIMITER |;
+CREATE PROCEDURE create_table_columns_char(table_name varchar(50), columns int)
+BEGIN
+  DECLARE i INT DEFAULT 1;
+  SET @sql_text = CONCAT('create TABLE ', table_name, ' (');
+  while (i < columns) do
+    SET @sql_text = CONCAT(@sql_text,  CONCAT('col_', i), ' char(255),');
+    set i = i + 1;
+  end while;
+  SET @sql_text = CONCAT(@sql_text, CONCAT('col_', i), ' char(255)) CHARSET=ASCII;');
+  #insert into DEMO values(@sql_text);
+  PREPARE stmt FROM @sql_text;
+  EXECUTE stmt;
+  DEALLOCATE PREPARE stmt;
+END|
+create function rand_string(n int) returns varchar(255)
+begin
+    declare chars_str varchar(100) default 'abcdefghijklmnopqrstuvwxyzABCDEFGHIGKLMNOPQRSTUVWXYZ';
+    declare return_str varchar(255) default '';
+    declare i int default 0;
+    while i<n do
+    set return_str =concat(return_str,substring(chars_str,floor(1+rand()*52),1));
+    set i=i+1;
+end while;
+return return_str;
+end|
+CREATE PROCEDURE insert_table_columns_char(table_name varchar(50), columns int, last_cnt int)
+BEGIN
+  DECLARE i INT DEFAULT 1;
+  SET @sql_text = CONCAT('insert into ', table_name, ' values (');
+  while (i <= columns) do
+    SET @sql_text = CONCAT(@sql_text,  '\'', rand_string(255), '\',');
+    set i = i + 1;
+  end while;
+  SET @sql_text = CONCAT(@sql_text, '\'', rand_string(last_cnt), '\');');
+  PREPARE stmt FROM @sql_text;
+  EXECUTE stmt;
+  DEALLOCATE PREPARE stmt;
+END|
+
+DELIMITER ;|
+
+--error 1118
+# exceeds max size restricted by mysql (64000)
+call create_table_columns_char('DEMO', 251);
+--error 1030
+# exceeds max size restricted by cantian (64000)
+call create_table_columns_char('DEMO', 246);
+# 8(sizeof row_head_t) + 60(extra maps) + round_up(255 + 2, 4) * 245 = 63768 < 64000
+call create_table_columns_char('DEMO', 245);
+drop table DEMO;
+drop procedure create_table_columns_char;
+drop procedure insert_table_columns_char;
+drop function rand_string;

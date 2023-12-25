@@ -1,0 +1,75 @@
+--disable_warnings
+drop table if exists PARTABLE;
+--enable_warnings
+
+#create table for add foreign key when create table (创表过程中创建外键，所有列做主键)
+#创建父表
+create table PARTABLE(
+    ID INT,
+    COL_1 ENUM('Low', 'Medium', 'High'),
+    COL_2 SET('a', 'b', 'c', 'd'),
+    primary key(ID, COL_1,COL_2)
+) ;
+#创建子表
+create table COMPATIBLE_TABLE(
+    ID INT,
+    COL_1 ENUM('Low', 'Medium', 'High'),
+    COL_2 SET('a', 'b', 'c', 'd'),
+    CONSTRAINT fk_id foreign key(ID, COL_1, COL_2) references PARTABLE(ID, COL_1,COL_2)
+) ;
+#父表插入数据
+INSERT INTO PARTABLE VALUES  (1,'Low','a,d');
+INSERT INTO PARTABLE VALUES  (2,'Medium','a');
+INSERT INTO PARTABLE VALUES  (3,'High','c,d');
+
+#子表插入数据
+--error 1452
+INSERT INTO COMPATIBLE_TABLE VALUES  (10,'Low','a,b,c');#父表没有，因为有外键依赖所以插入不了
+INSERT INTO COMPATIBLE_TABLE VALUES  (1,'Low','a,d');
+--error 1452
+INSERT INTO COMPATIBLE_TABLE VALUES  (20,'Medium','a,b,c');#父表没有，因为有外键依赖所以插入不了
+INSERT INTO COMPATIBLE_TABLE VALUES   (3,'High','c,d');
+select * from COMPATIBLE_TABLE;
+desc COMPATIBLE_TABLE;
+show index from COMPATIBLE_TABLE;
+drop table COMPATIBLE_TABLE;
+drop table PARTABLE;
+
+#create table for alter drop foreign key (添加、删除外键)
+#创建父表
+drop table if exists PARTABLE;
+drop table if exists COMPATIBLE_TABLE;
+#创建父表
+create table PARTABLE(
+    ID INT,
+    COL_1 ENUM('Low', 'Medium', 'High'),
+    COL_2 SET('a', 'b', 'c', 'd'),
+    primary key(COL_1,COL_2)
+) ;
+#创建子表
+create table COMPATIBLE_TABLE(
+    ID INT,
+    COL_1 ENUM('Low', 'Medium', 'High'),
+    COL_2 SET('a', 'b', 'c', 'd')
+) ;
+#设置外键
+alter table COMPATIBLE_TABLE add constraint fk_id foreign key(COL_1, COL_2) references PARTABLE(COL_1,COL_2);
+#父表插入数据
+INSERT INTO PARTABLE VALUES  (1,'Low','a,d');
+INSERT INTO PARTABLE VALUES  (2,'Medium','a');
+INSERT INTO PARTABLE VALUES  (3,'High','c,d');
+select * from PARTABLE;
+
+#子表插入数据
+--error 1452
+INSERT INTO COMPATIBLE_TABLE VALUES  (10,'Low','a,b,c');#父表没有，因为有外键依赖所以插入不了
+INSERT INTO COMPATIBLE_TABLE VALUES  (1,'Low','a,d');
+--error 1452
+INSERT INTO COMPATIBLE_TABLE VALUES  (20,'Medium','a,b,c');#父表没有，因为有外键依赖所以插入不了
+INSERT INTO COMPATIBLE_TABLE VALUES   (3,'High','c,d');
+select * from COMPATIBLE_TABLE;
+desc COMPATIBLE_TABLE;
+show index from COMPATIBLE_TABLE;
+drop table COMPATIBLE_TABLE;
+drop table PARTABLE;
+

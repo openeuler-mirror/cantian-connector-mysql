@@ -1,0 +1,62 @@
+########################################################################
+#                                                                      #
+# Testing of Locking Read Concurrency with NOWAIT and SKIP LOCKED      #
+#                                                                      #
+########################################################################
+
+connect (con1,localhost,root,,);
+
+# init
+--echo connection default
+connection default;
+
+SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
+CREATE TABLE t1 (id INT);
+INSERT INTO t1 VALUES (1),(2);
+CREATE TABLE t2 (id INT PRIMARY KEY);
+INSERT INTO t2 VALUES (1),(2);
+COMMIT;
+
+# table t1 without index
+--echo start test case1
+START TRANSACTION;
+select * from t1 where id = 1 for update;
+
+--echo connection con1
+connection con1;
+SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
+START TRANSACTION;
+--error 1205
+select * from t1 for update;
+select * from t1 for update skip locked;
+--error 3572
+select * from t1 for update nowait;
+commit;
+
+--echo connection default
+connection default;
+commit;
+
+# table t2 with index
+--echo start test case2
+START TRANSACTION;
+select * from t2 where id = 1 for update;
+
+--echo connection con1
+connection con1;
+START TRANSACTION;
+--error 1205
+select * from t2 for update;
+select * from t2 for update skip locked;
+--error 3572
+select * from t2 for update nowait;
+commit;
+
+--echo connection default
+connection default;
+commit;
+
+# Cleanup
+disconnect con1;
+DROP TABLE t1;
+DROP TABLE t2;

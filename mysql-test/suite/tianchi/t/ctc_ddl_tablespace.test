@@ -1,0 +1,123 @@
+--source include/big_test.inc
+--disable_warnings
+drop table if exists Dept;
+drop table if exists Dept2;
+drop table if exists Dept3;
+--enable_warnings
+
+create tablespace ts01 add datafile 'ts_01.ibd' autoextend_size=1M;
+create tablespace ts02 add datafile 'ts_02.ibd' autoextend_size=512K;
+create tablespace ts03 add datafile 'ts_03.ibd';
+alter tablespace ts02 rename to ts02_new;
+--error 3510
+alter tablespace ts02 autoextend_size = 64K;
+alter tablespace ts02_new autoextend_size = 64K; 
+# create a table.
+create table Dept (ID integer not null, DISC varchar(100)) TABLESPACE ts01;
+create table Dept2 (ID integer not null, DISC varchar(100)) TABLESPACE ts02_new;
+create table Dept3 (ID integer not null, DISC varchar(100)) TABLESPACE ts03;
+
+# create function to produce id and nameString then insert into 
+DELIMITER |;
+create function rand_string(n int) returns varchar(255)
+begin
+    declare chars_str varchar(100) default 'abcdefghijklmnopqrstuvwxyzABCDEFGHIGKLMNOPQRSTUVWXYZ';
+    declare return_str varchar(255) default '';
+    declare i int default 0;
+    while i<n do
+    set return_str =concat(return_str,substring(chars_str,floor(1+rand()*52),1));
+    set i=i+1;
+end while;
+return return_str;
+end|
+
+create procedure insert_dept(in max_num int(10))
+begin
+    declare i int default 0;
+    set autocommit = 0;
+    repeat 
+    set i=i+1;
+    insert into Dept (ID, DISC) values(i,rand_string(95));
+    until i = max_num
+end repeat;
+commit;
+end|
+
+create procedure insert_dept2(in max_num int(10))
+begin
+    declare i int default 0;
+    set autocommit = 0;
+    repeat 
+    set i=i+1;
+    insert into Dept2 (ID, DISC) values(i,rand_string(95));
+    until i = max_num
+end repeat;
+commit;
+end|
+
+create procedure insert_dept3(in max_num int(10))
+begin
+    declare i int default 0;
+    set autocommit = 0;
+    repeat 
+    set i=i+1;
+    insert into Dept3 (ID, DISC) values(i,rand_string(95));
+    until i = max_num
+end repeat;
+commit;
+end|
+
+DELIMITER ;|
+
+call insert_dept(15000);
+select count(1) from Dept;
+
+call insert_dept2(15000);
+select count(1) from Dept2;
+
+call insert_dept3(15000);
+select count(1) from Dept3;
+
+drop table Dept;
+drop table Dept2;
+drop table Dept3;
+drop PROCEDURE insert_dept;
+drop PROCEDURE insert_dept2;
+drop PROCEDURE insert_dept3;
+
+drop FUNCTION rand_string;
+drop tablespace ts01;
+drop tablespace ts02_new;
+drop tablespace ts03;
+
+
+#drop tablespace test
+create tablespace ts01 add datafile 'ts_01.ibd' autoextend_size=1M;
+create table Dept (ID integer not null, DISC varchar(100)) TABLESPACE ts01;
+--error 3120
+drop tablespace ts01;
+drop table Dept;
+drop tablespace ts01;
+
+
+# 测试datafile命名限制
+--error ER_WRONG_FILE_NAME
+create tablespace ts04 add datafile 'ts_04' autoextend_size=1M;
+
+
+#测试alter tablespace add drop datafile(innodb不支持这两种操作，tse对标innodb需要进行禁止)
+create tablespace ts01 add datafile 'ts_01.ibd' autoextend_size=1M;
+--error ER_CHECK_NOT_IMPLEMENTED
+alter tablespace ts01 add datafile 'ts_02.ibd' autoextend_size=4M;
+--error ER_CHECK_NOT_IMPLEMENTED
+alter tablespace ts01 drop datafile 'ts_01.ibd';
+drop tablespace ts01;
+
+
+# 测试tablespace创建命名长度
+create tablespace ts0123456789012345678901234567890123456789012345678901234567 add datafile 'ts0123456789012345678901234567890123456789012345678901234567.ibd' autoextend_size=1M;
+--error ER_TOO_LONG_IDENT
+create tablespace ts01234567890123456789012345678901234567890123456789012345678 add datafile 'ts0123456789012345678901234567890123456789012345678901234511.ibd' autoextend_size=1M;
+--error ER_WRONG_FILE_NAME
+create tablespace ts0123456789012345678901234567890123456789012345678901234560 add datafile 'ts01234567890123456789012345678901234567890123456789012345678.ibd' autoextend_size=1M;
+drop tablespace ts0123456789012345678901234567890123456789012345678901234567;

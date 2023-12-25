@@ -1,0 +1,96 @@
+#测试生成列和虚拟列
+--error 3655
+CREATE TABLE triangle (
+  sidea DOUBLE,
+  sideb DOUBLE,
+  sidec DOUBLE AS (SQRT(sidea * sidea + sideb * sideb)) STORED
+);
+CREATE TABLE triangle1 (
+  sidea DOUBLE,
+  sideb DOUBLE,
+  sidec DOUBLE AS (SQRT(sidea * sidea + sideb * sideb))
+);
+INSERT INTO triangle1(sidea, sideb) VALUES(2,2),(4,4),(8,8);
+desc triangle1;
+select * from triangle1;
+show create table triangle1;
+drop table triangle1;
+
+DROP TABLE IF EXISTS t_8114;
+CREATE TABLE t_8114 (Column_0 int, Column_1 CHAR(5) GENERATED ALWAYS AS (PI()+5), Column_2 CHAR(5), Column_3 CHAR(5) GENERATED ALWAYS AS (PI()+5), Column_4 int);
+insert into t_8114 values(1, default, 'aa', default, 2);
+insert into t_8114 values(3, default, 'bb', default, 4);
+insert into t_8114 values(5, default, 'cc', default, 6);
+insert into t_8114 values(7, default, 'dd', default, 8);
+insert into t_8114 values(9, default, 'dd', default, 10);
+select * from t_8114;
+ALTER TABLE t_8114 DROP COLUMN Column_0;
+select * from t_8114;
+ALTER TABLE t_8114 DROP COLUMN Column_1;
+select * from t_8114;
+ALTER TABLE t_8114 ADD COLUMN Column_5 INT;
+ALTER TABLE t_8114 ADD COLUMN Column_6 INT;
+select * from t_8114;
+update t_8114 set Column_5 = 6 where Column_4 = 2;
+select * from t_8114;
+insert into t_8114 values('ee', default, 12, 14, 16);
+insert into t_8114 values('ff', default, 18, 20, 22);
+select * from t_8114;
+update t_8114 set Column_5 = 8, Column_6 = 9 where Column_4 = 2;
+select * from t_8114;
+ALTER TABLE t_8114 DROP COLUMN Column_3;
+select * from t_8114;
+drop table t_8114;
+
+CREATE TABLE t1 (a6 VARCHAR(32));
+INSERT INTO t1 VALUES ('00:00:00.000000');
+INSERT INTO t1 VALUES ('00:00:00.000001');
+INSERT INTO t1 VALUES ('00:00:00.000002');
+INSERT INTO t1 VALUES ('00:00:00.000003');
+INSERT INTO t1 VALUES ('00:00:00.000004');
+INSERT INTO t1 VALUES ('00:00:00.000005');
+INSERT INTO t1 VALUES('00:00:00.000006');
+ALTER TABLE t1 ADD a0 VARCHAR(32), ADD a1 VARCHAR(32), ADD a2 VARCHAR(32), ADD a3 VARCHAR(32), ADD a4 VARCHAR(32), ADD a5 VARCHAR(32), ADD t0 TIME(0), ADD t1 TIME(1), ADD t2 TIME(2), ADD t3 TIME(3), ADD t4 TIME(4), ADD t5 TIME(5), ADD t6 TIME(6);
+select * from t1;
+UPDATE t1 SET a0=LEFT(a6, LENGTH(a6) - 6);
+select * from t1;
+drop table t1;
+
+CREATE TABLE t1 (a0 VARCHAR(32),a1 VARCHAR(32),a2 VARCHAR(32),a3 VARCHAR(32),a4 VARCHAR(32),a5 VARCHAR(32),a6 VARCHAR(32), t0 TIME(0),t1 TIME(1), t2 TIME(2));
+insert into t1 values('00:00:00.000001','00:00:00.000001','00:00:00.000001','00:00:00.000001','00:00:00.000001','00:00:00.000001','00:00:00.000001','00:00:00.000001','00:00:00.000001','00:00:00.000001');
+select * from t1;
+alter table t1 ADD t3 TIME(3), ADD t4 TIME(4), ADD t5 TIME(5), ADD t6 TIME(6);
+select * from t1;
+insert into t1 values('00:00:00.000002','00:00:00.000002','00:00:00.000002','00:00:00.000002','00:00:00.000002','00:00:00.000002','00:00:00.000002','00:00:00.000002','00:00:00.000002','00:00:00.000002','00:00:00.000002','00:00:00.000002','00:00:00.000002','00:00:00.000002');
+select * from t1;
+alter table t1 drop t6;
+select * from t1;
+alter table t1 drop a2, drop a3;
+select * from t1;
+insert into t1 values('00:00:00.000003','00:00:00.000003','00:00:00.000003','00:00:00.000003','00:00:00.000003','00:00:00.000003','00:00:00.000003','00:00:00.000003','00:00:00.000003','00:00:00.000003','00:00:00.000003');
+alter table t1 add t10 TIME(6), add t11 TIME(6), add t12 TIME(6);
+select * from t1;
+alter table t1 drop t0, drop t1, drop t2;
+select * from t1;
+drop table t1;
+
+create table t1(
+c1 int UNSIGNED not null,
+c2 int,
+c3 int,
+c4 int,
+c5 int,
+c6 int,
+c7 int,
+c8 int,
+c9 int,
+c10 varchar(20),
+c11 varchar(20),
+c12 varchar(20),
+gcol1 INTEGER GENERATED ALWAYS AS (c4 + c5) VIRTUAL
+);
+insert into t1 values(1,2,3,4,5,6,7,8,9,'aaa','bbb','ccc',default);
+select * from t1;
+update t1 set c1 = 11, c2 = 12, c3 = 13, c4 = 14, c5 = 15, c6 = 16, c7 = 17, c8 = 18, c9 = 19, c10 = 'ddd', c11 = 'eee', c12 = 'fff', gcol1 = default where c1 = 1;
+select * from t1;
+drop table t1;

@@ -1,0 +1,288 @@
+--disable_warnings
+drop table if exists t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15;
+--enable_warnings
+
+CREATE TABLE t1(c1 tinyint, c2 tinyint not null, c3 tinyint signed, c4 tinyint unsigned, c5 int, c6 long);
+INSERT INTO t1 VALUES (1,1,1,1,1,1), (2,2,2,2,2,2);
+INSERT INTO t1 VALUES (null, 5, null, null, null, null);
+INSERT INTO t1 VALUES (3,3,3,3,3,3), (4,4,4,4,4,4);
+INSERT INTO t1 VALUES (null, 7, null, null, null, null);
+INSERT INTO t1 VALUES (8,8,127,255,8,8);
+select * from t1;
+
+CREATE TABLE t2(c1 float , c2 float(6, 3), c3 float(6,3), c4 double, c5 double(6, 3), c6 double(6, 3));
+INSERT INTO t2 VALUES (1.1,11.11, 11.11111,1.1,11.11,11.11111), (2.2,22.22,22.22222, 2.2,22.22, 22.22222), (3.3,33.33, 33.33333, 3.3,33.33, 33.33333);
+select * from t2;
+
+CREATE TABLE t3(c1 DECIMAL(10,5) UNSIGNED NOT NULL, c2 DECIMAL(10,5) SIGNED NULL, c3 DECIMAL);
+INSERT INTO t3 VALUES ('11111.11111','11111.11111','1111111111'),('22222.22222','22222.22222','2222222222'),('33333.33333','33333.33333','3333333333'),('44444.44444','44444.44444','4444444444'),('55555.55555','55555.55555','5555555555');
+select * from t3;
+
+CREATE TABLE t4(c1 char(10), c2 varchar(20), c3 varchar(20) binary);
+INSERT INTO t4 VALUES ('1234','abcd','abcd'), ('123','ABCD','ABCD'),('123456','aBcD','aBcD'),('23456','abCD','abCD'),('','',''),(null, null, null);
+select * from t4;
+
+CREATE TABLE t5(c1 TIME, c2 TIME NOT NULL);
+INSERT INTO t5 VALUES ('01:01:01.01', '1000-01-01 00:00:00');
+INSERT INTO t5 VALUES ('01:01:01.00', '1999-12-31 23:59:59');
+INSERT INTO t5 VALUES ('02:02:02', '2000-01-01 00:00:00');
+INSERT INTO t5 VALUES ('02:02:02', '2008-02-29 13:13:13');
+select * from t5;
+
+CREATE TABLE t6(c1 DATE, c2 DATE NOT NULL);
+INSERT INTO t6 VALUES('1000-01-01', '1000-01-01 00:00:00');
+INSERT INTO t6 VALUES('1999-12-31', '1999-12-31 23:59:59');
+INSERT INTO t6 VALUES('2000-01-01', '2000-01-01 00:00:00');
+INSERT INTO t6 VALUES('2008-02-29', '2008-02-29 13:13:13');
+select * from t6;
+
+CREATE TABLE t7(c1 DATETIME, c2 DATETIME NOT NULL);
+INSERT INTO t7 VALUES('1000-01-01', '1000-01-01 00:00:00');
+INSERT INTO t7 VALUES('1999-12-31', '1999-12-31 23:59:59');
+INSERT INTO t7 VALUES('2000-01-01', '2000-01-01 00:00:00');
+INSERT INTO t7 VALUES('2008-02-29', '2008-02-29 13:13:13');
+select * from t7;
+
+CREATE TABLE t8(c1 TIMESTAMP, c2 TIMESTAMP NOT NULL);
+INSERT INTO t8 VALUES('1999-12-31', '1999-12-31 23:59:59');
+INSERT INTO t8 VALUES('2000-01-01', '2000-01-01 00:00:00');
+INSERT INTO t8 VALUES('2008-02-29', '2008-02-29 13:13:13');
+select * from t8;
+
+CREATE TABLE t9(c1 bool, c2 bool NOT NULL);
+INSERT INTO t9 VALUES(true, true);
+INSERT INTO t9 VALUES(false, false);
+INSERT INTO t9 VALUES(null, false);
+select * from t9;
+
+CREATE TABLE t10(c1 int, c2 int, key(c1,c2));
+INSERT INTO t10 VALUES (94,94),(64,64),(69,69),(97,97);
+select * from t10;
+
+CREATE TABLE t11(c1 YEAR, c2 YEAR, UNIQUE INDEX idx(c1,c2));
+INSERT INTO t11 VALUES (94, 94),(64, 64),(69, 69),(97, null);
+INSERT INTO t11 VALUES (4, null),(8, 8),(null, 35),(75, 75);
+select * from t11;
+
+create table t12 (IDA blob);
+insert into t12 (IDA) values ('aaa');
+select * from t12;
+
+create table t13(id int, a_integer integer, b_char char, c_varchar varchar(10), d_deciaml decimal, e_tinyint tinyint, f_bigint bigint, g_float float, h_date date);
+insert into t13 values(1, 11, "b", "varchar", 111, 10, 100, 10.01, 20220923);
+insert into t13 values(2, 22, "b", "varchar", 222, 20, 200, 20.01, 20220923);
+insert into t13 values(3, 33, "b", "varchar", 333, 30, 300, 30.01, 20220923);
+insert into t13 values(4, 44, "b", "varchar", 444, 40, 400, 40.01, 20220923);
+insert into t13 values(5, 55, "b", "varchar", 555, 50, 500, 50.01, 20220923);
+select * from t13;
+
+CREATE TABLE t14(c1 char(5), c2 varchar(2000));
+INSERT INTO t14 VALUES ('1111','1111111111111111111111111111111111122222222222222222222222222222222222222223333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333344444444444444444444444444444444444444444444444444444444444444444444455555555555555555555555555555555555555555555555555555555555555555555555555555555555555');
+select * from t14;
+
+CREATE TABLE t15 (c1 INT, c2 BINARY(100), c3 VARBINARY(100));
+INSERT INTO t15 VALUES (null,null,null);
+INSERT INTO t15 VALUES (1,'','');
+INSERT INTO t15 VALUES (2,'abcde','abcde');
+INSERT INTO t15 VALUES (100,'abcdefghij','abcdefghij'); 
+select c1, hex(c2), hex(c3) from t15;
+
+# tinyint 
+select * from t1 where c3 = 255;
+select * from t1 where c1 = 3;
+select * from t1 where c1 > 3;
+select * from t1 where c1 != 3;
+select * from t1 where c2 = 3;
+
+# unsigned
+select * from t1 where c4 = 255;
+
+# float double
+select * from t2 where c3 = 11.111;
+select * from t2 where c4 = 1.1;
+select * from t2 where c6 = 11.111;
+
+# null
+select * from t1 where null <=> null;
+select * from t1 where c1 = null;
+select * from t1 where c1 != null;
+select * from t1 where c1 > null;
+select * from t1 where c1 < null;
+select * from t1 where c1 <=> null;
+select * from t1 where c1 is null;
+select * from t1 where c1 is not null;
+select * from t1 where not c1 <=> null;
+select * from t1 where c1 > 3 or c2 = 4 or c3 >=3 or c4 = 5 or (c1 > 1 and c2 < 5 and c3 > 2);
+
+# decimal
+select * from t3 where c1 = '22222.22222';
+select * from t3 where c1 > '22222.22222';
+select * from t3 where c1 < '22222.33333';
+select * from t3 where c1 > '222';
+select * from t3 where c1 > '0.1';
+select * from t3 where c1 > '0.0';
+select * from t3 where c1 > '0';
+select * from t3 where c2 = '22222.22222';
+select * from t3 where c2 > '22222.22222';
+select * from t3 where c2 < '22222.33333';
+select * from t3 where c2 > '222';
+select * from t3 where c2 > '0.1';
+select * from t3 where c2 > '0.0';
+select * from t3 where c2 > '0';
+select * from t3 where c1 like '%3';
+select * from t3 where c1 like '3%';
+select * from t3 where c1 not like '1';
+select * from t3 where not c1 like '1';
+select * from t3 where c3 = 1111111111;
+select * from t3 where c3 > 1111111111.0;
+select * from t3 where c3 > 1111111111.;
+select * from t3 where c3 = 1.0;
+select * from t3 where c3 > 1;
+select * from t3 where c1 > '11111.11111' and c1 < '55555.55555';
+select * from t3 where c1 > '11111.11111' and c1 < '55555.55555';
+
+
+# bool
+select * from t9 where c1 is null;
+select * from t9 where c1 is not null;
+select * from t9 where c1 is true;
+select * from t9 where c1 is not true;
+select * from t9 where c1 is false;
+select * from t9 where c1 = 1;
+
+# char
+select * from t4 where c1 = '1234';
+select * from t4 where c1 > '123';
+select * from t14 where c2 = '1111111111111111111111111111111111122222222222222222222222222222222222222223333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333344444444444444444444444444444444444444444444444444444444444444444444455555555555555555555555555555555555555555555555555555555555555555555555555555555555555';
+select * from t4 where c1 = '';
+select * from t4 where c1 = '' and c2 = '';
+select * from t4 where c1 = '' and c2 = '';
+select * from t4 where c1 = null;
+select * from t4 where c1 <=> null;
+
+# sensitive
+select * from t4 where c2 = 'abcd';
+select * from t4 where c3 = 'abcd';
+select * from t4 where c2 = 'ABCD';
+select * from t4 where c3 = 'ABCD';
+select * from t4 where c2 like 'ab%';
+select * from t4 where c3 like 'ab%';
+
+# like
+select * from t14 where c1 = '1111';
+select * from t14 where c1 like '%111';
+select * from t14 where c1 not like '%111';
+select * from t14 where not c1 like '%111';
+select * from t14 where not c1 like '1111';
+select * from t14 where c1 not like '1_11';
+select * from t14 where not c1 like '1_11';
+select * from t14 where c1 like concat('%','1','%'); 
+
+# and or xor not
+select * from t1 where c1 > 3 and c2 = 4 and c3 >=1;
+select * from t1 where c1 > 3 and c2 = 8;
+select * from t1 where not c1 > 3;
+select * from t1 where not (c1 > 3 and c2 = 4 and c3 >=1);
+select * from t1 where c1 = 1 xor c2 = 5;
+select * from t1 where c1 = 1 xor c2 = 1;
+select * from t1 where c1 > 3 or c2 = 4 or c3 >=3 or c4 = 5 or (c1 > 1 and c2 < 5 and c3 > 2);
+
+
+# index
+select c1 from t10 where c2=69;
+select c1 from t10 where c1=69;
+select c1 from t11 where c2=69;
+select c1 from t11 where c2=69;
+select c1,c2 from t11 where c2=4;
+
+# drop column
+select * from t13 where e_tinyint = 30;
+alter table t13 drop column d_deciaml;
+select * from t13 where e_tinyint = 30;
+
+# binary
+select hex(c2) from t15 where c2 = 'abcde';
+select hex(c2) from t15 where c2 = 0x61626364650000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000;
+select hex(c3) from t15 where c3 = 'abcde';
+
+# time
+select * from t5 where c1 = '01:01:01.01';
+select * from t5 where c1 > '01:01:01.01';
+select * from t5 where c1 = '02:02:02';
+select * from t5 where c2 = '00:00:00';
+select * from t5 where c2 = '1000-01-01 00:00:00';
+select * from t5 where c2 = '1999-12-31 23:59:59';
+
+select * from t6 where c1 = '1000-01-01';
+select * from t6 where c1 = '1000-01-01 00:00:00';
+select * from t6 where c1 > '1000-01-01 00:00:00';
+select * from t6 where c2 = '1000-01-01';
+select * from t6 where c2 = '1000-01-01 00:00:00';
+
+select * from t7 where c1 = '1000-01-01';
+select * from t7 where c1 = '1000-01-01 00:00:00';
+select * from t7 where c1 > '1000-01-01 00:00:00';
+select * from t7 where c2 = '1000-01-01';
+select * from t7 where c2 = '1000-01-01 00:00:00';
+
+select * from t8 where c1 = '2000-01-01';
+select * from t8 where c1 = '2000-01-01 00:00:00';
+select * from t8 where c1 > '2000-01-01 00:00:00';
+select * from t8 where c2 = '2000-01-01';
+select * from t8 where c2 = '2000-01-01 00:00:00';
+
+select * from t11 where c1 = 4;
+select * from t11 where c1 = 2004;
+select * from t11 where c1 = '2004';
+#select * from t11 where c1 = 'abc';
+select * from t11 where c1 = 2004.0;
+#select * from t11 where 'abc' = c1;
+select * from t11 where '2004' = c1;
+
+
+# blob: not supported
+select * from t12 where IDA = 'aaa'; 
+
+# enum: not supported
+drop table if exists tickets;
+CREATE TABLE tickets (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    title VARCHAR(255) NOT NULL,
+    priority ENUM('Low', 'Medium', 'High') NOT NULL
+);
+INSERT INTO tickets(title, priority) VALUES('Scan virus for computer A', 'High');
+INSERT INTO tickets(title, priority) VALUES('Upgrade Windows OS for all computers', 1);
+INSERT INTO tickets(title) VALUES('Refresh the computer of Ms. Lily');
+SELECT * FROM tickets WHERE priority = 3;
+drop table if exists tickets;
+
+# set: not supported
+drop table if exists myset;
+CREATE TABLE myset (col SET('a', 'b', 'c', 'd'));
+INSERT INTO myset (col) VALUES('a,d');
+INSERT INTO myset (col) VALUES('d,a');
+INSERT INTO myset (col) VALUES('a,d,a');
+INSERT INTO myset (col) VALUES('a,d,d');
+INSERT INTO myset (col) VALUES('d,a,d');
+INSERT INTO myset (col) VALUES('A');
+INSERT INTO myset (col) VALUES('a,C,b,d');
+select * from myset where col = 'a';
+select * from myset where col = 'a,d';
+select * from myset where col like 'a,d';
+drop table if exists myset;
+
+drop table t1;
+drop table t2;
+drop table t3;
+drop table t4;
+drop table t5;
+drop table t6;
+drop table t7;
+drop table t8;
+drop table t9;
+drop table t10;
+drop table t11;
+drop table t12;
+drop table t13;
+drop table t14;
+drop table t15;

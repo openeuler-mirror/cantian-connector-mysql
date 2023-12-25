@@ -1,0 +1,280 @@
+#
+# Simple test for the TSE storage engine
+# with most datatypes and null / not null
+#
+
+--disable_warnings
+drop table if exists t1;
+--enable_warnings
+
+-- echo # test with NUMERIC data type
+create table t1 (IDA tinyint, IDB smallint, IDC int, IDD bigint, IDE float, IDF double, IDG real, IDH integer) ENGINE=CTC;
+insert into t1 values (1,2,3,4,4.143,4.146,4.365,6);
+insert into t1 values (11,22,33,44,4.55,4.66,4.77,66);
+insert into t1 values (null,null,null,null,null,null,null,null);
+select * from t1;
+drop table t1;
+
+-- echo # test the boundary value of the numeric type
+create table t1 (IDA tinyint DEFAULT NULL, IDB tinyint unsigned DEFAULT NULL) ENGINE=CTC;
+insert into t1 values (-128,0);
+insert into t1 values (127,255);
+--error 1264
+insert into t1 values (-129,0);
+--error 1264
+insert into t1 values (128,0);
+--error 1264
+insert into t1 values (127,-1);
+--error 1264
+insert into t1 values (127,256);
+select * from t1;
+drop table t1;
+
+create table t1 (IDA SMALLINT DEFAULT NULL, IDB SMALLINT unsigned DEFAULT NULL) ENGINE=CTC;
+insert into t1 values (-32768,0);
+insert into t1 values (32767,65535);
+--error 1264
+insert into t1 values (-32769,0);
+--error 1264
+insert into t1 values (32768,0);
+--error 1264
+insert into t1 values (32767,-1);
+--error 1264
+insert into t1 values (32767,65536);
+select * from t1;
+drop table t1;
+
+create table t1 (IDA MEDIUMINT DEFAULT NULL, IDB MEDIUMINT unsigned DEFAULT NULL) ENGINE=CTC;
+insert into t1 values (-8388608,0);
+insert into t1 values (8388607,16777215);
+--error 1264
+insert into t1 values (-8388609,0);
+--error 1264
+insert into t1 values (8388608,0);
+--error 1264
+insert into t1 values (8388607,-1);
+--error 1264
+insert into t1 values (8388607,16777216);
+select * from t1;
+drop table t1;
+
+create table t1 (IDA INT DEFAULT NULL, IDB INT unsigned DEFAULT NULL) ENGINE=CTC;
+insert into t1 values (-2147483648,0);
+insert into t1 values (2147483647,4294967295);
+--error 1264
+insert into t1 values (-2147483649,0);
+--error 1264
+insert into t1 values (2147483648,0);
+--error 1264
+insert into t1 values (2147483647,-1);
+--error 1264
+insert into t1 values (2147483647,4294967296);
+select * from t1;
+drop table t1;
+
+create table t1 (IDA BIGINT DEFAULT NULL, IDB BIGINT unsigned DEFAULT NULL) ENGINE=CTC;
+insert into t1 values (-9223372036854775808,0);
+insert into t1 values (9223372036854775807,18446744073709551615);
+--error 1264
+insert into t1 values (-9223372036854775809,0);
+--error 1264
+insert into t1 values (9223372036854775808,0);
+--error 1264
+insert into t1 values (9223372036854775807,-1);
+--error 1264
+insert into t1 values (9223372036854775807,18446744073709551616);
+select * from t1;
+drop table t1;
+
+create table t1 (IDA FLOAT DEFAULT NULL, IDB DOUBLE DEFAULT NULL) ENGINE=CTC;
+insert into t1 values (-3.402823466E+38,-1.7976931348623157E+308);
+insert into t1 values (-1.175494351E-38,-2.2250738585072014E-308);
+insert into t1 values (1.175494351E-38,2.2250738585072014E-308);
+insert into t1 values (3.402823466351E+38,1.7976931348623157E+308);
+insert into t1 values (0,0);
+select * from t1;
+drop table t1;
+
+
+-- echo # test with DATETIME data type
+create table t1 (IDA date, IDB datetime, IDC timestamp(2), IDD timestamp(4), IDE timestamp(6)) ENGINE=CTC;
+insert into t1 values ('2017-03-04','2008-06-05 11:22:33','2020-5-12 12:24:56.2','2020-5-12 12:24:56.444','2020-5-12 12:24:56.66666');
+insert into t1 values ('2018-11-11','2020-10-10 22:33:44','2009-6-28 10:20:30.22','2009-6-28 10:20:30.4444','2009-6-28 10:20:30.666666');
+insert into t1 values (null,null,null,null,null);
+select * from t1;
+drop table t1;
+
+-- echo # test the boundary value of the datetime type
+create table t1 (IDA date, IDB datetime) ENGINE=CTC;
+#insert into t1 values ('1000-01-01','1000-01-01 00:00:00');
+insert into t1 values ('9999-12-31','9999-12-31 23:59:59');
+--error 1292
+insert into t1 values ('10000-12-31','9999-12-31 23:59:59');
+--error 1292
+insert into t1 values ('9999-12-31','10000-12-31 23:59:59');
+select * from t1;
+drop table t1;
+
+-- echo # test with char/varchar data type
+create table t1 (IDA char(10), IDB varchar(10)) ENGINE=CTC;
+insert into t1 values ('abc','abcd');
+insert into t1 values ('aaa','cccc');
+insert into t1 values (null,null);
+select * from t1;
+drop table t1;
+
+-- echo # test the boundary value of the char/varchar type
+create table t1 (IDA char(255), IDB varchar(2000)) ENGINE=CTC DEFAULT CHARSET=utf8mb4;
+insert into t1 values (REPEAT('a',255),REPEAT('b',2000));
+select length(IDA) from t1;
+select length(IDB) from t1;
+drop table t1;
+
+create table t1 (IDA char(255), IDB varchar(4000)) ENGINE=CTC DEFAULT CHARSET=gbk;
+insert into t1 values (REPEAT('a',255),REPEAT('b',4000));
+select length(IDA) from t1;
+select length(IDB) from t1;
+drop table t1;
+
+--disable_query_log
+call mtr.add_suppression("tse_ddl_fill_column_by_field");
+call mtr.add_suppression("TSE_RETURN_IF_ERROR return");
+--enable_query_log
+
+create table t1 (IDA varchar(2001)) ENGINE=CTC DEFAULT CHARSET=utf8mb4;
+show create table t1;
+drop table t1;
+create table t1 (IDA varchar(2667)) ENGINE=CTC DEFAULT CHARSET=utf8;
+show create table t1;
+drop table t1;
+create table t1 (IDA varchar(4001)) ENGINE=CTC DEFAULT CHARSET=gbk;
+show create table t1;
+drop table t1;
+create table t1 (IDA varchar(8001)) ENGINE=CTC DEFAULT CHARSET=ascii;
+show create table t1;
+drop table t1;
+-- echo # test with FLOAT(p) data type
+#the precision is limit between 1 ~ 38
+create table t1 (IDA float(24), IDB float(30)) ENGINE=CTC;
+insert into t1 values (10,10),(1e+5,1e+5),(1234567890,1234567890),(1e+10,1e+10),(1e+15,1e+15),(1e+20,1e+20);
+insert into t1 values (-10,-10),(1e-5,1e-5),(1e-10,1e-10),(1e-15,1e-15),(1e-20,1e-20),(null,null);
+select * from t1;
+drop table t1;
+
+-- echo # test with binary/varbinary data type
+create table t1 (IDA binary(2), IDB varbinary(2)) ENGINE=CTC;
+insert into t1 values (0x4100,0x4100),(0x01, 0x02),(null,null);
+select hex(IDA),hex(IDB) from t1;
+drop table t1;
+
+-- echo # test with decimal/numeric data type
+create table t1 (w_id integer, w_ytd decimal(12,2), w_tax numeric(4,4), w_dec varchar(10), IDA decimal(1,1), IDB decimal(37,10)) ENGINE=CTC;
+insert into t1 values (1,123.5,0.5126,'asdsfaf',0.5,111111111111111111111111111.32423421);
+insert into t1 values (2,85743.34,0.3432,'bbbffsd',-0.5,-111111111111111111111111111.32423421);
+insert into t1 values (3,-85743.34,-0.3432,'testgog',-0.5,-4548343534.1341252323);
+insert into t1 values (null,null,null,null,null,null);
+select * from t1;
+drop table t1;
+
+-- echo # add test cases of decimal/numeric data type
+create table t1 (IDA decimal(1,0), IDB decimal(1,1), IDC numeric(2,0), IDD decimal(2,1), IDE decimal(2,2), IDF decimal(3,0)) ENGINE=CTC;
+insert into t1 values (1,0.3,12,5.6,0.45,999);
+insert into t1 values (2,0.8,99,9.9,0.89,108);
+insert into t1 values (null,0.7,null,8.3,null,456);
+insert into t1 values (null,null,null,null,null,null);
+select * from t1;
+drop table t1;
+
+-- echo # add test cases of decimal/numeric data type
+create table t1 (IDA decimal(3,1), IDB decimal(3,2), IDC numeric(3,3), IDD decimal(4,1), IDE decimal(4,2), IDF decimal(12,5),IDG decimal(38,20)) ENGINE=CTC;
+insert into t1 values (1.3,2.54,0.999,534.6,86.54,1234567.98765,123456789123456789.12345678900123456789);
+insert into t1 values (-1.3,-2.54,-0.999,-534.6,-86.54,-1234567.98765,-123456789123456789.12345678900123456789);
+insert into t1 values (1.3,null,0.999,null,86.54,null,123456789123456789.12345678900123456789);
+insert into t1 values (null,null,null,null,null,null,null);
+select * from t1;
+drop table t1;
+
+-- echo # add test cases of decimal/numeric data type
+create table t1 (id int, val decimal(38, 30)) ENGINE=CTC;
+insert into t1 values (1, 12345678.123456789);
+insert into t1 values (2, 12345678.123456789123456789123456789123);
+insert into t1 values (3, -12345678.123456789123456789123456789123);
+insert into t1 values (4, 12345678.123456789123456789123456789123456789);
+--error 1264
+insert into t1 values (5, 12345678912.123456789);
+--error 1264
+insert into t1 values (6, 12345678912.123456789123456789123456789123456789);
+select * from t1;
+drop table t1;
+
+-- echo # add test cases of decimal/numeric data type
+create table t1 (id int, val decimal(38, 30) unsigned) ENGINE=CTC;
+insert into t1 values (1, 12345678.123456789);
+insert into t1 values (2, 12345678.123456789123456789123456789123);
+--error 1264
+insert into t1 values (3, -12345678.123456789123456789123456789123);
+--error 1264
+insert into t1 values (4, -12345678.123456789123456789123456789123456789);
+select * from t1;
+drop table t1;
+
+-- echo # add error test cases of decimal/numeric data type
+create table t1 (IDA decimal(39,20)) ENGINE=CTC;
+drop table t1;
+create table t1 (IDA decimal(40,20)) ENGINE=CTC;
+drop table t1;
+create table t1 (IDA decimal(41,20)) ENGINE=CTC;
+drop table t1;
+--error 1426
+create table t1 (IDA decimal(66,20)) ENGINE=CTC;
+--error 1426
+create table t1 (IDA decimal(80,20)) ENGINE=CTC;
+--error 1426
+create table t1 (IDA decimal(100,20)) ENGINE=CTC;
+--error 1425
+create table t1 (IDA decimal(100,40)) ENGINE=CTC;
+--error 1425
+create table t1 (IDA decimal(30,40)) ENGINE=CTC;
+--error 1427
+create table t1 (IDA decimal(20,30)) ENGINE=CTC;
+--error 1427
+create table t1 (IDA decimal(10,20)) ENGINE=CTC;
+
+-- echo # add test cases of text/blob data type
+create table t1 (IDA TINYTEXT, IDB TINYTEXT) ENGINE=CTC;
+insert into t1 values (43, 7889);
+insert into t1 values ('',555);
+insert into t1 values (444,'');
+insert into t1 values (4343, 'here');
+insert into t1 values ('where',777);
+insert into t1 values (null, null);
+select * from t1;
+drop table t1;
+
+create table t1 (IDA MEDIUMTEXT, IDB MEDIUMTEXT) ENGINE=CTC;
+insert into t1 values (43, 7889);
+insert into t1 values ('',555);
+insert into t1 values (444,'');
+insert into t1 values (4343, 'here');
+insert into t1 values ('where',777);
+insert into t1 values (null, null);
+select * from t1;
+drop table t1;
+
+create table t1 (IDA TINYBLOB, IDB TINYBLOB) ENGINE=CTC;
+insert into t1 values (43, 7889);
+insert into t1 values ('',555);
+insert into t1 values (444,'');
+insert into t1 values (4343, 'here');
+insert into t1 values ('where',777);
+insert into t1 values (null, null);
+select * from t1;
+drop table t1;
+
+create table t1 (IDA FLOAT) ENGINE=CTC;
+insert into t1 values (10.5);
+insert into t1 values (20.5);
+CREATE INDEX floatIndexTest ON t1 (IDA);
+select * from t1 where IDA < 20.0;
+select * from t1 where IDA > 10.0;
+drop table t1;

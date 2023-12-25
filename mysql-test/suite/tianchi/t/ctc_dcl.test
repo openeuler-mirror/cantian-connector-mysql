@@ -1,0 +1,203 @@
+# ctc_dcl_disabled
+drop user if exists yyz;
+
+# different values
+select @ctc_dcl_disabled;
+create user yyz;
+select user from mysql.user;
+drop user if exists yyz;
+
+set @ctc_dcl_disabled = true;
+select @ctc_dcl_disabled;
+--error 3655
+create user yyz;
+select user from mysql.user;
+--error 3655
+drop user if exists yyz;
+
+set @ctc_dcl_disabled = TRUE;
+select @ctc_dcl_disabled;
+--error 3655
+create user yyz;
+select user from mysql.user;
+--error 3655
+drop user if exists yyz;
+
+set @ctc_dcl_disabled = 1;
+select @ctc_dcl_disabled;
+--error 3655
+create user yyz;
+select user from mysql.user;
+--error 3655
+drop user if exists yyz;
+
+set @ctc_dcl_disabled = 'true';
+select @ctc_dcl_disabled;
+--error 3655
+create user yyz;
+select user from mysql.user;
+--error 3655
+drop user if exists yyz;
+
+set @ctc_dcl_disabled = 'True';
+select @ctc_dcl_disabled;
+--error 3655
+create user yyz;
+select user from mysql.user;
+--error 3655
+drop user if exists yyz;
+
+set @ctc_dcl_disabled = '1';
+select @ctc_dcl_disabled;
+--error 3655
+create user yyz;
+select user from mysql.user;
+--error 3655
+drop user if exists yyz;
+
+set @ctc_dcl_disabled = false;
+select @ctc_dcl_disabled;
+create user yyz;
+select user from mysql.user;
+drop user if exists yyz;
+select user from mysql.user;
+
+set @ctc_dcl_disabled = 0;
+select @ctc_dcl_disabled;
+create user yyz;
+select user from mysql.user;
+drop user if exists yyz;
+select user from mysql.user;
+
+set @ctc_dcl_disabled = 123;
+select @ctc_dcl_disabled;
+create user yyz;
+select user from mysql.user;
+drop user if exists yyz;
+select user from mysql.user;
+
+set @ctc_dcl_disabled = 'false';
+select @ctc_dcl_disabled;
+create user yyz;
+select user from mysql.user;
+drop user if exists yyz;
+select user from mysql.user;
+
+set @ctc_dcl_disabled = 'abc';
+select @ctc_dcl_disabled;
+create user yyz;
+select user from mysql.user;
+drop user if exists yyz;
+select user from mysql.user;
+
+set @ctc_dcl_disabled = NULL;
+select @ctc_dcl_disabled;
+create user yyz;
+select user from mysql.user;
+drop user if exists yyz;
+select user from mysql.user;
+
+
+set @ctc_dcl_disabled = true;
+select @ctc_dcl_disabled;
+--error 3655
+drop user if exists yyz;
+--error 3655
+create user yyz;
+select user from mysql.user;
+--error 3655
+rename user yyz to mysqltest_1;
+--error 3655
+alter user mysqltest_1 identified by 'systpass';
+--error 1141
+show grants for mysqltest_1;
+--error 3655
+drop user if exists mysqltest_1;
+--error 3655
+create user mysqltest_1;
+--error 3655
+grant CREATE TEMPORARY TABLES, LOCK TABLES on mysqltest.* to mysqltest_1;
+--error 1141
+show grants for mysqltest_1;
+flush privileges;
+--error 1141
+show grants for mysqltest_1;
+--error 3655
+revoke CREATE TEMPORARY TABLES on mysqltest.* from mysqltest_1;
+--error 1141
+show grants for mysqltest_1;
+--error 3655
+grant ALL PRIVILEGES on mysqltest.* to mysqltest_1 with grant option;
+flush privileges;
+--error 1141
+show grants for mysqltest_1;
+--error 3655
+revoke LOCK TABLES, ALTER on mysqltest.* from mysqltest_1;
+--error 1141
+show grants for mysqltest_1;
+--error 3655
+revoke all privileges on mysqltest.* from mysqltest_1;
+--error 3655
+drop user if exists mysqltest_1;
+flush privileges;
+--error 3655
+create role role1;
+--error 3655
+create user mysqltest_1;
+--error 3655
+grant role1 to mysqltest_1;
+--error 3655
+drop role if exists role1;
+--error 3655
+drop user if exists mysqltest_1;
+--error 3655
+create role role1;
+--error 3655
+create user mysqltest_1;
+--error 3655
+set default role all to role1;
+--error 3655
+alter user current_user() default role none;
+--error 3655
+revoke role1 from mysqltest_1;
+--error 3655
+drop role if exists role1;
+--error 3655
+drop user if exists mysqltest_1;
+
+set @ctc_dcl_disabled = false;
+select @ctc_dcl_disabled;
+drop user if exists yyz;
+create user yyz;
+select user from mysql.user;
+rename user yyz to mysqltest_1;
+alter user mysqltest_1 identified by 'systpass';
+show grants for mysqltest_1;
+drop user if exists mysqltest_1;
+create user mysqltest_1;
+grant CREATE TEMPORARY TABLES, LOCK TABLES on mysqltest.* to mysqltest_1;
+show grants for mysqltest_1;
+flush privileges;
+show grants for mysqltest_1;
+revoke CREATE TEMPORARY TABLES on mysqltest.* from mysqltest_1;
+show grants for mysqltest_1;
+grant ALL PRIVILEGES on mysqltest.* to mysqltest_1 with grant option;
+flush privileges;
+show grants for mysqltest_1;
+revoke LOCK TABLES, ALTER on mysqltest.* from mysqltest_1;
+show grants for mysqltest_1;
+revoke all privileges on mysqltest.* from mysqltest_1;
+drop user if exists mysqltest_1;
+flush privileges;
+create role role1;
+create user mysqltest_1;
+grant role1 to mysqltest_1;
+drop role if exists role1;
+drop user if exists mysqltest_1;
+create role role1;
+create user mysqltest_1;
+set default role all to role1;
+alter user current_user() default role none;
+revoke role1 from mysqltest_1;
+drop role if exists role1;
+drop user if exists mysqltest_1;

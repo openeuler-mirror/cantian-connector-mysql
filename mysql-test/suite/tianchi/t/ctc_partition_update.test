@@ -1,0 +1,103 @@
+# 普通表测试
+--disable_warnings
+drop database if exists db1;
+--enable_warnings
+create database db1;
+create table db1.t1(a int , b int);
+delete from db1.t1;
+insert into db1.t1 values(0,0),(1,1),(2,2),(3,3),(4,4),(5,5);
+update db1.t1 set a = 11 where a = 1;
+select * from db1.t1 where a = 11;
+update db1.t1 set a = 22 where a = 2;
+select * from db1.t1 where a = 22;
+update db1.t1 set a = 33 where a = 3;
+select * from db1.t1 where a = 33;
+update db1.t1 set a = 44 where a = 4;
+select * from db1.t1 where a = 44;
+update db1.t1 set a = 55 where a = 5;
+select * from db1.t1 where a = 55;
+update db1.t1 set a = 123 where a = 0;
+select * from db1.t1 where a = 123;
+# 哈希分区测试
+create table db1.t2(a int , b int) partition by hash(a) partitions 5;
+delete from db1.t2;
+insert into db1.t2 values(0,0),(1,1),(2,2),(3,3),(4,4),(5,5);
+update db1.t2 set a = 11 where a = 1;
+select * from db1.t2 where a = 11;
+update db1.t2 set a = 22 where a = 2;
+select * from db1.t2 where a = 22;
+update db1.t2 set a = 33 where a = 3;
+select * from db1.t2 where a = 33;
+update db1.t2 set a = 44 where a = 4;
+select * from db1.t2 where a = 44;
+update db1.t2 set a = 55 where a = 5;
+select * from db1.t2 where a = 55;
+update db1.t2 set a = 123 where a = 0;
+select * from db1.t2 where a = 123;
+# range分区测试
+create table db1.t3 (a int, b int) partition by range (a) 
+(
+    partition p0 values less than (10),
+    partition p1 values less than (20),
+    partition p2 values less than (30),
+    partition p3 values less than (40),
+    partition p4 values less than (50)
+);
+delete from db1.t3;
+insert into db1.t3 values(0,0),(1,1),(11,11),(21,21),(31,31),(41,41);
+update db1.t3 set a = 2 where a = 1;
+select * from db1.t3 where a = 2;
+update db1.t3 set a = 12 where a = 11;
+select * from db1.t3 where a = 12;
+update db1.t3 set a = 22 where a = 21;
+select * from db1.t3 where a = 22;
+update db1.t3 set a = 32 where a = 31;
+select * from db1.t3 where a = 32;
+update db1.t3 set a = 42 where a = 41;
+select * from db1.t3 where a = 42;
+update db1.t3 set a = 18 where a = 0;
+select * from db1.t3 where a = 18;
+# list分区测试
+create table db1.t4 (a int, b int) partition by list (a) 
+(
+    partition p0 values in (0, 10, 20, 30),
+    partition p1 values in (1, 11, 21, 31),
+    partition p2 values in (2, 12, 22, 32),
+    partition p3 values in (3, 13, 23, 33),
+    partition p4 values in (4, 14, 24, 34)
+);
+delete from db1.t4;
+insert into db1.t4 values(0,0),(1,1),(2,2),(3,3),(4,4);
+update db1.t4 set a = 11 where a = 1;
+select * from db1.t4 where a = 11;
+update db1.t4 set a = 12 where a = 2;
+select * from db1.t4 where a = 12;
+update db1.t4 set a = 13 where a = 3;
+select * from db1.t4 where a = 13;
+update db1.t4 set a = 14 where a = 4;
+select * from db1.t4 where a = 14;
+update db1.t4 set a = 34 where a = 0;
+select * from db1.t4 where a = 34;
+drop table db1.t1;
+drop table db1.t2;
+drop table db1.t3;
+drop table db1.t4;
+
+create table db1.t1
+(
+  id int unsigned auto_increment,
+  time datetime not null,
+  first_name varchar(40),
+  last_name varchar(50),
+  primary key (id, time),
+  index first_index (first_name),
+  index last_index (last_name)
+) engine=CTC partition by range (to_days(time)) (
+  partition p1 values less than (to_days('2007-02-07')),
+  partition p2 values less than (to_days('2007-02-08')),
+  partition p3 values less than MAXVALUE
+);
+insert into db1.t1 (time, first_name, last_name) values ('2007-02-07', 'Q', 'Robert');
+SELECT * FROM db1.t1 WHERE first_name='Andy' OR last_name='Jake';
+drop table db1.t1;
+drop database db1;

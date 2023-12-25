@@ -1,0 +1,453 @@
+drop database if exists test_DB;
+create database test_DB;
+use test_DB;
+
+#定长int类型，无索引，删去一列，插入数据，更新数据，删去一列，插入数据，更新数据（列前，列后，列前后），删除数据，删除表
+create table t1 (a int, b int, c int, d int, e int);
+insert into t1 values(1, 2, 3, 4, 5);
+insert into t1 values(2, 2, 3, 4, 5);
+insert into t1 values(3, 2, 3, 4, 5);
+insert into t1 values(4, 2, 3, 4, 5);
+insert into t1 values(5, 2, 3, 4, 5);
+select * from t1;
+#删去c列
+alter table t1 drop column c;
+select * from t1;
+#插入数据
+insert into t1 values(6, 2, 4, 5);
+select * from t1;
+#更新数据
+update t1 set e = 55 where a = 5;
+select * from t1;
+#删去d列
+alter table t1 drop column d;
+select * from t1;
+#插入数据
+insert into t1 values(7, 2, 5);
+select * from t1;
+#更新被删列前的列
+update t1 set b = 22 where a = 7;
+select * from t1;
+#更新被删列后的列
+update t1 set e = 55 where a = 7;
+select * from t1;
+#同时更新被删列前后的列
+update t1 set b = 8, e = 8 where a = 7;
+select * from t1;
+#删除数据
+delete from t1 where a = 7;
+select * from t1;
+#删除表
+drop table t1;
+
+
+#定长int类型，普通索引，删去一列，插入数据，更新数据，普通查询，index_only查询，删去一列，插入数据，更新数据（列前，列后，列前后），普通查询，index_only查询，删除数据，删除表
+create table t2 (a int, b int, c int, d int, e int);
+insert into t2 values(1, 2, 3, 4, 5);
+insert into t2 values(2, 2, 3, 4, 5);
+insert into t2 values(3, 2, 3, 4, 5);
+insert into t2 values(4, 2, 3, 4, 5);
+insert into t2 values(5, 2, 3, 4, 5);
+select * from t2;
+#建立索引
+create index t2_i on t2(a);
+select* from t2;
+#删去c列
+alter table t2 drop column c;
+select * from t2;
+#插入数据
+insert into t2 values(6, 2, 4, 5);
+select * from t2;
+#更新数据
+update t2 set e = 55 where a = 5;
+select * from t2;
+#index_only查询
+select a from t2;
+#删去d列
+alter table t2 drop column d;
+select * from t2;
+#插入数据
+insert into t2 values(7, 2, 5);
+select * from t2;
+#更新被删列前的列
+update t2 set b = 22 where a = 7;
+select * from t2;
+#更新被删列后的列
+update t2 set e = 55 where a = 7;
+select * from t2;
+#同时更新被删列前后的列
+update t2 set b = 8, e = 8 where a = 7;
+select * from t2;
+#index_only查询
+select a from t2;
+#删除数据
+delete from t2 where a = 7;
+select * from t2;
+#删除表
+drop table t2;
+
+
+#定长int类型，联合索引，删去一列，插入数据，更新数据，普通查询，index_only查询，删去一列，插入数据，更新数据（列前，列后，列前后），普通查询，index_only查询，删除数据，删除表
+create table t3 (a int, b int, c int, d int, e int);
+insert into t3 values(1, 2, 3, 4, 5);
+insert into t3 values(2, 2, 3, 4, 5);
+insert into t3 values(3, 2, 3, 4, 5);
+insert into t3 values(4, 2, 3, 4, 5);
+insert into t3 values(5, 2, 3, 4, 5);
+select * from t3;
+#建立索引
+create index t3_i on t3(a, b);
+select* from t3;
+#删去c列
+alter table t3 drop column c;
+select * from t3;
+#插入数据
+insert into t3 values(6, 2, 4, 5);
+select * from t3;
+#更新数据
+update t3 set e = 55 where a = 5;
+select * from t3;
+#index_only查询
+select a from t3;
+select a, b from t3;
+#删去d列
+alter table t3 drop column d;
+select * from t3;
+#插入数据
+insert into t3 values(7, 2, 5);
+select * from t3;
+#更新被删列前的列
+update t3 set b = 22 where a = 7;
+select * from t3;
+#更新被删列后的列
+update t3 set e = 55 where a = 7;
+select * from t3;
+#同时更新被删列前后的列
+update t3 set b = 8, e = 8 where a = 7;
+select * from t3;
+#index_only查询
+select a from t3;
+select a, b from t3;
+#删除数据
+delete from t3 where a = 7;
+select * from t3;
+#删除表
+drop table t3;
+
+
+#变长varchar类型，无索引，删去一列，插入数据，更新数据，删去一列，插入数据，更新数据（列前，列后，列前后），删除数据，条件查询，删表
+create table t4(a int, b varchar(10), c varchar(10), d varchar(20), e varchar(10));
+insert into t4 values(1, "bb", "ccc", "dddd", "eeeee");
+insert into t4 values(2, "bb", "ccc", "dddd", "eeeee");
+insert into t4 values(3, "bb", "ccc", "dddd", "eeeee");
+insert into t4 values(4, "bb", "ccc", "dddd", "eeeee");
+insert into t4 values(5, "bb", "ccc", "dddd", "eeeee");
+select * from t4;
+#删去c列
+alter table t4 drop column c;
+select * from t4;
+#插入数据
+insert into t4 values(6, "bb", "dddd", "eeeee");
+select * from t4;
+#更新数据
+update t4 set e = "ee" where a = 6;
+select * from t4;
+#删去d列
+alter table t4 drop column d;
+select * from t4;
+#插入数据
+insert into t4 values(7, "bb", "eeeee");
+select * from t4;
+#更新被删列前的列
+update t4 set b = "bbbbbbb" where a = 7;
+select * from t4;
+#更新被删列后的列
+update t4 set e = "eeeeeee" where a = 7;
+select * from t4;
+#同时更新被删列前后的列
+update t4 set b = "b", e = "e" where a = 7;
+select * from t4;
+#删除数据
+delete from t4 where a = 7;
+select * from t4;
+#条件查询
+select * from t4 where a = 6;
+#删表
+drop table t4;
+
+
+
+#变长varchar类型，普通索引，删去一列，插入数据，更新数据，普通查询，index_only查询，删去一列，插入数据，更新数据（列前，列后，列前后），普通查询，条件查询，index_only查询，删除数据，删表
+create table t5(a int, b varchar(10), c varchar(10), d varchar(20), e varchar(10));
+insert into t5 values(1, "bb", "ccc", "dddd", "eeeee");
+insert into t5 values(2, "bb", "ccc", "dddd", "eeeee");
+insert into t5 values(3, "bb", "ccc", "dddd", "eeeee");
+insert into t5 values(4, "bb", "ccc", "dddd", "eeeee");
+insert into t5 values(5, "bb", "ccc", "dddd", "eeeee");
+select * from t5;
+#创建索引
+create index t5_i on t5(a);
+select * from t5;
+#删去c列
+alter table t5 drop column c;
+select * from t5;
+#插入数据
+insert into t5 values(6, "bb", "dddd", "eeeee");
+select * from t5;
+#更新数据
+update t5 set e = "ee" where a = 6;
+select * from t5;
+#删去d列
+alter table t5 drop column d;
+select * from t5;
+#插入数据
+insert into t5 values(7, "bb", "eeeee");
+select * from t5;
+#更新被删列前的列
+update t5 set b = "bbbbbbb" where a = 7;
+select * from t5;
+#更新被删列后的列
+update t5 set e = "eeeeeee" where a = 7;
+select * from t5;
+#同时更新被删列前后的列
+update t5 set b = "b", e = "e" where a = 7;
+select * from t5;
+#条件查询
+select * from t5 where a = 6;
+#index_only查询
+select a from t5;
+#删除数据
+delete from t5 where a = 7;
+select * from t5;
+#删表
+drop table t5;
+
+
+
+#变长varchar类型，联合索引，删去一列，插入数据，更新数据，普通查询，index_only查询，删去一列，插入数据，更新数据（列前，列后，列前后），普通查询，条件查询，index_only查询，删除数据, 删表
+create table t6(a int, b varchar(10), c varchar(10), d varchar(20), e varchar(10));
+insert into t6 values(1, "bb", "ccc", "dddd", "eeeee");
+insert into t6 values(2, "bb", "ccc", "dddd", "eeeee");
+insert into t6 values(3, "bb", "ccc", "dddd", "eeeee");
+insert into t6 values(4, "bb", "ccc", "dddd", "eeeee");
+insert into t6 values(5, "bb", "ccc", "dddd", "eeeee");
+select * from t6;
+#创建联合索引
+create index t6_i on t6(a, b);
+select * from t6;
+#删去c列
+alter table t6 drop column c;
+select * from t6;
+#插入数据
+insert into t6 values(6, "bb", "dddd", "eeeee");
+select * from t6;
+#更新数据
+update t6 set e = "ee" where a = 6;
+select * from t6;
+#删去d列
+alter table t6 drop column d;
+select * from t6;
+#插入数据
+insert into t6 values(7, "bb", "eeeee");
+select * from t6;
+#更新被删列前的列
+update t6 set b = "bbbbbbb" where a = 7;
+select * from t6;
+#更新被删列后的列
+update t6 set e = "eeeeeee" where a = 7;
+select * from t6;
+#同时更新被删列前后的列
+update t6 set b = "b", e = "e" where a = 7;
+select * from t6;
+#条件查询
+select * from t6 where a = 6;
+#index_only查询
+select a from t6;
+select a, b from t6;
+#删除数据
+delete from t6 where a = 7;
+select * from t6;
+#删表
+drop table t6;
+
+
+#包含多种数据类型的表，删去一列，插入数据，更新数据，删去一列，插入数据，更新数据，条件查询，index_only查询，删除数据，删表
+create table t7(id int, a_integer integer, b_char char, c_varchar varchar(10), d_deciaml decimal, e_tinyint tinyint, f_bigint bigint, g_float float, h_date date);
+insert into t7 values(1, 1, "b", "varchar", 1, 1, 100, 10.01, 20220923);
+insert into t7 values(2, 1, "b", "varchar", 2, 2, 200, 20.01, 20220923);
+insert into t7 values(3, 1, "b", "varchar", 3, 3, 300, 30.01, 20220923);
+insert into t7 values(4, 1, "b", "varchar", 4, 4, 400, 40.01, 20220923);
+insert into t7 values(5, 1, "b", "varchar", 5, 5, 500, 50.01, 20220923);
+select * from t7;
+#删去b列
+alter table t7 drop column b_char;
+select * from t7;
+#插入数据
+insert into t7 values(6, 1, "varchar", 6, 6, 600, 60.01, 20220923);
+select * from t7;
+#更新数据
+update t7 set h_date = 20220924 where id = 6;
+select * from t7;
+#创建联合索引
+create index t7_i on t7(id, a_integer);
+select * from t7;
+#删去d列
+alter table t7 drop column d_deciaml;
+select * from t7;
+#插入数据
+insert into t7 values(7, 1, "varchar", 7, 700, 70.01, 20220923);
+select * from t7;
+#更新数据
+update t7 set g_float = 70.77 where id = 7;
+select * from t7;
+#条件查询
+select * from t7 where e_tinyint = 7;
+#index_only查询
+select id, a_integer from t7;
+#删除数据
+delete from t7 where id = 7;
+select * from t7;
+#删表
+drop table t7;
+
+#建立联合索引，删除联合索引中的一列，并进行index_only查询
+create table t8(a int, b varchar(10), c varchar(10));
+insert into t8 values(1, "bb", "ccc");
+insert into t8 values(2, "bb", "ccc");
+select * from t8;
+#创建联合索引
+create index t8_i on t8(a, b, c);
+select * from t8;
+#删去b列
+alter table t8 drop column b;
+select * from t8;
+#index_only查询
+select * from t8;
+#插入数据
+insert into t8 values(3, "ccc");
+select * from t8;
+#index_only查询
+select a, c from t8;
+#删表
+drop table t8;
+
+#表中有null的情况
+create table t9 (a int, b int, c int, d int, e int);
+insert into t9 values(1, 2, 3, 4, 5);
+insert into t9 values(2, 2, null, 4, 5);
+insert into t9 values(3, 2, 3, null, 5);
+select * from t9;
+#删去c列
+alter table t9 drop column c;
+select * from t9;
+#插入含有null的数据
+insert into t9 values(4, 2, null, 5);
+select * from t9;
+#删表
+drop table t9;
+
+
+#数据类型涉及decimal,非index_only查询
+CREATE TABLE t10 (a int, b int, c NUMERIC, d int, e int, f DECIMAL, g int) ;
+insert into t10 values(1,2,3,4,5,6,7);
+insert into t10 values(2,2,3,4,5,6,7);
+insert into t10 values(3,2,3,4,5,6,7);
+select * from t10;
+#创建索引
+create index idx10 on t10 (a,b,c);
+#删去b列
+alter table t10 drop column b;
+select * from t10;
+#插入数据
+insert into t10 values(4,3,4,5,6,7);
+select * from t10;
+#index_only查询
+select a,c from t10;
+update t10 set d = 44 where a = 3;
+select * from t10;
+update t10 set f = 66 where a = 4;
+select * from t10;
+#删去NUMERIC列
+alter table t10 drop column c;
+select * from t10;
+#插入数据
+insert into t10 values(5,4,5,6,7);
+#普通查询
+select * from t10;
+select * from t10 where a = 4;
+#删表
+drop table t10;
+
+
+#数据类型涉及decimal,index_only查询
+CREATE TABLE t11 (a int, b int, c NUMERIC, d int, e int, f DECIMAL, g int) ;
+insert into t11 values(1,2,3,4,5,6,7);
+insert into t11 values(2,2,3,4,5,6,7);
+insert into t11 values(3,2,3,4,5,6,7);
+select * from t11;
+#创建全表索引
+create index idx11 on t11 (a,b,c,d,e,f,g);
+#删去b列
+alter table t11 drop column b;
+select * from t11;
+#插入数据
+insert into t11 values(4,3,4,5,6,7);
+select * from t11;
+#更新数据
+update t11 set a = 44, d = 44 where a = 4;
+select * from t11;
+#删去NUMERIC列
+alter table t11 drop column c;
+select * from t11;
+#插入数据
+insert into t11 values(5,4,5,6,7);
+select * from t11;
+#删去d列
+alter table t11 drop column d;
+select * from t11;
+#插入数据
+insert into t11 values(6,5,6,7);
+select * from t11;
+#删去DECIMAL列
+alter table t11 drop column f;
+select * from t11;
+#插入数据
+insert into t11 values(7,5,7);
+select * from t11;
+#删表
+drop table t11;
+
+create table t12 (a int, b int, c int, d int, e int);
+insert into t12 values(1, 2, 3, 4, 5);
+insert into t12 values(2, 2, 3, 4, 5);
+insert into t12 values(3, 2, 3, 4, 5);
+insert into t12 values(4, 2, 3, 4, 5);
+insert into t12 values(5, 2, 3, 4, 5);
+create index t12_i on t12(a, b, c);
+select * from t12;
+#删去c列
+alter table t12 drop column b;
+select * from t12;
+#插入数据
+insert into t12 values(6, 3, 4, 5);
+select * from t12;
+#更新数据
+update t12 set c = 33 where a = 3;
+select * from t12;
+drop table t12;
+
+create table t13 (a int, b int, c int, d int, e int);
+insert into t13 values(1, 2, 3, 4, 5);
+insert into t13 values(2, 2, 3, 4, 5);
+insert into t13 values(3, 2, 3, 4, 5);
+create index t13_i on t13(a, b, c, d, e);
+select * from t13;
+#删去c列
+alter table t13 drop column c;
+select * from t13;
+#更新数据
+update t13 set b = 22, d = 44 where a = 3;
+select * from t13;
+drop table t13;
+
+drop database test_DB;

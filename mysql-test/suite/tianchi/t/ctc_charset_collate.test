@@ -1,0 +1,429 @@
+--disable_warnings
+drop table if exists t1, t2, t3, t4;
+--enable_warnings
+
+# utf8mb4_bin: pad_space时 'a ' =  'a'
+create table t1 (c1 varchar(5) collate utf8mb4_bin, key(c1));
+insert into t1 values('ae');
+insert into t1 values('äa');
+select length(c1), c1 from t1 where c1 < 'ae';
+delete from t1;
+insert into t1 values ('a'), ('b '), ('A '), ('B'), ('ab'), ('Ab');
+select length(c1), c1 from t1 where c1 = 'a' or c1 = 'b'; # a, b
+select length(c1), c1 from t1 where c1 = 'ab';
+select length(c1), c1 from t1 where c1 = _utf8mb4 'ab' collate utf8mb4_general_ci;
+drop table t1;
+
+# utf8mb4_0900_bin: no_pad时 'a ' !=  'a'
+create table t2 (c1 varchar(5) collate utf8mb4_0900_bin, key(c1));
+insert into t2 values ('a'), ('b '), ('A '), ('B'), ('ab'), ('Ab');
+select length(c1), c1 from t2 where c1 = 'a' or c1 = 'b'; # a
+select length(c1), c1 from t2 where c1 = 'ab';
+alter table t2 add primary key (c1);
+drop table t2;
+
+# utf8mb4_general_ci: pad_space时 'a ' =  'a' = 'A ' = 'A'
+create table t3 (c1 varchar(5) collate utf8mb4_general_ci, key(c1));
+insert into t3 values ('a'), ('b '), ('A '), ('B'), ('ab'), ('Ab');
+select length(c1), c1 from t3 where c1 = 'a' or c1 = 'b'; # a A b B
+select length(c1), c1 from t3 where c1 = 'ab';
+select length(c1), c1 from t3 where c1 > 'a';
+select length(c1), c1 from t3 where c1 > 'A';
+select length(c1), c1 from t3 order by c1;
+drop table t3;
+
+# utf8mb4_0900_ai_ci: no_pad时 'a ' =  'A ' != 'a' = 'A'
+create table t4 (c1 varchar(5) collate utf8mb4_0900_ai_ci, key(c1));
+insert into t4 values ('a'), ('b '), ('A '), ('B'), ('ab'), ('Ab');
+select length(c1), c1 from t4 where c1 = 'a' or c1 = 'b'; 
+select length(c1), c1 from t4 where c1 = 'ab';
+select length(c1), c1 from t4 where c1 > 'a';
+select length(c1), c1 from t4 where c1 > 'A';
+drop table t4;
+
+create table t1 (c1 varchar(5) collate latin1_general_ci, key(c1));
+insert into t1 values('ae');
+insert into t1 values('äa');
+select length(c1), c1 from t1 where c1 < 'ae';
+delete from t1;
+insert into t1 values ('a'), ('b '), ('A '), ('B'), ('ab'), ('Ab');
+select length(c1), c1 from t1 where c1 = 'a' or c1 = 'b'; # a, b
+select length(c1), c1 from t1 where c1 = 'ab';
+select length(c1), c1 from t1 where c1 > 'a';
+select length(c1), c1 from t1 where c1 > 'A';
+select length(c1), c1 from t1 where c1 > 'a ';
+select length(c1), c1 from t1 where c1 > 'A ';
+select length(c1), c1 from t1 where c1 = _latin1 'ab' collate latin1_general_ci;
+select length(c1), c1 from t1 where c1 = _latin1 'ab' collate latin1_general_cs;
+select length(c1), c1 from t1 where c1 = _latin1 'ab' collate latin1_bin;
+drop table t1;
+
+create table t1 (c1 varchar(5) collate latin1_general_cs, key(c1));
+insert into t1 values('ae');
+insert into t1 values('äa');
+select length(c1), c1 from t1 where c1 < 'ae';
+delete from t1;
+insert into t1 values ('a'), ('b '), ('A '), ('B'), ('ab'), ('Ab');
+select length(c1), c1 from t1 where c1 = 'a' or c1 = 'b'; # a, b
+select length(c1), c1 from t1 where c1 = 'ab';
+select length(c1), c1 from t1 where c1 > 'a';
+select length(c1), c1 from t1 where c1 > 'A';
+select length(c1), c1 from t1 where c1 > 'a ';
+select length(c1), c1 from t1 where c1 > 'A ';
+select length(c1), c1 from t1 where c1 = _latin1 'ab' collate latin1_general_ci;
+select length(c1), c1 from t1 where c1 = _latin1 'ab' collate latin1_general_cs;
+select length(c1), c1 from t1 where c1 = _latin1 'ab' collate latin1_bin;
+drop table t1;
+
+create table t1 (c1 varchar(5) collate latin1_bin, key(c1));
+insert into t1 values('ae');
+insert into t1 values('äa');
+select length(c1), c1 from t1 where c1 < 'ae';
+delete from t1;
+insert into t1 values ('a'), ('b '), ('A '), ('B'), ('ab'), ('Ab');
+select length(c1), c1 from t1 where c1 = 'a' or c1 = 'b'; # a, b
+select length(c1), c1 from t1 where c1 = 'ab';
+select length(c1), c1 from t1 where c1 > 'a';
+select length(c1), c1 from t1 where c1 > 'A';
+select length(c1), c1 from t1 where c1 > 'a ';
+select length(c1), c1 from t1 where c1 > 'A ';
+select length(c1), c1 from t1 where c1 = _latin1 'ab' collate latin1_general_ci;
+select length(c1), c1 from t1 where c1 = _latin1 'ab' collate latin1_general_cs;
+select length(c1), c1 from t1 where c1 = _latin1 'ab' collate latin1_bin;
+drop table t1;
+
+create table t1 (c1 varchar(5) collate ascii_general_ci, key(c1));
+insert into t1 values ('a'), ('b '), ('A '), ('B'), ('ab'), ('Ab');
+select length(c1), c1 from t1 where c1 = 'a' or c1 = 'b'; # a, b
+select length(c1), c1 from t1 where c1 = 'ab';
+select length(c1), c1 from t1 where c1 > 'a';
+select length(c1), c1 from t1 where c1 > 'A';
+select length(c1), c1 from t1 where c1 > 'a ';
+select length(c1), c1 from t1 where c1 > 'A ';
+select length(c1), c1 from t1 where c1 = _ascii 'ab' collate ascii_general_ci;
+select length(c1), c1 from t1 where c1 = _ascii 'ab' collate ascii_bin;
+drop table t1;
+
+create table t1 (c1 varchar(5) collate ascii_bin, key(c1));
+insert into t1 values ('a'), ('b '), ('A '), ('B'), ('ab'), ('Ab');
+select length(c1), c1 from t1 where c1 = 'a' or c1 = 'b'; # a, b
+select length(c1), c1 from t1 where c1 = 'ab';
+select length(c1), c1 from t1 where c1 > 'a';
+select length(c1), c1 from t1 where c1 > 'A';
+select length(c1), c1 from t1 where c1 > 'a ';
+select length(c1), c1 from t1 where c1 > 'A ';
+select length(c1), c1 from t1 where c1 = _ascii 'ab' collate ascii_general_ci;
+select length(c1), c1 from t1 where c1 = _ascii 'ab' collate ascii_bin;
+drop table t1;
+
+create table t1 (c1 varchar(5) collate gbk_chinese_ci, key(c1));
+insert into t1 values ('a'), ('b '), ('A '), ('B'), ('ab'), ('Ab');
+select length(c1), c1 from t1 where c1 = 'a' or c1 = 'b'; # a, b
+select length(c1), c1 from t1 where c1 = 'ab';
+select length(c1), c1 from t1 where c1 > 'a';
+select length(c1), c1 from t1 where c1 > 'A';
+select length(c1), c1 from t1 where c1 > 'a ';
+select length(c1), c1 from t1 where c1 > 'A ';
+select length(c1), c1 from t1 where c1 = _gbk 'ab' collate gbk_chinese_ci;
+select length(c1), c1 from t1 where c1 = _gbk 'ab' collate gbk_bin;
+drop table t1;
+
+create table t1 (c1 varchar(5) collate gbk_bin, key(c1));
+insert into t1 values ('a'), ('b '), ('A '), ('B'), ('ab'), ('Ab');
+select length(c1), c1 from t1 where c1 = 'a' or c1 = 'b'; # a, b
+select length(c1), c1 from t1 where c1 = 'ab';
+select length(c1), c1 from t1 where c1 > 'a';
+select length(c1), c1 from t1 where c1 > 'A';
+select length(c1), c1 from t1 where c1 > 'a ';
+select length(c1), c1 from t1 where c1 > 'A ';
+select length(c1), c1 from t1 where c1 = _gbk 'ab' collate gbk_chinese_ci;
+select length(c1), c1 from t1 where c1 = _gbk 'ab' collate gbk_bin;
+drop table t1;
+
+create table t1 (c1 varchar(5) collate utf8_general_ci, key(c1));
+insert into t1 values ('a'), ('b '), ('A '), ('B'), ('ab'), ('Ab');
+select length(c1), c1 from t1 where c1 = 'a' or c1 = 'b'; # a, b
+select length(c1), c1 from t1 where c1 = 'ab';
+select length(c1), c1 from t1 where c1 > 'a';
+select length(c1), c1 from t1 where c1 > 'A';
+select length(c1), c1 from t1 where c1 > 'a ';
+select length(c1), c1 from t1 where c1 > 'A ';
+select length(c1), c1 from t1 where c1 = _utf8 'ab' collate utf8_general_ci;
+select length(c1), c1 from t1 where c1 = _utf8 'ab' collate utf8_bin;
+drop table t1;
+
+create table t1 (c1 varchar(5) collate utf8_bin, key(c1));
+insert into t1 values('ae');
+insert into t1 values('äa');
+select length(c1), c1 from t1 where c1 < 'ae';
+delete from t1;
+insert into t1 values ('a'), ('b '), ('A '), ('B'), ('ab'), ('Ab');
+select length(c1), c1 from t1 where c1 = 'a' or c1 = 'b'; # a, b
+select length(c1), c1 from t1 where c1 = 'ab';
+select length(c1), c1 from t1 where c1 > 'a';
+select length(c1), c1 from t1 where c1 > 'A';
+select length(c1), c1 from t1 where c1 > 'a ';
+select length(c1), c1 from t1 where c1 > 'A ';
+select length(c1), c1 from t1 where c1 = _utf8 'ab' collate utf8_general_ci;
+select length(c1), c1 from t1 where c1 = _utf8 'ab' collate utf8_bin;
+drop table t1;
+
+# unsupport sql
+create table t1(c1 varchar(5) charset gbk);
+alter table t1 add index idx(c1);
+drop table t1;
+
+create table t1(c1 varchar(5) charset gbk collate gbk_chinese_ci);
+drop table t1;
+
+create table t1(c1 varchar(5) charset gbk, key(c1));
+drop table t1;
+
+create table t1(c1 varchar(5) charset gbk collate gbk_chinese_ci, key(c1));
+drop table t1;
+
+CREATE TABLE t1(C VARCHAR(100) CHARACTER SET gb18030, KEY(c(20)));
+drop table t1;
+
+create table t1(a int, b char(10), c char(10), filler char(10), primary key(a, b(2)), unique key (a, c(2))) character set ucs2;
+drop table t1;
+
+create table t1 (a varchar(2) character set cp1250) partition by list columns (a) (partition p0 values in (0x81));
+show create table t1;
+drop table t1;
+
+create table t1 (c1 varchar(8)) default character set 'ujis';
+insert into t1 values (0xA4A2),(0xA2A2),(0xA4A2);
+select c1 as 'no index' from t1 where c1 like cast(concat(0xA4A2, '%') as char character set ujis);
+create index idx_c1 on t1(c1);
+drop table t1;
+
+# pad
+create table t1(c1 char(10) collate utf8mb4_bin, key(c1));
+create table t2(c1 char(10) collate utf8mb4_0900_bin, key(c1));
+insert into t1 values('a');
+insert into t2 values('a');
+select length(c1), c1 from t1 where c1 = 'a ';
+select length(c1), c1 from t1 where c1 = 'a';
+select length(c1), c1 from t2 where c1 = 'a ';
+select length(c1), c1 from t2 where c1 = 'a';
+drop table t1, t2;
+
+# 联合索引
+create table t1 (c1 int, c2 varchar(10), c3 varchar(10)) charset utf8mb4;
+create index idx1 on t1(c1, c2, c3);
+insert into t1 values (1, 'aaa', 'bbb');
+insert into t1 values (2, '张三', '李四');
+select * from t1;
+drop table t1;
+
+create table t1 (c1 int, c2 varchar(10), c3 varchar(10)) charset binary;
+create index idx1 on t1(c1, c2, c3);
+insert into t1 values (1, 'aaa', 'bbb');
+insert into t1 values (2, '张三', '李四');
+select * from t1;
+drop table t1;
+
+create table t1 (c1 int, c2 varchar(10), c3 varchar(10)) charset gbk;
+create index idx1 on t1(c1, c2, c3);
+insert into t1 values (1, 'aaa', 'bbb');
+insert into t1 values (2, '张三', '李四');
+select * from t1;
+drop table t1;
+
+create table t1 (c1 int, c2 varchar(10), c3 varchar(10)) charset latin1;
+create index idx1 on t1(c1, c2, c3);
+insert into t1 values (1, 'aaa', 'bbb');
+--error 1366
+insert into t1 values (2, '张三', '李四');
+select * from t1;
+drop table t1;
+
+CREATE USER mohit@localhost IDENTIFIED WITH sha256_password BY 'mohit' PASSWORD HISTORY 1;
+SELECT COUNT(*) FROM mysql.password_history WHERE User='mohit' AND Host='localhost';
+CREATE TABLE pwd_history_backup AS SELECT * FROM mysql.password_history WHERE User='mohit' AND Host='localhost';
+ALTER USER mohit@localhost IDENTIFIED WITH mysql_native_password BY 'mohit';
+SELECT COUNT(*) FROM mysql.password_history WHERE User='mohit' AND Host='localhost';
+UPDATE mysql.password_history SET Password = ( SELECT Password FROM pwd_history_backup WHERE User='mohit' AND Host='localhost') WHERE User='mohit' AND Host='localhost';
+drop table pwd_history_backup;
+drop user mohit@localhost;
+
+# set names, insert, hex, weight_string
+SET NAMES 'utf8mb4' COLLATE 'utf8mb4_bin';
+create table t1(c1 varchar(5), key(c1));
+INSERT INTO t1 VALUES ('a'),('A'),('À'),('á');
+SELECT c1, HEX(c1), HEX(WEIGHT_STRING(c1)) FROM t1;
+delete from t1;
+insert into t1 values('a'),('A'),('AA'),('aa'),('aA'),('Aa'),('ab'),('aB'),('AB'),('Ab'),('b'),('B');
+select c1, hex(c1), hex(weight_string(c1)) from t1;
+drop table t1;
+
+# insert
+CREATE TABLE t1 (c1 CHAR(10) CHARACTER SET UTF8MB4 COLLATE utf8mb4_general_ci);
+INSERT INTO t1 VALUES ('a'),('A'),('À'),('á');
+SELECT c1, HEX(c1), HEX(WEIGHT_STRING(c1)) FROM t1;
+drop table t1;
+
+# select - collate: weight_string
+create table t1 (c1 varchar(5) collate utf8mb4_0900_ai_ci, key(c1));
+create table t2 (c1 varchar(5) collate utf8mb4_bin, key(c1));
+insert into t1 values('a'),('A'),('AA'),('aa'),('aA'),('Aa'),('ab'),('aB'),('AB'),('Ab'),('b'),('B');
+insert into t2 values('a'),('A'),('AA'),('aa'),('aA'),('Aa'),('ab'),('aB'),('AB'),('Ab'),('b'),('B');
+select c1, hex(c1), hex(weight_string(c1)) from t1;  # WEIGHT_STRING结果和列collate相关
+select c1, hex(c1), hex(weight_string(c1)) from t2; 
+drop table t1, t2;
+
+# select - collate
+# order by primary key
+create table t1(id int auto_increment primary key, c1 varchar(5), key(c1));
+insert into t1 values(null,'aa'),(null,'aA'),(null,'Aa'),(null,'ab'),(null,'aB'),(null,'AB'),(null,'Ab'),(null,'b'),(null,'B'),(null, 'a'),(null,'A'),(null,'AA');
+select c1 from t1;
+drop table t1;
+# order by collated key c1 > primary key when collate is specified
+create table t1(id int auto_increment primary key, c1 varchar(5) collate utf8mb4_bin, key(c1));
+insert into t1 values(null,'aa'),(null,'aA'),(null,'Aa'),(null,'ab'),(null,'aB'),(null,'AB'),(null,'Ab'),(null,'b'),(null,'B'),(null, 'a'),(null,'A'),(null,'AA');
+# select length(c1), c1 from t1;
+drop table t1;
+# order by collated key c2 > primary key
+create table t1(id int auto_increment primary key, c1 varchar(5) collate utf8mb4_0900_ai_ci, key(c1));
+insert into t1 values(null,'aa'),(null,'aA'),(null,'Aa'),(null,'ab'),(null,'aB'),(null,'AB'),(null,'Ab'),(null,'b'),(null,'B'),(null, 'a'),(null,'A'),(null,'AA');
+select c1 from t1;
+drop table t1;
+# order by primary key when fields > 2
+create table t1(id int auto_increment primary key, c1 varchar(5) collate utf8mb4_bin, c2 varchar(5) collate utf8mb4_0900_ai_ci, key(c1), key(c2));
+insert into t1 values(null, 'a', 'b'),(null,'b', 'a'),(null, 'AA', 'c'),(null, 'B', 'd');
+select c1 from t1;
+drop table t1;
+create table t1(id int auto_increment primary key, c1 varchar(5) collate utf8mb4_bin, c2 varchar(5) collate utf8mb4_0900_ai_ci, key(c1));
+insert into t1 values(null, 'a', 'b'),(null,'b', 'a'),(null, 'AA', 'c'),(null, 'B', 'd');
+select c1 from t1;
+drop table t1;
+create table t1(id int auto_increment primary key, c1 varchar(5) collate utf8mb4_bin, c2 varchar(5), key(c1));
+insert into t1 values(null, 'a', 'b'),(null,'b', 'a'),(null, 'AA', 'c'),(null, 'B', 'd');
+select c1 from t1;
+drop table t1;
+
+set sql_mode = '';
+
+# length: order by, group by表现不同
+create table t1(id int auto_increment primary key, c1 varchar(5), c2 varchar(5), key(c1));
+insert into t1 values(null,'a ','a '),(null,'a','a'),(null,'a  ','a  '),(null,'A  ','A  '),(null,'A','A'),(null,'A ','A ');
+select length(c1), c1, hex(weight_string(c1)) from t1; # innodb: 先length后id, cantian: id
+select length(c1), c1, hex(weight_string(c1)) from t1 order by c1 collate utf8mb4_general_ci;
+select length(c1), c1, hex(weight_string(c1)) from t1 order by c1 collate utf8mb4_bin;
+select length(c1), c1, hex(weight_string(c1)) from t1 order by c1 collate utf8mb4_0900_ai_ci;
+select length(c1), c1, hex(weight_string(c1)) from t1 order by c1 collate utf8mb4_0900_bin;
+select length(c1), c1, hex(weight_string(c1)) from t1 group by c1 collate utf8mb4_general_ci;
+select length(c1), c1, hex(weight_string(c1)) from t1 group by c1 collate utf8mb4_bin;
+select length(c1), c1, hex(weight_string(c1)) from t1 group by c1 collate utf8mb4_0900_ai_ci;
+select length(c1), c1, hex(weight_string(c1)) from t1 group by c1 collate utf8mb4_0900_bin;
+drop table t1;
+
+# 使用 collate 的不同场景
+create table t1(id int auto_increment primary key, c1 varchar(5), key(c1));
+# 插入数据
+insert into t1 values(null,'a  '), (null,'b  '), (null,'a'), (null,'A'), (null,'b'), (null, 'B'), (null,'a '), (null,'b '), (null,'AA'), (null,'aA'), (null, 'Aa'), (null, 'aa'), (null, 'D'), (null, 'd'), (null,'C'), (null,'c');
+select c1 from t1;
+
+# order by
+select length(c1), c1 from t1 order by c1;
+select length(c1), c1 from t1 order by c1 collate utf8mb4_general_ci;
+select length(c1), c1 from t1 order by c1 collate utf8mb4_bin;
+select length(c1), c1 from t1 order by c1 collate utf8mb4_0900_ai_ci;
+select length(c1), c1 from t1 order by c1 collate utf8mb4_0900_bin;
+
+# as
+select length(c1), c1 as c from t1 order by c1;
+select length(c1), c1 collate utf8mb4_general_ci as c from t1 order by c1;
+select length(c1), c1 collate utf8mb4_bin as c from t1 order by c1;
+select length(c1), c1 collate utf8mb4_0900_ai_ci as c from t1 order by c1;
+select length(c1), c1 collate utf8mb4_0900_bin as c from t1 order by c1;
+
+# group by
+select length(c1), c1 from t1 group by c1;
+select length(c1), c1 from t1 group by c1 collate utf8mb4_general_ci;
+select length(c1), c1 from t1 group by c1 collate utf8mb4_bin;
+select length(c1), c1 from t1 group by c1 collate utf8mb4_0900_ai_ci;
+select length(c1), c1 from t1 group by c1 collate utf8mb4_0900_bin;
+
+# aggregate functions
+select length(c1), max(c1 collate utf8mb4_general_ci) from t1;
+select length(c1), max(c1 collate utf8mb4_bin) from t1;
+select length(c1), max(c1 collate utf8mb4_0900_ai_ci) from t1;
+select length(c1), max(c1 collate utf8mb4_0900_bin) from t1;
+
+# distinct
+select distinct c1 collate utf8mb4_general_ci from t1;
+select distinct c1 collate utf8mb4_bin from t1;
+select distinct c1 collate utf8mb4_0900_ai_ci from t1;
+select distinct c1 collate utf8mb4_0900_bin from t1;
+
+# where
+select length(c1), c1 from t1 where c1 =  _utf8mb4 'a' collate utf8mb4_general_ci;
+select length(c1), c1 from t1 where c1 =  _utf8mb4 'a' collate utf8mb4_bin;
+select length(c1), c1 from t1 where c1 =  _utf8mb4 'a' collate utf8mb4_0900_ai_ci;
+select length(c1), c1 from t1 where c1 =  _utf8mb4 'a' collate utf8mb4_0900_bin;
+select length(c1), c1 from t1 where _utf8mb4 'a' collate utf8mb4_general_ci = c1;
+select length(c1), c1 from t1 where _utf8mb4 'a' collate utf8mb4_bin = c1;
+select length(c1), c1 from t1 where  _utf8mb4 'a' collate utf8mb4_0900_ai_ci = c1;
+select length(c1), c1 from t1 where _utf8mb4 'a' collate utf8mb4_0900_bin = c1;
+select length(c1), c1 from t1 where c1 like  _utf8mb4 'a' collate utf8mb4_general_ci;
+select length(c1), c1 from t1 where c1 like  _utf8mb4 'a' collate utf8mb4_bin;
+select length(c1), c1 from t1 where c1 like  _utf8mb4 'a' collate utf8mb4_0900_ai_ci;
+select length(c1), c1 from t1 where c1 like  _utf8mb4 'a' collate utf8mb4_0900_bin;
+
+# having
+select length(c1), c1 from t1 group by c1 having c1 = _utf8mb4 'a' collate utf8mb4_general_ci;
+select length(c1), c1 from t1 group by c1 having c1 = _utf8mb4 'a' collate utf8mb4_bin;
+select length(c1), c1 from t1 group by c1 having c1 = _utf8mb4 'a' collate utf8mb4_0900_ai_ci;
+select length(c1), c1 from t1 group by c1 having c1 = _utf8mb4 'a' collate utf8mb4_0900_bin;
+drop table t1;
+
+CREATE TABLE t1 (c1 INT, c2 BINARY(100), c3 VARBINARY(100), key(c1), key(c2), key(c3));
+INSERT INTO t1 VALUES (null,null,null);
+INSERT INTO t1 VALUES (1,'','');
+INSERT INTO t1 VALUES (2,'abcde','abcde');
+INSERT INTO t1 VALUES (100,'abcdefghij','abcdefghij'); 
+select c1, hex(c2), hex(c3) from t1;
+select hex(c2) from t1 where c2 = 'abcde';
+select hex(c2) from t1 where c2 = 0x61626364650000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000;
+select hex(c3) from t1 where c3 = 'abcde';
+select hex(c3) from t1 where c3 = 'ABCDE';
+drop table t1;
+
+CREATE TABLE t1 (code varchar(10)) charset utf8mb4;
+INSERT INTO t1 VALUES ('a12'), ('A12'), ('a13');
+INSERT INTO t1 VALUES (_utf16 0x0061003100320007), (_utf16 0x00410031003200070007);
+SELECT LENGTH(code), HEX(code) FROM t1 WHERE code='A12';
+ALTER TABLE t1 ADD INDEX (code);
+CREATE TABLE t2 (id varchar(10) PRIMARY KEY) charset utf8mb4;
+INSERT INTO t2 VALUES ('a11'), ('a12'), ('a13'), ('a14');
+SELECT LENGTH(code), HEX(code), LENGTH(id), HEX(id) FROM t1 INNER JOIN t2 ON t1.code=t2.id WHERE t2.id='a12' AND (LENGTH(code)=5 OR code < 'a00');
+SELECT LENGTH(code), HEX(code), LENGTH(id), HEX(id) FROM t1 INNER JOIN t2 ON t1.code=t2.id WHERE t2.id='a12' AND (LENGTH(code)=3);
+drop table t1, t2;
+
+set names koi8r;
+create table t1(a char character set cp1251 default _koi8r 0xFF);
+show create table t1;
+drop table t1;
+
+create table t1(c1 char character set cp1251);
+insert into t1 values('a'), ('b');
+alter table t1 add column c2 char character set cp1251 default _koi8r 0xFF;
+insert into t1 values('c', default), ('d', default);
+select c1, hex(c2), c2, length(c2) from t1;
+show create table t1;
+drop table t1;
+
+set names cp1250;
+CREATE TABLE t1 (id INT AUTO_INCREMENT PRIMARY KEY, str VARCHAR(32) CHARACTER SET cp1250 COLLATE cp1250_czech_cs NOT NULL default '', UNIQUE KEY (str));
+drop table t1;
+
+SET collation_connection='eucjpms_japanese_ci';
+CREATE TABLE t1 AS SELECT 10 AS a, REPEAT('a',20) AS b, REPEAT('a',8) AS c, REPEAT('a',8) AS d;
+ALTER TABLE t1 ADD PRIMARY KEY(a), ADD KEY(b);
+drop table t1;
+
+set names utf8mb4;
+
+SET sql_mode = default;

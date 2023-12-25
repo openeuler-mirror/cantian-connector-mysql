@@ -1,0 +1,201 @@
+--disable_warnings
+drop table if exists t,t1,t2,t3,t4;
+--enable_warnings
+
+
+create table t(id int primary key);
+create table t1(
+a int DEFAULT NULL,
+b blob,
+c float,
+`col2` int, `col3` int, gcol1 INTEGER GENERATED ALWAYS AS (col2 + col3) VIRTUAL,
+c1 TEXT character set armscii8 collate armscii8_general_ci,
+id int primary key auto_increment,name varchar(8) not null,id_crd bigint zerofill,
+foreign key(id) references t(id));
+CREATE TABLE t2(a int primary key,c1 float AUTO_INCREMENT,index(c1))
+PARTITION BY RANGE(a) subpartition by hash(a)
+subpartitions 4(
+partition p0 values less than(10),
+partition p1 values less than(99),
+partition p2 values less than(999),
+partition p3 values less than(1000),
+partition p4 values less than(2001),
+partition p5 values less than(3000));
+create table t3(a varchar(100), b int, c int, index(b))
+partition by list columns(a) (
+partition p1 values in ('p1'),
+partition p2 values in ('p2'),
+partition p3 values in ('p3'),
+partition p4 values in ('p4'));
+create table t4(
+a int DEFAULT NULL,
+b blob,
+c float,
+`col2` int, `col3` int, gcol1 INTEGER GENERATED ALWAYS AS (col2 + col3) VIRTUAL,
+c1 TEXT character set armscii8 collate armscii8_general_ci,
+id int primary key auto_increment,name varchar(8) not null,id_crd bigint zerofill);
+show create table t;
+show create table t1;
+show create table t2;
+show create table t3;
+show create table t4;
+INSERT INTO t (id) VALUES (1);
+INSERT INTO t (id) VALUES (2);
+INSERT INTO t1 (a, b, c, `col2`, `col3`, c1, id, name, id_crd) VALUES (1, repeat('g', 16), 3.1415, 1, 2, 'abc', 1, concat('name',1), 10000000000+1);
+INSERT INTO t2 VALUES(5, null);
+INSERT INTO t2 VALUES(99, null);
+INSERT INTO t2 VALUES(2100, null);
+INSERT INTO t3 VALUES('p1',10,20);
+INSERT INTO t3 VALUES('p2',100,200);
+INSERT INTO t4 (a, b, c, `col2`, `col3`, c1, id, name, id_crd) VALUES (1, repeat('g', 16), 3.1415, 1, 2, 'abc', 1, concat('name',1), 10000000000+1);
+SELECT * FROM t;
+SELECT * FROM t1;
+SELECT * FROM t2;
+SELECT * FROM t3;
+SELECT * FROM t4;
+--error 1050
+rename table t to t00,t1 to t2;
+--error 1050
+rename table t1 to t11,t2 to t3;
+--error 1050
+rename table t2 to t22,t3 to t4;
+--error 1050
+rename table t3 to t33,t4 to t;
+--error 1050
+rename table t4 to t44,t to t1;
+
+--error 1146
+rename table t to t00,t to t55;
+--error 1146
+rename table t1 to t11,t1 to t55;
+--error 1146
+rename table t2 to t22,t2 to t55;
+--error 1146
+rename table t3 to t33,t3 to t55;
+--error 1146
+rename table t4 to t44,t4 to t55;
+
+--error 1050
+rename table t to t00,t to t00;
+--error 1050
+rename table t1 to t11,t1 to t11;
+--error 1050
+rename table t2 to t22,t2 to t22;
+--error 1050
+rename table t3 to t33,t3 to t33;
+--error 1050
+rename table t4 to t44,t4 to t44;
+show tables;
+show create table t;
+show create table t1;
+show create table t2;
+show create table t3;
+show create table t4;
+
+--error 1146
+show create table t00;
+--error 1146
+show create table t11;
+--error 1146
+show create table t22;
+--error 1146
+show create table t33;
+--error 1146
+show create table t44;
+--error 1146
+show create table t55;
+
+rename table t1 to t11, t to t1;
+rename table t2 to t22, t11 to t2;
+rename table t3 to t33, t22 to t3;
+rename table t4 to t44, t33 to t4;
+show tables;
+--error 1146
+show create table t;
+show create table t1;
+show create table t2;
+show create table t3;
+show create table t4;
+show create table t44;
+
+rename table t1 to t, t2 to t1, t3 to t2, t4 to t3, t44 to t4;
+rename table t to t00, t00 to t;
+rename table t1 to t11, t11 to t1;
+rename table t2 to t22, t22 to t2;
+rename table t3 to t33, t33 to t3;
+rename table t4 to t44, t44 to t4;
+
+rename table t1 to t11, t11 to t111, t111 to t1111;
+rename table t to t00, t00 to t000, t000 to t0000;
+rename table t2 to t22, t22 to t222, t222 to t2222;
+rename table t3 to t33, t33 to t333, t333 to t3333;
+rename table t4 to t44, t44 to t444, t444 to t4444;
+
+show tables;
+drop table t0000,t1111,t2222,t3333,t4444;
+
+create table t0 SELECT 1,"table 1";
+create table t2 SELECT 2,"table 2";
+create table t3 SELECT 3,"table 3";
+rename table t0 to t1;
+rename table t3 to t4, t2 to t3, t1 to t2, t4 to t1;
+select * from t1;
+rename table t3 to t4, t2 to t3, t1 to t2, t4 to t1;
+rename table t3 to t4, t2 to t3, t1 to t2, t4 to t1;
+select * from t1;
+--error 1050
+rename table t1 to t2;
+--error 1050
+rename table t1 to t1;
+--error 1050
+rename table t3 to t4, t2 to t3, t1 to t2, t4 to t2;
+show tables like "t_";
+--error 1050
+rename table t3 to t1, t2 to t3, t1 to t2, t4 to t1;
+--error 1146
+rename table t3 to t4, t5 to t3, t1 to t2, t4 to t1;
+drop table t1;
+drop table t2,t3;
+
+
+CREATE TABLE t(c1 INT CONSTRAINT t2_chk_1 CHECK (c1 > 10));
+CREATE TABLE t1(c1 INT CHECK (c1 > 10), CONSTRAINT ck CHECK(c1 > 10));
+--error 3822
+CREATE TABLE t2(c1 INT, CONSTRAINT ck CHECK(c1 > 10));
+--error 3822
+ALTER TABLE t1 ADD CONSTRAINT ck CHECK(c1 > 10);
+--error 3822
+ALTER TABLE t1 RENAME TO t2;
+--error 3822
+ALTER TABLE t1 ADD c2 INT, RENAME TO t2;
+DROP TABLE t;
+DROP TABLE t1;
+CREATE TABLE t0(a INT, b INT);
+INSERT INTO t0 VALUES (1,1), (1,2), (2,2);
+--error 1062
+CREATE TABLE t1(a INT PRIMARY KEY,b INT) SELECT a,b FROM t0 ORDER BY a,b;
+drop table t0;
+
+
+CREATE TABLE parent(pk INTEGER PRIMARY KEY, j INTEGER,
+ UNIQUE KEY parent_key(j));
+CREATE TABLE child(pk INTEGER PRIMARY KEY, k INTEGER, fk INTEGER,
+ FOREIGN KEY (fk) REFERENCES parent(j), UNIQUE KEY child_key(k));
+CREATE TABLE grandchild(pk INTEGER PRIMARY KEY, fk INTEGER,
+ FOREIGN KEY (fk) REFERENCES child(k));
+SET @@foreign_key_checks= 0;
+CREATE TABLE orphan_grandchild(pk INTEGER PRIMARY KEY, fk INTEGER,
+ FOREIGN KEY (fk) REFERENCES siebling(k));
+SET @@foreign_key_checks= 1;
+CREATE TABLE non_atomic_t1(pk INTEGER) ENGINE= CTC;
+CREATE TABLE non_atomic_t2(pk INTEGER) ENGINE= CTC;
+--error 1050
+RENAME TABLE child TO siebling,
+ non_atomic_t1 TO non_atomic_t3,
+ non_atomic_t3 TO non_atomic_t2;
+DROP TABLE grandchild;
+DROP TABLE orphan_grandchild;
+DROP TABLE child;
+DROP TABLE parent;
+DROP TABLE non_atomic_t1;
+DROP TABLE non_atomic_t2;
