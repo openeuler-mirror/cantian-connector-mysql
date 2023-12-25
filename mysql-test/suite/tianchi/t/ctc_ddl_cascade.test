@@ -1,0 +1,269 @@
+#
+#  Copyright (C) 2023. Huawei Technologies Co., Ltd. All rights reserved.
+
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License, version 2.0,
+#   as published by the Free Software Foundation.
+
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License, version 2.0, for more details.
+
+#   You should have received a copy of the GNU General Public License
+#   along with this program; if not, write to the Free Software
+#   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
+CREATE DATABASE IF NOT EXISTS CASCADE_TEST;
+USE CASCADE_TEST;
+
+CREATE TABLE t1 (a INT NOT NULL UNIQUE, b INT NOT NULL);
+CREATE TABLE t2 (a INT KEY, b INT, FOREIGN KEY (b) REFERENCES t1(a) ON DELETE CASCADE ON UPDATE CASCADE);
+
+insert into t1 values(1,1);
+insert into t2 values(1,1);
+
+insert into t1 values(2,2);
+insert into t2 values(2,2);
+
+update t1 set a = 5 where a = 1;
+
+select * from t1;
+select * from t2;
+
+delete from t1 where b = 2;
+
+select * from t1;
+select * from t2;
+
+CREATE TABLE t3 (a INT NOT NULL UNIQUE, b INT NOT NULL);
+CREATE TABLE t4 (a INT KEY, b INT, FOREIGN KEY (b) REFERENCES t3(a) ON DELETE SET NULL ON UPDATE SET NULL);
+
+insert into t3 values(1,1);
+insert into t4 values(1,1);
+
+insert into t3 values(2,2);
+insert into t4 values(2,2);
+
+update t3 set a = 5 where a = 1;
+
+select * from t3;
+select * from t4;
+
+delete from t3 where b = 2;
+
+select * from t3;
+select * from t4;
+
+CREATE TABLE TT1(A INT PRIMARY KEY);
+CREATE TABLE TT2(A INT UNIQUE, B INT);
+ALTER TABLE TT2 ADD CONSTRAINT FK_CASCADE FOREIGN KEY(B) REFERENCES TT1 (A) ON DELETE CASCADE ON UPDATE CASCADE;
+insert into TT1 values(1),(2),(3),(4),(5);
+insert into TT2 values(1,1),(2,2),(3,3),(4,4),(5,5);
+
+select * from TT1;
+select * from TT2;
+
+delete from TT1 where A = 1;
+
+select * from TT1;
+select * from TT2;
+
+update TT1 set A = 12 where A = 2;
+
+select * from TT1;
+select * from TT2;
+
+set foreign_key_checks = 1;
+drop table if exists t1,t2;
+create table t1 (f1 int unique, f2 int, f3 float DEFAULT 0.0);
+INSERT INTO t1 VALUES (1, 80, 0.0);
+INSERT INTO t1 VALUES (2, 81, 0.0);
+create table t2 (f1 int, f2 int, f3 float DEFAULT 0.0, constraint c1 foreign key (f2) references t1(f1) on update cascade);
+INSERT INTO t2 VALUES (51, 1, 0.0);
+INSERT INTO t2 VALUES (52, 2, 0.0);
+UPDATE t1 SET f1 = null WHERE f1 = 1;
+SELECT * FROM t1;
+SELECT * FROM t2;
+
+set foreign_key_checks = 1;
+drop table if exists t1,t2;
+create table t1 (f1 float, f2 int, f3 float DEFAULT 0.0, unique key(f1, f2));
+INSERT INTO t1 VALUES (1, 80, 0.0);
+INSERT INTO t1 VALUES (2, 81, 0.0);
+create table t2 (f1 int, f2 float, f3 int, constraint foreign key (f2, f3) references t1(f1, f2) on update cascade);
+INSERT INTO t2 VALUES (12, 1, 80);
+INSERT INTO t2 VALUES (22, 2, 81);
+UPDATE t1 SET f1 = 100, f2 = null WHERE f1 = 1;
+SELECT * FROM t1;
+SELECT * FROM t2;
+
+set foreign_key_checks = 1;
+drop table if exists t1,t2;
+create table t1 (f1 float, f2 int, f3 varchar(20), f4 varchar(100), unique key(f1, f2, f3));
+INSERT INTO t1 VALUES (1, 80, 'ak47', 'mp7');
+INSERT INTO t1 VALUES (2, 81, 'xm8', 'an94');
+create table t2 (f1 int, f2 float, f3 int, f4 varchar(20), constraint foreign key (f2, f3, f4) references t1(f1, f2, f3) on update cascade);
+INSERT INTO t2 VALUES (12, 1, 80, 'ak47');
+INSERT INTO t2 VALUES (22, 2, 81, 'xm8');
+UPDATE t1 SET f1 = 100, f2 = null, f3 = null WHERE f1 = 1;
+SELECT * FROM t1;
+SELECT * FROM t2;
+
+# test for delete all rows
+drop table if exists t1,t2;
+create table t1 (f1 int primary key, f2 int);
+create table t2 (f1 int, f2 int, constraint c1 foreign key (f2) references t1(f1));
+INSERT INTO t1 VALUES (1, 80);
+INSERT INTO t1 VALUES (2, 81);
+INSERT INTO t2 VALUES (51, 1);
+INSERT INTO t2 VALUES (52, 2);
+set foreign_key_checks = 1;
+delete ignore from t1;
+select * from t1;
+select * from t2;
+drop table t2;
+drop table t1;
+
+create table t1 (f1 int primary key, f2 int);
+create table t2 (f1 int, f2 int, constraint c1 foreign key (f2) references t1(f1));
+INSERT INTO t1 VALUES (1, 80);
+INSERT INTO t1 VALUES (2, 81);
+INSERT INTO t2 VALUES (51, 1);
+INSERT INTO t2 VALUES (52, 2);
+set foreign_key_checks = 1;
+--error 1451
+delete from t1;
+select * from t1;
+select * from t2;
+drop table t2;
+drop table t1;
+
+create table t1 (f1 int primary key, f2 int);
+create table t2 (f1 int, f2 int, constraint c1 foreign key (f2) references t1(f1) on delete cascade);
+INSERT INTO t1 VALUES (1, 80);
+INSERT INTO t1 VALUES (2, 81);
+INSERT INTO t2 VALUES (51, 1);
+INSERT INTO t2 VALUES (52, 2);
+set foreign_key_checks = 0;
+DELETE FROM t1;
+select * from t1;
+select * from t2;
+drop table t2;
+drop table t1;
+
+create table t1 (f1 int primary key, f2 int);
+create table t2 (f1 int, f2 int, constraint c1 foreign key (f2) references t1(f1) on delete cascade);
+INSERT INTO t1 VALUES (1, 80);
+INSERT INTO t1 VALUES (2, 81);
+INSERT INTO t2 VALUES (51, 1);
+INSERT INTO t2 VALUES (52, 2);
+set foreign_key_checks = 0;
+delete ignore from t1;
+select * from t1;
+select * from t2;
+drop table t2;
+drop table t1;
+
+create table t1 (f1 int primary key, f2 int);
+create table t2 (f1 int, f2 int, constraint c1 foreign key (f2) references t1(f1) on delete cascade);
+INSERT INTO t1 VALUES (1, 80);
+INSERT INTO t1 VALUES (2, 81);
+INSERT INTO t2 VALUES (51, 1);
+INSERT INTO t2 VALUES (52, 2);
+set foreign_key_checks = 1;
+DELETE FROM t1;
+select * from t1;
+select * from t2;
+drop table t2;
+drop table t1;
+
+create table t1 (f1 int primary key, f2 int);
+create table t2 (f1 int, f2 int, constraint c1 foreign key (f2) references t1(f1) on delete cascade);
+INSERT INTO t1 VALUES (1, 80);
+INSERT INTO t1 VALUES (2, 81);
+INSERT INTO t2 VALUES (51, 1);
+INSERT INTO t2 VALUES (52, 2);
+set foreign_key_checks = 1;
+DELETE IGNORE FROM t1;
+select * from t1;
+select * from t2;
+drop table t2;
+drop table t1;
+
+
+SET SESSION foreign_key_checks=0;
+SET NAMES utf8;
+CREATE TABLE `t1` (
+a INT,
+b VARCHAR(512),
+UNIQUE KEY (a, b)
+) charset latin1;
+
+CREATE TABLE `t2` (
+id INT,
+a INT,
+b VARCHAR(512),
+PRIMARY KEY (id),
+UNIQUE KEY `unqq` (a, b),
+FOREIGN KEY (a, b) REFERENCES `t1` (a, b)
+ON DELETE CASCADE ON UPDATE CASCADE
+) charset latin1;
+
+INSERT INTO `t1` VALUES (1, 'bbb');
+INSERT INTO `t2` VALUES (100, 1, 'bbb'), (101, 3, 'bbb');
+SET SESSION foreign_key_checks=1;
+--error 1761
+UPDATE IGNORE `t1` SET a = 3;
+drop table t1,t2;
+
+SET SESSION foreign_key_checks=0;
+SET NAMES utf8;
+CREATE TABLE `t1` (
+a INT,
+b VARCHAR(512),
+UNIQUE KEY (a, b)
+) charset latin1;
+
+CREATE TABLE `t2` (
+id INT,
+a INT,
+b VARCHAR(512),
+PRIMARY KEY (id),
+UNIQUE KEY `unqq` (a, b),
+FOREIGN KEY (a, b) REFERENCES `t1` (a, b)
+ON DELETE CASCADE ON UPDATE CASCADE
+) charset latin1;
+
+INSERT INTO `t1` VALUES (1, 'bbb');
+INSERT INTO `t2` VALUES (100, 1, 'bbb'), (101, 3, 'bbb');
+SET SESSION foreign_key_checks=1;
+--error 1761
+UPDATE IGNORE `t1` SET a = 3; 
+drop table t1,t2;
+
+
+SET SESSION foreign_key_checks=0;
+SET NAMES utf8;
+CREATE TABLE `t1` (
+a INT,
+b VARCHAR(512),
+UNIQUE KEY (a, b)
+) charset latin1;
+
+CREATE TABLE `t2` (
+id INT,
+a INT,
+b VARCHAR(512),
+PRIMARY KEY (id),
+UNIQUE KEY `unqq` (a, b),
+FOREIGN KEY (a, b) REFERENCES `t1` (a, b)
+ON DELETE CASCADE ON UPDATE CASCADE
+) charset latin1;
+
+INSERT INTO `t1` VALUES (1, 'bbb'), (3, 'bbb');
+INSERT INTO `t2` VALUES (100, 1, 'bbb');
+SET SESSION foreign_key_checks=1;
+UPDATE IGNORE `t1` SET a = 3; 
+drop table t1,t2;
+
+DROP DATABASE CASCADE_TEST;

@@ -1,0 +1,602 @@
+#
+#  Copyright (C) 2023. Huawei Technologies Co., Ltd. All rights reserved.
+
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License, version 2.0,
+#   as published by the Free Software Foundation.
+
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License, version 2.0, for more details.
+
+#   You should have received a copy of the GNU General Public License
+#   along with this program; if not, write to the Free Software
+#   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
+--disable_warnings
+drop table if exists DEMO;
+--enable_warnings
+#特别注意，每个测试用例直接用2行空行隔开，中间不要有任何空行
+
+#有符号TINYINT主键自增测试(范围为-128-127)
+create table DEMO (ID TINYINT PRIMARY KEY auto_increment ,ID1 integer);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (-100, 1);#负数不会影响自增值
+--error 1062
+insert DEMO values (-100, 1);#主键重复
+insert DEMO values (-127, 1);
+insert DEMO values (-128, 1);
+--error 1264
+insert DEMO values (-129, 1);
+insert DEMO values (null, 3);
+insert DEMO values (30, 3);#正数会影响自增值 下一次应该从后面开始自增
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (60, 3);#正数会影响自增值 下一次应该从后面开始自增
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+select * from DEMO;
+--error 1062
+update DEMO set ID = 80 where ID1 = 3;#主键重复，因为ID1=3的列有很多列
+select * from DEMO;
+insert DEMO values (80, 80);
+delete from DEMO where ID = 80;#删除以后，自增值依旧存在
+insert DEMO values (null, 81);
+update DEMO set ID = 90 where ID1 = 80;
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (126, 2147483646);
+insert DEMO values (null, 2147483647);
+--error 1062
+insert DEMO values (null, 2147483647);#自增超出范围了，不能在插入了，自增还是2147483647
+--error 1264
+insert DEMO values (128, 2147483647);
+select *from DEMO;
+show create table DEMO;
+drop table DEMO;
+
+
+#无符号TINYINT主键自增测试(范围为0-255)
+create table DEMO (ID TINYINT unsigned PRIMARY KEY auto_increment ,ID1 integer);
+--error 1264
+insert DEMO values (-1, 3);#负数插入失败
+insert DEMO values (0, 3);#此处0和null相同
+insert DEMO values (0, 3);#此处0和null相同
+--error 1062
+insert DEMO values (1, 3);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (20, 3);#正数会影响自增值 下一次应该从后面开始自增
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (50, 3);#正数会影响自增值 下一次应该从后面开始自增
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+select * from DEMO;
+--error 1062
+update DEMO set ID = 110 where ID1 = 3;#主键重复，因为ID1=3的列有很多列
+select * from DEMO;
+insert DEMO values (110, 110);
+delete from DEMO where ID = 110;#删除以后，自增值依旧存在
+insert DEMO values (null, 111);
+update DEMO set ID = 120 where ID1 = 111;
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (254, 254);
+insert DEMO values (null, 255);
+--error 1062
+insert DEMO values (null, 256);#自增超出范围了，不能在插入了，自增还是255
+--error 1264
+insert DEMO values (256, 256);
+select *from DEMO;
+show create table DEMO;
+drop table DEMO;
+
+
+#有符号SMALLINT主键自增测试(范围为-32768-32767)
+create table DEMO (ID SMALLINT PRIMARY KEY auto_increment ,ID1 integer);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (-100, 1);#负数不会影响自增值
+--error 1062
+insert DEMO values (-100, 1);#主键重复
+insert DEMO values (-32768, 1);
+insert DEMO values (-128, 1);
+--error 1264
+insert DEMO values (-32769, 1);
+insert DEMO values (null, 3);
+insert DEMO values (30, 3);#正数会影响自增值 下一次应该从后面开始自增
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (60, 3);#正数会影响自增值 下一次应该从后面开始自增
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+select * from DEMO;
+--error 1062
+update DEMO set ID = 80 where ID1 = 3;#主键重复，因为ID1=3的列有很多列
+select * from DEMO;
+insert DEMO values (80, 80);
+delete from DEMO where ID = 80;#删除以后，自增值依旧存在
+insert DEMO values (null, 81);
+update DEMO set ID = 90 where ID1 = 80;
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (32766, 2147483646);
+insert DEMO values (null, 2147483647);
+--error 1062
+insert DEMO values (null, 2147483647);#自增超出范围了，不能在插入了，自增还是32767
+--error 1264
+insert DEMO values (32768, 2147483647);
+select *from DEMO;
+show create table DEMO;
+drop table DEMO;
+
+
+#无符号SMALLINT主键自增测试(范围为0-65535)
+create table DEMO (ID SMALLINT unsigned PRIMARY KEY auto_increment ,ID1 integer);
+--error 1264
+insert DEMO values (-1, 3);#负数插入失败
+insert DEMO values (0, 3);#此处0和null相同
+insert DEMO values (0, 3);#此处0和null相同
+--error 1062
+insert DEMO values (1, 3);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (20, 3);#正数会影响自增值 下一次应该从后面开始自增
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (200, 3);#正数会影响自增值 下一次应该从后面开始自增
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+select * from DEMO;
+--error 1062
+update DEMO set ID = 210 where ID1 = 3;#主键重复，因为ID1=3的列有很多列
+select * from DEMO;
+insert DEMO values (210, 210);
+delete from DEMO where ID = 210;#删除以后，自增值依旧存在
+insert DEMO values (null, 211);
+update DEMO set ID = 230 where ID1 = 210;
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (65534, 65535);
+insert DEMO values (null, 65535);
+--error 1062
+insert DEMO values (null, 65535);#自增超出范围了，不能在插入了，自增还是65535
+--error 1264
+insert DEMO values (65536, 65536);
+select *from DEMO;
+show create table DEMO;
+drop table DEMO;
+
+
+#有符号MEDIUMINT主键自增测试(范围为-8388608-8388607)
+create table DEMO (ID MEDIUMINT PRIMARY KEY auto_increment ,ID1 integer);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (-100, 1);#负数不会影响自增值
+--error 1062
+insert DEMO values (-100, 1);#主键重复
+insert DEMO values (-8388608, 1);
+insert DEMO values (-128, 1);
+--error 1264
+insert DEMO values (-8388609, 1);
+insert DEMO values (null, 3);
+insert DEMO values (30, 3);#正数会影响自增值 下一次应该从后面开始自增
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (60, 3);#正数会影响自增值 下一次应该从后面开始自增
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+select * from DEMO;
+--error 1062
+update DEMO set ID = 80 where ID1 = 3;#主键重复，因为ID1=3的列有很多列
+select * from DEMO;
+insert DEMO values (80, 80);
+delete from DEMO where ID = 80;#删除以后，自增值依旧存在
+insert DEMO values (null, 81);
+update DEMO set ID = 90 where ID1 = 80;
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (8388606, 8388606);
+insert DEMO values (null, 8388607);
+--error 1062
+insert DEMO values (null, 8388607);#自增超出范围了，不能在插入了，自增还是8388607
+--error 1264
+insert DEMO values (8388608, 8388608);
+select *from DEMO;
+show create table DEMO;
+drop table DEMO;
+
+
+#无符号MEDIUMINT主键自增测试(范围为0-16777215)
+create table DEMO (ID MEDIUMINT unsigned PRIMARY KEY auto_increment ,ID1 integer);
+--error 1264
+insert DEMO values (-1, 3);#负数插入失败
+insert DEMO values (0, 3);#此处0和null相同
+insert DEMO values (0, 3);#此处0和null相同
+--error 1062
+insert DEMO values (1, 3);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (20, 3);#正数会影响自增值 下一次应该从后面开始自增
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (200, 3);#正数会影响自增值 下一次应该从后面开始自增
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+select * from DEMO;
+--error 1062
+update DEMO set ID = 210 where ID1 = 3;#主键重复，因为ID1=3的列有很多列
+select * from DEMO;
+insert DEMO values (210, 210);
+delete from DEMO where ID = 210;#删除以后，自增值依旧存在
+insert DEMO values (null, 211);
+update DEMO set ID = 230 where ID1 = 210;
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (16777214, 16777214);
+insert DEMO values (null, 16777215);
+--error 1062
+insert DEMO values (null, 16777215);#自增超出范围了，不能在插入了，自增还是16777215
+--error 1264
+insert DEMO values (16777216, 16777216);
+select *from DEMO;
+show create table DEMO;
+drop table DEMO;
+
+
+#有符号整形主键自增测试(范围为-2147483648-2147483647)
+create table DEMO (ID integer PRIMARY KEY auto_increment ,ID1 integer);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (-100, 1);#负数不会影响自增值
+--error 1062
+insert DEMO values (-100, 1);#主键重复
+insert DEMO values (-101, 1);
+insert DEMO values (null, 3);
+insert DEMO values (100, 3);#正数会影响自增值 下一次应该从后面开始自增
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (200, 3);#正数会影响自增值 下一次应该从后面开始自增
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+select * from DEMO;
+--error 1062
+update DEMO set ID = 2000 where ID1 = 3;#主键重复，因为ID1=3的列有很多列
+select * from DEMO;
+insert DEMO values (2000, 2000);
+delete from DEMO where ID = 2000;#删除以后，自增值依旧存在
+insert DEMO values (null, 20001);
+update DEMO set ID = 20001 where ID1 = 20001;
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (2147483646, 2147483646);
+insert DEMO values (null, 2147483647);
+--error 1062
+insert DEMO values (null, 2147483647);#自增超出范围了，不能在插入了，自增还是2147483647
+--error 1264
+insert DEMO values (2147483648, 2147483647);#自增超出范围了，不能在插入了，自增还是2147483647
+insert DEMO values (2147483644, 2147483644);
+insert DEMO values (-2147483646, -2147483646);
+insert DEMO values (-2147483647, -2147483646);
+insert DEMO values (-2147483648, -2147483646);
+--error 1264
+insert DEMO values (-2147483649, -2147483646);#ERROR 1264 (22003): Out of range value for column 'ID' at row 1
+select *from DEMO;
+show create table DEMO;
+drop table DEMO;
+
+
+#无符号整形主键自增测试(范围为0-4294967295)
+create table DEMO (ID integer unsigned PRIMARY KEY auto_increment ,ID1 integer);
+--error 1264
+insert DEMO values (-1, 3);#负数插入失败
+insert DEMO values (0, 3);#此处0和null相同
+insert DEMO values (0, 3);#此处0和null相同
+--error 1062
+insert DEMO values (1, 3);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (100, 3);#正数会影响自增值 下一次应该从后面开始自增
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (200, 3);#正数会影响自增值 下一次应该从后面开始自增
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+select * from DEMO;
+--error 1062
+update DEMO set ID = 2000 where ID1 = 3;#主键重复，因为ID1=3的列有很多列
+select * from DEMO;
+insert DEMO values (2000, 2000);
+delete from DEMO where ID = 2000;#删除以后，自增值依旧存在
+insert DEMO values (null, 20001);
+update DEMO set ID = 20001 where ID1 = 20001;
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (2147483646, 2147483646);
+insert DEMO values (null, 2147483647);
+insert DEMO values (4294967294, 2147483646);
+insert DEMO values (null, 2147483646);
+--error 1062
+insert DEMO values (null, 2147483646);#自增超出范围了，不能在插入了，自增还是4294967295
+select *from DEMO;
+show create table DEMO;
+drop table DEMO;
+
+
+#有符号BIGINT主键自增测试(范围为-9223372036854775808-9223372036854775807)
+create table DEMO (ID BIGINT PRIMARY KEY auto_increment ,ID1 BIGINT);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (-100, 1);#负数不会影响自增值
+--error 1062
+insert DEMO values (-100, 1);#主键重复
+insert DEMO values (-9223372036854775808, 1);
+insert DEMO values (-128, 1);
+--error 1264
+insert DEMO values (-9223372036854775809, 1);
+insert DEMO values (null, 3);
+insert DEMO values (30, 3);#正数会影响自增值 下一次应该从后面开始自增
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (60, 3);#正数会影响自增值 下一次应该从后面开始自增
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+select * from DEMO;
+--error 1062
+update DEMO set ID = 80 where ID1 = 3;#主键重复，因为ID1=3的列有很多列
+select * from DEMO;
+insert DEMO values (80, 80);
+delete from DEMO where ID = 80;#删除以后，自增值依旧存在
+insert DEMO values (null, 81);
+update DEMO set ID = 90 where ID1 = 80;
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (9223372036854775806, 9223372036854775806);
+insert DEMO values (null, 9223372036854775807);
+--error 1062
+insert DEMO values (null, 9223372036854775807);#自增超出范围了，不能在插入了，自增还是9223372036854775807
+--error 1264
+insert DEMO values (9223372036854775808, 9223372036854775808);
+select *from DEMO;
+show create table DEMO;
+drop table DEMO;
+
+
+#无符号BIGINT主键自增测试(范围为0-18446744073709551615)
+##tse的uint64_t对接参天的int64_t(范围为-9223372036854775808-9223372036854775807)
+create table DEMO (ID BIGINT unsigned PRIMARY KEY auto_increment ,ID1 BIGINT);
+insert DEMO values (9223372036854775806, 100);
+insert DEMO values (null, 100);
+insert DEMO values (18446744073709551200, 200);
+insert DEMO values (null, 330);
+insert DEMO values (18446744073709551608, 330);
+insert DEMO values (null, 330);
+insert DEMO values (null, 330);
+insert DEMO values (18446744073709551614, 100);
+--error 1467
+insert DEMO values (null, 320);
+--error 1467
+insert DEMO values (null, 320);
+select * from DEMO;
+show create table DEMO;
+drop table DEMO;
+create table DEMO (ID1 BIGINT);
+alter table DEMO add column ID BIGINT unsigned PRIMARY KEY auto_increment;
+drop table DEMO;
+create table DEMO (ID BIGINT, ID1 BIGINT);
+alter table DEMO modify ID BIGINT unsigned PRIMARY KEY auto_increment;
+drop table DEMO;
+
+#last_insert_id应返回一条语句里第一个成功插入的自增值
+create table DEMO (ID int PRIMARY KEY auto_increment);
+insert into DEMO values (null),(null),(null),(null);
+select @@last_insert_id;
+insert into DEMO values (null),(null),(null),(null);
+select @@last_insert_id;
+drop table DEMO;
+
+#测试唯一索引和主键索引重复插入
+create table t1(col int);
+alter table t1 add column col1 int auto_increment unique key;
+alter table t1 add primary key(col);
+insert into t1 values (0,1);
+--error 1062 
+insert into t1 values (1,1);
+insert into t1 values (2,2);
+--error 1062 
+insert into t1 values (2,3);
+insert into t1 (col) values (3);
+select * from t1;
+drop table t1;
+
+create table t1(col int);
+alter table t1 add column col1 int auto_increment primary key;
+alter table t1 add unique key(col);
+insert into t1 values (0,1);
+--error 1062 
+insert into t1 values (1,1);
+insert into t1 values (2,2);
+--error 1062 
+insert into t1 values (2,3);
+insert into t1 (col) values (3);
+select * from t1;
+drop table t1;
+create table t1(c1 int primary key auto_increment);
+insert into t1 values(1);
+insert into t1 values(2);
+insert into t1 values(4);
+insert into t1 values(-1);
+insert into t1 values(-3);
+insert into t1 values(-2147483648);
+insert into t1 values();
+insert into t1 values();
+insert into t1 values(2147483646);
+insert into t1 values();
+--error 1062
+insert into t1 values();
+select * from t1;
+select * from t1 where c1 = 2147483646;
+select * from t1 where c1 = -2147483648;
+select * from t1 where c1 > 0;
+drop table t1;
+create table t1(c1 tinyint AUTO_INCREMENT,c2 int, primary key(c1,c2) );
+insert into t1 values(127 ,1);
+INSERT INTO t1(c2) VALUES(33);
+INSERT INTO t1(c2) VALUES(34);
+INSERT INTO t1(c2) VALUES(35);
+INSERT INTO t1 VALUES(-1, -1);
+INSERT INTO t1(c2) VALUES(36);
+select * from t1;
+drop table t1;
+create table DEMO (ID BIGINT unsigned PRIMARY KEY auto_increment);
+--error 1264
+insert DEMO values (-1);
+--error 1264
+insert DEMO values (-2);
+insert DEMO values (0);
+insert DEMO values ();
+insert DEMO values ();
+--error 1062
+insert DEMO values (2);
+select * from DEMO;
+insert DEMO values (9223372036854775806);
+insert DEMO values (null);
+insert DEMO values (18446744073709551200);
+insert DEMO values (null);
+insert DEMO values (null);
+insert DEMO values (null);
+insert DEMO values (18446744073709551614);
+--error 1467
+insert DEMO values (null);
+drop table DEMO;
+
+#测试自增列上加普通索引
+create table DEMO (id INT NOT NULL AUTO_INCREMENT, name VARCHAR(50), purchased DATE, KEY(id));
+insert into DEMO (name, purchased) values ("Jack","2022-01-01");
+insert into DEMO (name, purchased) values ("Amy","2022-01-01");
+insert into DEMO (name, purchased) values ("Echo","2022-01-10");
+insert into DEMO (name, purchased) values ("Jack","2022-01-11");
+insert into DEMO (name, purchased) values ("Jack","2022-01-13");
+insert into DEMO (name, purchased) values ("Amy","2022-01-13");
+insert into DEMO (name, purchased) values ("Amy","2022-01-13");
+select * from DEMO;
+select * from DEMO where id = 1;
+select * from DEMO where name = "Amy" and purchased = "2022-01-01";
+insert into DEMO values(10,"Candy","2023-05-01");
+insert into DEMO (name, purchased) values ("Jack","2022-01-13");
+update DEMO SET id = 11 where name = "Candy";
+select * from DEMO;
+drop table DEMO;
+ 
+create table DEMO (id INT NOT NULL AUTO_INCREMENT UNIQUE, name VARCHAR(50), KEY(id));
+insert into DEMO (name) values ("Jack");
+insert into DEMO (name) values ("Zoey");
+update DEMO SET id = 5 where name = "Zoey";
+insert into DEMO (name) values ("Maya");
+select * from DEMO;
+select * from DEMO where name = "Maya";
+drop table DEMO;
+ 
+create table DEMO(id INT NOT NULL AUTO_INCREMENT, name VARCHAR(50), purchased DATE, key(id, name));
+insert into DEMO (name, purchased) values ("Jack","2022-01-01");
+insert into DEMO (name, purchased) values ("Bob","2022-01-01");
+insert into DEMO (name, purchased) values ("Amy","2022-01-01");
+insert into DEMO (name, purchased) values ("Jack","2022-01-05");
+insert into DEMO (name, purchased) values ("Amy","2022-01-05");
+insert into DEMO (name, purchased) values (null,null);
+select * from DEMO;
+select * from DEMO where name = "Jack";
+select * from DEMO where id > 0;
+select * from DEMO where name = "Amy" and id = 5;
+select * from DEMO where purchased between "2022-01-03" and "2022-01-06";
+update DEMO SET name = "Eric" where name = "Jack";
+select * from DEMO;
+drop table DEMO;
+
+#测试float/double创建自增
+CREATE TABLE DEMO(c1 DOUBLE AUTO_INCREMENT KEY, c2 CHAR(10))ROW_FORMAT=REDUNDANT,ENGINE=CTC;
+insert into DEMO values (0.1, "aaa");
+insert into DEMO values (0.5, "bbb");
+insert into DEMO values (0.6, "bbb");
+insert into DEMO values (10.5, "sdss");
+insert into DEMO values (null, "dssd");
+select * from DEMO;
+insert into DEMO values (13.5, "sdss");
+insert into DEMO values (null, "dssd");
+select * from DEMO;
+insert into DEMO values (15.9, "sdss");
+insert into DEMO values (null, "dssd");
+select * from DEMO;
+select * from DEMO where c1 = 1;
+update DEMO set c1 =10 where c1=15;
+delete from DEMO where c1 = 1;
+insert into DEMO values (null, "sdss");
+select * from DEMO;
+drop table DEMO;
+
+CREATE TABLE DEMO(a FLOAT AUTO_INCREMENT KEY) ENGINE = CTC;
+insert into DEMO values (null);
+insert into DEMO values (null);
+insert into DEMO values (3.1);
+insert into DEMO values (null);
+insert into DEMO values (3.9);
+select * from DEMO;
+insert into DEMO values (10.5);
+insert into DEMO values (null);
+select * from DEMO;
+insert into DEMO values (11.5);
+insert into DEMO values (null);
+select * from DEMO;
+select * from DEMO where a = 1;
+update DEMO set a =10 where a =3.1;
+delete from DEMO where a = 1;
+insert into DEMO values (null);
+select * from DEMO;
+drop table DEMO;
+
+CREATE TABLE DEMO(ID int);
+alter table DEMO add column ID1 double PRIMARY KEY auto_increment;
+drop table DEMO;
+
+CREATE TABLE DEMO(ID int);
+alter table DEMO add column ID1 float PRIMARY KEY auto_increment;
+drop table DEMO;
+
+#测试自增列上删除索引
+create table DEMO (ID int unsigned PRIMARY KEY auto_increment);
+alter table DEMO drop primary key, add unique(ID);
+alter table DEMO drop key ID, add key(ID);
+drop table DEMO;
+
+CREATE TABLE DEMO (ID int(5) unsigned NOT NULL auto_increment, PRIMARY KEY (ID));
+CREATE UNIQUE INDEX test on DEMO (ID);
+show create table DEMO;
+DROP INDEX test ON DEMO;
+show create table DEMO;
+drop table DEMO;
+
+create table DEMO (ID int unsigned PRIMARY KEY auto_increment);
+alter table DEMO drop primary key, add key(ID);
+drop table DEMO;
+
+create table DEMO (ID int unsigned PRIMARY KEY auto_increment);
+--error 1075
+alter table DEMO drop primary key;
+drop table DEMO;
+
+CREATE TABLE DEMO (f1 INT, f2 INT, f3 INT);
+ALTER TABLE DEMO ADD CONSTRAINT PRIMARY KEY (f1);
+ALTER TABLE DEMO DROP CONSTRAINT `primary`, DROP COLUMN f3;
+ALTER TABLE DEMO ADD CONSTRAINT PRIMARY KEY (f1);
+drop table DEMO;

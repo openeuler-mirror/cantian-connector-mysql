@@ -1,0 +1,72 @@
+#
+#  Copyright (C) 2023. Huawei Technologies Co., Ltd. All rights reserved.
+
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License, version 2.0,
+#   as published by the Free Software Foundation.
+
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License, version 2.0, for more details.
+
+#   You should have received a copy of the GNU General Public License
+#   along with this program; if not, write to the Free Software
+#   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
+--source include/big_test.inc
+DELIMITER |;
+CREATE PROCEDURE create_databases(db_name varchar(128), start int, cnt int)
+BEGIN
+  DECLARE i INT DEFAULT 0;
+  while (i < cnt) do
+    SET @sql_text = CONCAT('create database ', db_name, i + start);
+    set i = i + 1;
+    PREPARE stmt FROM @sql_text;
+    EXECUTE stmt;
+    DEALLOCATE PREPARE stmt;
+  end while;
+END|
+
+CREATE PROCEDURE delete_databases(db_name varchar(128), start int, cnt int)
+BEGIN
+  DECLARE i INT DEFAULT 0;
+  while (i < cnt) do
+    SET @sql_text = CONCAT('drop database ', db_name, i + start);
+    set i = i + 1;
+    PREPARE stmt FROM @sql_text;
+    EXECUTE stmt;
+    DEALLOCATE PREPARE stmt;
+  end while;
+END|
+DELIMITER ;|
+
+
+#创建db上限,目前参天支持最大db上限为1012
+call create_databases('test_db', 1, 1012);
+--error 1006
+create database test_db1012;#ERROR 1007 (HY000): Can't create database 'test_db1012'; database exists
+--error 1006
+create database test_db1013;#ERROR ER_DISALLOWED_OPERATION (HY000): The number of databases reached the upper limit of tablespace
+--error ER_DISALLOWED_OPERATION
+#这个地方因为tablespace达到上限，不允许在创建tablespace,
+create tablespace ts01 add datafile 'ts_01.ibd' autoextend_size=1M;#ERROR ER_DISALLOWED_OPERATION (HY000): ddl statement operation is disallowed on The number 1023 reached the upper limit of datafiles.
+--error 1008
+drop database test_db1013;#ERROR 1008 (HY000): Can't drop database 'test_db1013'; database doesn't exist
+drop database test_db1012;
+#上面删除一个db后，会删除相应的tablespace，所以这里可以在创一个tablespace,
+create tablespace ts01 add datafile 'ts_01.ibd' autoextend_size=1M;
+--error ER_DISALLOWED_OPERATION
+#这个地方因为tablespace达到上限，不允许在创建tablespace,
+create tablespace ts02 add datafile 'ts_02.ibd' autoextend_size=512K;#ERROR ER_DISALLOWED_OPERATION (HY000): ddl statement operation is disallowed on The number 1023 reached the upper limit of datafiles.
+--error 1006
+#这个地方同样，tablespace达到上限，不允许创建db
+create database test_db1012;#ERROR ER_DISALLOWED_OPERATION (HY000): The number of databases reached the upper limit of tablespace
+drop tablespace ts01;
+#删除一个tablespace后，这里允许在创一个db
+create database test_db1012;
+--error 1006
+create database test_db1013;#ERROR ER_DISALLOWED_OPERATION (HY000): The number of databases reached the upper limit of tablespace
+show databases;
+call delete_databases('test_db', 1, 1012);
+drop PROCEDURE create_databases;
+drop PROCEDURE delete_databases;

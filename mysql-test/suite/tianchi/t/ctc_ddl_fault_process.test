@@ -1,0 +1,187 @@
+#
+#  Copyright (C) 2023. Huawei Technologies Co., Ltd. All rights reserved.
+
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License, version 2.0,
+#   as published by the Free Software Foundation.
+
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License, version 2.0, for more details.
+
+#   You should have received a copy of the GNU General Public License
+#   along with this program; if not, write to the Free Software
+#   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
+
+#故障场景相关测试用例
+--disable_warnings
+drop database if exists DEMO_DB;
+--enable_warnings
+create database DEMO_DB;
+show databases;
+use DEMO_DB;
+
+
+#创建表 模拟参天成功，mysql失败的场景，使用仅仅mysql执行sql语句的方式来修正错误(ctc_disable_ddl)
+set debug = '+d, tse_create_table_cantian_error';#此句用于模拟参天成功，但是给mysql返回失败的场景
+--error 3655 #此时参天创建成功，mysql创建失败，参天有表结构，mysql没有表结构(ERROR 3655 (HY000): ddl statement operation is disallowed on create table DEMO (ID integer not null, NAME varchar(19), AGE integer, GRADE real))
+create table DEMO (ID integer not null, NAME varchar(19), AGE integer, GRADE real);
+show tables;
+set debug = '-d, tse_create_table_cantian_error';#清除故障调试点
+--error ER_DISALLOWED_OPERATION #此时因为参天表已经存在，再创建表，会报表已经存在(ERROR ER_DISALLOWED_OPERATION (HY000): DEMO_DB_DB.DEMO already exists(cantian error_code:1301))
+create table DEMO (ID integer not null, NAME varchar(19), AGE integer, GRADE real);
+show tables;
+#sql只在mysql执行，不同步参天节点
+select @ctc_ddl_local_enabled;
+set @ctc_ddl_local_enabled=1;
+select @ctc_ddl_local_enabled;
+#创表只在mysql进行，不同步参天，此时能够创表成功
+create table DEMO (ID integer not null, NAME varchar(19), AGE integer, GRADE real);
+show tables;
+set @ctc_ddl_local_enabled=NULL;
+select @ctc_ddl_local_enabled;
+#再次创表，mysql本身将报表已经存在的错误
+--error 1050
+create table DEMO (ID integer not null, NAME varchar(19), AGE integer, GRADE real);
+INSERT INTO DEMO values(30,'insert',21,23);
+ALTER TABLE DEMO ADD COLUMN col1 integer;
+insert into DEMO values (1, 'LIOR', 35, 6.9,1987);
+# 执行 select 语句
+select * from DEMO;
+drop table DEMO;
+
+
+#删除表 模拟参天成功，mysql失败的场景 使用仅仅mysql执行sql语句的方式来修正错误(ctc_disable_ddl)
+create table DEMO (ID integer not null, NAME varchar(19), AGE integer, GRADE real);
+INSERT INTO DEMO values(30,'insert',21,23);
+ALTER TABLE DEMO ADD COLUMN col1 integer;
+insert into DEMO values (1, 'LIOR', 35, 6.9,1987);
+# 执行 select 语句
+select * from DEMO;
+set debug = '+d, tse_drop_table_cantian_error';
+--error 3655 #此时参天删表成功，mysql删表失败，参天无表结构，mysql有表结构 ERROR 3655 (HY000): ddl statement operation is disallowed on drop table DEMO
+drop table DEMO;
+set debug = '-d, tse_drop_table_cantian_error';
+--error ER_DISALLOWED_OPERATION #此时参天表不存在，mysql有表，删表失败 ERROR ER_DISALLOWED_OPERATION (HY000): The table or view DEMO_DB_DB.DEMO does not exist.(cantian error_code:843)
+drop table DEMO;
+#sql只在mysql执行，不同步参天节点
+select @ctc_ddl_local_enabled;
+set @ctc_ddl_local_enabled=1;
+select @ctc_ddl_local_enabled;
+drop table DEMO;
+set @ctc_ddl_local_enabled=NULL;
+select @ctc_ddl_local_enabled;
+--error 1051 #再次删表mysql和参天都没有表，此时错误被mysql拦截，ERROR 1051 (42S02): Unknown table 'DEMO_DB.DEMO'
+drop table DEMO;
+show tables;
+
+
+#测试alter rename表 模拟参天成功，mysql失败的场景 使用仅仅mysql执行sql语句的方式来修正错误(ctc_disable_ddl)
+create table DEMO (ID integer not null, NAME varchar(19), AGE integer, GRADE real);
+INSERT INTO DEMO values(30,'insert',21,23);
+ALTER TABLE DEMO ADD COLUMN col1 integer;
+insert into DEMO values (1, 'LIOR', 35, 6.9,1987);
+# 执行 select 语句
+select * from DEMO;
+set debug = '+d, tse_rename_table_cantian_error';
+--error 3655 #此时参天rename成功，mysqlrename失败， ERROR 3655 (HY000): ddl statement operation is disallowed on ALTER TABLE DEMO RENAME TO DEMO1
+ALTER TABLE DEMO RENAME TO DEMO1;
+show tables;
+--error 1146 #此时参天表已经不存在了，select会出错，ERROR 1146 (42S02): Table 'DEMO_DB.DEMO' doesn't exist
+select * from DEMO;
+--error 1146 #此时参天表已经不存在了，select会出错，ERROR 1146 (42S02): Table 'DEMO_DB.demo1' doesn't exist
+select * from DEMO1;
+set debug = '-d, tse_rename_table_cantian_error';
+--error 1146 #此时参天表已经不存在了，rename会出错，ERROR 1146 (42S02): Table 'DEMO_DB.demo1' doesn't exist
+ALTER TABLE DEMO RENAME TO DEMO1;
+#sql只在mysql执行，不同步参天节点 此时能够rename表成功
+set @ctc_ddl_local_enabled=1;
+select @ctc_ddl_local_enabled;
+ALTER TABLE DEMO RENAME TO DEMO1;
+set @ctc_ddl_local_enabled=NULL;
+select @ctc_ddl_local_enabled;
+show tables;
+select * from DEMO1;
+drop table DEMO1;
+
+
+
+#测试rename表 模拟参天成功，mysql失败的场景 使用仅仅mysql执行sql语句的方式来修正错误(ctc_disable_ddl)
+create table DEMO (ID integer not null, NAME varchar(19), AGE integer, GRADE real);
+INSERT INTO DEMO values(30,'insert',21,23);
+ALTER TABLE DEMO ADD COLUMN col1 integer;
+insert into DEMO values (1, 'LIOR', 35, 6.9,1987);
+# 执行 select 语句
+select * from DEMO;
+set debug = '+d, tse_rename_table_cantian_error';
+--error 3655 #此时参天rename成功，mysqlrename失败， ERROR 3655 (HY000): ddl statement operation is disallowed on ALTER TABLE DEMO RENAME TO DEMO1
+RENAME TABLE DEMO TO DEMO1;
+show tables;
+--error 1146 #此时参天表已经不存在了，select会出错，ERROR 1146 (42S02): Table 'DEMO_DB.DEMO' doesn't exist
+select * from DEMO;
+--error 1146 #此时参天表已经不存在了，select会出错，ERROR 1146 (42S02): Table 'DEMO_DB.demo1' doesn't exist
+select * from DEMO1;
+set debug = '-d, tse_rename_table_cantian_error';
+--error ER_DISALLOWED_OPERATION #此时参天表已经不存在了，rename会出错，ERROR ER_DISALLOWED_OPERATION (HY000): The table or view DEMO_DB_DB.demo does not exist.(cantian error_code:843)
+RENAME TABLE DEMO TO DEMO1;
+#sql只在mysql执行，不同步参天节点 此时能够rename表成功
+select @ctc_ddl_local_enabled;
+set @ctc_ddl_local_enabled=1;
+select @ctc_ddl_local_enabled;
+RENAME TABLE DEMO TO DEMO1;
+set @ctc_ddl_local_enabled=NULL;
+select @ctc_ddl_local_enabled;
+show tables;
+select * from DEMO1;
+drop table DEMO1;
+
+
+
+#修改表[添加列] 模拟参天成功，mysql失败的场景，使用仅仅mysql执行sql语句的方式来修正错误(ctc_disable_ddl)
+create table DEMO (ID integer not null, NAME varchar(19), AGE integer, GRADE real);
+show tables;
+INSERT INTO DEMO values(30,'insert',21,23);
+select * from DEMO;
+set debug = '+d, tse_alter_table_cantian_error';#此句用于模拟参天成功，但是给mysql返回失败的场景
+--error 3655 #ERROR 3655 (HY000): ddl statement operation is disallowed on ALTER TABLE DEMO ADD COLUMN col1 integer
+ALTER TABLE DEMO ADD COLUMN col1 integer;
+select * from DEMO;
+desc DEMO;
+set debug = '-d, tse_alter_table_cantian_error';#清除故障调试点
+ALTER TABLE DEMO ADD COLUMN col1 integer;
+desc DEMO;
+#sql只在mysql执行，不同步参天节点
+select @ctc_ddl_local_enabled;
+set @ctc_ddl_local_enabled=1;
+select @ctc_ddl_local_enabled;
+--error 1060
+ALTER TABLE DEMO ADD COLUMN col1 integer;
+set @ctc_ddl_local_enabled=NULL;
+select @ctc_ddl_local_enabled;
+desc DEMO;
+select * from DEMO;
+drop table DEMO;
+
+
+
+#修改表[删除列] 模拟参天成功，mysql失败的场景，使用仅仅mysql执行sql语句的方式来修正错误(tse_disable_ddl)
+create table DEMO (ID integer not null, NAME varchar(19), AGE integer, GRADE real);
+show tables;
+INSERT INTO DEMO values(30,'insert',21,23);
+select * from DEMO;
+set debug = '+d, tse_alter_table_cantian_error';#此句用于模拟参天成功，但是给mysql返回失败的场景
+--error 3655 #ERROR 3655 (HY000): ddl statement operation is disallowed on ALTER TABLE DEMO ADD COLUMN col1 integer
+ALTER TABLE DEMO drop COLUMN GRADE;
+select * from DEMO;
+desc DEMO;
+set debug = '-d, tse_alter_table_cantian_error';#清除故障调试点
+ALTER TABLE DEMO drop COLUMN GRADE;
+desc DEMO;
+#mysql和参天的元数据列数不匹配，因此插入失败
+--error 1136 #ERROR 1136 (21S01): Column count doesn't match value count at row 1
+INSERT INTO DEMO values(31,'insert1',211,231);
+select * from DEMO;
+drop table DEMO;
+
+drop database DEMO_DB;

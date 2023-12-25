@@ -1,0 +1,165 @@
+#
+#  Copyright (C) 2023. Huawei Technologies Co., Ltd. All rights reserved.
+
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License, version 2.0,
+#   as published by the Free Software Foundation.
+
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License, version 2.0, for more details.
+
+#   You should have received a copy of the GNU General Public License
+#   along with this program; if not, write to the Free Software
+#   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
+--disable_warnings
+drop table if exists DEMO;
+--enable_warnings
+
+# create a table.
+create table DEMO (ID integer not null, NAME varchar(19), AGE integer, GRADE real);
+
+# insert some data to table.
+insert into DEMO values (1, 'LIOR', 35, 6.9);  
+insert into DEMO values (4, 'MIKE', 55, 99.92);  
+insert into DEMO values (8, 'ROMAN', 40, 94.1);  
+insert into DEMO values (16, 'DAN', 60, 1234567890);  
+insert into DEMO values (32, 'ZVI', 35, 777.666);  
+insert into DEMO values (1, 'Eitan', NULL, 4.9);
+insert into DEMO values (888888, 'zhangdi', NULL, 10000.8);
+insert into DEMO values (1131, 'Hisses', 1, NULL);
+
+#select data.
+SELECT * FROM DEMO;
+
+# create index 创建普通
+create index idx_id ON DEMO (ID);
+# 修改index名字
+ALTER TABLE DEMO RENAME INDEX idx_id TO idx_id1;
+# 删除索引
+DROP INDEX idx_id1 ON DEMO;
+# 重新创建普通索引
+create index idx_id1 ON DEMO (ID);
+select * from DEMO where ID = 1;
+select * from DEMO where ID <= 16;
+select * from DEMO where ID < 16;
+select * from DEMO where ID between 4 and 32;
+select * from DEMO where ID >= 32;
+select * from DEMO where ID > 32;
+select * from DEMO where ID in (16,32);
+select * from DEMO where ID like '1%';
+select * from DEMO where ID = 1 order by ID;
+select * from DEMO where ID = 1 order by ID desc;
+select * from DEMO where ID <= 16 order by ID;
+select * from DEMO where ID < 16 order by ID desc;
+select * from DEMO where ID between 4 and 32 order by ID;
+select * from DEMO where ID between 4 and 32 order by ID desc;
+select * from DEMO where ID >= 32 order by ID;
+select * from DEMO where ID > 32  order by ID desc;
+select * from DEMO where ID in (16,32) order by ID;
+select * from DEMO where ID in (16,32) order by ID desc;
+select * from DEMO where ID like '1%' order by ID;
+select * from DEMO where ID like '1%' order by ID desc;
+
+#create secnodary index 在age上创建索引
+ALTER TABLE DEMO ADD INDEX idx_age (AGE);
+select * from DEMO where AGE = 35;
+select * from DEMO where ID <= 100;
+select * from DEMO where ID < 100;
+select * from DEMO where ID between 35 and 50;
+
+# drop index 删除id上创建的索引
+#drop index
+DROP INDEX idx_id1 ON DEMO;
+select * from DEMO where ID = 1;
+select * from DEMO where ID <= 16;
+select * from DEMO where ID < 16;
+select * from DEMO where ID between 4 and 32;
+select * from DEMO where ID >= 32;
+select * from DEMO where ID > 32;
+select * from DEMO where ID in (16,32);
+select * from DEMO where ID like '1%';
+select * from DEMO where ID = 1 order by ID;
+select * from DEMO where ID = 1 order by ID desc;
+select * from DEMO where ID <= 16 order by ID;
+select * from DEMO where ID < 16 order by ID desc;
+select * from DEMO where ID between 4 and 32 order by ID;
+select * from DEMO where ID between 4 and 32 order by ID desc;
+select * from DEMO where ID >= 32 order by ID;
+select * from DEMO where ID > 32  order by ID desc;
+select * from DEMO where ID in (16,32) order by ID;
+select * from DEMO where ID in (16,32) order by ID desc;
+select * from DEMO where ID like '1%' order by ID;
+select * from DEMO where ID like '1%' order by ID desc;
+
+#drop second index 删除age上的索引
+DROP INDEX idx_age ON DEMO;
+desc DEMO;
+
+# select after drop index
+select * from DEMO where AGE = 35;
+select * from DEMO where ID <= 100;
+select * from DEMO where ID < 100;
+select * from DEMO where ID between 35 and 50;
+
+#drop table
+drop table DEMO;
+
+CREATE TABLE t1 (
+    f1 int(11) DEFAULT '0' NOT NULL,
+    f2 varchar(16) DEFAULT '' NOT NULL,
+    f5 text,
+    KEY index_name (f1,f2,f5(16))
+);
+show create table t1;
+INSERT INTO t1 VALUES (0,'traktor','1111111111111');
+INSERT INTO t1 VALUES (1,'traktor','1111111111111111111111111');
+INSERT INTO t1 VALUES (3,'traktor',repeat('a',8000));
+select count(*) from t1 where f2='traktor';
+select length(f5) from t1 where f2='traktor';
+drop table t1;
+
+CREATE TABLE t1 (
+    f1 int(11) DEFAULT '0' NOT NULL,
+    f2 varchar(16) DEFAULT '' NOT NULL,
+    f5 blob,
+    KEY index_name (f1,f2,f5(16))
+);
+show create table t1;
+INSERT INTO t1 VALUES (0,'traktor','1111111111111');
+INSERT INTO t1 VALUES (1,'traktor','1111111111111111111111111');
+INSERT INTO t1 VALUES (3,'traktor',repeat('a',8000));
+select count(*) from t1 where f2='traktor';
+select length(f5) from t1 where f2='traktor';
+drop table t1;
+
+CREATE TABLE t1 (
+    f1 int(11) DEFAULT '0' NOT NULL,
+    f2 varchar(16) DEFAULT '' NOT NULL,
+    f5 varchar(9000),
+    KEY index_name (f1,f2,f5(16))
+);
+show create table t1;
+INSERT INTO t1 VALUES (0,'traktor','1111111111111');
+INSERT INTO t1 VALUES (1,'traktor','1111111111111111111111111');
+INSERT INTO t1 VALUES (3,'traktor',repeat('a',8000));
+select count(*) from t1 where f2='traktor';
+select length(f5) from t1 where f2='traktor';
+drop table t1;
+
+create table t1 (t blob, key(t(10)));
+insert into t1 values('a');
+select count(*) from t1 where t like 'a%';
+drop table t1;
+
+create table t1 (f1 binary(5)) engine=CTC;
+insert into t1 values ('w'), ('w');
+--error ER_DUP_ENTRY
+create unique index index_t1 on t1(f1(4));
+drop table t1;
+
+create table t1 (v varchar(10), t varchar(50), key(t(5)));
+insert into t1 values('a','a');
+select count(*) from t1 where t like 'a%';
+drop table t1;

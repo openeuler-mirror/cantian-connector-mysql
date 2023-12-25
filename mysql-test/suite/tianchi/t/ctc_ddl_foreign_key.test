@@ -1,0 +1,324 @@
+#
+#  Copyright (C) 2023. Huawei Technologies Co., Ltd. All rights reserved.
+
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License, version 2.0,
+#   as published by the Free Software Foundation.
+
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License, version 2.0, for more details.
+
+#   You should have received a copy of the GNU General Public License
+#   along with this program; if not, write to the Free Software
+#   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
+--disable_warnings
+drop table if exists DEMO;
+--enable_warnings
+#特别注意，每个测试用例直接用2行空行隔开，中间不要有任何空行
+
+#create table for add foreign key when create table (创表过程中创建外键约束)
+#创建父表
+drop table if exists class;
+drop table if exists my_foreign1;
+create table class(id int primary key auto_increment,c_name varchar(20) not null,room varchar(20));
+create table my_foreign1(id int primary key auto_increment,
+    name varchar(20) not null comment '学生姓名',
+    c_id int comment '班级表ID',
+    CONSTRAINT fk_id foreign key(c_id) references class(id)	
+);
+insert into class values(1,'abc','aaa');
+insert into class values(2,'abc2','bbb');
+insert into class values(3,'abc3','ccc');
+insert into class values(4,'4','4');
+select * from class;
+--error 1452 
+insert into my_foreign1 values(null,'Charies','6'); #父表没有，因为有外键依赖所以插入不了
+insert into my_foreign1 values(null,'Charies','1');
+insert into my_foreign1 values(null,'Bob','2');
+insert into my_foreign1 values(null,'Bob1','3');
+select * from my_foreign1;
+--error 1451
+#ERROR 1452 (23000): Cannot delete or update a parent row: a foreign key constraint fails (`demo_db`.`my_foreign1`, CONSTRAINT `fk_id` FOREIGN KEY (`c_id`) REFERENCES `class` (`id`))
+delete from class where id = 2;
+--error 1451
+#ERROR 1451 (23000): Cannot delete or update a parent row: a foreign key constraint fails (`demo_db`.`my_foreign1`, CONSTRAINT `fk_id` FOREIGN KEY (`c_id`) REFERENCES `class` (`id`))
+delete from class;
+--error 1451
+#ERROR 1452 (23000): Cannot delete or update a parent row: a foreign key constraint fails (`demo_db`.`my_foreign1`, CONSTRAINT `fk_id` FOREIGN KEY (`c_id`) REFERENCES `class` (`id`))
+update class set id = 100 where id = 2;
+update class set id = 100 where id = 4;#4没有被子表引用，可以更改
+delete from class where id = 100;#100没有被子表引用，可以更改
+--error 1701 
+#ERROR 1701 (42000): Cannot truncate a table referenced in a foreign key constraint (`demo_db`.`my_foreign1`, CONSTRAINT `fk_id`)
+truncate table class; #有外键依赖的表，不能truncate
+--error 3730
+#ERROR 3730 (HY000): Cannot drop table 'class' referenced by a foreign key constraint 'fk_id' on table 'my_foreign1'.
+drop table class; #有外键依赖的表，不能drop
+truncate table my_foreign1;
+--error 1701 
+#ERROR 1701 (42000): Cannot truncate a table referenced in a foreign key constraint (`demo_db`.`my_foreign1`, CONSTRAINT `fk_id`)
+truncate table class;#把子表truncate了，父表依然不能truncate
+#drop
+drop table class,my_foreign1;
+
+#create table for add foreign key when create table (创表过程中创建外键，两列做主键)
+#创建父表
+create table class(id int, age int, c_name varchar(20), room varchar(20), primary key(id, age));
+#创建子表
+create table my_foreign1(id int primary key auto_increment,
+    name varchar(20) not null,
+    c_id int,
+    a_id int,
+    CONSTRAINT fk_id foreign key(c_id, a_id) references class(id, age)	
+);
+desc my_foreign1;
+#父表插入数据
+insert into class values(1, 1, 'abc','aaa');
+insert into class values(2, 4,'abc2','bbb');
+insert into class values(3, 3,'abc3','ccc');
+select * from class;
+#子表插入数据
+--error 1452
+insert into my_foreign1 values(null,'Charies','6','12'); #父表没有，因为有外键依赖所以插入不了
+insert into my_foreign1 values(null,'Alex','2','4');#完全和复合主键的重合
+--error 1452
+insert into my_foreign1 values(null,'ss','7','12');#父表没有，因为有外键依赖所以插入不了
+insert into my_foreign1 values(null,'test','3','3');
+select * from my_foreign1;
+#drop Table 注意删除table的顺序
+drop table my_foreign1;
+drop table class;
+
+
+#create table for add foreign key when create table (多对多关系，一个table，对两张表进行外键约束)
+#创建父表一
+create table class(id int primary key auto_increment, c_name varchar(20), room varchar(20));
+#创建父表二
+create table project(id int primary key auto_increment, name varchar(10));
+#创建子表
+create table my_foreign1(id int primary key auto_increment,
+    name varchar(20) not null,
+    c_id int,
+    a_id int,
+    CONSTRAINT fk_cid foreign key(c_id) references class(id),
+    CONSTRAINT fk_aid foreign key(a_id) references project(id)
+);
+desc my_foreign1;
+#父表1插入数据
+insert into class values(1,'abc','aaa');
+insert into class values(2,'abc2','bbb');
+insert into class values(3,'abc3','ccc');
+select * from class;
+#父表2插入数据
+insert into project values(4,'proj1');
+insert into project values(6,'proj2');
+select * from project;
+#子表插入数据
+--error 1452
+insert into my_foreign1 values(null,'Charies','1','5'); #父表没有，因为有外键依赖所以插入不了
+insert into my_foreign1 values(null,'Alex','1','4');#数据可以找到，可以插入
+--error 1452
+insert into my_foreign1 values(null,'ss','7','12');#父表没有，因为有外键依赖所以插入不了
+insert into my_foreign1 values(null,'test','3','6');#数据可以找到，可以匹配
+select * from my_foreign1;
+#drop Table 注意删除table的顺序
+drop table my_foreign1;
+drop table project;
+drop table class;
+
+
+#create table for alter drop foreign key (添加、删除外键)
+#创建父表
+drop table if exists class;
+drop table if exists my_foreign1;
+create table class(id int primary key auto_increment,c_name varchar(20) not null,room varchar(20));
+create table my_foreign1(id int primary key auto_increment,
+    name varchar(20) not null comment '学生姓名',
+    c_id int comment '班级表ID'
+);
+#设置外键
+alter table my_foreign1 add constraint fk_id foreign key(c_id) references class(id);
+insert into class values(1,'abc','aaa');
+insert into class values(2,'abc2','bbb');
+insert into class values(3,'abc3','ccc');
+select * from class;
+--error 1452 
+insert into my_foreign1 values(null,'Charies','6'); #父表没有，因为有外键依赖所以插入不了
+insert into my_foreign1 values(null,'Charies','1');
+insert into my_foreign1 values(null,'Bob','1');
+select * from my_foreign1;
+ALTER TABLE my_foreign1 DROP FOREIGN KEY fk_id;
+insert into my_foreign1 values(null,'Charies','6'); #解除约束可以进行insert
+#drop Table 注意删除table的顺序
+drop table my_foreign1;
+drop table class;
+
+
+#special operations when deleting record in parent table
+create table parent (a int primary key, b int);
+create table child (a int, b int, foreign key (a) references parent(a) on delete set null);
+insert into parent values (1,1),(2,2),(3,3),(4,4);
+insert into child values (1,1),(2,2),(3,3);
+delete from parent where a = 1;
+select * from child;
+drop table child;
+create table child (a int, b int, foreign key (a) references parent(a) on delete cascade);
+insert into child values (2,2),(3,3);
+delete from parent where a = 2;
+select * from child;
+drop table child;
+drop table parent;
+
+drop table if exists my_parent1;
+CREATE TABLE my_parent1 (fk_id int PRIMARY KEY);
+drop table if exists my_parent2;
+CREATE TABLE my_parent2 (fk_id int PRIMARY KEY);
+drop table if exists my_child;
+CREATE TABLE my_child (
+  id1 int, id2 int, PRIMARY KEY (id1, id2),
+  CONSTRAINT id1_fkey FOREIGN KEY (id1) REFERENCES my_parent1 (fk_id),
+  CONSTRAINT id2_fkey FOREIGN KEY (id2) REFERENCES my_parent2 (fk_id)
+);
+drop table my_child;
+drop table my_parent1;
+drop table my_parent2;
+
+
+#测试支持禁止主动控制外键约束开关
+#创建父表
+drop table if exists class;
+drop table if exists my_foreign1;
+create table class(id int primary key auto_increment,c_name varchar(20) not null,room varchar(20));
+create table my_foreign1(id int primary key auto_increment,
+    name varchar(20) not null comment '学生姓名',
+    c_id int comment '班级表ID',
+    CONSTRAINT fk_id foreign key(c_id) references class(id)	
+);
+insert into class values(1,'abc','aaa');
+insert into class values(2,'abc2','bbb');
+insert into class values(3,'abc3','ccc');
+insert into class values(4,'4','4');
+select * from class;
+--error 1452 
+insert into my_foreign1 values(null,'Charies','6'); #父表没有，因为有外键依赖所以插入不了
+SET FOREIGN_KEY_CHECKS = 0;
+insert into my_foreign1 values(null,'Charies','6'); #忽略外键约束检查，预期插入成功
+SET FOREIGN_KEY_CHECKS = 1;
+insert into my_foreign1 values(null,'Charies','1');
+insert into my_foreign1 values(null,'Bob','2');
+insert into my_foreign1 values(null,'Bob1','3');
+select * from my_foreign1;
+--error 1451
+#ERROR 1452 (23000): Cannot delete or update a parent row: a foreign key constraint fails (`demo_db`.`my_foreign1`, CONSTRAINT `fk_id` FOREIGN KEY (`c_id`) REFERENCES `class` (`id`))
+delete from class where id = 2;
+SET FOREIGN_KEY_CHECKS = 0;
+delete from class where id = 2;
+SET FOREIGN_KEY_CHECKS = 1;
+--error 1451
+#ERROR 1451 (23000): Cannot delete or update a parent row: a foreign key constraint fails (`demo_db`.`my_foreign1`, CONSTRAINT `fk_id` FOREIGN KEY (`c_id`) REFERENCES `class` (`id`))
+delete from class;
+SET FOREIGN_KEY_CHECKS = 0;
+#--error 1452  #delete all table没有对接，还是有问题
+delete from class;
+SET FOREIGN_KEY_CHECKS = 1;
+insert into class values(2,'abc2','bbb');
+--error 1451
+#ERROR 1452 (23000): Cannot delete or update a parent row: a foreign key constraint fails (`demo_db`.`my_foreign1`, CONSTRAINT `fk_id` FOREIGN KEY (`c_id`) REFERENCES `class` (`id`))
+update class set id = 100 where id = 2;
+SET FOREIGN_KEY_CHECKS = 0;
+update class set id = 100 where id = 2;
+SET FOREIGN_KEY_CHECKS = 1;
+update class set id = 101 where id = 4;#4没有被子表引用，可以更改
+delete from class where id = 100;#100没有被子表引用，可以更改
+--error 1701 
+#ERROR 1701 (42000): Cannot truncate a table referenced in a foreign key constraint (`demo_db`.`my_foreign1`, CONSTRAINT `fk_id`)
+truncate table class; #有外键依赖的表，不能truncate
+--error 3730
+#ERROR 3730 (HY000): Cannot drop table 'class' referenced by a foreign key constraint 'fk_id' on table 'my_foreign1'.
+drop table class; #有外键依赖的表，不能drop
+truncate table my_foreign1;
+--error 1701 
+#ERROR 1701 (42000): Cannot truncate a table referenced in a foreign key constraint (`demo_db`.`my_foreign1`, CONSTRAINT `fk_id`)
+truncate table class;#把子表truncate了，父表依然不能truncate
+#drop
+drop table class,my_foreign1;
+
+create table t1(far_id int primary key, v int);
+create table t2(id int, sun_id int, CONSTRAINT t1t2_key FOREIGN KEY (sun_id) REFERENCES t1(far_id));
+create table t3(i int);
+--error ER_FK_CANNOT_DROP_PARENT
+drop table t1;
+--error ER_FK_CANNOT_DROP_PARENT
+drop table t1, t3;
+drop table t1,t2;
+drop table t3;
+
+SET @@foreign_key_checks= 1;
+CREATE TABLE t1(a INT PRIMARY KEY);
+CREATE TABLE t2(a INT, b INT, FOREIGN KEY(a) REFERENCES t1(a));
+ALTER TABLE t2 ADD FOREIGN KEY(b) REFERENCES t1(a);
+ALTER TABLE t2 DROP FOREIGN KEY t2_fk_1;
+ALTER TABLE t2 ADD FOREIGN KEY(a) REFERENCES t1(a);
+ALTER TABLE t2 RENAME TO t3;
+ALTER TABLE t3 RENAME TO t4, ALGORITHM= INPLACE;
+ALTER TABLE t4 RENAME TO t5;
+RENAME TABLE t5 TO t6;
+DROP TABLE t6;
+CREATE TABLE `t6` (
+`a` int(11) DEFAULT NULL,
+`b` int(11) DEFAULT NULL,
+KEY `b` (`b`),
+KEY `a` (`a`),
+CONSTRAINT `t6_fk_2` FOREIGN KEY (`b`) REFERENCES `t1` (`a`),
+CONSTRAINT `t6_fk_3` FOREIGN KEY (`a`) REFERENCES `t1` (`a`)
+) ENGINE=CTC DEFAULT CHARSET=latin1;
+RENAME TABLE t6 TO t2;
+
+SELECT constraint_name FROM information_schema.referential_constraints
+WHERE table_name = 't2' ORDER BY constraint_name;
+
+ALTER TABLE t2 DROP FOREIGN KEY t2_fk_2, DROP FOREIGN KEY t2_fk_3;
+drop table t1,t2;
+
+SET @@foreign_key_checks= 1;
+create table t1 (f1 int unique, f2 int);
+INSERT INTO t1 VALUES (1, 80);
+INSERT INTO t1 VALUES (2, 81);
+create table t2 (f1 int, f2 int);
+INSERT INTO t2 VALUES (51, 1);
+INSERT INTO t2 VALUES (52, 2);
+INSERT INTO t2 VALUES (53, 3);
+--error 1452
+alter table t2 add constraint c1 foreign key (f2) references t1(f1) on update cascade;
+drop table t1,t2;
+
+
+SET @@foreign_key_checks=0;
+create table student(id int, name varchar(6000), class int, constraint fk foreign key(class) references class(id));
+SET @@foreign_key_checks=1;
+--error 1215
+create table class(a int);
+drop table student;
+
+SET @@foreign_key_checks=0;
+create table student(id int primary key, name varchar(6000), class int, constraint fk foreign key(class) references class(id));
+SET @@foreign_key_checks=1;
+--error 1215
+create table class(a int);
+drop table student;
+
+SET @@foreign_key_checks=0;
+create table student(id int, name varchar(6000), class char(20), constraint fk foreign key(class) references class(id));
+SET @@foreign_key_checks=1;
+--error 1215
+create table class(a int);
+drop table student;
+
+SET @@foreign_key_checks=0;
+create table student(id int, name varchar(6000), class int, constraint fk foreign key(class) references class(a));
+SET @@foreign_key_checks=1;
+--error 1215
+create table class(a int);
+drop table student;

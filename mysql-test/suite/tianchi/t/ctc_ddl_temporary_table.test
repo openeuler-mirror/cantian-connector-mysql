@@ -1,0 +1,94 @@
+#
+#  Copyright (C) 2023. Huawei Technologies Co., Ltd. All rights reserved.
+
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License, version 2.0,
+#   as published by the Free Software Foundation.
+
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License, version 2.0, for more details.
+
+#   You should have received a copy of the GNU General Public License
+#   along with this program; if not, write to the Free Software
+#   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
+--disable_warnings
+drop table if exists DEMO;
+--enable_warnings
+
+#临时表  临时表中表名和数据库的表名相同，不使用TSE,使用的是INNODB
+set default_storage_engine=CTC;
+# 创建并切换数据库
+create database demo_db_tmp;
+use demo_db_tmp;
+create table DEMO (ID integer not null, NAME varchar(19), AGE integer, GRADE real);
+INSERT INTO DEMO values(30,'DEMO',21,23);
+insert into DEMO values (1, 'DEMO', 35, 6.9);
+select * from DEMO;
+#创建临时表
+create TEMPORARY  table DEMO (ID integer not null, NAME varchar(19), AGE integer, GRADE real) AS SELECT * FROM DEMO;
+#临时表表名和库中表名可以重复
+--error 1050
+#ERROR 1050 (42S01): Table 'demo' already exists
+create TEMPORARY  table DEMO (ID integer not null, NAME varchar(19), AGE integer, GRADE real);
+show create table DEMO;
+#再次创建会报表名重复
+--error 1050
+create TEMPORARY  table DEMO (ID integer not null, NAME varchar(19), AGE integer, GRADE real);
+#此时表DEMO会覆盖 db里面的DEMO，select表中数据为空
+select * from DEMO;
+INSERT INTO DEMO values(30,'DEMO_TMP',21,23);
+#此种情况查询的还是临时表DEMO里的数据
+select * from demo_db_tmp.DEMO;
+drop table DEMO;
+#把临时表DEMO删掉，此时查询的才是DEMO里的数据
+insert into DEMO values (1, 'DEMO111', 35, 6.9);
+select * from DEMO;
+select * from demo_db_tmp.DEMO;
+drop table DEMO;
+--error 1051
+drop table DEMO;
+drop database demo_db_tmp;
+--error 1008
+#ERROR 1008 (HY000): Can't drop database 'demo_db_tmp'; database doesn't exist
+drop database demo_db_tmp;
+
+
+
+#临时表  临时表中表名和数据库的表名不相同，不使用TSE 使用的是INNODB
+set default_storage_engine=CTC;
+# 创建并切换数据库
+create database demo_db_tmp;
+use demo_db_tmp;
+create table DEMO (ID integer not null, NAME varchar(19), AGE integer, GRADE real);
+INSERT INTO DEMO values(30,'DEMO',21,23);
+insert into DEMO values (1, 'DEMO', 35, 6.9);
+select * from DEMO;
+#创建临时表
+create TEMPORARY  table DEMO (ID integer not null, NAME varchar(19), AGE integer, GRADE real) engine=CTC;
+drop TEMPORARY table DEMO;
+create TEMPORARY  table TMP_DEMO (ID integer not null, NAME varchar(19), AGE integer, GRADE real) AS SELECT * FROM DEMO;
+show create table TMP_DEMO;
+#再次创建会报表名重复
+--error 1050
+create TEMPORARY  table TMP_DEMO (ID integer not null, NAME varchar(19), AGE integer, GRADE real);
+insert into DEMO values (1, 'DEMO_FLAG', 35, 6.9);
+insert into TMP_DEMO values (1, 'TMP_DEMO_FLAG', 35, 6.9);
+#此时表DEMO会覆盖 db里面的DEMO，select表中数据为空
+select * from DEMO;
+select * from TMP_DEMO;
+select * from demo_db_tmp.DEMO;
+select * from demo_db_tmp.TMP_DEMO;
+drop table TMP_DEMO;
+--error 1051
+drop table TMP_DEMO;
+--error 1146
+select * from TMP_DEMO;
+select * from DEMO;
+drop table DEMO;
+--error 1051
+drop table DEMO;
+--error 1146
+select * from DEMO;
+drop database demo_db_tmp;

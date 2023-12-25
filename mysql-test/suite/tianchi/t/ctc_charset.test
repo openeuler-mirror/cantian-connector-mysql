@@ -1,0 +1,337 @@
+#
+#  Copyright (C) 2023. Huawei Technologies Co., Ltd. All rights reserved.
+
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License, version 2.0,
+#   as published by the Free Software Foundation.
+
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License, version 2.0, for more details.
+
+#   You should have received a copy of the GNU General Public License
+#   along with this program; if not, write to the Free Software
+#   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
+
+# a test for charset when field type is char && index query
+CREATE TABLE worklog5743 (col_1_CHAR CHAR(255) , col_2_CHAR CHAR(255),
+PRIMARY KEY (col_1_CHAR)) engine = CTC STATS_PERSISTENT=0 charset latin1;
+INSERT INTO worklog5743 VALUES(repeat("a", 200) , repeat("o", 200));
+INSERT INTO worklog5743 VALUES(repeat("b", 200) , repeat("o", 200));
+SELECT col_1_CHAR = repeat("a", 200) , col_2_CHAR  = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("b", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT * FROM worklog5743 where col_1_CHAR = repeat("a", 200);
+UPDATE worklog5743 SET col_1_CHAR = repeat("d", 200) WHERE col_1_CHAR =
+repeat("a", 200) AND col_2_CHAR = repeat("o", 200);
+SELECT * FROM worklog5743 where col_1_CHAR = repeat("a", 200);
+SELECT * FROM worklog5743 where col_1_CHAR = repeat("d", 200);
+SELECT col_1_CHAR = repeat("b", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("a", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("d", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+UPDATE worklog5743 SET col_1_CHAR = repeat("c", 200) WHERE col_1_CHAR =
+repeat("d", 200);
+SELECT col_1_CHAR = repeat("b", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("a", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("c", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("d", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT * FROM worklog5743 where col_1_CHAR = repeat("c", 200);
+SELECT * FROM worklog5743 where col_2_CHAR = repeat("o", 200);
+DROP TABLE worklog5743;
+
+
+CREATE TABLE worklog5743 (col_1_CHAR CHAR(255) , col_2_CHAR CHAR(255) ,
+PRIMARY KEY (col_1_CHAR)) engine = CTC STATS_PERSISTENT=0 charset koi8r;
+INSERT INTO worklog5743 VALUES(repeat("a", 200) , repeat("o", 200));
+INSERT INTO worklog5743 VALUES(repeat("b", 200) , repeat("o", 200));
+SELECT col_1_CHAR = repeat("a", 200) , col_2_CHAR  = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("b", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT * FROM worklog5743 where col_1_CHAR = repeat("a", 200);
+UPDATE worklog5743 SET col_1_CHAR = repeat("d", 200) WHERE col_1_CHAR =
+repeat("a", 200) AND col_2_CHAR = repeat("o", 200);
+SELECT * FROM worklog5743 where col_1_CHAR = repeat("a", 200);
+SELECT * FROM worklog5743 where col_1_CHAR = repeat("d", 200);
+SELECT col_1_CHAR = repeat("b", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("a", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("d", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+UPDATE worklog5743 SET col_1_CHAR = repeat("c", 200) WHERE col_1_CHAR =
+repeat("d", 200);
+SELECT col_1_CHAR = repeat("b", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("a", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("c", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("d", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT * FROM worklog5743 where col_1_CHAR = repeat("c", 200);
+SELECT * FROM worklog5743 where col_2_CHAR = repeat("o", 200);
+DROP TABLE worklog5743;
+
+
+CREATE TABLE worklog5743 (col_1_CHAR CHAR(255) , col_2_CHAR CHAR(255) ,
+PRIMARY KEY (col_1_CHAR)) engine = CTC STATS_PERSISTENT=0 charset hebrew;
+INSERT INTO worklog5743 VALUES(repeat("a", 200) , repeat("o", 200));
+INSERT INTO worklog5743 VALUES(repeat("b", 200) , repeat("o", 200));
+SELECT col_1_CHAR = repeat("a", 200) , col_2_CHAR  = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("b", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT * FROM worklog5743 where col_1_CHAR = repeat("a", 200);
+UPDATE worklog5743 SET col_1_CHAR = repeat("d", 200) WHERE col_1_CHAR =
+repeat("a", 200) AND col_2_CHAR = repeat("o", 200);
+SELECT * FROM worklog5743 where col_1_CHAR = repeat("a", 200);
+SELECT * FROM worklog5743 where col_1_CHAR = repeat("d", 200);
+SELECT col_1_CHAR = repeat("b", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("a", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("d", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+UPDATE worklog5743 SET col_1_CHAR = repeat("c", 200) WHERE col_1_CHAR =
+repeat("d", 200);
+SELECT col_1_CHAR = repeat("b", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("a", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("c", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("d", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT * FROM worklog5743 where col_1_CHAR = repeat("c", 200);
+SELECT * FROM worklog5743 where col_2_CHAR = repeat("o", 200);
+DROP TABLE worklog5743;
+
+
+CREATE TABLE worklog5743 (col_1_CHAR CHAR(255) , col_2_CHAR CHAR(255) ,
+PRIMARY KEY (col_1_CHAR)) engine = CTC STATS_PERSISTENT=0 charset cp1257;
+INSERT INTO worklog5743 VALUES(repeat("a", 200) , repeat("o", 200));
+INSERT INTO worklog5743 VALUES(repeat("b", 200) , repeat("o", 200));
+SELECT col_1_CHAR = repeat("a", 200) , col_2_CHAR  = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("b", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT * FROM worklog5743 where col_1_CHAR = repeat("a", 200);
+UPDATE worklog5743 SET col_1_CHAR = repeat("d", 200) WHERE col_1_CHAR =
+repeat("a", 200) AND col_2_CHAR = repeat("o", 200);
+SELECT * FROM worklog5743 where col_1_CHAR = repeat("a", 200);
+SELECT * FROM worklog5743 where col_1_CHAR = repeat("d", 200);
+SELECT col_1_CHAR = repeat("b", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("a", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("d", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+UPDATE worklog5743 SET col_1_CHAR = repeat("c", 200) WHERE col_1_CHAR =
+repeat("d", 200);
+SELECT col_1_CHAR = repeat("b", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("a", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("c", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("d", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT * FROM worklog5743 where col_1_CHAR = repeat("c", 200);
+SELECT * FROM worklog5743 where col_2_CHAR = repeat("o", 200);
+DROP TABLE worklog5743;
+
+
+CREATE TABLE worklog5743 (col_1_CHAR CHAR(255) , col_2_CHAR CHAR(255) ,
+PRIMARY KEY (col_1_CHAR)) engine = CTC STATS_PERSISTENT=0 charset armscii8;
+INSERT INTO worklog5743 VALUES(repeat("a", 200) , repeat("o", 200));
+INSERT INTO worklog5743 VALUES(repeat("b", 200) , repeat("o", 200));
+SELECT col_1_CHAR = repeat("a", 200) , col_2_CHAR  = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("b", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT * FROM worklog5743 where col_1_CHAR = repeat("a", 200);
+UPDATE worklog5743 SET col_1_CHAR = repeat("d", 200) WHERE col_1_CHAR =
+repeat("a", 200) AND col_2_CHAR = repeat("o", 200);
+SELECT * FROM worklog5743 where col_1_CHAR = repeat("a", 200);
+SELECT * FROM worklog5743 where col_1_CHAR = repeat("d", 200);
+SELECT col_1_CHAR = repeat("b", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("a", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("d", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+UPDATE worklog5743 SET col_1_CHAR = repeat("c", 200) WHERE col_1_CHAR =
+repeat("d", 200);
+SELECT col_1_CHAR = repeat("b", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("a", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("c", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("d", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT * FROM worklog5743 where col_1_CHAR = repeat("c", 200);
+SELECT * FROM worklog5743 where col_2_CHAR = repeat("o", 200);
+DROP TABLE worklog5743;
+
+
+CREATE TABLE worklog5743 (col_1_CHAR CHAR(255) , col_2_CHAR CHAR(255) ,
+PRIMARY KEY (col_1_CHAR)) engine = CTC STATS_PERSISTENT=0 charset macce;
+INSERT INTO worklog5743 VALUES(repeat("a", 200) , repeat("o", 200));
+INSERT INTO worklog5743 VALUES(repeat("b", 200) , repeat("o", 200));
+SELECT col_1_CHAR = repeat("a", 200) , col_2_CHAR  = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("b", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT * FROM worklog5743 where col_1_CHAR = repeat("a", 200);
+UPDATE worklog5743 SET col_1_CHAR = repeat("d", 200) WHERE col_1_CHAR =
+repeat("a", 200) AND col_2_CHAR = repeat("o", 200);
+SELECT * FROM worklog5743 where col_1_CHAR = repeat("a", 200);
+SELECT * FROM worklog5743 where col_1_CHAR = repeat("d", 200);
+SELECT col_1_CHAR = repeat("b", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("a", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("d", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+UPDATE worklog5743 SET col_1_CHAR = repeat("c", 200) WHERE col_1_CHAR =
+repeat("d", 200);
+SELECT col_1_CHAR = repeat("b", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("a", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("c", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("d", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT * FROM worklog5743 where col_1_CHAR = repeat("c", 200);
+SELECT * FROM worklog5743 where col_2_CHAR = repeat("o", 200);
+DROP TABLE worklog5743;
+
+CREATE TABLE worklog5743 (col_1_CHAR CHAR(255) , col_2_CHAR CHAR(255) ,
+PRIMARY KEY (col_1_CHAR)) engine = CTC STATS_PERSISTENT=0 charset big5;
+INSERT INTO worklog5743 VALUES(repeat("a", 200) , repeat("o", 200));
+INSERT INTO worklog5743 VALUES(repeat("b", 200) , repeat("o", 200));
+SELECT col_1_CHAR = repeat("a", 200) , col_2_CHAR  = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("b", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT * FROM worklog5743 where col_1_CHAR = repeat("a", 200);
+UPDATE worklog5743 SET col_1_CHAR = repeat("d", 200) WHERE col_1_CHAR =
+repeat("a", 200) AND col_2_CHAR = repeat("o", 200);
+SELECT * FROM worklog5743 where col_1_CHAR = repeat("a", 200);
+SELECT * FROM worklog5743 where col_1_CHAR = repeat("d", 200);
+SELECT col_1_CHAR = repeat("b", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("a", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("d", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+UPDATE worklog5743 SET col_1_CHAR = repeat("c", 200) WHERE col_1_CHAR =
+repeat("d", 200);
+SELECT col_1_CHAR = repeat("b", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("a", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("c", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("d", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT * FROM worklog5743 where col_1_CHAR = repeat("c", 200);
+SELECT * FROM worklog5743 where col_2_CHAR = repeat("o", 200);
+DROP TABLE worklog5743;
+
+
+CREATE TABLE worklog5743 (col_1_CHAR CHAR(255) , col_2_CHAR CHAR(255) ,
+PRIMARY KEY (col_1_CHAR)) engine = CTC STATS_PERSISTENT=0 charset eucjpms;
+INSERT INTO worklog5743 VALUES(repeat("a", 200) , repeat("o", 200));
+INSERT INTO worklog5743 VALUES(repeat("b", 200) , repeat("o", 200));
+SELECT col_1_CHAR = repeat("a", 200) , col_2_CHAR  = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("b", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT * FROM worklog5743 where col_1_CHAR = repeat("a", 200);
+UPDATE worklog5743 SET col_1_CHAR = repeat("d", 200) WHERE col_1_CHAR =
+repeat("a", 200) AND col_2_CHAR = repeat("o", 200);
+SELECT * FROM worklog5743 where col_1_CHAR = repeat("a", 200);
+SELECT * FROM worklog5743 where col_1_CHAR = repeat("d", 200);
+SELECT col_1_CHAR = repeat("b", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("a", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("d", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+UPDATE worklog5743 SET col_1_CHAR = repeat("c", 200) WHERE col_1_CHAR =
+repeat("d", 200);
+SELECT col_1_CHAR = repeat("b", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("a", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("c", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("d", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT * FROM worklog5743 where col_1_CHAR = repeat("c", 200);
+SELECT * FROM worklog5743 where col_2_CHAR = repeat("o", 200);
+DROP TABLE worklog5743;
+
+
+CREATE TABLE worklog5743 (col_1_CHAR CHAR(255) , col_2_CHAR CHAR(255) ,
+PRIMARY KEY (col_1_CHAR)) engine = CTC STATS_PERSISTENT=0;
+INSERT INTO worklog5743 VALUES(repeat("a", 200) , repeat("o", 200));
+INSERT INTO worklog5743 VALUES(repeat("b", 200) , repeat("o", 200));
+SELECT col_1_CHAR = repeat("a", 200) , col_2_CHAR  = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("b", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT * FROM worklog5743 where col_1_CHAR = repeat("a", 200);
+UPDATE worklog5743 SET col_1_CHAR = repeat("d", 200) WHERE col_1_CHAR =
+repeat("a", 200) AND col_2_CHAR = repeat("o", 200);
+SELECT * FROM worklog5743 where col_1_CHAR = repeat("a", 200);
+SELECT * FROM worklog5743 where col_1_CHAR = repeat("d", 200);
+SELECT col_1_CHAR = repeat("b", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("a", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("d", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+UPDATE worklog5743 SET col_1_CHAR = repeat("c", 200) WHERE col_1_CHAR =
+repeat("d", 200);
+SELECT col_1_CHAR = repeat("b", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("a", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("c", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT col_1_CHAR = repeat("d", 200) , col_2_CHAR = repeat("o", 200) FROM
+worklog5743;
+SELECT * FROM worklog5743 where col_1_CHAR = repeat("c", 200);
+SELECT * FROM worklog5743 where col_2_CHAR = repeat("o", 200);
+DROP TABLE worklog5743;
+
+create table t1(a bigint , b char(255), c date) partition by list columns(a,b,c)
+(partition p0 values in((4,'aaa', '1948-10-10'),(5,'abb', '1949-10-10'),
+(6,'abc', '1950-10-10'),(7,'abd', '1951-10-10')),
+partition p1 values in((10, 'baa', '1990-10-10'),(11, 'bab', '1991-10-10'),
+(11, 'bac', '1992-10-10'),(12, 'bad', '1993-10-10')),
+partition p2 values in((20, 'caa', '2010-10-10'),(21, 'cab', '2011-10-10'),
+(22, 'cac', '2012-10-10'),(23, 'cad', '2013-10-10')),
+partition p3 values in ((30, 'daa', '2020-10-10'),(31, 'dab', '2021-10-10'),
+(32, 'dac', '2022-10-10'),(33, 'dae', '2023-10-10')));
+insert into t1 values(4,'aaa', '1948-10-10'),(10, 'baa', '1990-10-10'),
+(32, 'dac', '2022-10-10'),(22, 'cac', '2012-10-10');
+update t1 set a=6,b='abc',c='1950-10-10' where a=4;
+update t1 set a=32,b='dac',c='2022-10-10' where a=6;
+update t1 set a=11,b='bac',c='1992-10-10' where a=10;
+update t1 set a=4,b='aaa',c='1948-10-10' where a=22;
+drop table t1;

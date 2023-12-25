@@ -1,0 +1,160 @@
+#
+#  Copyright (C) 2023. Huawei Technologies Co., Ltd. All rights reserved.
+
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License, version 2.0,
+#   as published by the Free Software Foundation.
+
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License, version 2.0, for more details.
+
+#   You should have received a copy of the GNU General Public License
+#   along with this program; if not, write to the Free Software
+#   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
+#
+# Simple test for the TSE storage engine
+# with the data type which not supported by GaussDB
+# such as YEAR, TIME ,etc.
+#
+
+--disable_warnings
+drop table if exists t1;
+--enable_warnings
+
+-- echo # test with YEAR data type
+create table t1 (y year,y4 year(4));
+insert into t1 values (1999,1999),(2000,2000),(2001,2001),(70,70),(69,69),(null,null);
+select * from t1;
+drop table t1;
+
+create table t1(c1 YEAR);
+insert into t1 values (1901),(2155);
+select * from t1;
+drop table t1;
+
+-- echo # test with TIME data type
+#
+# Note:for TIME data type, TSE just support data 
+# range 00:00:00.000000 to 23:59:59.000000,
+# not -838:59:59.000000~838:59:59.000000
+#
+SET sql_mode = 'NO_ENGINE_SUBSTITUTION';
+create table t1 (t time);
+insert into t1 values("10:22:33"),("12:34:56.78"),(10),(1234),(123456.78),("1"),("1:23"),("1:23:45"), ("10.22"),("1999-02-03 20:33:34");
+insert t1 values (30),(1230),("1230"),("12:30"),("12:30:35");
+insert t1 values (NULL);
+select * from t1;
+drop table t1;
+
+create table t1(c1 time, c2 time(2), c3 time(4), c4 time(6));
+insert into t1 values ("10:22:33.567865","10:22:33.567865","10:22:33.567865","10:22:33.567865");
+select * from t1;
+drop table t1;
+SET sql_mode = default;
+
+-- echo # test with MEDIUMINT data type
+create table t1 (c1 MEDIUMINT);
+insert into t1 values (-8388608),(0),(100),(8388607),(null);
+select * from t1;
+drop table t1;
+
+create table t1 (c1 MEDIUMINT UNSIGNED);
+insert into t1 values (0),(100),(65535),(16777215),(null);
+select * from t1;
+drop table t1;
+
+-- echo # test with Json data type
+# check json_set
+create table t1 (c1 json);
+insert into t1 values ('{ "a": 1, "b": [2, 3]}');
+select * from t1;
+update t1 set c1 = json_set(c1, '$.a', 10, '$.c', '[true, false]');
+select * from t1;
+drop table t1;
+
+#check json_insert
+create table t1 (c1 json);
+insert into t1 values ('{ "a": 1, "b": [2, 3]}');
+update t1 set c1 = json_insert(c1, '$.a', 10, '$.c', '[true, false]');
+select * from t1;
+drop table t1;
+
+#check json_insert
+create table t1 (c1 json);
+insert into t1 values ('{ "a": 1, "b": [2, 3]}');
+update t1 set c1 = json_replace(c1, '$.a', 10, '$.c', '[true, false]');
+select * from t1;
+drop table t1;
+
+#check JSON_ARRAY_APPEND
+SET @j = '["a", ["b", "c"], "d"]';
+create table t1 (c1 json);
+insert into t1 values (@j);
+update t1 set c1 = JSON_ARRAY_APPEND(c1, '$[1]', 1);
+select * from t1;
+drop table t1;
+
+#check JSON_ARRAY_INSERT
+SET @j = '["a", {"b": [1, 2]}, [3, 4]]';
+create table t1 (c1 json);
+insert into t1 values (@j);
+update t1 set c1 = JSON_ARRAY_INSERT(c1, '$[1]', 'x');
+select * from t1;
+drop table t1;
+
+#check JSON_MERGE_PATCH
+create table t1 (c1 json);
+insert into t1 values (JSON_MERGE_PATCH('{"name": "x"}', '{"id": 47}', '{"id": 87}'));
+select * from t1;
+drop table t1;
+
+#check JSON_MERGE_PRESERVE
+create table t1 (c1 json);
+insert into t1 values (JSON_MERGE_PRESERVE('{"name": "x"}', '{"id": 47}', '{"id": 87}'));
+select * from t1;
+drop table t1;
+
+#check JSON_REMOVE
+SET @j = '["a", ["b", "c"], "d"]';
+create table t1 (c1 json);
+insert into t1 values (JSON_REMOVE(@j, '$[1]'));
+select * from t1;
+drop table t1;
+
+#check JSON_REMOVE
+SET @j = '["a", ["b", "c"], "d"]';
+create table t1 (c1 json);
+insert into t1 values (JSON_REMOVE(@j, '$[1]'));
+select * from t1;
+drop table t1;
+
+#check JSON_UNQUOTE
+create table t1 (c1 json);
+insert into t1 values (JSON_UNQUOTE('"\\t\\u0032"'));
+select * from t1;
+drop table t1;
+
+# json duplicate key update
+CREATE TABLE t1(id INT PRIMARY KEY, j JSON);
+INSERT INTO t1 VALUES (1, '[1]') AS n ON DUPLICATE KEY UPDATE j = JSON_OBJECT("a", n.j);
+SELECT * FROM t1;
+INSERT INTO t1 VALUES (1, '[1,2]') AS n ON DUPLICATE KEY UPDATE j = JSON_OBJECT("ab", n.j);
+SELECT * FROM t1;
+INSERT INTO t1 VALUES (1, '[1,2,3]') AS n ON DUPLICATE KEY UPDATE j = JSON_OBJECT("abc", n.j);
+SELECT * FROM t1;
+drop table t1;
+
+# json cast
+CREATE TABLE t1 (i INT, j JSON) CHARSET utf8mb4;
+INSERT INTO t1 VALUES (16, CAST(CAST('2015-01-15 23:24:25' AS DATETIME) AS JSON));
+INSERT INTO t1 VALUES (17, CAST(CAST('23:24:25' AS TIME) AS JSON));
+INSERT INTO t1 VALUES (18, CAST(CAST('2015-01-15' AS DATE) AS JSON));
+INSERT INTO t1 VALUES (19, CAST(TIMESTAMP'2015-01-15 23:24:25' AS JSON));
+INSERT INTO t1 VALUES (20, CAST(ST_GeomFromText('POINT(1 1)') AS JSON));
+INSERT INTO t1 VALUES (21, CAST('1988' AS CHAR CHARACTER SET 'ascii'));
+INSERT INTO t1 VALUES (22, CAST(x'07C4' AS JSON));
+INSERT INTO t1 VALUES (23, CAST(x'07C407C4' AS JSON));
+SELECT i, CAST(j AS YEAR), CAST(j AS SIGNED) FROM t1 ORDER BY i;
+drop table t1;

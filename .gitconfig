@@ -1,0 +1,10 @@
+# To automatically add this to your git config so that “git add” and
+# “git merge” automatically run clang-format, use
+#
+#   git config --local include.path ../.gitconfig
+#
+[filter "codeformat"]
+	clean = clang-format --assume-filename=%f --style=file
+[merge]
+	renormalize = true
+

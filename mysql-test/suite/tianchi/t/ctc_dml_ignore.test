@@ -1,0 +1,208 @@
+#
+#  Copyright (C) 2023. Huawei Technologies Co., Ltd. All rights reserved.
+
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License, version 2.0,
+#   as published by the Free Software Foundation.
+
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License, version 2.0, for more details.
+
+#   You should have received a copy of the GNU General Public License
+#   along with this program; if not, write to the Free Software
+#   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
+--disable_warnings
+drop table if exists t1,t2;
+--enable_warnings
+
+CREATE TABLE t1 (
+`colA` int(10) unsigned NOT NULL auto_increment,
+`colB` int(11) NOT NULL default '0',
+PRIMARY KEY (`colA`)
+);
+INSERT INTO t1 VALUES (4433,5424);
+CREATE TABLE t2 (
+`colC` int(10) unsigned NOT NULL default '0',
+`colA` int(10) unsigned NOT NULL default '0',
+`colD` int(10) unsigned NOT NULL default '0',
+`colE` int(10) unsigned NOT NULL default '0',
+`colF` int(10) unsigned NOT NULL default '0',
+PRIMARY KEY (`colC`,`colA`,`colD`,`colE`)
+);
+INSERT INTO t2 VALUES (3,4433,10005,495,500);
+INSERT INTO t2 VALUES (3,4433,10005,496,500);
+INSERT INTO t2 VALUES (3,4433,10009,494,500);
+INSERT INTO t2 VALUES (3,4433,10011,494,500);
+INSERT INTO t2 VALUES (3,4433,10005,497,500);
+INSERT INTO t2 VALUES (3,4433,10013,489,500);
+INSERT INTO t2 VALUES (3,4433,10005,494,500);
+INSERT INTO t2 VALUES (3,4433,10005,493,500);
+INSERT INTO t2 VALUES (3,4433,10005,492,500);
+select * from t2;
+UPDATE IGNORE t2 set colE = colE + 1, colF = 0 where colE = 494;
+select * from t2;
+UPDATE IGNORE t2 set colE = colE - 1, colF = 500 where colF = 0;
+select * from t2;
+UPDATE IGNORE t2,t1 set t2.colE = t2.colE + 1,colF = 0 WHERE t1.colA = t2.colA AND (t1.colB & 4096) > 0 AND (colE + 1) < colF;
+select * from t2;
+UPDATE IGNORE t2 set colE = colE - 1, colF = 500 where colF = 0;
+select * from t2;
+UPDATE IGNORE t2,t1 set t2.colE = t2.colE - 1,colF = 0 WHERE t1.colA = t2.colA AND (t1.colB & 4096) > 0 AND (colE + 1) < colF;
+select * from t2;
+UPDATE IGNORE t2 set colE = colE + 1, colF = 500 where colF = 0;
+select * from t2;
+drop table t1,t2;
+
+create table parent (a int primary key, b int);
+create table child (a int, b int, foreign key (a) references parent(a));
+insert into parent values (1,1),(2,2),(3,3),(4,4),(8,8),(9,9),(10,10);
+insert IGNORE into child values (1,1),(2,2),(3,3),(4,4),(5,5),(6,6),(7,7);
+select * from child;
+delete IGNORE from parent where b < 4;
+delete IGNORE from parent where b = 2;
+select * from parent;
+delete IGNORE from parent where b <= 10;
+select * from parent;
+drop table child;
+drop table parent;
+
+create table parent (a int primary key, b int);
+create table child (a int, b int, foreign key (a) references parent(a));
+insert into parent values (1,1),(2,2),(3,3),(4,4),(8,8),(9,9),(10,10);
+insert IGNORE into child values (1,1),(2,2),(3,3),(4,4),(5,5),(6,6),(7,7);
+select * from child;
+update IGNORE parent set a = 11 where a = 2;
+select * from parent;
+update IGNORE parent set a = 12 where a = 10;
+select * from parent;
+update IGNORE parent set a = 13 where a = 3;
+select * from parent;
+update IGNORE parent set a = a + 1;
+select * from parent;
+update IGNORE parent set a = a + 1;
+select * from parent;
+drop table child;
+drop table parent;
+
+create table parent (a int primary key, b int);
+create table child (a int, b int, foreign key (a) references parent(a));
+insert into parent values (1,1),(2,2),(3,3),(4,4),(8,8),(9,9),(10,10);
+insert IGNORE into child values (1,1),(2,2),(3,3),(4,4),(5,5),(6,6),(7,7);
+select * from child;
+update IGNORE child set a = 11 where a = 2;
+select * from child;
+update IGNORE child set a = 12 where a = 3;
+select * from child;
+update IGNORE child set a = 8 where a = 3;
+select * from child;
+update IGNORE child set a = a + 1;
+select * from child;
+update IGNORE child set a = a + 1;
+select * from child;
+drop table child;
+drop table parent;
+
+create table class(id int primary key auto_increment,c_name varchar(20) not null,room varchar(20));
+create table my_foreign1(id int primary key auto_increment,
+    name varchar(20) not null comment '学生姓名',
+    c_id int comment '班级表ID',
+    CONSTRAINT fk_id foreign key(c_id) references class(id)	
+);
+insert into class values(1,'abc','aaa');
+insert into class values(2,'abc2','bbb');
+insert into class values(3,'abc3','ccc');
+insert into class values(4,'4','4');
+select * from class;
+--error 1452 
+insert into my_foreign1 values(null,'Charies1','6'); #父表没有，因为有外键依赖所以插入不了
+--error 1452 
+insert into my_foreign1 values(null,'Charies2','7');
+--error 1452 
+insert into my_foreign1 values(null,'Charies3','8');
+SET FOREIGN_KEY_CHECKS = 0;
+insert into my_foreign1 values(null,'Charies','6'); #忽略外键约束检查，预期插入成功
+insert into my_foreign1 values(null,'Charies2','7');
+insert into my_foreign1 values(null,'Charies3','8');
+select * from my_foreign1;
+SET FOREIGN_KEY_CHECKS = 1;
+insert into my_foreign1 values(null,'Charies','1');
+insert into my_foreign1 values(null,'Bob','2');
+insert into my_foreign1 values(null,'Bob1','3');
+select * from my_foreign1;
+--error 1451
+#ERROR 1452 (23000): Cannot delete or update a parent row: a foreign key constraint fails (`demo_db`.`my_foreign1`, CONSTRAINT `fk_id` FOREIGN KEY (`c_id`) REFERENCES `class` (`id`))
+delete from class where id = 2;
+--error 1451
+#ERROR 1452 (23000): Cannot delete or update a parent row: a foreign key constraint fails (`demo_db`.`my_foreign1`, CONSTRAINT `fk_id` FOREIGN KEY (`c_id`) REFERENCES `class` (`id`))
+delete from class where id = 3;
+SET FOREIGN_KEY_CHECKS = 0;
+delete from class where id = 2;
+select * from class;
+delete from class where id = 3;
+select * from class;
+SET FOREIGN_KEY_CHECKS = 1;
+insert into class values(2,'abc2','bbb');
+insert into class values(3,'abc3','ccc');
+--error 1451
+#ERROR 1452 (23000): Cannot delete or update a parent row: a foreign key constraint fails (`demo_db`.`my_foreign1`, CONSTRAINT `fk_id` FOREIGN KEY (`c_id`) REFERENCES `class` (`id`))
+update class set id = 100 where id = 2;
+SET FOREIGN_KEY_CHECKS = 0;
+update class set id = 100 where id = 2;
+select * from class;
+SET FOREIGN_KEY_CHECKS = 1;
+update class set id = 101 where id = 4;#4没有被子表引用，可以更改
+delete from class where id = 100;#100没有被子表引用，可以更改
+drop table my_foreign1;
+drop table class;
+
+
+create table t1 (id int primary key auto_increment, operation varchar(255));
+create table t1_op_log(operation varchar(255));
+create view v1 as select * from t1;
+create trigger trg_bug28502_bi before insert on t1
+for each row
+  insert into t1_op_log (operation)
+  values (concat("Before INSERT, new=", new.operation));
+
+create trigger trg_bug28502_ai after insert on t1
+for each row
+  insert into t1_op_log (operation)
+  values (concat("After INSERT, new=", new.operation));
+
+create trigger trg_bug28502_bu before update on t1
+for each row
+  insert into t1_op_log (operation)
+  values (concat("Before UPDATE, new=", new.operation,
+                 ", old=", old.operation));
+
+create trigger trg_bug28502_au after update on t1
+for each row
+  insert into t1_op_log (operation)
+  values (concat("After UPDATE, new=", new.operation,
+                 ", old=", old.operation));
+
+create trigger trg_bug28502_bd before delete on t1
+for each row
+  insert into t1_op_log (operation)
+  values (concat("Before DELETE, old=", old.operation));
+
+create trigger trg_bug28502_ad after delete on t1
+for each row
+  insert into t1_op_log (operation)
+  values (concat("After DELETE, old=", old.operation));
+
+insert into t1 (operation) values ("INSERT");
+
+set @id=last_insert_id();
+replace into v1
+select @id, "CREATE TABLE ... REPLACE SELECT, deleting a duplicate key";
+drop trigger if exists trg_bug28502_bi;
+drop trigger if exists trg_bug28502_ai;
+drop trigger if exists trg_bug28502_bu; 
+drop trigger if exists trg_bug28502_au;
+drop trigger if exists trg_bug28502_bd;
+drop trigger if exists trg_bug28502_ad; 
+drop table t1, t1_op_log;
+drop view v1;

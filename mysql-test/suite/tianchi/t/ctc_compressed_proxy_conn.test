@@ -1,0 +1,32 @@
+#
+#  Copyright (C) 2023. Huawei Technologies Co., Ltd. All rights reserved.
+
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License, version 2.0,
+#   as published by the Free Software Foundation.
+
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License, version 2.0, for more details.
+
+#   You should have received a copy of the GNU General Public License
+#   along with this program; if not, write to the Free Software
+#   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
+
+# server set to allow new connection must use zstd compressed header to handshake
+SET GLOBAL protocol_compression_algorithms= "zstd";
+# next SET SQL will new a internal proxy conn. only proxy conn support compressed can it succeed.
+SET GLOBAL protocol_compression_algorithms= "zstd";
+--disable_warnings
+drop table if exists t1;
+--enable_warnings
+create table t1 (ID integer not null, NAME varchar(19), AGE integer, GRADE real);
+insert into t1 values (1, 'LIOR', 35, 6.9);  
+insert into t1 values (4, 'MIKE', 55, 99.92);  
+SELECT * FROM t1;
+drop table t1;
+SET GLOBAL protocol_compression_algorithms= "zlib";
+SET GLOBAL protocol_compression_algorithms= "zlib";
+# set back to original options
+SET GLOBAL protocol_compression_algorithms= "zlib,zstd,uncompressed";
