@@ -1,0 +1,34 @@
+# emacs backup files
+*~
+
+# Misc tags/ctags files
+tags
+TAGS
+TAGS_sorted_by_file
+cscope*.out
+
+# googletest files
+source_downloads
+
+# Vim swap files
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+
+# Configuration files for Visual Studio Code
+.vscode/
+
+# Bld
+/bld
+/bld_debug
+/bld_release
+/mysql-source
+# daac
+/daac_lib
+/mysql_bin
+
+# test
+/bin
+mysql-test/stdin.log

@@ -1,0 +1,63 @@
+#
+#  Copyright (C) 2023. Huawei Technologies Co., Ltd. All rights reserved.
+
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License, version 2.0,
+#   as published by the Free Software Foundation.
+
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License, version 2.0, for more details.
+
+#   You should have received a copy of the GNU General Public License
+#   along with this program; if not, write to the Free Software
+#   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
+--disable_warnings
+drop table if exists handler_table;
+--enable_warnings
+
+# create a table.
+create table handler_table(id int, name varchar(10));
+
+insert into handler_table values(3, '张三');
+insert into handler_table values(4, '李四');
+insert into handler_table values(5, '王五');
+insert into handler_table values(1, '刘一');
+insert into handler_table values(2, '陈二');
+select *from handler_table;
+handler handler_table open;
+handler handler_table read first;
+handler handler_table read next;
+handler handler_table close;
+
+create index handler_index on handler_table(id);
+
+handler handler_table open;
+# 打开句柄并命名为 p
+handler handler_table open as p;
+# 通过索引获取第一行数据
+handler p read handler_index first;
+# 获取下一行数据
+handler p read handler_index next;
+# 获取上一行数据
+handler p read handler_index prev;
+# 获取最后一行数据
+handler p read handler_index last;
+# 关闭已打开的句柄
+handler p close;
+
+# 打开句柄并命名为 p
+handler handler_table open as p;
+# 指定索引开始查看数据
+handler p read handler_index = (2);
+# 获取第一行数据
+handler p read handler_index first;
+# 获取下一行数据
+handler p read handler_index next;
+# 获取上一行数据
+handler p read handler_index prev;
+# 获取最后一行数据
+handler p read handler_index last;
+handler p close;
+drop table handler_table;

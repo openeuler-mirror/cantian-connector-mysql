@@ -1,0 +1,99 @@
+#
+#  Copyright (C) 2023. Huawei Technologies Co., Ltd. All rights reserved.
+
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License, version 2.0,
+#   as published by the Free Software Foundation.
+
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License, version 2.0, for more details.
+
+#   You should have received a copy of the GNU General Public License
+#   along with this program; if not, write to the Free Software
+#   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
+
+drop database if exists test_DB;
+create database test_DB;
+use test_DB;
+
+create table t1 (a int, b int, c int, d int);
+create index idx1 on t1 (d, c, b);
+insert into t1 values (1,2,null,4);
+insert into t1 values (1,2,3,null);
+insert into t1 values (1,2,3,4);
+# index_only
+select b from t1 where b = 2;
+select b, c from t1;
+select d from t1;
+# 非index_only
+select a, b from t1;
+select * from t1;
+drop table t1;
+
+# all column is index
+create table t2 (a int, b int, c int, d int);
+create index idx2 on t2 (d, a, c, b);
+insert into t2 values (1,2,null,4);
+insert into t2 values (1,2,3,null);
+insert into t2 values (1,2,3,4);
+# index_only
+select a from t2 where a = 1;
+select b, c from t2;
+select d from t2;
+# 非index_only
+select * from t2;
+drop table t2;
+
+# with no index
+create table t3 (a int, b int, c int, d int);
+insert into t3 values (1,2,3,4);
+insert into t3 values (1,2,3,4);
+insert into t3 values (1,2,3,4);
+select a from t3 where a = 1;
+select b, c from t3;
+select d from t3;
+select * from t3;
+drop table t3;
+
+# drop column with index
+create table t4 (a int, b int, c int, d int, e int, f int);
+create index idx4 on t4 (f,e,d);
+insert into t4 values (1,2,3,4,null,6);
+insert into t4 values (1,2,3,4,5,null);
+insert into t4 values (1,2,3,4,5,6);
+insert into t4 values (1,2,3,4,5,6);
+select * from t4;
+alter table t4 drop column a;
+select d from t4 where d = 4;
+select * from t4 where d = 4;
+alter table t4 drop column b;
+select d from t4 where d = 4;
+select * from t4 where f = 6;
+drop table t4;
+
+# drop column with no index
+create table t5 (a int, b int, c int, d int, e int, f int);
+insert into t5 values (1,2,3,4,null,6);
+insert into t5 values (1,2,3,4,5,null);
+insert into t5 values (1,2,3,4,5,6);
+insert into t5 values (1,2,3,4,5,6);
+select * from t5;
+alter table t5 drop column a;
+select d from t5 where d = 4;
+select * from t5 where d = 4;
+alter table t5 drop column b;
+select d from t5 where d = 4;
+drop table t5;
+
+create table t6(id int, v json)default CHARACTER SET=ascii;
+insert into t6 values(1,'[0,1.1, "abc", "00:00:00", "1000-01-01 00:00:00", "1000-01-01", "2155", {"k1":1}, [1,2], true, null]');
+select * from t6 where id=1;
+ insert into t6 values(2,'{"k1":1, "k2":1.5, "k3":"abc", "k4":"00:00:00", "k5":"1000-01-01 00:00:00","k6":"1000-01-01","k7":"2155","k8":{"k1":1},"k9":[1,2],"k10":true, "k11":null}');
+select * from t6 where id=2;
+update t6 set v='[1]' where id=1;
+select * from t6;
+drop table t6;
+
+drop database test_DB;

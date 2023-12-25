@@ -1,0 +1,286 @@
+#
+#  Copyright (C) 2023. Huawei Technologies Co., Ltd. All rights reserved.
+
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License, version 2.0,
+#   as published by the Free Software Foundation.
+
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License, version 2.0, for more details.
+
+#   You should have received a copy of the GNU General Public License
+#   along with this program; if not, write to the Free Software
+#   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
+
+--disable_warnings
+DROP TABLE IF EXISTS table_11733 ;
+--enable_warnings
+
+set @orig_sql_mode= @@sql_mode;
+create user test@localhost;
+grant CREATE, INSERT, SELECT, DROP on *.* to test@localhost;
+
+connect (con1,localhost,test,,test);
+
+connection default;
+set global read_only=0;
+
+# Any transactional engine will do
+create table table_11733 (a int);
+
+connection con1;
+BEGIN;
+insert into table_11733 values(11733);
+
+connection default;
+set global read_only=1;
+
+connection con1;
+select @@global.read_only;
+select * from table_11733 ;
+--error 1290
+COMMIT;
+
+connection default;
+set global read_only=0;
+connection con1;
+COMMIT;
+connection default;
+drop table table_11733 ;
+drop user test@localhost;
+
+disconnect con1;
+
+CREATE USER test@localhost;
+GRANT CREATE, SELECT, DROP ON *.* TO test@localhost;
+connect(con1, localhost, test, , test);
+
+connection default;
+CREATE TABLE t1(a INT);
+INSERT INTO t1 VALUES (0), (1);
+SET GLOBAL read_only=1;
+
+connection con1;
+SELECT * FROM t1;
+BEGIN;
+SELECT * FROM t1;
+COMMIT;
+
+connection default;
+SET GLOBAL read_only=0;
+
+FLUSH TABLES WITH READ LOCK;
+connection con1;
+SELECT * FROM t1;
+BEGIN;
+SELECT * FROM t1;
+COMMIT;
+
+connection default;
+UNLOCK TABLES;
+DROP TABLE t1;
+DROP USER test@localhost;
+
+disconnect con1;
+
+
+--disable_warnings
+DROP DATABASE IF EXISTS db1;
+--enable_warnings
+
+--echo # Setup user and tables
+CREATE USER bug33669@localhost;
+CREATE DATABASE db1;
+CREATE TABLE db1.t1 (a INT);
+CREATE TABLE db1.t2 (a INT);
+INSERT INTO db1.t1 VALUES (1);
+INSERT INTO db1.t2 VALUES (2);
+GRANT CREATE TEMPORARY TABLES, DROP, INSERT, DELETE, UPDATE,
+      SELECT, LOCK TABLES ON db1.* TO bug33669@localhost;
+SET GLOBAL READ_ONLY = ON;
+connect(con1,localhost,bug33669,,db1);
+
+CREATE TEMPORARY TABLE temp (a INT);
+INSERT INTO temp VALUES (1);
+DROP TABLE temp;
+
+
+CREATE TEMPORARY TABLE temp (a INT);
+LOCK TABLES t1 READ, t2 READ;
+SELECT * FROM t1;
+INSERT INTO temp values (1);
+SELECT * FROM t2;
+UNLOCK TABLES;
+DROP TABLE temp;
+
+BEGIN;
+SELECT * FROM t1;
+CREATE TEMPORARY TABLE temp (a INT);
+--error ER_OPTION_PREVENTS_STATEMENT
+INSERT INTO t1 VALUES (1);
+INSERT INTO temp VALUES (1);
+SELECT * FROM t2;
+ROLLBACK;
+SELECT * FROM temp;
+DROP TABLE temp;
+
+
+CREATE TEMPORARY TABLE temp (a INT);
+LOCK TABLES t1 READ, temp WRITE;
+SELECT * FROM t1;
+SELECT * FROM temp;
+--error ER_OPTION_PREVENTS_STATEMENT
+INSERT INTO t1 VALUES (1);
+INSERT INTO temp VALUES (1);
+DROP TABLE temp;
+UNLOCK TABLES;
+
+CREATE TEMPORARY TABLE t1 (a INT);
+LOCK TABLES t1 WRITE;
+DROP TABLE t1;
+--error ER_TABLE_NOT_LOCKED
+SELECT * FROM t1;
+
+CREATE TEMPORARY TABLE temp1 (a INT);
+CREATE TEMPORARY TABLE temp2 LIKE temp1;
+BEGIN;
+INSERT INTO temp1 VALUES (10);
+INSERT INTO temp2 VALUES (10);
+INSERT INTO temp1 SELECT * FROM t1;
+INSERT INTO temp2 SELECT * FROM t2;
+SELECT * FROM temp1 ORDER BY a;
+SELECT * FROM temp2 ORDER BY a;
+ROLLBACK;
+SELECT * FROM temp1,temp2;
+LOCK TABLES t1 READ, t2 READ;
+INSERT INTO temp1 VALUES (10);
+INSERT INTO temp2 VALUES (10);
+INSERT INTO temp1 SELECT * FROM t1;
+INSERT INTO temp2 SELECT * FROM t2;
+SELECT * FROM temp1 ORDER BY a;
+SELECT * FROM temp2 ORDER BY a;
+UNLOCK TABLES;
+DELETE temp1, temp2 FROM temp1, temp2;
+INSERT INTO temp1 VALUES (10);
+INSERT INTO temp2 VALUES (10);
+INSERT INTO temp1 SELECT * FROM t1;
+INSERT INTO temp2 SELECT * FROM t2;
+SELECT * FROM temp1 ORDER BY a;
+SELECT * FROM temp2 ORDER BY a;
+DROP TABLE temp1, temp2;
+
+CREATE TEMPORARY TABLE temp1 (a INT);
+CREATE TEMPORARY TABLE temp2 LIKE temp1;
+INSERT INTO temp1 (a) VALUES ((SELECT MAX(a) FROM t1));
+LOCK TABLES t2 READ;
+INSERT INTO temp2 (a) VALUES ((SELECT MAX(a) FROM t2));
+UNLOCK TABLES;
+LOCK TABLES t1 READ, t2 READ;
+INSERT INTO temp1 SELECT * FROM t1 WHERE a < (SELECT MAX(a) FROM t2);
+INSERT INTO temp2 SELECT * FROM t2 WHERE a > (SELECT MAX(a) FROM t1);
+UNLOCK TABLES;
+INSERT INTO temp1 SELECT * FROM t1 WHERE a < (SELECT MAX(a) FROM t2);
+INSERT INTO temp2 SELECT * FROM t2 WHERE a > (SELECT MAX(a) FROM t1);
+SELECT * FROM temp1 ORDER BY a;
+SELECT * FROM temp2 ORDER BY a;
+DROP TABLE temp1, temp2;
+
+CREATE TEMPORARY TABLE temp1 (a INT);
+CREATE TEMPORARY TABLE temp2 LIKE temp1;
+INSERT INTO temp1 VALUES (1),(2);
+INSERT INTO temp2 VALUES (3),(4);
+UPDATE temp1,temp2 SET temp1.a = 5, temp2.a = 10;
+SELECT * FROM temp1, temp2;
+DROP TABLE temp1, temp2;
+
+disconnect con1;
+connection default;
+SET GLOBAL READ_ONLY = OFF;
+DROP USER bug33669@localhost;
+DROP DATABASE db1;
+
+SET @start_read_only = @@global.read_only;
+SET @start_super_read_only = @@global.super_read_only;
+SELECT @start_read_only, @start_super_read_only;
+
+SET @@global.super_read_only = 1;
+SET @@global.super_read_only = DEFAULT;
+SELECT @@global.super_read_only;
+
+SET @@global.super_read_only = @start_super_read_only;
+SELECT @@global.super_read_only = 0;
+
+SET @@global.super_read_only = 0;
+SELECT @@global.super_read_only;
+SET @@global.super_read_only = 1;
+SELECT @@global.super_read_only;
+SET @@global.super_read_only = TRUE;
+SELECT @@global.super_read_only;
+SET @@global.super_read_only = FALSE;
+SELECT @@global.super_read_only;
+SET @@global.super_read_only = ON;
+SELECT @@global.super_read_only;
+SET @@global.super_read_only = OFF;
+SELECT @@global.super_read_only;
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.super_read_only = -1;
+SELECT @@global.super_read_only;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.super_read_only = 4294967296;
+SELECT @@global.super_read_only;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.super_read_only = 10240022115;
+SELECT @@global.super_read_only;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.super_read_only = 10000.01;
+SELECT @@global.super_read_only;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.super_read_only = -1024;
+SELECT @@global.super_read_only;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.super_read_only = 42949672950;
+SELECT @@global.super_read_only;
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.super_read_only = 'test';
+SELECT @@global.super_read_only;
+
+--Error ER_GLOBAL_VARIABLE
+SET @@session.super_read_only = 0;
+SELECT @@super_read_only;
+
+--disable_warnings
+SELECT IF(@@global.super_read_only, "ON", "OFF") = VARIABLE_VALUE 
+FROM performance_schema.global_variables 
+WHERE VARIABLE_NAME='super_read_only';
+
+SELECT IF(@@read_only, "ON", "OFF") = VARIABLE_VALUE 
+FROM performance_schema.session_variables 
+WHERE VARIABLE_NAME='super_read_only';
+--enable_warnings
+
+SET @@global.super_read_only = 1;
+SELECT @@super_read_only = @@global.super_read_only;
+
+--Error ER_GLOBAL_VARIABLE
+SET super_read_only = 1;
+SELECT @@super_read_only;
+--Error ER_PARSE_ERROR
+SET local.super_read_only = 1;
+--Error ER_UNKNOWN_TABLE
+SELECT local.super_read_only;
+--Error ER_PARSE_ERROR
+SET global.super_read_only = 1;
+--Error ER_UNKNOWN_TABLE
+SELECT global.super_read_only;
+--Error ER_BAD_FIELD_ERROR
+SELECT super_read_only = @@session.super_read_only;
+
+SET @@global.read_only = @start_read_only;
+SET @@global.super_read_only = @start_super_read_only;
+
+SELECT @@global.super_read_only;
+SELECT @@global.read_only;

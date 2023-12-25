@@ -1,0 +1,248 @@
+#
+#  Copyright (C) 2023. Huawei Technologies Co., Ltd. All rights reserved.
+
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License, version 2.0,
+#   as published by the Free Software Foundation.
+
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License, version 2.0, for more details.
+
+#   You should have received a copy of the GNU General Public License
+#   along with this program; if not, write to the Free Software
+#   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
+# JSON_VALUE with an implicit RETURNING clause (which returns
+# CHAR(512) with utf8mb4 encoding).
+
+--disable_warnings
+drop table if exists t1;
+--enable_warnings
+
+
+# create a table with index json_value without returning
+CREATE TABLE t1(j JSON, KEY i1((JSON_VALUE(j, '$'))));
+SHOW CREATE TABLE t1;
+INSERT INTO t1 VALUES('"asdf"'),('"dfgh"'),('"FghJ"'),('"fghj"'),('"hjkl"');
+ANALYZE TABLE t1;
+--let $query = SELECT * FROM t1 WHERE JSON_VALUE(j, '$' RETURNING CHAR(10)) = 'fghj'
+--eval EXPLAIN $query
+--eval $query
+--echo # The index is not used if the JSON_VALUE expressions differ.
+EXPLAIN SELECT * FROM t1 WHERE JSON_VALUE(j, '$' RETURNING CHAR(11)) = 'fghj';
+SELECT * FROM t1 WHERE JSON_VALUE(j, '$' RETURNING CHAR(11)) = 'fghj';
+EXPLAIN SELECT * FROM t1 WHERE JSON_VALUE(j, '$') = 'fghj';
+DROP TABLE t1;
+
+
+# create a table with index json_value with returning char
+CREATE TABLE t1(j JSON, KEY i1((JSON_VALUE(j, '$' RETURNING CHAR(10)))));
+SHOW CREATE TABLE t1;
+INSERT INTO t1 VALUES('"asdf"'),('"dfgh"'),('"FghJ"'),('"fghj"'),('"hjkl"');
+ANALYZE TABLE t1;
+--let $query = SELECT * FROM t1 WHERE JSON_VALUE(j, '$' RETURNING CHAR(10)) = 'fghj'
+--eval EXPLAIN $query
+--eval $query
+--echo # The index is not used if the JSON_VALUE expressions differ.
+EXPLAIN SELECT * FROM t1 WHERE JSON_VALUE(j, '$' RETURNING CHAR(11)) = 'fghj';
+SELECT * FROM t1 WHERE JSON_VALUE(j, '$' RETURNING CHAR(11)) = 'fghj';
+EXPLAIN SELECT * FROM t1 WHERE JSON_VALUE(j, '$') = 'fghj';
+DROP TABLE t1;
+
+
+# create a table with index json_value with returning charset
+CREATE TABLE t1(j JSON,
+  KEY i1((JSON_VALUE(j, '$' RETURNING CHAR(10) CHARSET utf8mb4))));
+SHOW CREATE TABLE t1;
+INSERT INTO t1 VALUES('"asdf"'),('"dfgh"'),('"FghJ"'),('"fghj"'),('"hjkl"');
+ANALYZE TABLE t1;
+let $query =
+  SELECT * FROM t1
+    WHERE JSON_VALUE(j, '$' RETURNING CHAR(10) CHARSET utf8mb4) = 'fghj';
+--eval EXPLAIN $query
+--eval $query
+--echo # The index is not used if the JSON_VALUE expressions differ.
+SELECT * FROM t1 WHERE JSON_VALUE(j, '$' RETURNING CHAR(10) CHARSET latin1) = 'fghj';
+EXPLAIN SELECT * FROM t1
+  WHERE JSON_VALUE(j, '$' RETURNING CHAR(10) CHARSET latin1) = 'fghj';
+DROP TABLE t1;
+
+
+# create a table with index json_value  to clob outline
+CREATE TABLE t1(j JSON,   KEY i1((JSON_VALUE(j, '$.name' RETURNING CHAR(100)CHARSET utf8mb4))));
+SHOW CREATE TABLE t1;
+INSERT INTO t1 VALUES('{"name":"First Primary School", "create_time":"2012-05-08", "classes": [{"name":"class 1", 
+    "size":50, "teachers":{"teacher":"Master Zhang", "age":31}}, {"name":"class 2", "size":45, 
+    "teachers":{"teacher":"Master Liu", "age":40}}]}');
+insert into t1 values('{"name":"First Primary School","create_time":"2012-05-08","year":38,
+    "classes":[{"name":"class 1","size":50,"teachers":{"teacher":"Master Zhang","age":31}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 3","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 4","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 5","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 6","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 7","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 8","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 9","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 10","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 11","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 12","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 13","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 14","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 15","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 16","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}}]}');
+ANALYZE TABLE t1;
+--let $query = SELECT * FROM t1 WHERE JSON_VALUE(j, '$.name' RETURNING CHAR(100)) = 'First Primary School'
+--eval EXPLAIN $query
+--eval $query
+--echo # The index is not used if the JSON_VALUE expressions differ.
+EXPLAIN SELECT * FROM t1 WHERE JSON_VALUE(j, '$.name' RETURNING CHAR(100)) = 'First Primary School';
+EXPLAIN SELECT * FROM t1 WHERE JSON_VALUE(j, '$.name') = 'First Primary School';
+DROP TABLE t1;
+
+
+# not supported json_value index 
+--error 3655
+CREATE TABLE t1(j JSON, KEY i1((JSON_VALUE(j, '$' RETURNING SIGNED))));
+--error 3655
+CREATE TABLE t1(j JSON, KEY i1((JSON_VALUE(j, '$' RETURNING UNSIGNED))));
+--error 3655
+CREATE TABLE t1(j JSON, KEY i1((JSON_VALUE(j, '$' RETURNING DECIMAL(3, 2)))));
+--error 3655
+CREATE TABLE t1(j JSON, KEY i1((JSON_VALUE(j, '$' RETURNING FLOAT))));
+--error 3655
+CREATE TABLE t1(j JSON, KEY i1((JSON_VALUE(j, '$' RETURNING DOUBLE))));
+--error 3655
+CREATE TABLE t1(j JSON, KEY i1((JSON_VALUE(j, '$' RETURNING DATETIME))));
+--error 3655
+CREATE TABLE t1(j JSON, KEY i1((JSON_VALUE(j, '$' RETURNING TIME))));
+--error 3655
+CREATE TABLE t1(j JSON, KEY i1((JSON_VALUE(j, '$' RETURNING DATE))));

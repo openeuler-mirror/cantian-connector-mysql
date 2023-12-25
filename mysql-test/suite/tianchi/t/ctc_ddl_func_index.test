@@ -1,0 +1,69 @@
+#
+#  Copyright (C) 2023. Huawei Technologies Co., Ltd. All rights reserved.
+
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License, version 2.0,
+#   as published by the Free Software Foundation.
+
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License, version 2.0, for more details.
+
+#   You should have received a copy of the GNU General Public License
+#   along with this program; if not, write to the Free Software
+#   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
+--disable_warnings
+drop database if exists db1;
+--enable_warnings
+
+
+# 创建函数索引正常场景
+create database db1;
+use db1;
+create table t1 (c1 int, c2 int, c3 varchar(10), c4 varchar(10));
+insert into t1 values (1, 1, 'aaa', 'aaa'), (2, 2, 'aaA', 'aBB'), (3, 3, 'AAA', 'CDSV'), (4, 4, 'aaBa', 'Aaa');
+select * from t1;
+select * from t1 where upper(c3) = 'AAA';
+explain select * from t1 where upper(c3) = 'AAA';
+create index func_index_1 on t1 ((upper(c3)));
+select * from t1 where upper(c3) = 'AAA';
+explain select * from t1 where upper(c3) = 'AAA';
+create index func_index_2 on t1 ((substr(c4, 1, 1)));
+select * from t1 where substr(c4, 1, 1) = 'a';
+explain select * from t1 where substr(c4, 1, 1) = 'a';
+
+
+# 删除函数索引
+alter table t1 drop index func_index_1;
+drop index func_index_2 on t1;
+
+
+# 创建函数索引异常场景
+create table t2 (c1 int, c2 int, c3 varchar(10));
+insert into t2 values (1, 1, 'aaa'), (2, 2, 'aaA'), (3, 3, 'AAA'), (4, 4, 'aaBa');
+select * from t2;
+create index func_index_abs on t2 ((abs(c1)));
+--error ER_DISALLOWED_OPERATION
+create index func_index_2 on t2 ((c1 + c2));
+
+
+# 创建表时创建函数索引场景
+create table t3 (c1 int, c2 int, c3 varchar(10), index func_idx_1 ((upper(c3))));
+insert into t3 values (1, 1, 'aaa'), (2, 2, 'aaA'), (3, 3, 'AAA'), (4, 4, 'aaBa');
+select * from t3;
+select * from t3 where upper(c3) = 'AAA';
+explain select * from t3 where upper(c3) = 'AAA';
+create table t4 (c1 int, c2 int, c3 varchar(10), index func_idx_1 ((substr(c3, 1, 1))));
+insert into t4 values (1, 1, 'aaa'), (2, 2, 'baa'), (3, 3, 'Bbb');
+select * from t4 where substr(c3, 1, 1) = 'b';
+explain select * from t4 where substr(c3, 1, 1) = 'b';
+
+create table t5 (c1 int, c2 int, c3 varchar(10), index func_idx_1 ((abs(c1))));
+drop table t5;
+# 创建表时创建函数索引异常场景
+--error ER_DISALLOWED_OPERATION
+create table t5 (c1 int, c2 int, c3 varchar(10), index func_idx_1 ((c1 + c2)));
+
+
+drop database db1;

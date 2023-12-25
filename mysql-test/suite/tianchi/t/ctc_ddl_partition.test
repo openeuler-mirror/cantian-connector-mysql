@@ -1,0 +1,564 @@
+#
+#  Copyright (C) 2023. Huawei Technologies Co., Ltd. All rights reserved.
+
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License, version 2.0,
+#   as published by the Free Software Foundation.
+
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License, version 2.0, for more details.
+
+#   You should have received a copy of the GNU General Public License
+#   along with this program; if not, write to the Free Software
+#   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
+--disable_warnings
+drop table if exists t1, t2, t3, t4, t5, t6;
+--enable_warnings
+
+
+# range分区测试
+CREATE TABLE t1 (
+  c1 INT,
+  c2 VARCHAR(50),
+  PRIMARY KEY(c1)
+) PARTITION BY RANGE(c1) (
+    PARTITION p0 VALUES LESS THAN (10),
+    PARTITION p1 VALUES LESS THAN (20)
+);
+SHOW CREATE TABLE t1;
+--error ER_NO_PARTITION_FOR_GIVEN_VALUE
+INSERT INTO t1 VALUES (1, 'n1'), (15, 'n3'), (26, 'n4'), (999, 'n5');
+ALTER TABLE t1 ADD PARTITION (PARTITION p2 VALUES LESS THAN (30), PARTITION p3 VALUES LESS THAN (MAXVALUE));
+SHOW CREATE TABLE t1;
+INSERT INTO t1 VALUES (1, 'n1'), (15, 'n3'), (26, 'n4'), (999, 'n5');
+SELECT * FROM t1;
+ALTER TABLE t1 DROP PARTITION p2;
+SELECT * FROM t1;
+
+
+# range columns分区测试
+CREATE TABLE t2 (
+  c1 INT,
+  c2 INT,
+  c3 INT
+) PARTITION BY RANGE COLUMNS(c1, c2) (
+    PARTITION p0 VALUES LESS THAN (10, 1000),
+    PARTITION p1 VALUES LESS THAN (20, 2000)
+);
+SHOW CREATE TABLE t2;
+INSERT INTO t2 VALUES (1, 100, 1), (8, 1500, 1), (15, 1600, 1), (19, 3333, 1);
+--error ER_NO_PARTITION_FOR_GIVEN_VALUE
+INSERT INTO t2 VALUES (25, 1001, 1), (55555, 55555555, 1);
+ALTER TABLE t2 ADD PARTITION (PARTITION p2 VALUES LESS THAN (30, 3000), PARTITION p3 VALUES LESS THAN (MAXVALUE, MAXVALUE));
+SHOW CREATE TABLE t2;
+INSERT INTO t2 VALUES (25, 1001, 1), (55555, 55555555, 1);
+SELECT * FROM t2;
+ALTER TABLE t2 DROP PARTITION p2;
+SELECT * FROM t2;
+
+
+# list分区测试
+CREATE TABLE t3 (
+  c1 INT,
+  c2 VARCHAR(50),
+  c3 DATE,
+  PRIMARY KEY(c1)
+) PARTITION BY LIST(c1) (
+    PARTITION p0 VALUES IN (1, 3, 5, 7),
+    PARTITION p1 VALUES IN (2, 4, 6, 8)
+);
+SHOW CREATE TABLE t3;
+--error ER_NO_PARTITION_FOR_GIVEN_VALUE
+INSERT INTO t3 VALUES (1, 'n1', '2020-01-02'), (5, 'n2', '2020-02-03'), (8, 'n3', '2020-05-02'), (100, 'n4', '2021-01-02'), (200, 'n5', '2021-09-02');
+ALTER TABLE t3 ADD PARTITION (PARTITION p2 VALUES IN (100, 1000), PARTITION p3 VALUES IN (200, 2000, 20000));
+SHOW CREATE TABLE t3;
+INSERT INTO t3 VALUES (1, 'n1', '2020-01-02'), (5, 'n2', '2020-02-03'), (8, 'n3', '2020-05-02'), (100, 'n4', '2021-01-02'), (200, 'n5', '2021-09-02');
+SELECT * FROM t3;
+ALTER TABLE t3 DROP PARTITION p2;
+SELECT * FROM t3;
+
+
+# list columns分区测试
+CREATE TABLE t4 (
+  c1 INT,
+  c2 VARCHAR(50),
+  c3 DATE
+) PARTITION BY LIST COLUMNS(c1, c3) (
+    PARTITION p0 VALUES IN ((1, '2020-01-02'), (3, '2020-03-02')),
+    PARTITION p1 VALUES IN ((2, '2020-02-02'), (4, '2020-04-02'))
+);
+SHOW CREATE TABLE t4;
+--error ER_NO_PARTITION_FOR_GIVEN_VALUE
+INSERT INTO t4 VALUES (1, 'n1', '2020-01-02'), (4, 'n2', '2020-04-02'), (10, 'n3', '2020-10-02'), (12, 'n4', '2020-12-02');
+ALTER TABLE t4 ADD PARTITION (PARTITION p2 VALUES IN ((10, '2020-10-02'), (12, '2020-12-02')));
+SHOW CREATE TABLE t4;
+INSERT INTO t4 VALUES (1, 'n1', '2020-01-02'), (4, 'n2', '2020-04-02'), (10, 'n3', '2020-10-02'), (12, 'n4', '2020-12-02');
+SELECT * FROM t4;
+ALTER TABLE t4 DROP PARTITION p2;
+SELECT * FROM t4;
+
+
+# hash分区测试
+CREATE TABLE t5 (
+  c1 INT,
+  c2 VARCHAR(50),
+  PRIMARY KEY(c1)
+)
+PARTITION BY HASH(c1)
+PARTITIONS 4;
+SHOW CREATE TABLE t5;
+# 双节点情况下创建hash分区表 插入数据后增加分区 会core
+# INSERT INTO t5 VALUES (1, 'n1'), (5, 'n2'), (8, 'n3'), (999, 'n4'), (888, 'n5'), (864545, 'n6');
+# SELECT * FROM t5 ORDER BY c1;
+ALTER TABLE t5 ADD PARTITION PARTITIONS 10;
+SHOW CREATE TABLE t5;
+INSERT INTO t5 VALUES (1, 'n1'), (5, 'n2'), (8, 'n3'), (999, 'n4'), (888, 'n5'), (864545, 'n6');
+INSERT INTO t5 VALUES (111111, 'n7'), (1115, 'n8'), (15618, 'n9'), (1165410, 'n10'), (666666666, 'n11');
+SELECT * FROM t5 ORDER BY c1;
+ALTER TABLE t5 COALESCE PARTITION 13;
+SHOW CREATE TABLE t5;
+SELECT * FROM t5 ORDER BY c1;
+
+
+# 补充分区字段类型测试
+CREATE TABLE t6 (
+  c1 INT,
+  c2 BIGINT,
+  c3 DATE,
+  c4 DATETIME,
+  c5 CHAR(10),
+  c6 VARCHAR(50),
+  c7 TIME
+) PARTITION BY LIST COLUMNS(c1, c2, c3, c4, c5, c6, c7) (
+    PARTITION p0 VALUES IN ((1, 1099511627775, '2021-12-21', '2021-12-21 16:30:00', 'dcy', 'abcdefghjik', '15:15:15')),
+    PARTITION p1 VALUES IN ((333, 1099599927775, '2021-12-20', '2021-12-20 16:30:00', 'nnn','aboiasdjk', '23:15:15'))
+);
+SHOW CREATE TABLE t6;
+--error ER_NO_PARTITION_FOR_GIVEN_VALUE
+INSERT INTO t6 VALUES (1, 1099511627775, '2021-12-21', '2021-12-21 16:30:00', 'dcy', 'abcdefghjik', '15:15:15'), (789, 1099599888775, '2021-12-22', '2021-12-22 16:30:00', 'mmm', 'plkmojn', '16:16:16');
+ALTER TABLE t6 ADD PARTITION (PARTITION p2 VALUES IN ((789, 1099599888775, '2021-12-22', '2021-12-22 16:30:00', 'mmm', 'plkmojn', '16:16:16')));
+SHOW CREATE TABLE t6;
+INSERT INTO t6 VALUES (1, 1099511627775, '2021-12-21', '2021-12-21 16:30:00', 'dcy', 'abcdefghjik', '15:15:15'), (789, 1099599888775, '2021-12-22', '2021-12-22 16:30:00', 'mmm', 'plkmojn', '16:16:16');
+SELECT * FROM t6;
+ALTER TABLE t6 DROP PARTITION p2;
+SELECT * FROM t6;
+
+
+CREATE TABLE T6_1 (
+  c1 TIME
+)
+PARTITION BY LIST COLUMNS(c1) (
+  PARTITION P0 VALUES IN ('12:12:12'),
+  PARTITION P1 VALUES IN ('24:00:00')
+);
+
+
+# truncate分区测试(list(columns)分区)
+CREATE TABLE t8 (
+  c1 INT,
+  c2 VARCHAR(50)
+) PARTITION BY LIST COLUMNS(c1, c2) (
+    PARTITION p0 VALUES IN ((1, 'aaa'), (3, 'bbb')),
+    PARTITION p1 VALUES IN ((2, 'ccc'), (4, 'ddd')),
+    PARTITION p2 VALUES IN ((5, 'eee'), (6, 'fff'))
+);
+INSERT INTO t8 VALUES (1, 'aaa'), (4, 'ddd'), (5, 'eee'), (6, 'fff');
+SELECT * FROM t8;
+select * from t8 partition(p0);
+select * from t8 partition(p2);
+ALTER TABLE t8 TRUNCATE PARTITION p0, p2;
+SELECT * FROM t8;
+select * from t8 partition(p0);
+select * from t8 partition(p2);
+--error ER_UNKNOWN_PARTITION
+ALTER TABLE t8 TRUNCATE PARTITION p3;
+
+
+# truncate分区测试(range(columns)分区)
+CREATE TABLE t9 (
+  c1 INT,
+  c2 INT,
+  c3 INT
+) PARTITION BY RANGE COLUMNS(c1, c2) (
+    PARTITION p0 VALUES LESS THAN (10, 1000),
+    PARTITION p1 VALUES LESS THAN (20, 2000),
+    PARTITION p2 VALUES LESS THAN (30, 4000)
+);
+INSERT INTO t9 VALUES (1, 100, 1), (8, 1500, 1), (15, 1600, 1), (19, 3333, 1), (25, 3985, 1);
+SELECT * FROM t9;
+select * from t9 partition(p0);
+select * from t9 partition(p2);
+ALTER TABLE t9 TRUNCATE PARTITION p0, p2;
+SELECT * FROM t9;
+select * from t9 partition(p0);
+select * from t9 partition(p2);
+--error ER_UNKNOWN_PARTITION
+ALTER TABLE t9 TRUNCATE PARTITION p3;
+
+
+# truncate分区测试(hash分区)
+CREATE TABLE t10 (
+  c1 INT,
+  c2 VARCHAR(50),
+  PRIMARY KEY(c1)
+)
+PARTITION BY HASH(c1)
+PARTITIONS 4;
+INSERT INTO t10 VALUES (1, 'aaa'), (2, 'bbb'), (3, 'ccc'), (4, 'ddd'), (5, 'eee'), (6, 'fff');
+select * from t10;
+select * from t10 partition(p0);
+select * from t10 partition(p2);
+ALTER TABLE t10 TRUNCATE PARTITION p0, p2;
+select * from t10;
+select * from t10 partition(p0);
+select * from t10 partition(p2);
+--error ER_UNKNOWN_PARTITION
+ALTER TABLE t10 TRUNCATE PARTITION p10;
+
+
+# 其他支持的分区表操作测试
+CREATE TABLE t11 (
+  c1 INT,
+  c2 INT,
+  c3 INT
+) PARTITION BY RANGE COLUMNS(c1, c2) (
+    PARTITION p0 VALUES LESS THAN (10, 1000),
+    PARTITION p1 VALUES LESS THAN (20, 2000),
+    PARTITION p2 VALUES LESS THAN (30, 4000)
+);
+
+alter table t11 rebuild partition p0;
+alter table t11 optimize partition p0;
+alter table t11 analyze partition p0;
+alter table t11 repair partition p0;
+alter table t11 check partition p0;
+alter table t11 reorganize partition p0 into (partition n0 values less than (5,500), partition n1 values less than (10,1000));
+alter table t11 remove partitioning;
+
+
+# 分区键列数超限测试
+--error ER_TOO_MANY_PARTITION_FUNC_FIELDS_ERROR
+CREATE TABLE t12 (
+  c1 INT,
+  c2 INT,
+  c3 INT,
+  c4 INT,
+  c5 INT,
+  c6 INT,
+  c7 INT,
+  c8 INT,
+  c9 INT,
+  c10 INT,
+  c11 INT,
+  c12 INT,
+  c13 INT,
+  c14 INT,
+  c15 INT,
+  c16 INT,
+  c17 INT,
+  c18 INT,
+  c19 INT,
+  c20 INT
+) PARTITION BY RANGE COLUMNS(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17) (
+    PARTITION p0 VALUES LESS THAN (10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10),
+    PARTITION p1 VALUES LESS THAN (20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20),
+    PARTITION p2 VALUES LESS THAN (30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30)
+);
+CREATE TABLE t12 (
+  c1 INT,
+  c2 INT,
+  c3 INT,
+  c4 INT,
+  c5 INT,
+  c6 INT,
+  c7 INT,
+  c8 INT,
+  c9 INT,
+  c10 INT,
+  c11 INT,
+  c12 INT,
+  c13 INT,
+  c14 INT,
+  c15 INT,
+  c16 INT,
+  c17 INT,
+  c18 INT,
+  c19 INT,
+  c20 INT
+) PARTITION BY RANGE COLUMNS(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16) (
+    PARTITION p0 VALUES LESS THAN (10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10),
+    PARTITION p1 VALUES LESS THAN (20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20),
+    PARTITION p2 VALUES LESS THAN (30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30)
+);
+
+
+drop table t1;
+drop table t2;
+drop table t3;
+drop table t4;
+drop table t5;
+drop table t6;
+drop table T6_1;
+drop table t8;
+drop table t9;
+drop table t10;
+drop table t11;
+drop table t12;
+
+# 索引扫描跨分区排序分区读
+create table bsql (
+  d_w_id       integer       not null,
+  d_id         integer       not null,
+  d_name       varchar(10)
+) 
+partition by RANGE(d_w_id)
+(
+    PARTITION d_w_id_1 VALUES LESS than(2),
+    PARTITION d_w_id_2 VALUES LESS than(3),
+    PARTITION d_w_id_3 VALUES LESS than(4),
+    PARTITION d_w_id_4 VALUES LESS than(5),
+    PARTITION d_w_id_6 VALUES LESS than(MAXVALUE)
+);
+alter table bsql add constraint bsql_pkey primary key (d_w_id, d_id);
+insert into bsql values(1,1,'a');insert into bsql values(2,1,'b');insert into bsql values(3,1,'c');insert into bsql values(4,1,'d');insert into bsql values(5,1,'e');insert into bsql values(6,1,'f');
+insert into bsql values(1,0,'a');insert into bsql values(2,0,'b');insert into bsql values(3,0,'c');insert into bsql values(4,0,'d');insert into bsql values(5,0,'e');insert into bsql values(6,0,'f');
+insert into bsql values(1,2,'a');insert into bsql values(2,2,'b');insert into bsql values(3,2,'c');insert into bsql values(4,2,'d');insert into bsql values(5,2,'e');insert into bsql values(6,2,'f');
+insert into bsql values(1,3,'a');insert into bsql values(2,3,'b');insert into bsql values(3,3,'c');insert into bsql values(4,3,'d');insert into bsql values(5,3,'e');insert into bsql values(6,3,'f');
+select * from bsql where d_w_id<=2 order by d_w_id;
+
+# 索引扫描跨分区非排序分区读，主要监测跨分区与预取残留缓存的影响
+drop table bsql;
+create table bsql (
+  d_w_id       integer       not null,
+  d_id         integer       not null,
+  d_name       varchar(10)
+) 
+partition by RANGE(d_w_id)
+(
+    PARTITION d_w_id_1 VALUES LESS than(2),
+    PARTITION d_w_id_2 VALUES LESS than(3),
+    PARTITION d_w_id_3 VALUES LESS than(4),
+    PARTITION d_w_id_4 VALUES LESS than(5),
+    PARTITION d_w_id_6 VALUES LESS than(MAXVALUE)
+);
+alter table bsql add constraint bsql_pkey primary key (d_w_id, d_id);
+insert into bsql values(1,1,'a');insert into bsql values(2,1,'b');insert into bsql values(3,1,'c');insert into bsql values(4,1,'d');insert into bsql values(5,1,'e');insert into bsql values(6,1,'f');
+insert into bsql values(1,0,'a');insert into bsql values(2,0,'b');insert into bsql values(3,0,'c');insert into bsql values(4,0,'d');insert into bsql values(5,0,'e');insert into bsql values(6,0,'f');
+insert into bsql values(1,2,'a');insert into bsql values(2,2,'b');insert into bsql values(3,2,'c');insert into bsql values(4,2,'d');insert into bsql values(5,2,'e');insert into bsql values(6,2,'f');
+insert into bsql values(1,3,'a');insert into bsql values(2,3,'b');insert into bsql values(3,3,'c');insert into bsql values(4,3,'d');insert into bsql values(5,3,'e');insert into bsql values(6,3,'f');
+select * from bsql where d_w_id<=2 order by d_id;
+
+# 全表扫描跨分区读
+drop table bsql;
+create table bsql (
+  d_w_id       integer       not null,
+  d_id         integer       not null,
+  d_name       varchar(10)
+) 
+partition by RANGE(d_w_id)
+(
+    PARTITION d_w_id_1 VALUES LESS than(2),
+    PARTITION d_w_id_2 VALUES LESS than(3),
+    PARTITION d_w_id_3 VALUES LESS than(4),
+    PARTITION d_w_id_4 VALUES LESS than(5),
+    PARTITION d_w_id_6 VALUES LESS than(MAXVALUE)
+);
+insert into bsql values(1,1,'a');insert into bsql values(2,1,'b');insert into bsql values(3,1,'c');insert into bsql values(4,1,'d');insert into bsql values(5,1,'e');insert into bsql values(6,1,'f');
+insert into bsql values(1,0,'a');insert into bsql values(2,0,'b');insert into bsql values(3,0,'c');insert into bsql values(4,0,'d');insert into bsql values(5,0,'e');insert into bsql values(6,0,'f');
+insert into bsql values(1,2,'a');insert into bsql values(2,2,'b');insert into bsql values(3,2,'c');insert into bsql values(4,2,'d');insert into bsql values(5,2,'e');insert into bsql values(6,2,'f');
+insert into bsql values(1,3,'a');insert into bsql values(2,3,'b');insert into bsql values(3,3,'c');insert into bsql values(4,3,'d');insert into bsql values(5,3,'e');insert into bsql values(6,3,'f');
+select * from bsql where d_w_id<=2 order by d_w_id;
+
+drop table bsql;
+# TODO：全表扫描scan false 带position场景
+
+
+#自增列分区表测试
+--error 1075
+#自增列必须添加key属性，创表失败
+#ERROR 1075 (42000): Incorrect table definition; there can be only one auto column and it must be defined as a key
+CREATE TABLE t1 (
+  c1 INT auto_increment,
+  c2 VARCHAR(50)
+) PARTITION BY RANGE(c1) (
+    PARTITION p0 VALUES LESS THAN (5),
+    PARTITION p1 VALUES LESS THAN (10),
+    PARTITION p2 VALUES LESS THAN (15)
+);
+CREATE TABLE t1 (
+  c1 INT auto_increment,
+  c2 VARCHAR(50),
+  PRIMARY KEY(c1)
+) PARTITION BY RANGE(c1) (
+    PARTITION p0 VALUES LESS THAN (5),
+    PARTITION p1 VALUES LESS THAN (10),
+    PARTITION p2 VALUES LESS THAN (15)
+);
+show create table t1;
+INSERT INTO t1 (c2) VALUES ('n1'),('n2'),('n3'),('n4'),('n5'); # 5
+select * from t1;
+show create table t1;
+INSERT INTO t1 (c2) VALUES ('n1'),('n2'),('n3'),('n4'),('n5'); # 10
+select * from t1;
+show create table t1;
+--error ER_NO_PARTITION_FOR_GIVEN_VALUE
+INSERT INTO t1 (c2) VALUES ('n1'),('n2'),('n3'),('n4'),('n5'); #15,超出分区范围，插入失败，但是自增值已经到15了,这里与参天行为一致
+select * from t1;
+show create table t1;
+--error ER_NO_PARTITION_FOR_GIVEN_VALUE
+INSERT INTO t1 (c2) VALUES ('n1'),('n2'),('n3'),('n4'); #期望自增值为15，但没有创对应分区，插入失败
+select * from t1;
+show create table t1;
+--error ER_NO_PARTITION_FOR_GIVEN_VALUE
+INSERT INTO t1 (c2) VALUES ('n1');#15,超出分区范围，插入失败，
+select * from t1;
+show create table t1;
+select * from t1 partition(p1);
+select * from t1 partition(p1,p2);
+alter table t1 drop PARTITION p1; #删除p1分区 5-9的值被删了，自增值依然为15，在不增加更大范围的分区前提下无法插入任何值
+--error 1735
+#ERROR 1735 (HY000): Unknown partition 'p1' in table 't1'
+select * from t1 partition(p1);
+select * from t1;
+show create table t1;
+--error ER_NO_PARTITION_FOR_GIVEN_VALUE
+INSERT INTO t1 (c2) VALUES ('n1');
+select * from t1;
+show create table t1;
+--error 1062
+#ERROR 1062 (23000): Duplicate entry '10' for key 't1.PRIMARY'
+INSERT INTO t1 (c1,c2) VALUES (5,'n1'),(6,'n1'),(7,'n1'),(8,'n1'),(9,'n1'),(10,'n1');#10存在，会导致5-9都失败
+select * from t1;
+show create table t1;
+INSERT INTO t1 (c1,c2) VALUES (5,'n1'),(6,'n1'),(7,'n1'),(8,'n1'),(9,'n1');#此时可以插入
+select * from t1;
+show create table t1;
+--error 1493
+#ERROR 1493 (HY000): VALUES LESS THAN value must be strictly increasing for each partition
+ALTER TABLE t1 ADD PARTITION (PARTITION p1 VALUES LESS THAN (10));#不能在中间插入分区
+ALTER TABLE t1 ADD PARTITION (PARTITION p1 VALUES LESS THAN (20));#添加成功，此时自增值依旧是15
+select * from t1;
+show create table t1;
+INSERT INTO t1 (c2) VALUES ('n1');#15，自增值变成16
+select * from t1;
+show create table t1;
+INSERT INTO t1 (c2) VALUES ('n1');#16
+INSERT INTO t1 (c2) VALUES ('n1');#17
+INSERT INTO t1 (c2) VALUES ('n1');#18
+INSERT INTO t1 (c2) VALUES ('n1');#19
+--error ER_NO_PARTITION_FOR_GIVEN_VALUE
+INSERT INTO t1 (c2) VALUES ('n1');#20 插入失败
+select * from t1;
+show create table t1;
+alter table t1 drop PARTITION p1;#删除p1后，自增值依旧是20
+select * from t1;
+show create table t1;
+alter table t1 drop PARTITION p0;#删除p0后，自增值依旧是20
+select * from t1;
+show create table t1;
+--error ER_NO_PARTITION_FOR_GIVEN_VALUE
+INSERT INTO t1 (c2) VALUES ('n1');#20 插入失败
+select * from t1;
+show create table t1;
+INSERT INTO t1 (c1,c2) VALUES (1,'n1');#插入成功，因为p0被删了，1-4的自增范围被删了
+select * from t1;
+show create table t1;
+--error ER_NO_PARTITION_FOR_GIVEN_VALUE
+INSERT INTO t1 (c2) VALUES ('n1');#20 插入失败
+select * from t1;
+show create table t1;
+INSERT INTO t1 (c1,c2) VALUES (2,'n1');
+INSERT INTO t1 (c1,c2) VALUES (3,'n1');
+INSERT INTO t1 (c1,c2) VALUES (4,'n1');
+select * from t1;
+show create table t1;
+ALTER TABLE t1 ADD PARTITION (PARTITION p1 VALUES LESS THAN (20));#自增值依旧是20
+select * from t1;
+show create table t1;
+--error ER_NO_PARTITION_FOR_GIVEN_VALUE
+INSERT INTO t1 (c2) VALUES ('n1');#20 插入失败
+select * from t1;
+show create table t1;
+--error ER_NO_PARTITION_FOR_GIVEN_VALUE
+INSERT INTO t1 (c2) VALUES ('n1');
+select * from t1;
+show create table t1;
+alter table t1 drop PARTITION p1;#自增值依旧是20,15-19的值被删了
+select * from t1;
+show create table t1;
+ALTER TABLE t1 ADD PARTITION (PARTITION p1 VALUES LESS THAN (25));
+select * from t1;
+show create table t1;
+INSERT INTO t1 (c2) VALUES ('n1');#15
+select * from t1;
+show create table t1;
+INSERT INTO t1 (c2) VALUES ('n1');
+INSERT INTO t1 (c2) VALUES ('n1');
+INSERT INTO t1 (c2) VALUES ('n1');
+INSERT INTO t1 (c2) VALUES ('n1');
+select * from t1;
+show create table t1;
+--error ER_NO_PARTITION_FOR_GIVEN_VALUE
+INSERT INTO t1 (c2) VALUES ('n1'),('n1'),('n1'),('n1'),('n1'),('n1'); #期望自增到25，受分区限制全部插入失败回滚，自增被刷到25与zsql表现一致
+select * from t1;
+show create table t1;
+--error ER_NO_PARTITION_FOR_GIVEN_VALUE
+INSERT INTO t1 (c2) VALUES ('n1'); #25，已超过分区限制，插入失败
+select count(*) from t1;
+drop table t1;
+
+create table DEMO (ID integer not null primary key, NAME varchar(19), AGE integer, GRADE real) PARTITION BY HASH(ID) PARTITIONS 5;
+# insert some data to table.
+insert into DEMO values (1, 'LIOR', 35, 6.9);
+insert into DEMO values (4, 'MIKE', 55, 99.92);
+insert into DEMO values (5, 'Eitan', NULL, 4.9);
+insert into DEMO values (8, 'ROMAN', 40, 94.1);
+insert into DEMO values (16, 'DAN', 60, 1234567890);
+insert into DEMO values (32, 'ZVI', 35, 777.666);
+insert into DEMO values (888888, 'zhangdi', NULL, 10000.8);
+insert into DEMO values (1131, 'Hisses', 1, NULL);
+
+select * from DEMO where ID in(1, 4, 5, 8, 16, 32, 888888, 1131);
+drop table DEMO;
+
+CREATE TABLE t2(a int primary key,c1 double AUTO_INCREMENT,index(c1))
+PARTITION BY RANGE(a) subpartition by hash(a)
+subpartitions 4(
+partition p0 values less than(10),
+partition p1 values less than(99),
+partition p2 values less than(999),
+partition p3 values less than(1000),
+partition p4 values less than(2001),
+partition p5 values less than(3000));
+
+set insert_id=0;
+insert into t2 values(0,0);
+insert into t2 values(1,null);
+insert into t2 values(2,0);
+set insert_id=10;
+insert into t2 values(10, 0);
+set insert_id=11;
+insert into t2 values(11, null);
+select * from t2;
+update t2 set a=12,c1=12 where a=11;
+insert into t2 values(13,null);
+select * from t2;
+drop table t2;
+
+SET sql_mode='NO_AUTO_VALUE_ON_ZERO';
+CREATE TABLE t2(a int primary key,c1 double AUTO_INCREMENT,index(c1))
+PARTITION BY RANGE(a) subpartition by hash(a)
+subpartitions 4(
+partition p0 values less than(10),
+partition p1 values less than(99),
+partition p2 values less than(999),
+partition p3 values less than(1000),
+partition p4 values less than(2001),
+partition p5 values less than(3000));
+insert into t2 values(1,0);
+insert into t2 values(2,0);
+select * from t2;
+drop table t2;
+SET sql_mode=default;

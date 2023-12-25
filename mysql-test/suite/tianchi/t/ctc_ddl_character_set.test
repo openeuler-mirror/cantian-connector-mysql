@@ -1,0 +1,90 @@
+#
+#  Copyright (C) 2023. Huawei Technologies Co., Ltd. All rights reserved.
+
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License, version 2.0,
+#   as published by the Free Software Foundation.
+
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License, version 2.0, for more details.
+
+#   You should have received a copy of the GNU General Public License
+#   along with this program; if not, write to the Free Software
+#   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
+
+#database的字符集、字符序,创建修改字符集
+CREATE DATABASE `CHAR_DB` DEFAULT CHARACTER SET utf8 DEFAULT COLLATE utf8_general_ci;
+use CHAR_DB;
+SELECT @@character_set_database, @@collation_database;
+create table DEMO (ID integer not null, NAME varchar(20));
+INSERT INTO DEMO values(1,'abc');
+INSERT INTO DEMO values(3,'Abc');
+#数据库字符集字符序为表的字符集字符序，此处utf8_general_ci会忽略大小写比较，所以下面查询将会查到两条记录
+select * from DEMO where NAME = 'aBc';
+#可以插入20个汉字
+INSERT INTO DEMO values(4,'数据库字符集字符序为表的字符集字符序汉字');
+#超过20个汉字超长 ERROR 1406 (22001): Data too long for column 'NAME' at row 1
+--error 1406
+INSERT INTO DEMO values(5,'数据库字符集字符序为表的字符集字符序汉字1');
+#修改数据库的字符集，不影响原有表的字符集
+ALTER DATABASE CHAR_DB DEFAULT CHARACTER SET ascii DEFAULT COLLATE ascii_bin;
+INSERT INTO DEMO values(5,'张据库字符集字符序为表的字符集字符序汉字');
+#超过20个汉字超长 ERROR 1406 (22001): Data too long for column 'NAME' at row 1
+--error 1406
+INSERT INTO DEMO values(5,'张据库字符集字符序为表的字符集字符序汉字1');
+select * from DEMO;
+#创建表的时候字符集已经制定为数据库的字符集，后续数据库的字符集修改，不会再影响表的新字段添加，除非表指定字符集
+ALTER TABLE DEMO ADD COLUMN NAME1 varchar(20);
+INSERT INTO DEMO values(6,'张据库字符集字符序为表的字符集字符序汉字','张据库字符集字符序为表的字符集字符序汉字');
+--error 1406
+INSERT INTO DEMO values(7,'张据库字符集字符序为表的字符集字符序汉字','张据库字符集字符序为表的字符集字符序汉字1');
+ALTER TABLE DEMO ADD COLUMN NAME2 varchar(20) CHARACTER SET ascii COLLATE ascii_bin;
+show create table DEMO;
+--error 1406
+INSERT INTO DEMO values(8,'张据库字符集字符序为表的字符集字符序汉字','张据库字符集字符序为表的字符集字符序汉字','abcdeabcdeabcdeabcdef');
+INSERT INTO DEMO values(8,'张据库字符集字符序为表的字符集字符序汉字','张据库字符集字符序为表的字符集字符序汉字','abcdeabcdeabcdeabcde');
+--error 1366
+#ERROR 1366 (HY000): Incorrect string value: '\xE6\xB1\x89\xE5\xAD\x97' for column 'NAME2' at row 1  不支持插入中文
+INSERT INTO DEMO values(8,'张据库字符集字符序为表的字符集字符序汉字','张据库字符集字符序为表的字符集字符序汉字','汉字');
+ALTER TABLE  DEMO DEFAULT CHARACTER SET ascii COLLATE ascii_bin;
+show create table DEMO;
+ALTER TABLE DEMO ADD COLUMN NAME3 varchar(20);
+show create table DEMO;
+--error 1366
+#ERROR 1366 (HY000): Incorrect string value: '\xE6\xB1\x89\xE5\xAD\x97' for column 'NAME3' at row 1  不支持插入中文
+INSERT INTO DEMO values(8,'张据库字符集字符序为表的字符集字符序汉字','张据库字符集字符序为表的字符集字符序汉字','abc', '汉字');
+--error 1406
+INSERT INTO DEMO values(8,'张据库字符集字符序为表的字符集字符序汉字','张据库字符集字符序为表的字符集字符序汉字','abc', 'abcdeabcdeabcdeabcdef');
+INSERT INTO DEMO values(8,'张据库字符集字符序为表的字符集字符序汉字','张据库字符集字符序为表的字符集字符序汉字','abc', 'abcdeabcdeabcdeabcde');
+select * from DEMO;
+show create table DEMO;
+drop table DEMO;
+create table t1(c1 varchar(10) collate utf8mb4_general_ci);
+insert into t1 values('aaa'),('aAA '),('AAA'),('aAA'),('AAA '),('BBB'),('bBb'),('Bbb'),('AAa'),('AaA');
+select c1 from t1;
+create index idx1 on t1(c1);
+select c1 from t1;
+alter table t1 modify c1 varchar(10) collate utf8mb3_bin;
+select c1 from t1;
+alter table t1 modify c1 varchar(10) collate utf8mb4_general_ci;
+select c1 from t1;
+drop table t1;
+
+#测试COLLATE排序规则
+create table DEMO (ID integer not null, NAME varchar(20) character set utf8 collate utf8_bin);
+INSERT INTO DEMO values(1,'abc');
+INSERT INTO DEMO values(3,'Abc');
+#此处字符集不忽略大小写，只能查出一条记录
+select * from DEMO where NAME = 'abc';
+#修改表的COLLATE，不会影响老列的排序规则
+ALTER TABLE  DEMO DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci;
+INSERT INTO DEMO values(4,'Abc');
+select * from DEMO where NAME = 'abc';
+ALTER TABLE DEMO ADD COLUMN NAME1 varchar(20);
+INSERT INTO DEMO values(5,'1','abc');
+INSERT INTO DEMO values(6,'1','Abc');
+#新列会用表的新的COLLATE排序规则，此处会查出2条记录
+select * from DEMO where NAME1 = 'aBc';
+drop database CHAR_DB;

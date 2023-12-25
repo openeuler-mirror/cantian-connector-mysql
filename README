@@ -1,0 +1,42 @@
+Cantian connector (MySQL版)是由华为研发的一款MySQL存储引擎插件。它能够在无侵入的情况下将16个（或更多）MySQL实例组成一个多读多写的应用透明集群，并借助Cantian数据存储引擎提供更高的OLTP性能以及更强的高可用能力。这将使MySQL单机的应用无需进行（分库分表等）改造就可以获得集群架构的灵活并发、高性能处理与故障快速恢复能力。
+Cantian connector通过插件加载方式集成到MySQL中运行，替代InnoDB作为默认的数据存储引擎执行表的数据存储、查询与索引等功能。此外，MySQL仍然以原有方式访问元数据缓存（Dictionary cache）且使用InnoDB存储元数据（data dictionary）。Cantian connector能够将这些元数据访问进行追踪与同步，达到元数据的集群一致化。
+
+Cantian connector for MySQL is a storage engine software developed by Huawei, which enables an application transparent cluster on top of 16 or more MySQL instances. Together with the Cantian software, it can improve performance and high availability of the original MySQL server. As a result, traditional OLTP SQL applications would run faster and be resilient to disaster incidents without modifications.
+The Cantian connector runs as one of the MySQL installable plugins and handles table data operations such as selection, insertion, deletion, in replace of the InnoDB. Other than that, Cantian connector keeps cluster-wise consistency of the data dictionary of all MySQL instances by tracking and synchronizing standalone DD operations that still take place at InnoDB.
+
+平台支持
+当前支持CentOS8/AArch64、CentOS8/x86_64 平台
+
+License
+
+使用 GPLv2协议，请见 License
+
+安装指导
+1、下载cantian代码，链接见https://gitee.com/openeuler/cantian
+2、完成cantian编译
+3、下载MySQL代码，将mysql代码放置到mysql-source文件夹下
+4、完成connector编译
+4.1、Debug 版
+cd /home/regress/GaussKernel/build;sh Makefile.sh mysql
+4.2、Release 版
+cd /home/regress/GaussKernel/build;sh Makefile.sh mysql_release
+5、拷贝mysql相关so（元数据归一版本无需执行）
+# 单节点
+cd /home/regress/GaussKernel/build;sh Makefile.sh mysql_package_node0
+# 双节点节点0执行
+cd /home/regress/GaussKernel/build;sh Makefile.sh mysql_package_node0
+# 双节点节点1执行
+cd /home/regress/GaussKernel/build;sh Makefile.sh mysql_package_node1
+6、部署MySQL
+# 创建文件：所有节点
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/regress/mysql-server/bld_debug//library_output_directory/
+mkdir -p /home/regress/mydata/
+rm -rf /home/regress/mydata/*
+mkdir /data
+mkdir /data/data
+
+# 初始化（任一/所有节点）：仅1个节点能执行成功
+/usr/local/mysql/bin/mysqld --defaults-file=/home/regress/mysql-server/scripts/my.cnf --initialize-insecure --datadir=/home/regress/mydata --early-plugin-load="ha_ctc.so" --core-file >> /data/data/mysql.log 2>&1 &
+
+# 启动：所有节点
+/usr/local/mysql/bin/mysqld --defaults-file=/home/regress/mysql-server/scripts/my.cnf --datadir=/home/regress/mydata --user=root --core-file --early-plugin-load="ha_ctc.so"  --skip-innodb --core-file >> /data/data/mysql.log 2>&1 &

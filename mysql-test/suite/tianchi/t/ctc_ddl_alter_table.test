@@ -1,0 +1,905 @@
+#
+#  Copyright (C) 2023. Huawei Technologies Co., Ltd. All rights reserved.
+
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License, version 2.0,
+#   as published by the Free Software Foundation.
+
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License, version 2.0, for more details.
+
+#   You should have received a copy of the GNU General Public License
+#   along with this program; if not, write to the Free Software
+#   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
+--disable_warnings
+drop table if exists DEMO;
+drop table if exists t1;
+--enable_warnings
+#特别注意，每个测试用例直接用2行空行隔开，中间不要有任何空行
+
+
+#以下为修改表的相关测试
+#create table for rename table test (修改表名)
+create table DEMO (ID integer primary key, NAME varchar(19), AGE integer, GRADE real);
+INSERT INTO DEMO values(1,'demo',1,1.1);
+SELECT * FROM DEMO;
+alter table DEMO rename to DEMO1;
+SELECT * FROM DEMO1;
+alter table DEMO1 rename to DEMO2;
+SELECT * FROM DEMO2;
+--error 1146
+#ERROR 1146 (42S02): Table 'demo_db.DEMO1' doesn't exist
+SELECT * FROM DEMO1;
+desc DEMO2;
+insert into DEMO2 values (2, 'LIOR', 35, 6.9);
+#执行 select
+SELECT * FROM DEMO2;
+# 表名修改后仍可以找到对应的索引和约束
+alter table DEMO2 drop primary key;
+#drop Table
+drop table DEMO2;
+
+
+#TODODDL这个测试用例还需要重点审视
+#create table for alter add column (添加列，支持primary key)
+create table DEMO (ID integer not null, NAME varchar(19), AGE integer, GRADE real);
+INSERT INTO DEMO values(30,'insert',21,23);
+ALTER TABLE DEMO ADD COLUMN col1 integer;
+insert into DEMO values (1, 'LIOR', 35, 6.9,1987);
+# 执行 select 语句
+SELECT * FROM DEMO;
+desc DEMO;
+show create table DEMO;
+show index from DEMO;
+#带auto_increment 可以成功赋值
+ALTER TABLE DEMO ADD COLUMN col2 integer PRIMARY KEY auto_increment;
+insert into DEMO values (1, 'LIOR', 35, 6.9,1987,3);
+--error 1062
+insert into DEMO values (1, 'LIOR', 35, 6.9,1987,3);
+insert into DEMO (ID,NAME, AGE,GRADE,col1) values (1, 'LIOR', 35, 6.9,1987);
+#再次插入可以成功
+insert into DEMO (ID,NAME, AGE,GRADE,col1) values (1, 'LIOR', 35, 6.9,1987);
+--error 1075
+#ERROR 1075 (42000): Incorrect table definition; there can be only one auto column and it must be defined as a key
+#这个表现是跟innodb是一样的表现
+alter table DEMO drop primary key;
+--error 1062
+insert into DEMO values (1, 'LIOR', 35, 6.9,1987,3);
+SELECT * FROM DEMO;
+desc DEMO;
+show create table DEMO;
+show index from DEMO;
+#drop Table
+drop table DEMO;
+
+
+#create table for add column (unique key) (添加列，支持唯一索引 unique key)
+create table DEMO (ID integer not null, NAME varchar(19), AGE integer, GRADE real);
+INSERT INTO DEMO values(30,'insert',21,23);
+ALTER TABLE DEMO ADD COLUMN col1 integer;
+insert into DEMO values (1, 'LIOR', 35, 6.9, 1987);
+ALTER TABLE DEMO ADD COLUMN col2 integer UNIQUE KEY;
+insert into DEMO values (2, 'LIOR', 35, 6.9, 1987, 1);
+--error 1062
+insert into DEMO values (3, 'AMY', 37, 7.9, 1982, 1);
+insert into DEMO values (4, 'BOB', 44, 8.1, 1962, 2);
+--error 1062
+insert into DEMO values (3, 'AMY', 37, 7.9, 1982, 2);
+#null不认为违反unqiue约束
+insert into DEMO values (3, 'AMY', 37, 7.9, 1982, null);
+insert into DEMO values (3, 'AMY', 37, 7.9, 1982, null);
+ALTER TABLE DEMO DROP INDEX col2;
+insert into DEMO values (3, 'AMY', 37, 7.9, 1982, 2);
+insert into DEMO values (3, 'AMY', 37, 7.9, 1982, null);
+SELECT * FROM DEMO;
+desc DEMO;
+show create table DEMO;
+show index from DEMO;
+drop table DEMO;
+
+
+#create table for add column (auto increment & unique key) (添加列，支持自增)
+create table DEMO (ID integer not null, NAME varchar(19), AGE integer, GRADE real);
+INSERT INTO DEMO values(30,'insert',21,23);
+ALTER TABLE DEMO ADD COLUMN col1 integer;
+insert into DEMO values (1, 'LIOR', 35, 6.9, 1987);
+# 执行 select
+SELECT * FROM DEMO;
+desc DEMO;
+show create table DEMO;
+show index from DEMO;
+#ALTER TABLE DEMO ADD COLUMN col2 integer UNIQUE KEY auto_increment;
+#desc DEMO;
+#show create table DEMO;
+#show index from DEMO;
+#insert into DEMO (ID, NAME, AGE, GRADE, col1) values (2, 'BOB', 36, 6.9, 1987);
+#insert into DEMO (ID, NAME, AGE, GRADE, col1) values (4, 'TONY', 40, 7.2, 2002);
+#insert into DEMO values (1, 'LIOR', 35, 6.9, 1987,7);
+#--error 1062
+##ERROR 1062 (23000): Duplicate entry '7' for key 'DEMO.col2'
+#insert into DEMO values (1, 'LIOR', 35, 6.9, 1987,7);
+#insert into DEMO (ID, NAME, AGE, GRADE, col1) values (4, 'TONY', 40, 7.2, 2002);
+#insert into DEMO (ID, NAME, AGE, GRADE, col1) values (4, 'TONY', 40, 7.2, 2002);
+#--error 1075
+##ERROR 1075 (42000): Incorrect table definition; there can be only one auto column and it must be defined as a key
+#ALTER TABLE DEMO DROP INDEX col2;
+#--error 1062
+#insert into DEMO values (1, 'LIOR', 35, 6.9, 1987,7);
+#SELECT * FROM DEMO;
+#desc DEMO;
+#show create table DEMO;
+#show index from DEMO;
+drop table DEMO;
+
+
+#create table for rename column (rename列)
+create table DEMO (ID integer not null, NAME varchar(19), AGE integer, GRADE real);
+show create table DEMO;
+INSERT INTO DEMO values(30,'insert',21,23);
+INSERT INTO DEMO(NAME,ID,AGE,GRADE) values('insert1',31,21,28);
+alter table DEMO rename column ID to NEW_ID;
+show create table DEMO;
+--error 1054
+#ERROR 1054 (42S22): Unknown column 'ID' in 'field list'
+INSERT INTO DEMO(NAME,ID,AGE,GRADE) values('insert1',31,21,28);
+INSERT INTO DEMO values(30,'insert3',21,23);
+INSERT INTO DEMO(NAME,NEW_ID,AGE,GRADE) values('insert4',31,21,28);
+alter table DEMO rename column NEW_ID to ID;
+show create table DEMO;
+INSERT INTO DEMO values(30,'insert5',21,23);
+--error 1054
+#ERROR 1054 (42S22): Unknown column 'NEW_ID' in 'field list'
+INSERT INTO DEMO(NAME,NEW_ID,AGE,GRADE) values('insert6',31,21,28);
+INSERT INTO DEMO(NAME,ID,AGE,GRADE) values('insert7',31,21,28);
+SELECT * FROM DEMO;
+desc DEMO;
+show create table DEMO;
+show index from DEMO;
+drop table DEMO;
+
+
+#create table for drop column (删除列,删除列后再添加同名的列)
+create table DEMO (ID integer not null, NAME varchar(19), AGE integer, GRADE real);
+INSERT INTO DEMO values(30,'insert1',21,23);
+alter table DEMO drop column NAME;
+--error 1136
+#ERROR 1136 (21S01): Column count doesn't match value count at row 1
+INSERT INTO DEMO values(30,'insert2',21,23);
+--error 1054
+#ERROR 1054 (42S22): Unknown column 'NAME' in 'field list'
+INSERT INTO DEMO (ID,NAME,AGE,GRADE) values(30,'insert3',21,23);
+INSERT INTO DEMO (ID,AGE,GRADE) values(312,21,23);
+INSERT INTO DEMO values(313,21,23);
+#SELECT * FROM DEMO;
+alter table DEMO drop column AGE;
+--error 1136
+INSERT INTO DEMO values(1, 'TEST', 2, 23.33);
+INSERT INTO DEMO values(2, 23.33);
+INSERT INTO DEMO values(5, 66.33);
+#SELECT * FROM DEMO;
+ALTER TABLE DEMO ADD COLUMN NAME varchar(19);
+INSERT INTO DEMO (ID,NAME,GRADE) values(30,'insert20', 23.38);
+#SELECT * FROM DEMO;
+desc DEMO;
+show create table DEMO;
+show index from DEMO;
+drop table DEMO;
+
+
+#create table for modify column attr (修改列属性)
+create table DEMO (ID integer not null, NAME varchar(10));
+INSERT INTO DEMO values(1, '1234567890');
+--error 1406
+#ERROR 1406 (22001): Data too long for column 'NAME' at row 1
+INSERT INTO DEMO values(2, '12345678901');
+alter table DEMO modify NAME VARCHAR(11);
+INSERT INTO DEMO values(3, '12345678901');
+--error 1406
+#ERROR 1406 (22001): Data too long for column 'NAME' at row 1
+INSERT INTO DEMO values(4, '123456789012');
+SELECT * FROM DEMO;
+--error 1265
+alter table DEMO modify NAME VARCHAR(10);
+delete from DEMO where ID = 3; 
+SELECT * FROM DEMO;
+alter table DEMO modify NAME VARCHAR(10);
+delete from DEMO;
+alter table DEMO modify NAME VARCHAR(10);
+INSERT INTO DEMO values(5, '1234567890');
+--error 1406
+#ERROR 1406 (22001): Data too long for column 'NAME' at row 1
+INSERT INTO DEMO values(6, '12345678901');
+alter table DEMO modify NAME VARCHAR(11) UNIQUE KEY DEFAULT NULL;
+INSERT INTO DEMO values(6, '12345678901');
+--error 1062
+#ERROR 1062 (23000): Duplicate entry '12345678901' for key 'DEMO.NAME'
+INSERT INTO DEMO values(6, '12345678901');
+desc DEMO;
+show create table DEMO;
+show index from DEMO;
+INSERT INTO DEMO values(28, 'BOB');
+insert into DEMO (ID) values (4);
+insert into DEMO values (4,null);
+insert into DEMO values (4,null);
+--error 1062
+INSERT INTO DEMO values(3, 'BOB');
+SELECT * FROM DEMO;
+desc DEMO;
+show create table DEMO;
+show index from DEMO;
+drop table DEMO;
+
+
+##create table for modify column attr (修改列属性,修改自增列)
+create table DEMO (ID integer not null, col integer);
+INSERT INTO DEMO values(1, 1);
+INSERT INTO DEMO values(2, 1);
+SELECT * FROM DEMO;
+--error 1062
+alter table DEMO modify col integer UNIQUE KEY auto_increment;
+delete from DEMO where ID = 2;
+SELECT * FROM DEMO;
+alter table DEMO modify col integer UNIQUE KEY auto_increment;
+insert into DEMO (ID) values(3);
+insert into DEMO (ID) values(4);
+insert into DEMO (ID) values(5);
+insert into DEMO (ID) values(6);
+--error 1075
+#ERROR 1075 (42000): Incorrect table definition; there can be only one auto column and it must be defined as a key
+ALTER TABLE DEMO DROP INDEX col;
+--error 1062
+#ERROR 1062 (23000): Duplicate entry '1' for key 'DEMO.col'
+INSERT INTO DEMO values(2, 1);
+SELECT * FROM DEMO;
+desc DEMO;
+show create table DEMO;
+show index from DEMO;
+drop table DEMO;
+
+
+##create table for modify column attr (change列为主键)
+create table DEMO (ID integer, col integer);
+insert into DEMO values(1,1);
+insert into DEMO values(2,1);
+insert into DEMO (col) values(3);
+insert into DEMO (col) values(4);
+SELECT * FROM DEMO;
+desc DEMO;
+show create table DEMO;
+show index from DEMO;
+alter table DEMO change ID ID integer PRIMARY KEY auto_increment;
+DELETE FROM DEMO;
+insert into DEMO values(1,1);
+insert into DEMO values(2,1);
+--error 1062
+insert into DEMO values(2,3);
+SELECT * FROM DEMO;
+--error 1068
+alter table DEMO change ID ID integer PRIMARY KEY auto_increment;
+DELETE FROM DEMO where col = 3;
+SELECT * FROM DEMO;
+--error 1068
+alter table DEMO change ID ID integer PRIMARY KEY auto_increment;
+--error 1062
+insert into DEMO (ID) values(1);
+--error 1062
+insert into DEMO (ID) values(2);
+insert into DEMO (ID) values(3);
+SELECT * FROM DEMO;
+#测试自增
+insert into DEMO (col) values(4);
+insert into DEMO (col) values(5);
+insert into DEMO (col) values(6);
+SELECT * FROM DEMO;
+#注意上方两次失败的语句的id会空余出来
+insert into DEMO (col) values(33);
+insert into DEMO (col) values(44);
+SELECT * FROM DEMO;
+desc DEMO;
+show create table DEMO;
+show index from DEMO;
+drop table DEMO;
+
+
+#create table for set and delete column default (列增加删除默认值) 
+create table DEMO (ID integer not null, NAME varchar(19), AGE integer, GRADE real);
+insert into DEMO values(1,'insert1',1,1.1);
+SELECT * FROM DEMO;
+alter table DEMO alter column ID set default 1;
+insert into DEMO (NAME, AGE, GRADE) values ('BOB', 36, 6.9);
+alter table DEMO alter column ID set default 112;
+insert into DEMO (NAME, AGE, GRADE) values ('BOB2', 36, 6.9);
+alter table DEMO alter column ID drop default;
+--error 1364
+#ERROR 1364 (HY000): Field 'ID' doesn't have a default value
+insert into DEMO (NAME, AGE, GRADE) values ('AMY', 32, 8.1);
+insert into DEMO (ID, NAME, AGE, GRADE) values (3,'ALEX', 45, 9.2);
+SELECT * FROM DEMO;
+desc DEMO;
+show create table DEMO;
+show index from DEMO;
+drop table DEMO;
+
+
+#create table for add unqiue index when alter column and drop a unique index (添加、删除、rename唯一索引)
+#测试给一列添加唯一索引和删除唯一索引
+create table DEMO (ID integer PRIMARY KEY auto_increment NOT NULL);
+insert into DEMO values (null);
+insert into DEMO values (null);
+ALTER TABLE DEMO ADD COLUMN col1 integer;
+ALTER TABLE DEMO ADD COLUMN col2 integer;
+ALTER TABLE DEMO ADD UNIQUE (col1);
+insert into DEMO values (null,null,null);
+insert into DEMO values (null,null,null);
+show index from DEMO;
+INSERT INTO DEMO (col1,col2) values(1,1);
+INSERT INTO DEMO (col1,col2) values(2,1);
+--error 1062
+INSERT INTO DEMO (col1,col2) values(1,1);#失败，unique重复
+INSERT INTO DEMO (col1,col2) values(3,1); #成功
+SELECT * FROM DEMO;
+desc DEMO;
+show create table DEMO;
+show index from DEMO;
+ALTER TABLE DEMO DROP INDEX col1;
+show index from DEMO;
+INSERT INTO DEMO (col1,col2) values(1,1);#成功，已经删除unique索引
+SELECT * FROM DEMO;
+desc DEMO;
+show create table DEMO;
+show index from DEMO;
+drop table DEMO;
+
+
+#测试给两列添加唯一索引和删除唯一索引
+create table DEMO (ID integer PRIMARY KEY auto_increment NOT NULL);
+ALTER TABLE DEMO ADD COLUMN col1 integer;
+ALTER TABLE DEMO ADD COLUMN col2 integer;
+ALTER TABLE DEMO ADD UNIQUE (col1,col2);
+show index from DEMO;
+INSERT INTO DEMO (col1,col2) values(1,1);
+INSERT INTO DEMO (col1,col2) values(2,1);
+INSERT INTO DEMO (col1,col2) values(1,2);
+INSERT INTO DEMO (col1,col2) values(2,2);
+--error 1062
+#ERROR 1062 (23000): Duplicate entry '1-1' for key 'DEMO.col1'
+INSERT INTO DEMO (col1,col2) values(1,1);
+SELECT * FROM DEMO;
+desc DEMO;
+show create table DEMO;
+show index from DEMO;
+ALTER TABLE DEMO DROP INDEX col1;
+INSERT INTO DEMO (col1,col2) values(1,1);
+SELECT * FROM DEMO;
+desc DEMO;
+show create table DEMO;
+show index from DEMO;
+drop table DEMO;
+
+
+#create table for add unqiue index when alter column and drop a primary index (添加、删除、rename主键)
+#测试给一列添加主键和删除主键
+create table DEMO (ID integer UNIQUE KEY auto_increment NOT NULL);
+insert into DEMO values (null);
+insert into DEMO values (null);
+--error 1062
+#ERROR 1062 (23000): Duplicate entry '1' for key 'DEMO.ID'
+insert into DEMO values (1);
+insert into DEMO values (null);
+SELECT * FROM DEMO;
+ALTER TABLE DEMO ADD COLUMN col1 integer;
+ALTER TABLE DEMO ADD COLUMN col2 integer;
+--error 3655
+#Can't set NULL value for column 'col1' , 有NULL的时候不能设置主键
+ALTER TABLE DEMO ADD PRIMARY KEY (col1);
+UPDATE DEMO set col1 = 1 where ID = 1;
+UPDATE DEMO set col1 = 2 where ID = 2;
+UPDATE DEMO set col1 = 3 where ID = 3;
+ALTER TABLE DEMO ADD PRIMARY KEY (col1);
+SELECT * FROM DEMO;
+show index from DEMO;
+--error 1062 
+INSERT INTO DEMO (col1,col2) values(1,1); #失败，primary key col1不能重复
+INSERT INTO DEMO (col1,col2) values(4,1);
+--error 1048
+INSERT INTO DEMO (col1,col2) values(null,1);#失败primary key不能插入null
+INSERT INTO DEMO (col1,col2) values(5,1); #成功
+SELECT * FROM DEMO;
+desc DEMO;
+show create table DEMO;
+show index from DEMO;
+ALTER TABLE DEMO DROP PRIMARY KEY;#删除主键
+show index from DEMO;
+INSERT INTO DEMO (col1,col2) values(1,1);#成功，已经删除主键索引
+SELECT * FROM DEMO;
+desc DEMO;
+show create table DEMO;
+show index from DEMO;
+drop table DEMO;
+
+
+#测试给两列添加主键和删除 添加复合主键
+#测试语句一：alter table 表名 drop primary key;
+#测试语句二：alter table 表名 add constraint 主键约束的名字 primary key(列名1,列名2);
+#删除语句：alter table 表名 drop primary key;
+create table DEMO (ID integer UNIQUE KEY auto_increment NOT NULL);
+insert into DEMO values (null);
+insert into DEMO values (null);
+ALTER TABLE DEMO ADD COLUMN col1 integer;
+ALTER TABLE DEMO ADD COLUMN col2 integer;
+SELECT * FROM DEMO;
+--error 3655
+#Can't set NULL value for column 'col1' , 有NULL的时候不能设置主键
+ALTER TABLE DEMO ADD PRIMARY KEY (col1,col2);
+UPDATE DEMO set col1 = 1;
+--error 3655
+#Can't set NULL value for column 'col2' , 有NULL的时候不能设置主键
+ALTER TABLE DEMO ADD PRIMARY KEY (col1,col2);
+UPDATE DEMO set col2 = 2;
+SELECT * FROM DEMO;
+--error ER_DUP_ENTRY
+#Duplicate entry
+ALTER TABLE DEMO ADD PRIMARY KEY (col1,col2);
+UPDATE DEMO set col1 = 2 where ID = 2;
+ALTER TABLE DEMO ADD PRIMARY KEY (col1,col2);
+SELECT * FROM DEMO;
+show index from DEMO;
+INSERT INTO DEMO (col1,col2) values(1,1);
+INSERT INTO DEMO (col1,col2) values(3,3);
+INSERT INTO DEMO (col1,col2) values(3,4);
+INSERT INTO DEMO (col1,col2) values(4,3);
+INSERT INTO DEMO (col1,col2) values(4,4);
+--error 1062 
+INSERT INTO DEMO (col1,col2) values(3,3);
+--error 1062 
+INSERT INTO DEMO (col1,col2) values(3,4);
+--error 1062 
+INSERT INTO DEMO (col1,col2) values(4,3);
+--error 1062 
+INSERT INTO DEMO (col1,col2) values(4,4);
+#这句其实并没有修改成功因为受到主键唯一的约束，但是并没有报错 TODODDL ，innodb其实会报主键重复的(Duplicate entry '2-2' for key 'DEMO.PRIMARY')
+--error 1062 
+UPDATE DEMO set col1 = 2 where ID = 1;
+SELECT * FROM DEMO;
+#没有修改成功，但是也没执行报错， TODODDL 后面需要来审视 innodb能够修改成功，daac没有修改成功
+UPDATE DEMO set col1 = 100 where ID = 1;
+SELECT * FROM DEMO;
+desc DEMO;
+show create table DEMO;
+show index from DEMO;
+--error 1062 
+INSERT INTO DEMO (col1,col2) values(3,3);
+ALTER TABLE DEMO DROP PRIMARY KEY;#删除主键
+INSERT INTO DEMO (col1,col2) values(3,3);
+SELECT * FROM DEMO;
+desc DEMO;
+show create table DEMO;
+show index from DEMO;
+INSERT INTO DEMO (col1,col2) values(1,1);#成功，已经删除复合主键
+drop table DEMO;
+
+
+#create table for add auto_increment (修改表添加和删除自增)
+create table DEMO (ID integer PRIMARY KEY not null, NAME varchar(19), AGE integer, GRADE real);
+INSERT INTO DEMO values(1,'insert1',1,1.1);
+--error 1062 
+INSERT INTO DEMO values(1,'insert2',1,1.2);
+INSERT INTO DEMO values(2,'insert2',1,1.2);
+SELECT * FROM DEMO;
+alter table DEMO modify ID int auto_increment;
+desc DEMO;
+show create table DEMO;
+show index from DEMO;
+INSERT INTO DEMO (NAME, AGE, GRADE) values('insert3',1,1.2);
+INSERT INTO DEMO (NAME, AGE, GRADE) values('insert4',1,1.2);
+INSERT INTO DEMO (NAME, AGE, GRADE) values('insert5',1,1.2);
+INSERT INTO DEMO (NAME, AGE, GRADE) values('insert6',1,1.2);
+INSERT INTO DEMO values(null, 'insert6',1,1.2);
+INSERT INTO DEMO values(null, 'insert6',1,1.2);
+INSERT INTO DEMO values(null, 'insert6',1,1.2);
+SELECT * FROM DEMO;
+desc DEMO;
+show create table DEMO;
+show index from DEMO;
+alter table DEMO modify ID int;
+desc DEMO;
+show create table DEMO;
+show index from DEMO;
+--error 1048
+#这个地方modify了以后感觉丢失了自增属性，但是唯一属性daac还在
+INSERT INTO DEMO values(null, 'insert6',1,1.2); #1048 (23000): Column 'ID' cannot be null
+--error 1062 
+INSERT INTO DEMO values(7, 'insert6',1,1.2);#ERROR 1062 (23000): Duplicate entry '7' for key 'DEMO.PRIMARY'
+--error 1062 
+INSERT INTO DEMO values(8, 'insert6',1,1.2);
+SELECT * FROM DEMO;
+drop table DEMO;
+
+
+#alter table 修改comment
+create table DEMO (ID integer PRIMARY KEY not null, NAME varchar(19), AGE integer, GRADE real);
+ALTER TABLE DEMO MODIFY ID integer COMMENT 'id of user';
+show create table DEMO;
+#修改多列的comment
+ALTER TABLE DEMO MODIFY NAME varchar(19) COMMENT 'name of user', MODIFY AGE integer COMMENT 'age of user';
+show create table DEMO;
+drop table DEMO;
+
+
+#create table for alter invisible column test 修改表时设置隐藏列
+create table t1 (col1 INT, col2 INT, col3 INT);
+alter table t1 add column col4 int invisible;
+--error 1136
+insert into t1 values(1, 2, 3, 4);
+insert into t1 (col1, col2, col3, col4) values (11, 22, 33, 44), (111, 222, 333, 444);
+#查询语句 *不包含隐藏字段，col4不会出现在返回结果中
+select * from t1;
+#显式指定了col4字段，返回结果中包含该隐藏列
+select col1, col2, col3, col4 from t1;
+alter table t1 modify column col1 INT INVISIBLE;
+alter table t1 alter column col2 set INVISIBLE;
+alter table t1 change column col4 col4 INT VISIBLE;
+--error 1136
+insert into t1 values(1, 2, 3, 4);
+insert into t1 (col3, col4) values (3333,4444);
+select * from t1;
+select col1, col2, col3, col4 from t1;
+alter table t1 alter column col2 set VISIBLE;
+select * from t1;
+drop table t1;
+
+# 更改主键列的数据类型
+CREATE TABLE t1 (COL_1 INT COMMENT '列1', COL_2 INTEGER COMMENT '列2', COL_3 BIGINT PRIMARY KEY COMMENT '列3');
+ALTER TABLE t1 MODIFY COLUMN COL_3 TINYINT;
+ALTER TABLE t1 MODIFY COLUMN COL_3 SMALLINT;
+ALTER TABLE t1 MODIFY COLUMN COL_3 MEDIUMINT;
+ALTER TABLE t1 MODIFY COLUMN COL_3 INT;
+ALTER TABLE t1 MODIFY COLUMN COL_3 INTEGER;
+ALTER TABLE t1 MODIFY COLUMN COL_3 BIGINT;
+ALTER TABLE t1 MODIFY COLUMN COL_3 FLOAT;
+ALTER TABLE t1 MODIFY COLUMN COL_3 DOUBLE;
+ALTER TABLE t1 MODIFY COLUMN COL_3 VARCHAR(20);
+DROP TABLE t1;
+
+# 添加CONSTRAINT
+CREATE TABLE `test`.`supplier`(
+group_id int(11) not null primary key,
+group_name varchar(255) not null
+);
+CREATE TABLE `test`.`supplier11` (
+id int(11) NOT NULL,
+supplier_id int(11) NOT NULL DEFAULT 1,
+supplier_name varchar(255) NOT NULL,
+group_id int(11) NOT NULL,
+PRIMARY KEY (`id`),
+UNIQUE KEY `uni_sid`(supplier_id) USING BTREE,
+CONSTRAINT `fk_gid` FOREIGN KEY (`group_id`) REFERENCES `test`.`supplier`(`group_id`) ON DELETE NO ACTION ON UPDATE NO ACTION,
+CONSTRAINT `chk_1` CHECK (supplier_id > 2 and supplier_id < 100)
+);
+ALTER TABLE `test`.`supplier11` DROP CHECK `chk_1`;
+ALTER TABLE `test`.`supplier11` ADD CONSTRAINT `chk_1000` CHECK((`supplier_id` > 2) and (`supplier_id` < 1000));
+DROP TABLE `test`.`supplier11`;
+DROP TABLE `test`.`supplier`;
+
+# 验证TSE PK在使用add column方式进行创建时，存在约束名称对接不一致问题
+create table DEMO_KEY (ID integer, AGE integer, GRADE real);
+# 原先使用 被索引列的列名+tableid作为 PK约束名 现改为PRIMARY+tableid
+alter table DEMO_KEY add column col1 integer primary key;
+# 原方案是使用PRIMARY+tableid作为约束名进行查找并删除
+alter table DEMO_KEY drop primary key;
+# 添加成功说明，mysql侧和cantian侧的元数据均成功删除了primary key，否则报Multi-key
+alter table DEMO_KEY add primary key (id);
+drop table DEMO_KEY;
+
+
+## 测试新增列名|约束名|索引名大小写不敏感
+--disable_warnings
+drop table if exists TEST_COL;
+drop table if exists FK_TEST;
+CREATE TABLE TEST_COL (id int(18));
+# 增列
+ALTER TABLE TEST_COL ADD COLUMN Col2 integer;
+#insert into TEST_COL values(1, 2);
+#SELECT cOL2 FROM TEST_COL;
+# 删列
+ALTER TABLE TEST_COL DROP COLUMN col2;
+# 旧列重命名
+ALTER TABLE TEST_COL RENAME COLUMN ID TO my_ID;
+# 改旧列类型并改新列名
+ALTER TABLE TEST_COL ADD COLUMN col3 integer;
+ALTER TABLE TEST_COL CHANGE COLUMN coL3 my_col3 varchar(20);
+show create table TEST_COL;
+# 增加外键约束
+CREATE TABLE FK_TEST (id int(18) primary key);
+ALTER TABLE TEST_COL ADD CONSTRAINT my_fk_CONS FOREIGN KEY(MY_ID) REFERENCES FK_TEST(Id);
+show create table TEST_COL;
+# 删除外键约束
+ALTER TABLE TEST_COL DROP FOREIGN KEY my_fk_CONS;
+# 增加索引
+ALTER TABLE TEST_COL ADD INDEX (My_col3);
+show create table TEST_COL;
+# 删除索引
+ALTER TABLE TEST_COL drop index MY_Col3;
+drop table TEST_COL;
+drop table FK_TEST;
+--enable_warnings
+
+
+## 测试alter_copy情况,运行多次执行失败
+--disable_warnings
+drop table if exists test;
+--enable_warnings
+#普通表转分区表
+create table test(c1 int, c2 int, c3 double);
+insert into test values (1,2,10),(2,3,4),(3,5,6),(4,12,16),(1,2,4),(10,2,17),(6,12,21);
+alter table test partition by range(c1)(partition p0 values less than (4),
+partition p1 values less than (7), partition p2 values less than (12));
+alter table test partition by range(c1)(partition p0 values less than (7),
+partition p1 values less than (12));
+--error 1526
+alter table test partition by range(c1)(partition p0 values less than (7),
+partition p1 values less than (10));
+--error 1526
+alter table test partition by range(c1)(partition p0 values less than (7),
+partition p1 values less than (10));
+alter table test partition by range(c1)(partition p0 values less than (7),
+partition p1 values less than (12));
+--error 1526
+alter table test partition by range(c2)(partition p0 values less than (7),
+partition p1 values less than (12));
+--error 1526
+alter table test partition by range(c2)(partition p0 values less than (7),
+partition p1 values less than (12));
+alter table test partition by range(c2)(partition p0 values less than (7),
+partition p1 values less than (15));
+alter table test partition by range(c2)(partition p0 values less than (20));
+alter table test partition by range(c2)(partition p0 values less than (25));
+alter table test partition by range(c2)(partition p0 values less than (20));
+alter table test partition by range(c2)(partition p0 values less than (25));
+drop table test;
+
+#分区表转分区表
+create table test(c1 int, c2 int) partition by range(c1) (partition p0 values less than (6),
+partition p1 values less than (10));
+insert into test values (1,2),(3,4),(6,6),(9,10);
+--error 1526
+alter table test partition by range(c1) (partition p0 values less than (7));
+alter table test partition by range(c1) (partition p0 values less than (20));
+drop table test;
+
+#支持cantian重命名交换列
+create table test (a int, b int, c int, d int);
+alter table test rename column a to b, rename column b to c, rename column c to a;
+show create table test;
+alter table test rename column a to b, rename column b to a, rename column c to newc;
+show create table test;
+--error 1060
+alter table test rename column a to b;
+drop table test;
+--error 1059
+CREATE TABLE test (C123456789C123456789C123456789C123456789C123456789C123456789C1234 INT, b int);
+CREATE TABLE test (C123456789C123456789C123456789C123456789C123456789C123456789C123 INT, b int);
+alter table test rename column C123456789C123456789C123456789C123456789C123456789C123456789C123 to b,
+                 rename column b to C123456789C123456789C123456789C123456789C123456789C123456789C123;
+show create table test;
+drop table test;
+create table test (a integer primary key, b varchar(19) not null, c integer, d real);
+# insert some data to table.
+insert into test values (1, 'LIOR', 35, 6.9);  
+insert into test values (4, 'MIKE', 55, 99.92);  
+insert into test values (8, 'ROMAN', 40, 94.1);  
+insert into test values (5, 'Eitan', NULL, 4.9);
+insert into test values (7, 'zhangdi', NULL, 10000.8);
+insert into test values (9, 'Hisses', 1, NULL);
+alter table test rename column a to b, rename column b to c, rename column c to a;
+show create table test;
+drop table test;
+
+#空表修改列类型 varchar to int
+create table test(a INT,b VARCHAR(255) NOT NULL);
+alter table test change column b b INT;
+insert into test values (1,2),(3,4),(6,6),(9,10);
+select * from test;
+drop table test;
+
+#空表修改列类型 int to varchar
+create table test(a INT,b INT NOT NULL);
+alter table test change column b b VARCHAR(255);
+insert into test values (1,'aa'),(2,'bb'),(3,'cc'),(4,'dd');
+select * from test;
+drop table test;
+
+CREATE TABLE t1 (a int, b int);
+INSERT INTO t1 VALUES (1,4),(2,2),(2,2),(4,1),(4,1),(4,1),(4,1),(2,1),(2,1);
+SELECT SUM(b) FROM t1 GROUP BY a WITH ROLLUP;
+SELECT DISTINCT SUM(b) FROM t1 GROUP BY a WITH ROLLUP;
+SELECT SUM(b), COUNT(DISTINCT b) FROM t1 GROUP BY a WITH ROLLUP;
+SELECT DISTINCT SUM(b), COUNT(DISTINCT b) FROM t1 GROUP BY a WITH ROLLUP;
+SELECT SUM(b), COUNT(*) FROM t1 GROUP BY a WITH ROLLUP;
+SELECT DISTINCT SUM(b), COUNT(*) FROM t1 GROUP BY a WITH ROLLUP;
+SELECT SUM(b), COUNT(DISTINCT b), COUNT(*) FROM t1 GROUP BY a WITH ROLLUP;
+SELECT DISTINCT SUM(b), COUNT(DISTINCT b), COUNT(*) FROM t1 GROUP BY a WITH ROLLUP;
+SELECT a, SUM(b) FROM t1 GROUP BY a,b WITH ROLLUP;
+SELECT DISTINCT a, SUM(b) FROM t1 GROUP BY a,b WITH ROLLUP;
+SELECT b, a, SUM(b) FROM t1 GROUP BY a,b WITH ROLLUP;
+SELECT DISTINCT b,a, SUM(b) FROM t1 GROUP BY a,b WITH ROLLUP;
+ALTER TABLE t1 ADD COLUMN c INT;
+SELECT a,b,SUM(c) FROM t1 GROUP BY a,b,c WITH ROLLUP;
+SELECT distinct a,b,SUM(c) FROM t1 GROUP BY a,b,c WITH ROLLUP;
+drop table t1;
+ 
+CREATE TABLE t1 (a int, b int);
+INSERT INTO t1 VALUES (1,4),(2,2),(2,2),(4,1),(4,1),(4,1),(4,1),(2,1),(2,1);
+ALTER TABLE t1 ADD COLUMN c INT;
+ALTER TABLE t1 ADD COLUMN d INT;
+SELECT * FROM t1;
+UPDATE t1 SET c = 3 WHERE a = 1;
+SELECT * FROM t1;
+ALTER TABLE t1 DROP COLUMN c;
+SELECT * FROM t1;
+UPDATE t1 SET d = 4 WHERE a = 1;
+SELECT * FROM t1;
+ALTER TABLE t1 ADD COLUMN e INT;
+SELECT * FROM t1;
+ALTER TABLE t1 DROP COLUMN b;
+SELECT * FROM t1;
+INSERT INTO t1 VALUES (8,NULL,NULL),(9,3,5),(10,5,NULL),(11,NULL,7);
+SELECT * FROM t1;
+drop table t1;
+
+create table t1(a int, b int, c int auto_increment unique key);
+insert into t1 values (1,1,1);
+alter table t1 drop column c;
+select * from t1;
+show create table t1;
+drop table t1;
+
+create table t1(a int, b int unique key, c int auto_increment primary key);
+insert into t1 values (1,1,1);
+alter table t1 drop column c;
+select * from t1;
+show create table t1;
+drop table t1;
+
+CREATE TABLE t1(c1 TINYINT NOT NULL, c2 TINYINT NOT NULL, c3 TINYINT NOT NULL);
+INSERT INTO t1 VALUES(1,3,1),(3,1,2),(2,2,1),(8,9,2),(7,5,1);
+SELECT * FROM t1;
+ALTER TABLE t1 ORDER BY c1,c2,c3;
+SELECT * FROM t1;
+ALTER TABLE t1 ORDER BY c2 desc;
+SELECT * FROM t1;
+ALTER TABLE t1 ORDER BY c3;
+SELECT * FROM t1;
+ALTER TABLE t1 ORDER BY c1 asc;
+SELECT * FROM t1;
+DROP TABLE t1;
+
+CREATE TABLE IF NOT EXISTS t1 (
+  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  pattern VARCHAR(5000) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  pattern_database VARCHAR(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin,
+  replacement VARCHAR(5000) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  enabled ENUM('YES', 'NO') CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL
+    DEFAULT 'YES',
+  message VARCHAR(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin,
+  pattern_digest VARCHAR(64),
+  normalized_pattern VARCHAR(5000)
+) DEFAULT CHARSET = utf8mb4 ENGINE=CTC;
+show tables;
+ALTER TABLE t1 DROP COLUMN pattern_digest,ALGORITHM = COPY;
+show create table t1;
+drop table t1;
+# null转not null
+SET sql_mode = 'NO_ENGINE_SUBSTITUTION';
+DROP TABLE IF EXISTS t1;
+SET CHARACTER SET koi8r;
+CREATE TABLE t1 (
+  comment CHAR(32) ASCII NOT NULL,
+  koi8_ru_f CHAR(32) CHARACTER SET koi8r NOT NULL default ''
+) CHARSET=latin5;
+INSERT INTO t1 (koi8_ru_f,comment) VALUES ('a','LAT SMALL A');
+ALTER TABLE t1 ADD ucs2_f CHAR(32) CHARACTER SET ucs2;
+ALTER TABLE t1 CHANGE ucs2_f ucs2_f CHAR(32) UNICODE NOT NULL;
+DROP TABLE t1;
+SET sql_mode = DEFAULT;
+# varchar(3000) -> varchar (5000)
+create table t1(col int, col1 varchar(3000));
+insert into t1 values (1,'abc');
+alter table t1 modify column col1 varchar(5000);
+drop table t1;
+
+CREATE TABLE t1(a FLOAT);
+INSERT INTO t1 values(1.5);
+ALTER TABLE t1 MODIFY COLUMN a FLOAT;
+ALTER TABLE t1 CHANGE COLUMN a a FLOAT;
+SHOW CREATE TABLE t1;
+DROP TABLE t1;
+
+CREATE TABLE t1(a DOUBLE);
+INSERT INTO t1 values(1.5);
+ALTER TABLE t1 MODIFY COLUMN a DOUBLE;
+ALTER TABLE t1 CHANGE COLUMN a a DOUBLE;
+SHOW CREATE TABLE t1;
+DROP TABLE t1;
+
+create table t1 (f1 int unique, f2 int, f3 float DEFAULT 0.0);
+INSERT INTO t1 VALUES (1, 80, 0.0);
+INSERT INTO t1 VALUES (2, 81, 0.0);
+create table t2 (f1 int, f2 int, f3 float DEFAULT 0.0, constraint c1 foreign key (f2) references t1(f1) on update cascade);
+show create table t2;
+INSERT INTO t2 VALUES (51, 1, 0.0);
+INSERT INTO t2 VALUES (52, 2, 0.0);
+--error ER_FK_COLUMN_CANNOT_DROP_CHILD
+ALTER TABLE t1 DROP COLUMN f1;
+ALTER TABLE t1 DROP COLUMN f2;
+--error ER_FK_COLUMN_CANNOT_DROP
+ALTER TABLE t2 DROP COLUMN f2;
+ALTER TABLE t2 DROP COLUMN f1;
+drop table t2;
+drop table t1;
+
+#更改列名
+CREATE TABLE t1(fld1 INT);
+ALTER TABLE t1 RENAME COLUMN fld1 TO fld1;
+DROP TABLE t1;
+CREATE TABLE t1(fld1 INT);
+ALTER TABLE t1 RENAME COLUMN fld1 TO fld2;
+DROP TABLE t1;
+CREATE TABLE t1(fld1 INT, fld2 INT);
+ALTER TABLE t1 RENAME COLUMN fld1 TO fld2, RENAME COLUMN fld2 TO fld1;
+DROP TABLE t1;
+CREATE TABLE t1(fld1 INT, fld2 INT);
+ALTER TABLE t1 RENAME COLUMN fld1 TO fld1, RENAME COLUMN fld2 TO fld2;
+DROP TABLE t1;
+CREATE TABLE t1(fld1 INT, fld2 INT, fld3 INT);
+ALTER TABLE t1 RENAME COLUMN fld1 TO fld1, RENAME COLUMN fld2 TO fld3, RENAME COLUMN fld3 TO fld2;
+DROP TABLE t1;
+CREATE TABLE t1(fld1 INT, fld2 INT, fld3 INT);
+ALTER TABLE t1 RENAME COLUMN fld1 TO fld1, RENAME COLUMN fld2 TO fld2, RENAME COLUMN fld3 TO fld3;
+DROP TABLE t1;
+CREATE TABLE t1(fld1 INT, fld2 INT, fld3 INT);
+ALTER TABLE t1 RENAME COLUMN fld1 TO fld2, RENAME COLUMN fld3 TO fld4, RENAME COLUMN fld2 TO fld1;
+DROP TABLE t1;
+
+#添加NOT NULL列
+CREATE TABLE t1(col1 int);
+INSERT INTO t1 values (1234);
+ALTER TABLE t1 ADD COLUMN col2 int NOT NULL;
+ALTER TABLE t1 ADD COLUMN coL3 double NOT NULL;
+ALTER TABLE t1 ADD COLUMN col4 float NOT NULL;
+ALTER TABLE t1 ADD COLUMN col5 blob NOT NULL;
+ALTER TABLE t1 ADD COLUMN col6 blob NOT NULL, ADD COLUMN col7 int NOT NULL;
+ALTER TABLE t1 DROP COLUMN col2, ADD COLUMN col8 int NOT NULL, ADD COLUMN col9 int;
+ALTER TABLE t1 ADD COLUMN col10 int NOT NULL, DROP COLUMN col3, DROP COLUMN col4;
+SELECT * FROM t1;
+ALTER TABLE t1 ADD COLUMN col15 int default 333;
+ALTER TABLE t1 ADD COLUMN col16 int NOT NULL default 444;
+SELECT * FROM t1;
+DROP TABLE t1;
+
+create table t1 (i int unsigned not null auto_increment primary key);
+insert into t1 values (null),(null),(null),(null);
+alter table t1 drop i,add i int unsigned not null auto_increment, drop primary key, add primary key (i);
+drop table t1;
+
+create database db1;
+create database db2;
+use db1;
+create table t(id int primary key);
+create table t1(
+a int DEFAULT NULL,
+c float,
+id int primary key auto_increment,
+foreign key(id) references t(id));
+alter table t1 rename to t2, add column b int, algorithm = copy;
+alter table t2 rename to t1;
+rename table t1 to db2.t2;
+alter table db2.t2 modify column c int;
+alter table db2.t2 alter column a drop default, rename to t1;
+alter table t1 rename to db2.t2;
+alter table db2.t2 rename to db1.t1, modify column c char(10);
+alter table t1 rename to t2;
+drop database db1;
+drop database db2;

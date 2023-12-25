@@ -1,0 +1,39 @@
+#
+#  Copyright (C) 2023. Huawei Technologies Co., Ltd. All rights reserved.
+
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License, version 2.0,
+#   as published by the Free Software Foundation.
+
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License, version 2.0, for more details.
+
+#   You should have received a copy of the GNU General Public License
+#   along with this program; if not, write to the Free Software
+#   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
+
+# test for lock/unlock instance
+LOCK INSTANCE FOR BACKUP;
+--error ER_DISALLOWED_OPERATION
+set global ctc_db_datafile_size=32;
+--error ER_DISALLOWED_OPERATION
+create database test;
+--error ER_DISALLOWED_OPERATION
+create table DEMO(id int);
+FLUSH NO_WRITE_TO_BINLOG BINARY LOGS;
+set session ctc_sampling_ratio=90;
+set session ctc_sampling_ratio=100;
+UNLOCK INSTANCE;
+SET SESSION wait_timeout=2147483;
+SET SESSION lock_wait_timeout=31536000;
+SET SESSION autocommit=1;
+SET NAMES utf8;
+LOCK INSTANCE FOR BACKUP;
+SET SESSION wait_timeout=2147483;
+SET SESSION lock_wait_timeout=31536000;
+SET SESSION autocommit=1;
+SET NAMES utf8;
+UNLOCK INSTANCE;
+set @ctc_ddl_enabled=true;

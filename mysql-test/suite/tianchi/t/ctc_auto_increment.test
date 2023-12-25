@@ -1,0 +1,412 @@
+#
+#  Copyright (C) 2023. Huawei Technologies Co., Ltd. All rights reserved.
+
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License, version 2.0,
+#   as published by the Free Software Foundation.
+
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License, version 2.0, for more details.
+
+#   You should have received a copy of the GNU General Public License
+#   along with this program; if not, write to the Free Software
+#   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
+
+# This test runs for auto increment feature
+# test set auto_increment_increment
+# test set auto_increment_offset
+# test use alter to reset the starting value of auto increment column
+# test set auto increment column with a default value
+# test set foreign key
+--disable_warnings
+drop table if exists t1;
+--enable_warnings
+
+# Change the variable auto_increment_offset, from 1 to 5
+set @@session.auto_increment_offset=1;
+set @@session.auto_increment_increment=10;
+SHOW VARIABLES LIKE 'auto_inc%';
+CREATE TABLE t1 (col INT NOT NULL AUTO_INCREMENT PRIMARY KEY);
+INSERT INTO t1 VALUES (NULL), (NULL), (NULL), (NULL);
+SELECT col FROM t1;
+set @@session.auto_increment_offset=5;
+INSERT INTO t1 VALUES (NULL), (NULL), (NULL), (NULL);
+select col from t1;
+drop table t1;
+
+# Change the variable auto_increment_increment, from 1 to 10
+set @@session.auto_increment_offset=1;
+set @@session.auto_increment_increment=1;
+SHOW VARIABLES LIKE 'auto_inc%';
+CREATE TABLE t1 (col INT NOT NULL AUTO_INCREMENT PRIMARY KEY);
+INSERT INTO t1 VALUES (NULL), (NULL);
+SELECT col FROM t1;
+set @@session.auto_increment_increment=10;
+INSERT INTO t1 VALUES (NULL), (NULL);
+select col from t1;
+drop table t1;
+
+# Set auto_increment_offset, meanwhile, table created with auto_increment larger than offset
+set @@session.auto_increment_offset=1;
+set @@session.auto_increment_increment=2;
+SHOW VARIABLES LIKE 'auto_inc%';
+CREATE TABLE t1 (
+    id int NOT NULL AUTO_INCREMENT,
+    name varchar(30),
+    PRIMARY KEY (id)
+) AUTO_INCREMENT=2;
+INSERT into t1(name) values('3');
+INSERT into t1(name) values('5');
+INSERT into t1(name) values('7');
+select * from t1;
+drop table t1;
+
+# alter the auto_increment when table is empty
+set @@session.auto_increment_offset=1;
+set @@session.auto_increment_increment=1;
+CREATE TABLE t1(c1 TINYINT AUTO_INCREMENT NOT NULL KEY);
+ALTER TABLE t1 AUTO_INCREMENT=10;
+SHOW CREATE TABLE t1;
+INSERT INTO t1 VALUES (NULL), (NULL);
+select * from t1;
+drop table t1;
+
+# alter the auto_increment after insert some values to table
+set @@session.auto_increment_offset=1;
+set @@session.auto_increment_increment=1;
+CREATE TABLE t1(c1 TINYINT AUTO_INCREMENT NOT NULL KEY);
+INSERT INTO t1 VALUES (NULL), (NULL);
+SHOW CREATE TABLE t1;
+ALTER TABLE t1 AUTO_INCREMENT=10;
+SHOW CREATE TABLE t1;
+INSERT INTO t1 VALUES (NULL), (NULL);
+select * from t1;
+drop table t1;
+
+# truncate table and alter auto increment value
+set @@session.auto_increment_offset=1;
+set @@session.auto_increment_increment=1;
+CREATE TABLE t3(a SMALLINT AUTO_INCREMENT KEY);
+ALTER TABLE t3 AUTO_INCREMENT = 100;
+INSERT INTO t3 VALUES(0), (0);
+select * from t3;
+truncate table t3;
+ALTER TABLE t3 AUTO_INCREMENT = 100;
+INSERT INTO t3 VALUES(0), (0);
+select * from t3;
+drop table t3;
+
+set @@session.auto_increment_offset=1;
+set @@session.auto_increment_increment=1;
+# truncate non-empty table and alter auto_inc
+create table t3(id int,c1 int,index(id));
+alter table t3 MODIFY COLUMN id int auto_increment,auto_increment=100;
+insert into t3 values(null,1);
+truncate table t3;
+alter table t3 MODIFY COLUMN id int auto_increment,auto_increment=100;
+show create table t3;
+drop table t3;
+# truncate empty table and alter auto_inc
+create table t3(id int,c1 int,index(id));
+alter table t3 MODIFY COLUMN id int auto_increment,auto_increment=100;
+truncate table t3;
+alter table t3 MODIFY COLUMN id int auto_increment,auto_increment=100;
+show create table t3;
+drop table t3;
+
+# End test, reset auto increment variables to default value 1
+set @@session.auto_increment_offset=1;
+set @@session.auto_increment_increment=1;
+SHOW VARIABLES LIKE 'auto_inc%';
+
+# auto increment boundary
+CREATE TABLE DEMO (a DOUBLE AUTO_INCREMENT KEY);
+--error 1292
+insert into DEMO values (-1.7976931348623157E+308);
+show create table DEMO;
+--error 1292
+insert into DEMO values (1.7976931348623157E+308);
+insert into DEMO values (null);
+select * from DEMO;
+show create table DEMO;
+drop table DEMO;
+
+CREATE TABLE DEMO (a FLOAT AUTO_INCREMENT KEY);
+insert into DEMO values(-3.402823466E+38);
+select * from DEMO;
+show create table DEMO;
+insert into DEMO values(-1.175494351E-38);
+select * from DEMO;
+show create table DEMO;
+insert into DEMO values(3.402823466E+38);
+select * from DEMO;
+show create table DEMO;
+insert into DEMO values(16777215);
+select * from DEMO;
+show create table DEMO;
+insert into DEMO values(16777216);
+select * from DEMO;
+show create table DEMO;
+--error 1062
+insert into DEMO values(16777217);
+insert into DEMO values (9223372036854775807);
+drop table DEMO;
+
+# LAST_INSERT_ID() and IS NULL
+CREATE TABLE t1 (a INT AUTO_INCREMENT PRIMARY KEY);
+SET insert_id = 2;
+INSERT INTO t1 VALUES (NULL);
+SELECT LAST_INSERT_ID();
+SELECT a FROM t1 WHERE a IS NULL;
+SELECT /*+ SET_VAR(sql_auto_is_null=1) */ a FROM t1 WHERE a IS NULL;
+
+INSERT INTO t1 VALUES (1);
+SELECT LAST_INSERT_ID();
+SELECT /*+ SET_VAR(sql_auto_is_null=1) */ a FROM t1 WHERE a IS NULL;
+
+INSERT INTO t1 VALUES ();
+SELECT LAST_INSERT_ID();
+SELECT /*+ SET_VAR(sql_auto_is_null=1) */ a FROM t1 WHERE a IS NULL;
+
+INSERT INTO t1 VALUES (0);
+SELECT LAST_INSERT_ID();
+SELECT /*+ SET_VAR(sql_auto_is_null=1) */ a FROM t1 WHERE a IS NULL;
+
+INSERT INTO t1 VALUES (NULL);
+SELECT LAST_INSERT_ID();
+SELECT /*+ SET_VAR(sql_auto_is_null=1) */ a FROM t1 WHERE a IS NULL;
+
+SET insert_id = 0;
+INSERT INTO t1 VALUES (NULL);
+SELECT LAST_INSERT_ID();
+SELECT /*+ SET_VAR(sql_auto_is_null=1) */ a FROM t1 WHERE a IS NULL;
+
+SELECT * FROM t1;
+SHOW CREATE TABLE t1;
+DROP TABLE t1;
+
+create table t1 (a INT AUTO_INCREMENT KEY, b varchar(30));
+insert into t1 values(1000, '1');
+insert into t1(b) values('1001');
+select * from t1;
+replace into t1 values(0, '1002'),(1000, '2');
+select * from t1;
+DROP TABLE t1;
+
+# alter table <table_name> ALTER COLUMN <column_name> set default <default_value>;
+# If the auto-inc column is not primary key, `insert ()` will insert default value.
+create table t1 (a INT AUTO_INCREMENT, index(a));
+insert into t1 values(null),(null);
+select * from t1;
+alter table t1 ALTER COLUMN a set default 10;
+insert into t1 values();
+insert into t1 values();
+select * from t1;
+insert into t1 values(null);
+select * from t1;
+drop table t1;
+
+# If the auto-inc column is primary key, the second and later `insert ()` command will get duplicate key err.
+create table t1 (a INT AUTO_INCREMENT KEY);
+insert into t1 values(null),(null);
+select * from t1;
+alter table t1 ALTER COLUMN a set default 10;
+insert into t1 values();
+select * from t1;
+--error 1062
+insert into t1 values();
+insert into t1 values(null);
+select * from t1;
+drop table t1;
+
+# After alter set default value, `insert (null)` will insert auto-generate value based on existing value.
+# `insert ()` will insert default value.
+create table t1 (a INT AUTO_INCREMENT KEY);
+insert into t1 values(null);
+select * from t1;
+alter table t1 ALTER COLUMN a set default 10;
+insert into t1 values(null);
+select * from t1;
+insert into t1 values();
+select * from t1;
+insert into t1 values(null);
+select * from t1;
+drop table t1;
+
+# After alter set default value, `insert (0)` will auto generate value based on existing value.
+# `insert ()` will insert default value.
+create table t1 (a INT AUTO_INCREMENT KEY);
+insert into t1 values(0);
+select * from t1;
+alter table t1 ALTER COLUMN a set default 10;
+insert into t1 values(0);
+select * from t1;
+insert into t1 values();
+select * from t1;
+insert into t1 values(0);
+select * from t1;
+drop table t1;
+
+# After set default and then drop the default, `insert ()` on auto increment column is disabled.
+# insert (0) and insert (null) still work.
+create table t1(a int AUTO_INCREMENT PRIMARY KEY);
+insert into t1 values ();
+select * from t1;
+alter table t1 ALTER COLUMN a set default 10;
+insert into t1 values ();
+select * from t1;
+alter table t1 ALTER COLUMN a drop default;
+--error 1364
+insert into t1 values ();
+insert into t1 values (0);
+insert into t1 values (null);
+select * from t1;
+drop table t1;
+
+# auto increment and foreign key constraint
+SET FOREIGN_KEY_CHECKS= 0;
+create table t(id int primary key);
+create table t11(id int primary key auto_increment, foreign key(id) references t(id));
+INSERT INTO t11 VALUES ();
+select * from t11;
+update IGNORE t11 SET id = 20 where id=1;
+select * from t11;
+show create table t11;
+drop table t,t11;
+SET FOREIGN_KEY_CHECKS= default;
+
+SET FOREIGN_KEY_CHECKS= 1;
+create table t(id int primary key);
+create table t11(id int primary key auto_increment, foreign key(id) references t(id));
+INSERT INTO t VALUES (1);
+INSERT INTO t11 VALUES ();
+select * from t11;
+update IGNORE t11 SET id = 20 where id=1;
+select * from t11;
+show create table t11;
+drop table t,t11;
+SET FOREIGN_KEY_CHECKS= default;
+
+SET FOREIGN_KEY_CHECKS= 1;
+create table t(id int primary key);
+create table t11(id int primary key auto_increment, foreign key(id) references t(id));
+INSERT INTO t VALUES (1);
+INSERT INTO t11 VALUES ();
+select * from t11;
+--error 1452
+update t11 SET id = 20 where id=1;
+select * from t11;
+show create table t11;
+drop table t,t11;
+SET FOREIGN_KEY_CHECKS= default;
+
+SET FOREIGN_KEY_CHECKS= 0;
+create table t(id int primary key);
+create table t11(id int primary key auto_increment, foreign key(id) references t(id));
+INSERT INTO t11 VALUES ();
+update t11 SET id = 20 where id=1;
+select * from t11;
+show create table t11;
+drop table t,t11;
+SET FOREIGN_KEY_CHECKS= default;
+
+SET FOREIGN_KEY_CHECKS=0;
+set global ctc_autoinc_lock_mode=0;
+create table t(id int primary key);
+create table t11(id int primary key auto_increment, foreign key(id) references t(id));
+INSERT IGNORE INTO t11 VALUES ();
+select * from t11;
+show create table t11;
+INSERT IGNORE INTO t11 VALUES ();
+select * from t11;
+show create table t11;
+drop table t,t11;
+SET FOREIGN_KEY_CHECKS=default;
+
+SET FOREIGN_KEY_CHECKS= 1;
+create table t(id int primary key);
+create table t11(id int primary key auto_increment, foreign key(id) references t(id));
+INSERT INTO t VALUES (1);
+INSERT IGNORE INTO t11 VALUES ();
+select * from t11;
+show create table t11;
+INSERT IGNORE INTO t11 VALUES ();
+select * from t11;
+show create table t11;
+drop table t,t11;
+SET FOREIGN_KEY_CHECKS= default;
+
+SET FOREIGN_KEY_CHECKS=0;
+create table t(id int primary key);
+create table t11(id int primary key auto_increment, foreign key(id) references t(id));
+INSERT INTO t11 VALUES ();
+INSERT INTO t11 VALUES ();
+select * from t11;
+show create table t11;
+drop table t,t11;
+SET FOREIGN_KEY_CHECKS= default;
+
+SET FOREIGN_KEY_CHECKS=1;
+create table t(id int primary key);
+create table t11(id int primary key auto_increment, foreign key(id) references t(id));
+INSERT INTO t VALUES (1);
+INSERT INTO t11 VALUES ();
+--error 1452
+INSERT INTO t11 VALUES ();
+select * from t11;
+show create table t11;
+drop table t,t11;
+SET FOREIGN_KEY_CHECKS= default;
+set global ctc_autoinc_lock_mode=default;
+
+SET FOREIGN_KEY_CHECKS= 0;
+create table t(id int primary key);
+create table t11(id int primary key auto_increment, foreign key(id) references t(id));
+INSERT IGNORE INTO t11 VALUES ();
+select * from t11;
+show create table t11;
+INSERT IGNORE INTO t11 VALUES ();
+select * from t11;
+show create table t11;
+drop table t,t11;
+SET FOREIGN_KEY_CHECKS=default;
+
+SET FOREIGN_KEY_CHECKS= 1;
+create table t(id int primary key);
+create table t11(id int primary key auto_increment, foreign key(id) references t(id));
+INSERT INTO t VALUES (1);
+INSERT IGNORE INTO t11 VALUES ();
+select * from t11;
+show create table t11;
+INSERT IGNORE INTO t11 VALUES ();
+select * from t11;
+show create table t11;
+drop table t,t11;
+SET FOREIGN_KEY_CHECKS= default;
+
+SET FOREIGN_KEY_CHECKS= 0;
+create table t(id int primary key);
+create table t11(id int primary key auto_increment, foreign key(id) references t(id));
+INSERT INTO t11 VALUES ();
+INSERT INTO t11 VALUES ();
+select * from t11;
+show create table t11;
+drop table t,t11;
+SET FOREIGN_KEY_CHECKS= default;
+
+SET FOREIGN_KEY_CHECKS= 1;
+create table t(id int primary key);
+create table t11(id int primary key auto_increment, foreign key(id) references t(id));
+INSERT INTO t VALUES (1);
+INSERT INTO t11 VALUES ();
+select * from t11;
+show create table t11;
+--error 1452
+INSERT INTO t11 VALUES ();
+select * from t11;
+show create table t11;
+drop table t,t11;
+SET FOREIGN_KEY_CHECKS= default;
+--echo End of tests
