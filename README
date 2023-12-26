@@ -17,16 +17,16 @@ License
 3、下载MySQL代码，将mysql代码放置到mysql-source文件夹下
 4、完成connector编译
 4.1、Debug 版
-cd /home/regress/GaussKernel/build;sh Makefile.sh mysql
+cd build;sh Makefile.sh mysql
 4.2、Release 版
-cd /home/regress/GaussKernel/build;sh Makefile.sh mysql_release
+cd build;sh Makefile.sh mysql_release
 5、拷贝mysql相关so（元数据归一版本无需执行）
 # 单节点
-cd /home/regress/GaussKernel/build;sh Makefile.sh mysql_package_node0
+cd build;sh Makefile.sh mysql_package_node0
 # 双节点节点0执行
-cd /home/regress/GaussKernel/build;sh Makefile.sh mysql_package_node0
+cd build;sh Makefile.sh mysql_package_node0
 # 双节点节点1执行
-cd /home/regress/GaussKernel/build;sh Makefile.sh mysql_package_node1
+cd build;sh Makefile.sh mysql_package_node1
 6、部署MySQL
 # 创建文件：所有节点
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/regress/mysql-server/bld_debug//library_output_directory/
