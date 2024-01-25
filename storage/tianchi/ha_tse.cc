@@ -1715,7 +1715,14 @@ static int tse_close_connect(handlerton *hton, THD *thd) {
     tch.is_broadcast = true;
   }
 
-  int ret = tse_close_session(&tch);
+  tianchi_handler_t local_tch;
+  memset(&local_tch, 0, sizeof(local_tch));
+  local_tch.inst_id = tch.inst_id;
+  local_tch.sess_addr = tch.sess_addr;
+  local_tch.thd_id = tch.thd_id;
+  local_tch.is_broadcast = tch.is_broadcast;
+
+  int ret = tse_close_session(&local_tch);
   release_sess_ctx(sess_ctx, hton, thd);
   return convert_tse_error_code_to_mysql((ct_errno_t)ret);
 }
@@ -1734,7 +1741,13 @@ static void tse_kill_connection(handlerton *hton, THD *thd) {
     return;
   }
 
-  tse_kill_session(&tch);
+  tianchi_handler_t local_tch;
+  memset(&local_tch, 0, sizeof(local_tch));
+  local_tch.inst_id = tch.inst_id;
+  local_tch.sess_addr = tch.sess_addr;
+  local_tch.thd_id = tch.thd_id;
+ 
+  tse_kill_session(&local_tch);
   tse_log_system("[TSE_KILL_SESSION]:conn_id:%u, tse_instance_id:%u", tch.thd_id, tch.inst_id);
 }
 
