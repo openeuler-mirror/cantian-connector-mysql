@@ -25,7 +25,7 @@ static std::unordered_map<ct_errno_t, int> err_code_lookup_map = {
   {ERR_OAMAP_FETCH_FAILED, HA_ERR_GENERIC},
   {ERR_GENERIC_INTERNAL_ERROR, HA_ERR_GENERIC},
   {ERR_NOT_SUPPORT, HA_ERR_WRONG_COMMAND},
-  {ERR_SNAPSHOT_TOO_OLD, HA_ERR_TOO_MANY_CONCURRENT_TRXS},
+  {ERR_OPERATIONS_NOT_SUPPORT, HA_ERR_WRONG_COMMAND},
   /* Since we rolled back the whole transaction, we must
   tell it also to MySQL so that MySQL knows to empty the
   cached binlog for this transaction */
@@ -111,6 +111,14 @@ bool convert_cantian_err_to_mysql(ct_errno_t error) {
     case ERR_EXCEED_MAX_CASCADE_DEPTH:
       my_printf_error(ER_FK_DEPTH_EXCEEDED, "Foreign key cascade delete/update exceeds max depth of 15", MYF(0));
       break;
+    case ERR_SNAPSHOT_TOO_OLD:
+      my_printf_error(HA_ERR_TOO_MANY_CONCURRENT_TRXS,
+                      "snapshot too old, it is advised to modify the parameters _undo_active_segments in Cantian", MYF(0));
+      break;
+    case ERR_CHILD_ROW_CANNOT_ADD_OR_UPDATE:
+      my_printf_error(ER_NO_REFERENCED_ROW_2,
+                      "Cannot add or update a child row: a foreign key constraint fails", MYF(0));
+      break;
     default:
       return false;
   }
@@ -144,8 +152,8 @@ int convert_tse_error_code_to_mysql_impl(ct_errno_t error, const char* funcName,
   if (iter != err_code_lookup_map.end()) {
     ret = iter->second;
   } else {
-   tse_log_system("func %s(line%d) returned with unknown err, gs ret %d", funcName, line, (int)error); 
+   tse_log_system("func %s(line%d) returned with unknown err, cantian ret %d", funcName, line, (int)error);
   }
-  tse_log_note("func %s(line%d) returned with errCode %d, gs ret %d", funcName, line, ret, (int)error);
+  tse_log_note("func %s(line%d) returned with errCode %d, cantian ret %d", funcName, line, ret, (int)error);
   return ret;
 }

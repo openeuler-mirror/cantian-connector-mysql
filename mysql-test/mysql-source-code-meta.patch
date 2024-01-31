@@ -1,0 +1,3501 @@
+diff --git a/sql/auth/acl_table_user.cc b/sql/auth/acl_table_user.cc
+index f9846bd..fda3f0e 100644
+--- a/sql/auth/acl_table_user.cc
++++ b/sql/auth/acl_table_user.cc
+@@ -1393,9 +1393,14 @@ void Acl_table_user_reader::read_account_name(ACL_USER &user) {
+ bool Acl_table_user_reader::read_authentication_string(ACL_USER &user) {
+   /* Read password from authentication_string field */
+   if (m_table->s->fields > m_table_schema->authentication_string_idx()) {
+-    user.credentials[PRIMARY_CRED].m_auth_string.str =
+-        get_field(&m_mem_root,
+-                  m_table->field[m_table_schema->authentication_string_idx()]);
++    if (m_table->field[m_table_schema->authentication_string_idx()]->is_null()) {
++      user.credentials[PRIMARY_CRED].m_auth_string.str = nullptr;
++    }
++    else {
++      user.credentials[PRIMARY_CRED].m_auth_string.str =
++          get_field(&m_mem_root,
++                    m_table->field[m_table_schema->authentication_string_idx()]);
++    }
+   } else {
+     LogErr(ERROR_LEVEL, ER_AUTHCACHE_USER_TABLE_DODGY);
+     return true;
+diff --git a/sql/auth/dynamic_privilege_table.cc b/sql/auth/dynamic_privilege_table.cc
+index a4216d0..f8c4c1e 100644
+--- a/sql/auth/dynamic_privilege_table.cc
++++ b/sql/auth/dynamic_privilege_table.cc
+@@ -228,7 +228,7 @@ bool modify_dynamic_privileges_in_table(THD *thd, TABLE *table,
+       /* If the key didn't exist the record is already gone and all is well. */
+       return false;
+     }
+-  } else if (ret == HA_ERR_KEY_NOT_FOUND && !delete_option) {
++  } else if ((ret == HA_ERR_KEY_NOT_FOUND || ret == HA_ERR_END_OF_FILE) && !delete_option) {
+     /* Insert new edge into table */
+     DBUG_PRINT("note",
+                ("Insert dynamic privilege %s for `%s`@`%s` %s", privilege.str,
+diff --git a/sql/auth/sql_user_table.cc b/sql/auth/sql_user_table.cc
+index 112d255..9c166bd 100644
+--- a/sql/auth/sql_user_table.cc
++++ b/sql/auth/sql_user_table.cc
+@@ -1060,7 +1060,7 @@ int replace_proxies_priv_table(THD *thd, TABLE *table, const LEX_USER *user,
+     }
+   } else {
+     error = table->file->ha_write_row(table->record[0]);
+-    assert(error != HA_ERR_FOUND_DUPP_KEY);
++    //assert(error != HA_ERR_FOUND_DUPP_KEY);
+     assert(table->file->ht->db_type == DB_TYPE_NDBCLUSTER ||
+            error != HA_ERR_LOCK_DEADLOCK);
+     assert(table->file->ht->db_type == DB_TYPE_NDBCLUSTER ||
+diff --git a/sql/bootstrap.cc b/sql/bootstrap.cc
+index 785fa78..fb5be6f 100644
+--- a/sql/bootstrap.cc
++++ b/sql/bootstrap.cc
+@@ -198,6 +198,7 @@ static int process_iterator(THD *thd, Command_iterator *it,
+     int rc;
+ 
+     rc = it->next(query);
++    printf("query: %s\n", query.c_str());
+ 
+     if (rc == READ_BOOTSTRAP_EOF) {
+       break;
+diff --git a/sql/composite_iterators.cc b/sql/composite_iterators.cc
+index 43c59a1..4f6b8d4 100644
+--- a/sql/composite_iterators.cc
++++ b/sql/composite_iterators.cc
+@@ -859,7 +859,9 @@ bool MaterializeIterator::MaterializeQueryBlock(const QueryBlock &query_block,
+       // so they'll need to reposition themselves.
+       for (const QueryBlock &query_b : m_query_blocks_to_materialize) {
+         if (query_b.is_recursive_reference) {
+-          query_b.recursive_reader->RepositionCursorAfterSpillToDisk();
++          if (query_b.recursive_reader->RepositionCursorAfterSpillToDisk()) {
++            return true;
++          }
+         }
+       }
+     } else {
+diff --git a/sql/dd/cache/dictionary_client.h b/sql/dd/cache/dictionary_client.h
+index dbd6c18..4666753 100644
+--- a/sql/dd/cache/dictionary_client.h
++++ b/sql/dd/cache/dictionary_client.h
+@@ -472,6 +472,9 @@ class Dictionary_client {
+   void remove_uncommitted_objects(bool commit_to_shared_cache);
+ 
+   template <typename T>
++  void add_modified_objects();
++
++  template <typename T>
+   using Const_ptr_vec = std::vector<const T *>;
+ 
+   /**
+@@ -1180,6 +1183,13 @@ class Dictionary_client {
+     @retval true    There was an error.
+   */
+ 
++  /**
++    Refer to remove_uncommitted_objects(). Uncommitted objects has been added to invalidate list
++    before commit. Only drop cache and remove element from committed registry included.
++  */
++  template <typename T>
++  void invalidate_after_commit(const T *object);
++
+   template <typename T>
+   bool drop(const T *object) MY_ATTRIBUTE((warn_unused_result));
+ 
+@@ -1261,6 +1271,7 @@ class Dictionary_client {
+   */
+ 
+   void commit_modified_objects();
++  void add_modified_objects_before_commit();
+ 
+   /**
+     Remove table statistics entries from mysql.table_stats and
+diff --git a/sql/dd/dd_table.cc b/sql/dd/dd_table.cc
+index 7bf60f4..7be1743 100644
+--- a/sql/dd/dd_table.cc
++++ b/sql/dd/dd_table.cc
+@@ -2322,7 +2322,7 @@ static std::unique_ptr<dd::Table> create_dd_system_table(
+   }
+ 
+   // Register the se private id with the DDSE.
+-  handlerton *ddse = ha_resolve_by_legacy_type(thd, DB_TYPE_INNODB);
++  handlerton *ddse = ha_resolve_by_legacy_type(thd, DB_TYPE_CTC);
+   if (ddse->dict_register_dd_table_id == nullptr) return nullptr;
+   ddse->dict_register_dd_table_id(tab_obj->se_private_id());
+ 
+diff --git a/sql/dd/dd_tablespace.cc b/sql/dd/dd_tablespace.cc
+index 2c97cb3..0d5b05b 100644
+--- a/sql/dd/dd_tablespace.cc
++++ b/sql/dd/dd_tablespace.cc
+@@ -53,6 +53,7 @@
+ #include "sql/sql_servers.h"
+ #include "sql/sql_table.h"  // validate_comment_length
+ #include "sql/table.h"
++#include <stdio.h>
+ 
+ namespace {
+ template <typename T>
+@@ -154,7 +155,6 @@ bool get_tablespace_name(THD *thd, const T *obj, String_type *name) {
+   // Read Tablespace
+   //
+   assert(name->empty());
+-
+   if (obj->tablespace_id() == Dictionary_impl::dd_tablespace_id()) {
+     // If this is the DD tablespace id, then we use its name.
+     *name = MYSQL_TABLESPACE_NAME.str;
+diff --git a/sql/dd/dd_utility.cc b/sql/dd/dd_utility.cc
+index 7f9b9df..1d5575d 100644
+--- a/sql/dd/dd_utility.cc
++++ b/sql/dd/dd_utility.cc
+@@ -62,7 +62,7 @@ bool check_if_server_ddse_readonly(THD *thd, const char *schema_name_abbrev) {
+     to retrieve the handlerton for the DDSE should be replaced by a more
+     generic mechanism.
+   */
+-  handlerton *ddse = ha_resolve_by_legacy_type(thd, DB_TYPE_INNODB);
++  handlerton *ddse = ha_resolve_by_legacy_type(thd, DB_TYPE_CTC);
+   if (ddse->is_dict_readonly && ddse->is_dict_readonly()) {
+     LogErr(WARNING_LEVEL, ER_SKIP_UPDATING_METADATA_IN_SE_RO_MODE,
+            schema_name_abbrev);
+diff --git a/sql/dd/impl/bootstrap/bootstrapper.cc b/sql/dd/impl/bootstrap/bootstrapper.cc
+index d08718a..6440b0b 100644
+--- a/sql/dd/impl/bootstrap/bootstrapper.cc
++++ b/sql/dd/impl/bootstrap/bootstrapper.cc
+@@ -81,7 +81,7 @@ namespace {
+ // Initialize recovery in the DDSE.
+ bool DDSE_dict_recover(THD *thd, dict_recovery_mode_t dict_recovery_mode,
+                        uint version) {
+-  handlerton *ddse = ha_resolve_by_legacy_type(thd, DB_TYPE_INNODB);
++  handlerton *ddse = ha_resolve_by_legacy_type(thd, DB_TYPE_CTC);
+   if (ddse->dict_recover == nullptr) return true;
+ 
+   bool error = ddse->dict_recover(dict_recovery_mode, version);
+@@ -266,6 +266,9 @@ bool acquire_exclusive_mdl(THD *thd) {
+   reset ID, store persistently, and update the storage adapter.
+ */
+ bool flush_meta_data(THD *thd) {
++  // Turn off FK checks, this is needed since we have cyclic FKs.
++  if (dd::execute_query(thd, "SET FOREIGN_KEY_CHECKS= 0")) return true;
++ 
+   // Acquire exclusive meta data locks for the relevant DD objects.
+   if (acquire_exclusive_mdl(thd)) return true;
+ 
+@@ -573,6 +576,9 @@ bool flush_meta_data(THD *thd) {
+     if (persisted_dd_table != nullptr) delete persisted_dd_table;
+   }
+ 
++  // Turn FK checks back on.
++  if (dd::execute_query(thd, "SET FOREIGN_KEY_CHECKS= 1")) return true;
++  
+   bootstrap::DD_bootstrap_ctx::instance().set_stage(bootstrap::Stage::SYNCED);
+ 
+   return dd::end_transaction(thd, false);
+@@ -580,6 +586,8 @@ bool flush_meta_data(THD *thd) {
+ 
+ // Insert additional data into the DD tables.
+ bool populate_tables(THD *thd) {
++  // Turn off FK checks, this is needed since we have cyclic FKs.
++  if (dd::execute_query(thd, "SET FOREIGN_KEY_CHECKS= 0")) return true;
+   // Iterate over DD tables, populate tables.
+   for (System_tables::Const_iterator it = System_tables::instance()->begin();
+        it != System_tables::instance()->end(); ++it) {
+@@ -610,6 +618,9 @@ bool populate_tables(THD *thd) {
+   bootstrap::DD_bootstrap_ctx::instance().set_stage(
+       bootstrap::Stage::POPULATED);
+ 
++  // Turn FK checks back on.
++  if (dd::execute_query(thd, "SET FOREIGN_KEY_CHECKS= 1")) return true;
++
+   return false;
+ }
+ 
+@@ -621,7 +632,7 @@ bool repopulate_charsets_and_collations(THD *thd) {
+     to retrieve the handlerton for the DDSE should be replaced by a more
+     generic mechanism.
+   */
+-  handlerton *ddse = ha_resolve_by_legacy_type(thd, DB_TYPE_INNODB);
++  handlerton *ddse = ha_resolve_by_legacy_type(thd, DB_TYPE_CTC);
+   if (ddse->is_dict_readonly && ddse->is_dict_readonly()) {
+     LogErr(WARNING_LEVEL, ER_DD_NO_WRITES_NO_REPOPULATION, "InnoDB", " ");
+     return false;
+@@ -724,7 +735,7 @@ namespace bootstrap {
+   predefined tables and tablespaces.
+ */
+ bool DDSE_dict_init(THD *thd, dict_init_mode_t dict_init_mode, uint version) {
+-  handlerton *ddse = ha_resolve_by_legacy_type(thd, DB_TYPE_INNODB);
++  handlerton *ddse = ha_resolve_by_legacy_type(thd, DB_TYPE_CTC);
+ 
+   /*
+     The lists with element wrappers are mem root allocated. The wrapped
+@@ -908,6 +919,10 @@ bool initialize(THD *thd) {
+ 
+ // Normal server restart.
+ bool restart(THD *thd) {
++  handlerton *ddse = ha_resolve_by_legacy_type(thd, DB_TYPE_CTC);
++  if (ddse->op_before_load_meta(thd) != 0) {
++    return true;
++  }
+   bootstrap::DD_bootstrap_ctx::instance().set_stage(bootstrap::Stage::STARTED);
+ 
+   /*
+@@ -946,7 +961,9 @@ bool restart(THD *thd) {
+           dd::execute_query(thd, "DROP SCHEMA schema_read_only") ||
+           dd::execute_query(thd, "CREATE TABLE IF NOT EXISTS S.restart(i INT)"))
+           assert(false););
+-
++  if (ddse->op_after_load_meta(thd) != 0) {
++    return true;
++  }
+   bootstrap::DD_bootstrap_ctx::instance().set_stage(bootstrap::Stage::FINISHED);
+   LogErr(INFORMATION_LEVEL, ER_DD_VERSION_FOUND, d->get_actual_dd_version(thd));
+ 
+@@ -1502,7 +1519,7 @@ bool sync_meta_data(THD *thd) {
+     return true;
+ 
+   // Reset the DDSE local dictionary cache.
+-  handlerton *ddse = ha_resolve_by_legacy_type(thd, DB_TYPE_INNODB);
++  handlerton *ddse = ha_resolve_by_legacy_type(thd, DB_TYPE_CTC);
+   if (ddse->dict_cache_reset == nullptr) return true;
+ 
+   for (System_tables::Const_iterator it = System_tables::instance()->begin();
+@@ -1797,7 +1814,7 @@ bool update_versions(THD *thd, bool is_dd_upgrade_57) {
+     back in case of an abort, so this better be the last step we
+     do before committing.
+   */
+-  handlerton *ddse = ha_resolve_by_legacy_type(thd, DB_TYPE_INNODB);
++  handlerton *ddse = ha_resolve_by_legacy_type(thd, DB_TYPE_CTC);
+   if (bootstrap::DD_bootstrap_ctx::instance().is_server_upgrade()) {
+     if (ddse->dict_set_server_version == nullptr ||
+         ddse->dict_set_server_version()) {
+diff --git a/sql/dd/impl/cache/dictionary_client.cc b/sql/dd/impl/cache/dictionary_client.cc
+index 8063806..c649fa5 100644
+--- a/sql/dd/impl/cache/dictionary_client.cc
++++ b/sql/dd/impl/cache/dictionary_client.cc
+@@ -93,6 +93,7 @@
+ #include "sql/mdl.h"
+ #include "sql/mysqld.h"
+ #include "sql/sql_class.h"  // THD
++#include "sql/sql_lex.h"    // LEX
+ #include "sql/sql_plugin_ref.h"
+ #include "sql/table.h"
+ #include "sql/tztime.h"  // Time_zone, my_tz_OFFSET0
+@@ -359,6 +360,130 @@ class MDL_checker {
+   }
+ 
+  public:
++  static void add_to_invalidate(THD *thd, const dd::Abstract_table *table)
++  {
++    dd::cache::Dictionary_client::Auto_releaser releaser(thd->dd_client());
++    const dd::Schema *schema = nullptr;
++
++    // If the schema acquisition fails, we cannot assure that we have a lock,
++    // and therefore return false.
++    if (thd->dd_client()->acquire(table->schema_id(), &schema)) return;
++
++    // Skip check for temporary tables.
++    if (!table || is_prefix(table->name().c_str(), tmp_file_prefix))
++      return;
++
++    // Likewise, if there is no schema, we cannot have a proper lock.
++    // This may in theory happen during bootstrapping since the meta data for
++    // the system schema is not stored yet; however, this is prevented by
++    // surrounding code calling this function only if
++    // '!thd->is_dd_system_thread' i.e., this is not a bootstrapping thread.
++    if (thd->is_dd_system_thread() || !schema) {
++      return;
++    }
++
++    // We must take l_c_t_n into account when reconstructing the MDL key
++    // from the schema and table name, and we need buffers for this purpose.
++    //char table_name_buf[NAME_LEN + 1];
++    char schema_name_buf[NAME_LEN + 1];
++
++    const char *table_name = table->name().c_str();
++    const char *schema_name = dd::Object_table_definition_impl::fs_name_case(
++        schema->name(), schema_name_buf);
++
++    thd->add(schema_name, table_name, THD::OBJ_ABSTRACT_TABLE);
++    return;
++  }
++
++  static void add_to_invalidate(THD *thd, const dd::Schema *schema)
++  {
++    if (thd->is_dd_system_thread() || !schema) {
++      return;
++    }
++
++    char name_buf[NAME_LEN + 1];
++ 
++    const char *schema_name = dd::Object_table_definition_impl::fs_name_case(schema->name(),
++                                                       name_buf);
++    thd->add(schema_name, "", THD::OBJ_SCHEMA);
++
++    return;
++  }
++
++  static void add_to_invalidate(THD *thd, const dd::Charset *charset)
++  {
++    (void(thd));
++    (void(charset));
++    return;
++  }
++
++  static void add_to_invalidate(THD *thd, const dd::Collation *collation)
++  {
++    (void(thd));
++    (void(collation));
++    return;
++  }
++ 
++  static void add_to_invalidate(THD *thd, const dd::Event *event)
++  {
++    (void(thd));
++    (void(event));
++    return;
++  }
++ 
++  static void add_to_invalidate(THD *thd, const dd::Routine *routine)
++  {
++    dd::cache::Dictionary_client::Auto_releaser releaser(thd->dd_client());
++    const dd::Schema *schema = nullptr;
++
++    // If the schema acquisition fails, we cannot assure that we have a lock,
++    // and therefore return false.
++    if (thd->dd_client()->acquire(routine->schema_id(), &schema)) return;
++
++    assert(schema);
++
++    MDL_key mdl_key;
++    char schema_name_buf[NAME_LEN + 1];
++    const char *schema_name = dd::Object_table_definition_impl::fs_name_case(
++                                    schema->name(), schema_name_buf);
++    const char *routine_name = routine->name().c_str();
++    if (routine->type() == dd::Routine::RT_PROCEDURE) {
++      thd->add(schema_name, routine_name, THD::OBJ_RT_PROCEDURE);
++    } else {
++      thd->add(schema_name, routine_name, THD::OBJ_RT_FUNCTION);
++    }
++    return;
++  }
++
++  static void add_to_invalidate(THD *thd, const dd::Resource_group *resource_group)
++  {
++    (void(thd));
++    (void(resource_group));
++    return;
++  }
++
++  static void add_to_invalidate(THD *thd, const dd::Spatial_reference_system *srs)
++  {
++    (void(thd));
++    (void(srs));
++    return;
++  }
++
++  static void add_to_invalidate(THD *thd, const dd::Tablespace *tablespace)
++  {
++    if (!tablespace) return;
++
++    thd->add(tablespace->name().c_str(), "", THD::OBJ_TABLESPACE);
++    return;
++  }
++
++  static void add_to_invalidate(THD *thd, const dd::Column_statistics *column_statistics)
++  {
++    (void(thd));
++    (void(column_statistics));
++    return;
++  }
++
+   // Releasing arbitrary dictionary objects is not checked.
+   static bool is_release_locked(THD *, const dd::Entity_object *) {
+     return true;
+@@ -2423,6 +2548,7 @@ bool Dictionary_client::invalidate(const String_type &schema_name,
+ 
+   Auto_releaser releaser(this);
+   const Table *table;
++  // If target object is a View, table will be nullptr
+   if (acquire(schema_name, table_name, &table)) {
+     assert(m_thd->is_system_thread() || m_thd->killed || m_thd->is_error());
+     return true;
+@@ -2430,6 +2556,18 @@ bool Dictionary_client::invalidate(const String_type &schema_name,
+ 
+   if (table != nullptr) {
+     invalidate(table);
++    return false;
++  }
++
++  // If aquire table failed(refer to Dictionary_client::acquire()), try aquire view instead.
++  const View *view;
++  if (acquire(schema_name, table_name, &view)) {
++    assert(m_thd->is_system_thread() || m_thd->killed || m_thd->is_error());
++    return true;
++  }
++  if (view != nullptr) {
++    invalidate(view);
++    return false;
+   }
+ 
+   // Invalidation of a non-existing object is not treated as an error.
+@@ -2458,16 +2596,44 @@ void Dictionary_client::invalidate(const T *object) {
+   m_registry_committed.get(id_key, &element);
+ 
+   if (element) {
++    if (m_thd->query().str && std::string(m_thd->query().str) == "tse_mdl_thd_notify") {
++    } else {
++      MDL_checker::add_to_invalidate(m_thd, element->object());
++    }
++
+     // Remove the element from the chain of auto releasers.
+     (void)m_current_releaser->remove(element);
+     // Remove the element from the local registry.
+     m_registry_committed.remove(element);
+     // Remove the element from the cache, delete the wrapper and the object.
+     Shared_dictionary_cache::instance()->drop(element);
+-  } else
++  } else {
+     Shared_dictionary_cache::instance()
+         ->drop_if_present<typename T::Id_key, typename T::Cache_partition>(
+             id_key);
++  }
++}
++
++// Refer to remove_uncommitted_objects(). Uncommitted objects has been added to invalidate list before commit.
++template <typename T>
++void Dictionary_client::invalidate_after_commit(const T *object) {
++  assert(MDL_checker::is_write_locked(m_thd, object));
++  Cache_element<typename T::Cache_partition> *element = nullptr;
++  const typename T::Id_key id_key(object->id());
++  m_registry_committed.get(id_key, &element);
++
++  if (element) {
++    // Remove the element from the chain of auto releasers.
++    (void)m_current_releaser->remove(element);
++    // Remove the element from the local registry.
++    m_registry_committed.remove(element);
++    // Remove the element from the cache, delete the wrapper and the object.
++    Shared_dictionary_cache::instance()->drop(element);
++  } else {
++    Shared_dictionary_cache::instance()
++        ->drop_if_present<typename T::Id_key, typename T::Cache_partition>(
++            id_key);
++  }
+ }
+ 
+ #ifndef NDEBUG
+@@ -2845,7 +3011,7 @@ void Dictionary_client::remove_uncommitted_objects(
+       dd::cache::Storage_adapter::instance()->core_update(it->second->object());
+ 
+       // Invalidate the entry in the shared cache (if present).
+-      invalidate(uncommitted_object);
++      invalidate_after_commit(uncommitted_object);
+ 
+ #ifndef NDEBUG
+       // Make sure the uncommitted id is not present in the dropped registry.
+@@ -2919,6 +3085,45 @@ void Dictionary_client::commit_modified_objects() {
+   remove_uncommitted_objects<Resource_group>(true);
+ }
+ 
++template <typename T>
++void Dictionary_client::add_modified_objects() {
++#ifndef NDEBUG
++#endif
++  typename Multi_map_base<typename T::Cache_partition>::Const_iterator it;
++  for (it = m_registry_uncommitted.begin<typename T::Cache_partition>();
++        it != m_registry_uncommitted.end<typename T::Cache_partition>();
++        it++) {
++    typename T::Cache_partition *uncommitted_object =
++        const_cast<typename T::Cache_partition *>(it->second->object());
++
++    // Invalidate the entry in the shared cache (if present).
++      Cache_element<typename T::Cache_partition> *element = nullptr;
++    const typename T::Id_key id_key(uncommitted_object->id());
++    m_registry_committed.get(id_key, &element);
++    if (element) {
++      MDL_checker::add_to_invalidate(m_thd, element->object());
++    } else if (m_thd->lex->sql_command == SQLCOM_CREATE_TRIGGER) {
++      MDL_checker::add_to_invalidate(m_thd, uncommitted_object);
++    }
++  }
++}
++
++void Dictionary_client::add_modified_objects_before_commit() {
++  if (m_thd->query().str && std::string(m_thd->query().str) == "tse_mdl_thd_notify") {
++    return;
++  }
++  add_modified_objects<Abstract_table>();
++  add_modified_objects<Schema>();
++  add_modified_objects<Tablespace>();
++  add_modified_objects<Charset>();
++  add_modified_objects<Collation>();
++  add_modified_objects<Column_statistics>();
++  add_modified_objects<Event>();
++  add_modified_objects<Routine>();
++  add_modified_objects<Spatial_reference_system>();
++  add_modified_objects<Resource_group>();
++}
++
+ // Debug dump of the client and its registry to stderr.
+ /* purecov: begin inspected */
+ template <typename T>
+@@ -3028,6 +3233,7 @@ template bool Dictionary_client::acquire_for_modification(const String_type &,
+                                                           Abstract_table **);
+ template void Dictionary_client::remove_uncommitted_objects<Abstract_table>(
+     bool);
++template void Dictionary_client::add_modified_objects<Abstract_table>();
+ template bool Dictionary_client::drop(const Abstract_table *);
+ template bool Dictionary_client::store(Abstract_table *);
+ template bool Dictionary_client::update(Abstract_table *);
+@@ -3037,6 +3243,7 @@ template bool Dictionary_client::acquire(Object_id, dd::Charset const **);
+ template bool Dictionary_client::acquire_for_modification(Object_id,
+                                                           dd::Charset **);
+ template void Dictionary_client::remove_uncommitted_objects<Charset>(bool);
++template void Dictionary_client::add_modified_objects<Charset>();
+ template bool Dictionary_client::acquire(String_type const &, Charset const **);
+ template bool Dictionary_client::acquire(String_type const &, Schema const **);
+ template bool Dictionary_client::acquire_for_modification(String_type const &,
+@@ -3052,6 +3259,7 @@ template bool Dictionary_client::acquire(Object_id, dd::Collation const **);
+ template bool Dictionary_client::acquire_for_modification(Object_id,
+                                                           dd::Collation **);
+ template void Dictionary_client::remove_uncommitted_objects<Collation>(bool);
++template void Dictionary_client::add_modified_objects<Collation>();
+ template bool Dictionary_client::acquire_uncached(Object_id, Collation **);
+ template bool Dictionary_client::acquire(const String_type &,
+                                          const Collation **);
+@@ -3072,6 +3280,7 @@ template bool Dictionary_client::acquire_uncached_uncommitted(
+ template bool Dictionary_client::acquire_for_modification(const String_type &,
+                                                           Schema **);
+ template void Dictionary_client::remove_uncommitted_objects<Schema>(bool);
++template void Dictionary_client::add_modified_objects<Schema>();
+ 
+ template bool Dictionary_client::drop(const Schema *);
+ template bool Dictionary_client::store(Schema *);
+@@ -3112,6 +3321,7 @@ template bool Dictionary_client::acquire_for_modification(const String_type &,
+                                                           const String_type &,
+                                                           Table **);
+ template void Dictionary_client::remove_uncommitted_objects<Table>(bool);
++template void Dictionary_client::add_modified_objects<Table>();
+ template bool Dictionary_client::drop(const Table *);
+ template bool Dictionary_client::store(Table *);
+ template bool Dictionary_client::update(Table *);
+@@ -3131,6 +3341,7 @@ template bool Dictionary_client::acquire_uncached_uncommitted(
+ template bool Dictionary_client::acquire_for_modification(Object_id,
+                                                           Tablespace **);
+ template void Dictionary_client::remove_uncommitted_objects<Tablespace>(bool);
++template void Dictionary_client::add_modified_objects<Tablespace>();
+ template bool Dictionary_client::drop(const Tablespace *);
+ template bool Dictionary_client::store(Tablespace *);
+ template bool Dictionary_client::update(Tablespace *);
+@@ -3149,6 +3360,7 @@ template bool Dictionary_client::acquire_for_modification(const String_type &,
+                                                           const String_type &,
+                                                           View **);
+ template void Dictionary_client::remove_uncommitted_objects<View>(bool);
++template void Dictionary_client::add_modified_objects<View>();
+ template bool Dictionary_client::drop(const View *);
+ template bool Dictionary_client::store(View *);
+ template bool Dictionary_client::update(View *);
+@@ -3159,6 +3371,7 @@ template bool Dictionary_client::acquire_uncached(Object_id, Event **);
+ template bool Dictionary_client::acquire(Object_id, const Event **);
+ template bool Dictionary_client::acquire_for_modification(Object_id, Event **);
+ template void Dictionary_client::remove_uncommitted_objects<Event>(bool);
++template void Dictionary_client::add_modified_objects<Event>();
+ template bool Dictionary_client::acquire(const String_type &,
+                                          const String_type &, const Event **);
+ template bool Dictionary_client::acquire_for_modification(const String_type &,
+@@ -3184,6 +3397,7 @@ template bool Dictionary_client::acquire(Object_id, const Procedure **);
+ template bool Dictionary_client::acquire_for_modification(Object_id,
+                                                           Procedure **);
+ template void Dictionary_client::remove_uncommitted_objects<Procedure>(bool);
++template void Dictionary_client::add_modified_objects<Procedure>();
+ template bool Dictionary_client::acquire(const String_type &,
+                                          const String_type &,
+                                          const Procedure **);
+@@ -3196,6 +3410,7 @@ template bool Dictionary_client::update(Procedure *);
+ 
+ template bool Dictionary_client::drop(const Routine *);
+ template void Dictionary_client::remove_uncommitted_objects<Routine>(bool);
++template void Dictionary_client::add_modified_objects<Routine>();
+ template bool Dictionary_client::update(Routine *);
+ template bool Dictionary_client::is_user_definer<Routine>(const LEX_USER &,
+                                                           bool *) const;
+@@ -3222,6 +3437,7 @@ template bool Dictionary_client::drop(const Resource_group *);
+ template bool Dictionary_client::store(Resource_group *);
+ template void Dictionary_client::remove_uncommitted_objects<Resource_group>(
+     bool);
++template void Dictionary_client::add_modified_objects<Resource_group>();
+ template bool Dictionary_client::update(Resource_group *);
+ /**
+  @endcond
+diff --git a/sql/dd/impl/dictionary_impl.cc b/sql/dd/impl/dictionary_impl.cc
+index 7115491..790403f 100644
+--- a/sql/dd/impl/dictionary_impl.cc
++++ b/sql/dd/impl/dictionary_impl.cc
+@@ -693,7 +693,7 @@ bool drop_native_table(THD *thd, const char *schema_name,
+ 
+ bool reset_tables_and_tablespaces() {
+   Auto_THD thd;
+-  handlerton *ddse = ha_resolve_by_legacy_type(thd.thd, DB_TYPE_INNODB);
++  handlerton *ddse = ha_resolve_by_legacy_type(thd.thd, DB_TYPE_CTC);
+ 
+   // Acquire transactional metadata locks and evict all cached objects.
+   if (dd::cache::Shared_dictionary_cache::reset_tables_and_tablespaces(thd.thd))
+diff --git a/sql/dd/impl/sdi.cc b/sql/dd/impl/sdi.cc
+index ef5b920..276a34f 100644
+--- a/sql/dd/impl/sdi.cc
++++ b/sql/dd/impl/sdi.cc
+@@ -608,6 +608,7 @@ bool store(THD *thd, const Table *tp) {
+   const Table &t = ptr_as_cref(tp);
+   handlerton *hton = resolve_hton(thd, t);
+ 
++  return false;
+   return with_schema(thd, t.schema_id(), [&](const Schema &s) {
+     dd::Sdi_type sdi = serialize(thd, t, s.name());
+     if (sdi.empty()) {
+@@ -626,6 +627,8 @@ bool store(THD *thd, const Table *tp) {
+ 
+ bool store(THD *thd, const Tablespace *ts) {
+   handlerton *hton = resolve_hton(thd, *ts);
++
++  return false;
+   if (hton->sdi_set == nullptr) {
+     return false;  // SDI api not supported
+   }
+diff --git a/sql/dd/impl/tables/table_partitions.cc b/sql/dd/impl/tables/table_partitions.cc
+index da7a46e..1555449 100644
+--- a/sql/dd/impl/tables/table_partitions.cc
++++ b/sql/dd/impl/tables/table_partitions.cc
+@@ -88,7 +88,7 @@ Table_partitions::Table_partitions() {
+                          "UNIQUE KEY(table_id, parent_partition_id, number)");
+   m_target_def.add_index(INDEX_UK_ENGINE_SE_PRIVATE_ID,
+                          "INDEX_UK_ENGINE_SE_PRIVATE_ID",
+-                         "UNIQUE KEY(engine, se_private_id)");
++                         "KEY(engine, se_private_id)");
+   m_target_def.add_index(INDEX_K_ENGINE, "INDEX_K_ENGINE", "KEY(engine)");
+   m_target_def.add_index(INDEX_K_TABLESPACE_ID, "INDEX_K_TABLESPACE_ID",
+                          "KEY(tablespace_id)");
+diff --git a/sql/dd/impl/tables/tables.cc b/sql/dd/impl/tables/tables.cc
+index 77372a2..4ea7850 100644
+--- a/sql/dd/impl/tables/tables.cc
++++ b/sql/dd/impl/tables/tables.cc
+@@ -168,7 +168,8 @@ Tables::Tables() {
+                          "UNIQUE KEY (schema_id, name)");
+   m_target_def.add_index(INDEX_UK_ENGINE_SE_PRIVATE_ID,
+                          "INDEX_UK_ENGINE_SE_PRIVATE_ID",
+-                         "UNIQUE KEY (engine, se_private_id)");
++                        //  "UNIQUE KEY (engine, se_private_id)");
++                         "KEY (engine, se_private_id)");
+   m_target_def.add_index(INDEX_K_ENGINE, "INDEX_K_ENGINE", "KEY(engine)");
+   m_target_def.add_index(INDEX_K_COLLATION_ID, "INDEX_K_COLLATION_ID",
+                          "KEY(collation_id)");
+diff --git a/sql/dd/impl/transaction_impl.h b/sql/dd/impl/transaction_impl.h
+index f21b82a..86f9e59 100644
+--- a/sql/dd/impl/transaction_impl.h
++++ b/sql/dd/impl/transaction_impl.h
+@@ -133,9 +133,13 @@ class Transaction_ro {
+       : otx(thd, TL_READ), m_thd(thd), m_kill_immunizer(thd) {
+     thd->begin_attachable_ro_transaction();
+     thd->tx_isolation = isolation;
++    thd->is_reading_dd = true;
+   }
+ 
+-  ~Transaction_ro() { m_thd->end_attachable_transaction(); }
++  ~Transaction_ro() {
++    m_thd->is_reading_dd = false;
++    m_thd->end_attachable_transaction();
++  }
+ 
+   Open_dictionary_tables_ctx otx;
+ 
+diff --git a/sql/dd/impl/types/object_table_impl.cc b/sql/dd/impl/types/object_table_impl.cc
+index 4b2b7ba..fde262d 100644
+--- a/sql/dd/impl/types/object_table_impl.cc
++++ b/sql/dd/impl/types/object_table_impl.cc
+@@ -37,7 +37,7 @@ Object_table_impl::Object_table_impl()
+       m_actual_def(),
+       m_hidden(true) {
+   m_target_def.add_option(static_cast<int>(Common_option::ENGINE), "ENGINE",
+-                          "ENGINE=INNODB");
++                          "ENGINE=CTC");
+   m_target_def.add_option(static_cast<int>(Common_option::CHARSET), "CHARSET",
+                           "DEFAULT CHARSET=utf8");
+   m_target_def.add_option(static_cast<int>(Common_option::COLLATION),
+diff --git a/sql/dd/impl/types/tablespace_impl.cc b/sql/dd/impl/types/tablespace_impl.cc
+index 8880468..9cd1727 100644
+--- a/sql/dd/impl/types/tablespace_impl.cc
++++ b/sql/dd/impl/types/tablespace_impl.cc
+@@ -179,14 +179,14 @@ bool Tablespace_impl::restore_attributes(const Raw_record &r) {
+ 
+ bool Tablespace_impl::store_attributes(Raw_record *r) {
+ #ifndef NDEBUG
+-  if (my_strcasecmp(system_charset_info, "InnoDB", m_engine.c_str()) == 0) {
+-    /* Innodb can request for space rename during upgrade when options are not
+-    upgraded yet. */
+-    assert(m_options.exists("encryption") ||
+-           bootstrap::DD_bootstrap_ctx::instance().is_dd_upgrade());
+-  } else {
+-    assert(!m_options.exists("encryption"));
+-  }
++  //if (my_strcasecmp(system_charset_info, "CTC", m_engine.c_str()) == 0) {
++  //  /* Innodb can request for space rename during upgrade when options are not
++  //  upgraded yet. */
++  //  assert(m_options.exists("encryption") ||
++  //         bootstrap::DD_bootstrap_ctx::instance().is_dd_upgrade());
++  //} else {
++  //  assert(!m_options.exists("encryption"));
++  //}
+ #endif
+ 
+   // Store engine_attributes and secondary_engine_attributes only if
+diff --git a/sql/dd/impl/upgrade/dd.cc b/sql/dd/impl/upgrade/dd.cc
+index 065400f..da58b04 100644
+--- a/sql/dd/impl/upgrade/dd.cc
++++ b/sql/dd/impl/upgrade/dd.cc
+@@ -1155,7 +1155,7 @@ bool upgrade_tables(THD *thd) {
+   Object_table_definition_impl::set_dd_tablespace_encrypted(false);
+ 
+   // Reset the DDSE local dictionary cache.
+-  handlerton *ddse = ha_resolve_by_legacy_type(thd, DB_TYPE_INNODB);
++  handlerton *ddse = ha_resolve_by_legacy_type(thd, DB_TYPE_CTC);
+   if (ddse->dict_cache_reset == nullptr) return true;
+ 
+   for (System_tables::Const_iterator it =
+diff --git a/sql/dd/impl/upgrade/server.cc b/sql/dd/impl/upgrade/server.cc
+index 1e3ce91..4812569 100644
+--- a/sql/dd/impl/upgrade/server.cc
++++ b/sql/dd/impl/upgrade/server.cc
+@@ -518,12 +518,12 @@ static void create_upgrade_file() {
+ 
+ static bool get_shared_tablespace_names(
+     THD *thd, std::set<dd::String_type> *shared_spaces) {
+-  assert(innodb_hton != nullptr && innodb_hton->get_tablespace_type);
++  assert(tse_hton != nullptr && tse_hton->get_tablespace_type);
+   auto process_spaces = [&](std::unique_ptr<dd::Tablespace> &space) {
+-    if (my_strcasecmp(system_charset_info, space->engine().c_str(), "InnoDB"))
++    if (my_strcasecmp(system_charset_info, space->engine().c_str(), "CTC"))
+       return false;
+     Tablespace_type space_type;
+-    if (innodb_hton->get_tablespace_type(*space, &space_type)) {
++    if (tse_hton->get_tablespace_type(*space, &space_type)) {
+       LogErr(ERROR_LEVEL, ER_UNKNOWN_TABLESPACE_TYPE, space->name().c_str());
+       return true;
+     }
+diff --git a/sql/dd/info_schema/metadata.cc b/sql/dd/info_schema/metadata.cc
+index 4c9a38f..3f1488b 100644
+--- a/sql/dd/info_schema/metadata.cc
++++ b/sql/dd/info_schema/metadata.cc
+@@ -629,7 +629,19 @@ bool store_server_I_S_metadata(THD *thd) {
+ 
+ // Update server and plugin I_S table metadata on server restart.
+ bool update_I_S_metadata(THD *thd) {
+-  return update_server_I_S_metadata(thd) || update_plugins_I_S_metadata(thd);
++  handlerton *ddse = ha_resolve_by_legacy_type(thd, DB_TYPE_CTC);
++  if (!opt_initialize && !mysqld_server_started) {
++    if (ddse->op_before_load_meta(thd) != 0) {
++      return true;
++    }
++  }
++  bool error = update_server_I_S_metadata(thd) || update_plugins_I_S_metadata(thd);
++  if (!opt_initialize && !mysqld_server_started) {
++    if (ddse->op_after_load_meta(thd) != 0) {
++      return true;
++    }
++  }
++  return error;
+ }
+ 
+ /*
+diff --git a/sql/dd/info_schema/table_stats.cc b/sql/dd/info_schema/table_stats.cc
+index cc1041d..b69b7b7 100644
+--- a/sql/dd/info_schema/table_stats.cc
++++ b/sql/dd/info_schema/table_stats.cc
+@@ -69,7 +69,7 @@ namespace {
+ inline bool can_persist_I_S_dynamic_statistics(THD *thd,
+                                                const char *schema_name,
+                                                const char *partition_name) {
+-  handlerton *ddse = ha_resolve_by_legacy_type(thd, DB_TYPE_INNODB);
++  handlerton *ddse = ha_resolve_by_legacy_type(thd, DB_TYPE_CTC);
+   if (ddse == nullptr || ddse->is_dict_readonly()) return false;
+ 
+   return (thd->variables.information_schema_stats_expiry &&
+diff --git a/sql/dd/upgrade_57/upgrade.cc b/sql/dd/upgrade_57/upgrade.cc
+index ebda371..6310acc 100644
+--- a/sql/dd/upgrade_57/upgrade.cc
++++ b/sql/dd/upgrade_57/upgrade.cc
+@@ -845,12 +845,13 @@ bool do_pre_checks_and_initialize_dd(THD *thd) {
+   bool not_used;
+   build_table_filename(path, sizeof(path) - 1, "", "mysql", ".ibd", 0,
+                        &not_used);
+-  bool exists_mysql_tablespace = (!my_access(path, F_OK));
++  // bool exists_mysql_tablespace = (!my_access(path, F_OK));
++  bool exists_mysql_tablespace = true;
+ 
+   // Check existence of mysql/plugin.frm
+-  build_table_filename(path, sizeof(path) - 1, "mysql", "plugin", ".frm", 0,
+-                       &not_used);
+-  bool exists_plugin_frm = (!my_access(path, F_OK));
++  //build_table_filename(path, sizeof(path) - 1, "mysql", "plugin", ".frm", 0,
++  //                     &not_used);
++  //bool exists_plugin_frm = (!my_access(path, F_OK));
+ 
+   /*
+     If mysql.ibd and mysql/plugin.frm do not exist,
+@@ -859,10 +860,10 @@ bool do_pre_checks_and_initialize_dd(THD *thd) {
+     Server restart is not possible without mysql.ibd.
+     Exit with an error.
+   */
+-  if (!exists_mysql_tablespace && !exists_plugin_frm) {
+-    LogErr(ERROR_LEVEL, ER_DD_UPGRADE_FAILED_FIND_VALID_DATA_DIR);
+-    return true;
+-  }
++  // if (!exists_mysql_tablespace && !exists_plugin_frm) {
++  //  LogErr(ERROR_LEVEL, ER_DD_UPGRADE_FAILED_FIND_VALID_DATA_DIR);
++  //  return true;
++  // }
+ 
+   // Read stage of upgrade from the file.
+   Upgrade_status upgrade_status;
+diff --git a/sql/handler.cc b/sql/handler.cc
+index 217a0c1..fe900eb 100644
+--- a/sql/handler.cc
++++ b/sql/handler.cc
+@@ -769,11 +769,13 @@ int ha_initialize_handlerton(st_plugin_int *plugin) {
+   hton->slot = HA_SLOT_UNDEF;
+   /* Historical Requirement */
+   plugin->data = hton;  // shortcut for the future
+-  if (plugin->plugin->init && plugin->plugin->init(hton)) {
+-    LogErr(ERROR_LEVEL, ER_PLUGIN_INIT_FAILED, plugin->name.str);
+-    goto err;
++  {
++    if (plugin->plugin->init && plugin->plugin->init(hton)) {
++      LogErr(ERROR_LEVEL, ER_PLUGIN_INIT_FAILED, plugin->name.str);
++      goto err;
++    }
+   }
+-
++  
+   /*
+     the switch below and hton->state should be removed when
+     command-line options for plugins will be implemented
+@@ -852,6 +854,9 @@ int ha_initialize_handlerton(st_plugin_int *plugin) {
+     case DB_TYPE_INNODB:
+       innodb_hton = hton;
+       break;
++    case DB_TYPE_CTC:
++      tse_hton = hton;
++      break;
+     default:
+       break;
+   };
+@@ -901,13 +906,15 @@ void ha_end() {
+ 
+ static bool dropdb_handlerton(THD *, plugin_ref plugin, void *path) {
+   handlerton *hton = plugin_data<handlerton *>(plugin);
+-  if (hton->state == SHOW_OPTION_YES && hton->drop_database)
+-    hton->drop_database(hton, (char *)path);
+-  return false;
++  bool error = false;
++  if (hton->state == SHOW_OPTION_YES && hton->drop_database) {
++    error |= hton->drop_database(hton, (char *)path);
++  }
++  return error;
+ }
+ 
+-void ha_drop_database(char *path) {
+-  plugin_foreach(nullptr, dropdb_handlerton, MYSQL_STORAGE_ENGINE_PLUGIN, path);
++bool ha_drop_database(char *path) {
++  return plugin_foreach(nullptr, dropdb_handlerton, MYSQL_STORAGE_ENGINE_PLUGIN, path);
+ }
+ 
+ static bool closecon_handlerton(THD *thd, plugin_ref plugin, void *) {
+@@ -3875,9 +3882,7 @@ int handler::update_auto_increment() {
+     which will set first_successful_insert_id_in_cur_stmt if it's not
+     already set.
+   */
+-  insert_id_for_cur_row = nr;
+-  /*
+-    Set next insert id to point to next auto-increment value to be able to
++  insert_id_for_cur_row = nr; /* Set next insert id to point to next auto-increment value to be able to
+     handle multi-row statements.
+   */
+   set_next_insert_id(compute_next_insert_id(nr, variables));
+@@ -5798,10 +5803,12 @@ struct binlog_log_query_st {
+ static bool binlog_log_query_handlerton2(THD *thd, handlerton *hton,
+                                          void *args) {
+   struct binlog_log_query_st *b = (struct binlog_log_query_st *)args;
+-  if (hton->state == SHOW_OPTION_YES && hton->binlog_log_query)
+-    hton->binlog_log_query(hton, thd, b->binlog_command, b->query,
++  bool error = false;
++  if (hton->state == SHOW_OPTION_YES && hton->binlog_log_query) {
++    error |= hton->binlog_log_query(hton, thd, b->binlog_command, b->query,
+                            b->query_length, b->db, b->table_name);
+-  return false;
++  }
++  return error;
+ }
+ 
+ static bool binlog_log_query_handlerton(THD *thd, plugin_ref plugin,
+@@ -5810,7 +5817,7 @@ static bool binlog_log_query_handlerton(THD *thd, plugin_ref plugin,
+                                       args);
+ }
+ 
+-void ha_binlog_log_query(THD *thd, handlerton *hton,
++bool ha_binlog_log_query(THD *thd, handlerton *hton,
+                          enum_binlog_command binlog_command, const char *query,
+                          size_t query_length, const char *db,
+                          const char *table_name) {
+@@ -5821,10 +5828,10 @@ void ha_binlog_log_query(THD *thd, handlerton *hton,
+   b.db = db;
+   b.table_name = table_name;
+   if (hton == nullptr)
+-    plugin_foreach(thd, binlog_log_query_handlerton,
++    return plugin_foreach(thd, binlog_log_query_handlerton,
+                    MYSQL_STORAGE_ENGINE_PLUGIN, &b);
+   else
+-    binlog_log_query_handlerton2(thd, hton, &b);
++    return binlog_log_query_handlerton2(thd, hton, &b);
+ }
+ 
+ int ha_binlog_end(THD *thd) {
+@@ -7875,7 +7882,7 @@ int handler::ha_reset() {
+   return retval;
+ }
+ 
+-int handler::ha_write_row(uchar *buf) {
++int handler::ha_write_row(uchar *buf, bool write_through) {
+   int error;
+   Log_func *log_func = Write_rows_log_event::binlog_row_logging_function;
+   assert(table_share->tmp_table != NO_TMP_TABLE || m_lock_type == F_WRLCK);
+@@ -7892,7 +7899,7 @@ int handler::ha_write_row(uchar *buf) {
+       set_my_errno(HA_ERR_CRASHED); return HA_ERR_CRASHED;);
+ 
+   MYSQL_TABLE_IO_WAIT(PSI_TABLE_WRITE_ROW, MAX_KEY, error,
+-                      { error = write_row(buf); })
++                      { error = write_row(buf, write_through); })
+ 
+   if (unlikely(error)) return error;
+ 
+diff --git a/sql/handler.h b/sql/handler.h
+index 0530ca1..214027d 100644
+--- a/sql/handler.h
++++ b/sql/handler.h
+@@ -662,7 +662,8 @@ enum legacy_db_type {
+   /** Performance schema engine. */
+   DB_TYPE_PERFORMANCE_SCHEMA,
+   DB_TYPE_TEMPTABLE,
+-  DB_TYPE_FIRST_DYNAMIC = 42,
++  DB_TYPE_CTC = 30,
++  DB_TYPE_FIRST_DYNAMIC = 42,  
+   DB_TYPE_DEFAULT = 127  // Must be last
+ };
+ 
+@@ -1334,7 +1335,7 @@ typedef xa_status_code (*rollback_by_xid_t)(handlerton *hton, XID *xid);
+ typedef handler *(*create_t)(handlerton *hton, TABLE_SHARE *table,
+                              bool partitioned, MEM_ROOT *mem_root);
+ 
+-typedef void (*drop_database_t)(handlerton *hton, char *path);
++typedef bool (*drop_database_t)(handlerton *hton, char *path);
+ 
+ typedef int (*panic_t)(handlerton *hton, enum ha_panic_function flag);
+ 
+@@ -1510,7 +1511,7 @@ typedef int (*fill_is_table_t)(handlerton *hton, THD *thd, TABLE_LIST *tables,
+ typedef int (*binlog_func_t)(handlerton *hton, THD *thd, enum_binlog_func fn,
+                              void *arg);
+ 
+-typedef void (*binlog_log_query_t)(handlerton *hton, THD *thd,
++typedef bool (*binlog_log_query_t)(handlerton *hton, THD *thd,
+                                    enum_binlog_command binlog_command,
+                                    const char *query, uint query_length,
+                                    const char *db, const char *table_name);
+@@ -2133,6 +2134,13 @@ typedef bool (*check_fk_column_compat_t)(
+ 
+ typedef bool (*is_reserved_db_name_t)(handlerton *hton, const char *name);
+ 
++typedef int (*get_inst_id_t)();
++typedef void (*set_metadata_switch_t)();
++typedef int (*get_metadata_switch_t)();
++typedef int (*get_metadata_status_t)();
++typedef int (*op_before_load_meta_t)(THD *thd);
++typedef int (*op_after_load_meta_t)(THD *thd);
++
+ /**
+   Prepare the secondary engine for executing a statement. This function is
+   called right after the secondary engine TABLE objects have been opened by
+@@ -2420,6 +2428,8 @@ struct handlerton {
+    */
+   uint savepoint_offset;
+ 
++  uint64_t pre_sess_addr;
++
+   /* handlerton methods */
+ 
+   close_connection_t close_connection;
+@@ -2464,6 +2474,14 @@ struct handlerton {
+   dict_set_server_version_t dict_set_server_version;
+   is_reserved_db_name_t is_reserved_db_name;
+ 
++  /** CTC metadata methods. */
++  get_inst_id_t get_inst_id;
++  set_metadata_switch_t set_metadata_switch;
++  get_metadata_switch_t get_metadata_switch;
++  get_metadata_status_t get_metadata_status;
++  op_before_load_meta_t op_before_load_meta;
++  op_after_load_meta_t op_after_load_meta;
++
+   /** Global handler flags. */
+   uint32 flags{0};
+ 
+@@ -4482,7 +4500,7 @@ class handler {
+     and delete_row() below.
+   */
+   int ha_external_lock(THD *thd, int lock_type);
+-  int ha_write_row(uchar *buf);
++  int ha_write_row(uchar *buf, bool write_through = false);
+   /**
+     Update the current row.
+ 
+@@ -6161,12 +6179,13 @@ class handler {
+     }
+ 
+     @param buf  Buffer to write from.
++    @param write_through flag to force write without begining a tx.
+ 
+     @return Operation status.
+       @retval    0  Success.
+       @retval != 0  Error code.
+   */
+-  virtual int write_row(uchar *buf MY_ATTRIBUTE((unused))) {
++  virtual int write_row(uchar *buf MY_ATTRIBUTE((unused)), bool write_through MY_ATTRIBUTE((unused)) = false) {
+     return HA_ERR_WRONG_COMMAND;
+   }
+ 
+@@ -6178,6 +6197,7 @@ class handler {
+     the columns required for the error message are not read, the error
+     message will contain garbage.
+   */
++#define METADATA_NORMALIZED
+   virtual int update_row(const uchar *old_data MY_ATTRIBUTE((unused)),
+                          uchar *new_data MY_ATTRIBUTE((unused))) {
+     return HA_ERR_WRONG_COMMAND;
+@@ -6874,7 +6894,7 @@ void ha_pre_dd_shutdown(void);
+   @retval true Error
+ */
+ bool ha_flush_logs(bool binlog_group_flush = false);
+-void ha_drop_database(char *path);
++bool ha_drop_database(char *path);
+ int ha_create_table(THD *thd, const char *path, const char *db,
+                     const char *table_name, HA_CREATE_INFO *create_info,
+                     bool update_create_info, bool is_temp_table,
+@@ -6973,7 +6993,7 @@ void trans_register_ha(THD *thd, bool all, handlerton *ht,
+ int ha_reset_logs(THD *thd);
+ int ha_binlog_index_purge_file(THD *thd, const char *file);
+ void ha_reset_slave(THD *thd);
+-void ha_binlog_log_query(THD *thd, handlerton *db_type,
++bool ha_binlog_log_query(THD *thd, handlerton *db_type,
+                          enum_binlog_command binlog_command, const char *query,
+                          size_t query_length, const char *db,
+                          const char *table_name);
+diff --git a/sql/log.cc b/sql/log.cc
+index 4da945a..fc6f9c5 100644
+--- a/sql/log.cc
++++ b/sql/log.cc
+@@ -906,11 +906,7 @@ bool Log_to_csv_event_handler::log_general(
+   if (log_table_intact.check(thd, table_list.table, &general_log_table_def))
+     goto err;
+ 
+-  if (table->file->ha_extra(HA_EXTRA_MARK_AS_LOG_TABLE) ||
+-      table->file->ha_rnd_init(false))
+-    goto err;
+-
+-  need_rnd_end = true;
++  need_rnd_end = false;
+ 
+   /* Honor next number columns if present */
+   table->next_number_field = table->found_next_number_field;
+@@ -960,7 +956,7 @@ bool Log_to_csv_event_handler::log_general(
+   }
+ 
+   /* log table entries are not replicated */
+-  if (table->file->ha_write_row(table->record[0])) goto err;
++  if (table->file->ha_write_row(table->record[0], true)) goto err;
+ 
+   result = false;
+ 
+@@ -1026,13 +1022,7 @@ bool Log_to_csv_event_handler::log_slow(
+     goto err;
+   }
+ 
+-  if (table->file->ha_extra(HA_EXTRA_MARK_AS_LOG_TABLE) ||
+-      table->file->ha_rnd_init(false)) {
+-    reason = "mark log or init failed";
+-    goto err;
+-  }
+-
+-  need_rnd_end = true;
++  need_rnd_end = false;
+ 
+   /* Honor next number columns if present */
+   table->next_number_field = table->found_next_number_field;
+@@ -1131,7 +1121,7 @@ bool Log_to_csv_event_handler::log_slow(
+   table->field[SQLT_FIELD_THREAD_ID]->store((longlong)thd->thread_id(), true);
+ 
+   /* log table entries are not replicated */
+-  if (table->file->ha_write_row(table->record[0])) {
++  if (table->file->ha_write_row(table->record[0], true)) {
+     reason = "write slow table failed";
+     goto err;
+   }
+diff --git a/sql/mdl.cc b/sql/mdl.cc
+index da9ff9e..410b686 100644
+--- a/sql/mdl.cc
++++ b/sql/mdl.cc
+@@ -1654,6 +1654,25 @@ bool MDL_lock::needs_hton_notification(
+   }
+ }
+ 
++static bool is_notify_ctc_se(enum_mdl_type mdl_type, MDL_key::enum_mdl_namespace mdl_namespace) {
++  switch (mdl_namespace) {
++    case MDL_key::GLOBAL:
++    case MDL_key::BACKUP_LOCK:
++      if (mdl_type == MDL_SHARED) {
++        return true;
++      }
++      break;
++
++    default:
++      if (mdl_type == MDL_EXCLUSIVE) {
++        return true;
++      }
++      return false;
++  }
++
++  return false;
++}
++
+ /**
+   Auxiliary functions needed for creation/destruction of MDL_ticket
+   objects.
+@@ -2901,8 +2920,11 @@ bool MDL_context::try_acquire_lock_impl(MDL_request *mdl_request,
+     We need to notify/get permission from storage engines before acquiring
+     X lock if it is requested in one of namespaces interesting for SEs.
+   */
+-  if (mdl_request->type == MDL_EXCLUSIVE &&
+-      MDL_lock::needs_hton_notification(key->mdl_namespace())) {
++
++  /*
++  if ((mdl_request->type == MDL_EXCLUSIVE &&
++      MDL_lock::needs_hton_notification(key->mdl_namespace())) ||
++      is_notify_ctc_se(mdl_request->type, key->mdl_namespace())) {
+     mysql_mdl_set_status(ticket->m_psi, MDL_ticket::PRE_ACQUIRE_NOTIFY);
+ 
+     bool victimized;
+@@ -2916,6 +2938,7 @@ bool MDL_context::try_acquire_lock_impl(MDL_request *mdl_request,
+ 
+     mysql_mdl_set_status(ticket->m_psi, MDL_ticket::PENDING);
+   }
++  */
+ 
+ retry:
+   /*
+@@ -3034,6 +3057,26 @@ retry:
+     m_ticket_store.push_front(mdl_request->duration, ticket);
+     mdl_request->ticket = ticket;
+ 
++    if ((mdl_request->type == MDL_EXCLUSIVE &&
++      MDL_lock::needs_hton_notification(key->mdl_namespace())) ||
++      is_notify_ctc_se(mdl_request->type, key->mdl_namespace())) {
++
++      mysql_mdl_set_status(ticket->m_psi, MDL_ticket::PRE_ACQUIRE_NOTIFY);
++
++      bool victimized;
++      if (m_owner->notify_hton_pre_acquire_exclusive(key, &victimized)) {
++
++        ticket->m_hton_notified = false;
++        release_lock(mdl_request->duration, ticket);
++        mdl_request->ticket = nullptr;
++        my_error(victimized ? ER_LOCK_DEADLOCK : ER_LOCK_REFUSED_BY_ENGINE,
++                MYF(0));
++        return true;
++      }
++
++      ticket->m_hton_notified = true;
++      mysql_mdl_set_status(ticket->m_psi, MDL_ticket::PENDING);
++    }
+     mysql_mdl_set_status(ticket->m_psi, MDL_ticket::GRANTED);
+     return false;
+   }
+@@ -3147,6 +3190,26 @@ slow_path:
+     m_ticket_store.push_front(mdl_request->duration, ticket);
+     mdl_request->ticket = ticket;
+ 
++    if ((mdl_request->type == MDL_EXCLUSIVE &&
++      MDL_lock::needs_hton_notification(key->mdl_namespace())) ||
++      is_notify_ctc_se(mdl_request->type, key->mdl_namespace())) {
++
++      mysql_mdl_set_status(ticket->m_psi, MDL_ticket::PRE_ACQUIRE_NOTIFY);
++
++      bool victimized;
++      if (m_owner->notify_hton_pre_acquire_exclusive(key, &victimized)) {
++
++        ticket->m_hton_notified = false;
++        release_lock(mdl_request->duration, ticket);
++        mdl_request->ticket = nullptr;
++        my_error(victimized ? ER_LOCK_DEADLOCK : ER_LOCK_REFUSED_BY_ENGINE,
++                MYF(0));
++        return true;
++      }
++      ticket->m_hton_notified = true;
++      mysql_mdl_set_status(ticket->m_psi, MDL_ticket::PENDING);
++    }
++
+     mysql_mdl_set_status(ticket->m_psi, MDL_ticket::GRANTED);
+   } else
+     *out_ticket = ticket;
+@@ -3207,10 +3270,11 @@ bool MDL_context::clone_ticket(MDL_request *mdl_request) {
+     of storage engines we need to notify/get permission from SEs similarly
+     to situation when lock acquired.
+   */
+-  if (mdl_request->type == MDL_EXCLUSIVE &&
+-      MDL_lock::needs_hton_notification(mdl_request->key.mdl_namespace())) {
++  if ((mdl_request->type == MDL_EXCLUSIVE &&
++      MDL_lock::needs_hton_notification(mdl_request->key.mdl_namespace())) ||
++      is_notify_ctc_se(mdl_request->type, mdl_request->key.mdl_namespace())) {
+     assert(mdl_request->ticket->m_hton_notified);
+-
++    /*
+     mysql_mdl_set_status(ticket->m_psi, MDL_ticket::PRE_ACQUIRE_NOTIFY);
+ 
+     bool victimized;
+@@ -3224,6 +3288,7 @@ bool MDL_context::clone_ticket(MDL_request *mdl_request) {
+     ticket->m_hton_notified = true;
+ 
+     mysql_mdl_set_status(ticket->m_psi, MDL_ticket::PENDING);
++    */
+   }
+ 
+   ticket->m_lock = mdl_request->ticket->m_lock;
+@@ -3275,6 +3340,28 @@ bool MDL_context::clone_ticket(MDL_request *mdl_request) {
+ 
+   mdl_request->ticket = ticket;
+   m_ticket_store.push_front(mdl_request->duration, ticket);
++
++  if ((mdl_request->type == MDL_EXCLUSIVE &&
++      MDL_lock::needs_hton_notification(mdl_request->key.mdl_namespace())) ||
++      is_notify_ctc_se(mdl_request->type, mdl_request->key.mdl_namespace())) {
++
++    mysql_mdl_set_status(ticket->m_psi, MDL_ticket::PRE_ACQUIRE_NOTIFY);
++
++    bool victimized;
++    if (m_owner->notify_hton_pre_acquire_exclusive(&mdl_request->key,
++                                                   &victimized)) {
++      ticket->m_hton_notified = false;
++      release_lock(mdl_request->duration, ticket);
++      mdl_request->ticket = nullptr;
++      my_error(victimized ? ER_LOCK_DEADLOCK : ER_LOCK_REFUSED_BY_ENGINE,
++              MYF(0));
++      return true;
++    }
++    ticket->m_hton_notified = true;
++
++    mysql_mdl_set_status(ticket->m_psi, MDL_ticket::PENDING);
++  }
++
+   mysql_mdl_set_status(ticket->m_psi, MDL_ticket::GRANTED);
+ 
+   return false;
+@@ -3576,6 +3663,27 @@ bool MDL_context::acquire_lock(MDL_request *mdl_request,
+   m_ticket_store.push_front(mdl_request->duration, ticket);
+   mdl_request->ticket = ticket;
+ 
++  if ((mdl_request->type == MDL_EXCLUSIVE &&
++      MDL_lock::needs_hton_notification(mdl_request->key.mdl_namespace())) ||
++      is_notify_ctc_se(mdl_request->type, mdl_request->key.mdl_namespace())) {
++
++    mysql_mdl_set_status(ticket->m_psi, MDL_ticket::PRE_ACQUIRE_NOTIFY);
++
++    bool victimized;
++    if (m_owner->notify_hton_pre_acquire_exclusive(&mdl_request->key,
++                                                   &victimized)) {
++      ticket->m_hton_notified = false;
++      release_lock(mdl_request->duration, ticket);
++      mdl_request->ticket = nullptr;
++      my_error(victimized ? ER_LOCK_DEADLOCK : ER_LOCK_REFUSED_BY_ENGINE,
++               MYF(0));
++      return true;
++    }
++    ticket->m_hton_notified = true;
++
++    mysql_mdl_set_status(ticket->m_psi, MDL_ticket::PENDING);
++  }
++
+   mysql_mdl_set_status(ticket->m_psi, MDL_ticket::GRANTED);
+ 
+   return false;
+@@ -4234,6 +4342,29 @@ void MDL_context::release_locks_stored_before(enum_mdl_duration duration,
+   }
+ }
+ 
++void MDL_context::dump_lock(enum_mdl_duration duration, MDL_ticket *ticket) {
++  MDL_lock *lock = ticket->m_lock;
++  DBUG_TRACE;
++  fprintf(stderr, "\ndb=%s name=%s type=%d, duration=%d\n", lock->key.db_name(), lock->key.name(),
++            ticket->get_type(), duration);
++}
++
++void MDL_context::dump_locks_stored_before(enum_mdl_duration duration,
++                                              MDL_ticket *sentinel) {
++  DBUG_TRACE;
++
++  MDL_ticket *ticket;
++  MDL_ticket_store::List_iterator it = m_ticket_store.list_iterator(duration);
++  if (m_ticket_store.is_empty(duration)) {
++    return;
++  }
++
++  while ((ticket = it++) && ticket != sentinel) {
++    fprintf(stderr, "\nfound lock to release ticket=%p\n", ticket);
++    dump_lock(duration, ticket);
++  }
++}
++
+ /**
+   Release all explicit locks in the context which correspond to the
+   same name/object as this lock request.
+diff --git a/sql/mdl.h b/sql/mdl.h
+index f1f49f0..0127906 100644
+--- a/sql/mdl.h
++++ b/sql/mdl.h
+@@ -1444,6 +1444,14 @@ class MDL_context {
+   void release_all_locks_for_name(MDL_ticket *ticket);
+   void release_locks(MDL_release_locks_visitor *visitor);
+   void release_lock(MDL_ticket *ticket);
++  void dump_lock(enum_mdl_duration duration, MDL_ticket *ticket);
++  void dump_locks_stored_before(enum_mdl_duration duration,
++                                   MDL_ticket *sentinel);
++  void inline dump_locks() {
++    dump_locks_stored_before(MDL_EXPLICIT, nullptr);
++    dump_locks_stored_before(MDL_STATEMENT, nullptr);
++    dump_locks_stored_before(MDL_TRANSACTION, nullptr);
++  }
+ 
+   bool owns_equal_or_stronger_lock(const MDL_key *mdl_key,
+                                    enum_mdl_type mdl_type);
+diff --git a/sql/mysqld.cc b/sql/mysqld.cc
+index 50b76e2..080fdf9 100644
+--- a/sql/mysqld.cc
++++ b/sql/mysqld.cc
+@@ -1216,6 +1216,7 @@ handlerton *heap_hton;
+ handlerton *temptable_hton;
+ handlerton *myisam_hton;
+ handlerton *innodb_hton;
++handlerton *tse_hton;
+ 
+ char *opt_disabled_storage_engines;
+ uint opt_server_id_bits = 0;
+@@ -4623,7 +4624,8 @@ int init_common_variables() {
+ 
+     From MySQL 5.5 onwards, the default storage engine is InnoDB.
+   */
+-  default_storage_engine = "InnoDB";
++  //default_storage_engine = "InnoDB";
++  default_storage_engine = "CTC";
+   default_tmp_storage_engine = default_storage_engine;
+ 
+   /*
+@@ -5673,6 +5675,7 @@ static int setup_error_log_components() {
+ 
+ static int init_server_components() {
+   DBUG_TRACE;
++
+   /*
+     We need to call each of these following functions to ensure that
+     all things are initialized so that unireg_abort() doesn't fail
+@@ -7574,6 +7577,7 @@ int mysqld_main(int argc, char **argv)
+ #endif
+ 
+   server_components_initialized();
++  printf("[SYSTEM] mysqld server start success! (mysqld_server_started = true)\n");
+ 
+   /*
+     Set opt_super_readonly here because if opt_super_readonly is set
+diff --git a/sql/mysqld.h b/sql/mysqld.h
+index 0d7d41c..b3f86eb 100644
+--- a/sql/mysqld.h
++++ b/sql/mysqld.h
+@@ -358,6 +358,7 @@ extern handlerton *myisam_hton;
+ extern handlerton *heap_hton;
+ extern handlerton *temptable_hton;
+ extern handlerton *innodb_hton;
++extern handlerton *tse_hton;
+ extern uint opt_server_id_bits;
+ extern ulong opt_server_id_mask;
+ extern const char *load_default_groups[];
+diff --git a/sql/mysqld_thd_manager.cc b/sql/mysqld_thd_manager.cc
+index 902fe2b..2fad578 100644
+--- a/sql/mysqld_thd_manager.cc
++++ b/sql/mysqld_thd_manager.cc
+@@ -48,6 +48,7 @@
+ #include "mysql/thread_pool_priv.h"  // inc_thread_created
+ #include "sql/sql_class.h"           // THD
+ #include "thr_mutex.h"
++#include "sql/handler.h"
+ 
+ std::atomic<uint> Global_THD_manager::atomic_global_thd_count{0U};
+ Global_THD_manager *Global_THD_manager::thd_manager = nullptr;
+@@ -228,6 +229,11 @@ my_thread_id Global_THD_manager::get_new_thread_id() {
+   my_thread_id new_id;
+   MUTEX_LOCK(lock, &LOCK_thread_ids);
+   do {
++    if (thread_id_counter == 0) {
++      handlerton *hton = ha_resolve_by_legacy_type(current_thd, DB_TYPE_CTC);
++      my_thread_id tse_inst_id = hton->get_inst_id ? (my_thread_id)hton->get_inst_id() : 0;
++      thread_id_counter = tse_inst_id << 16;
++    }
+     new_id = thread_id_counter++;
+   } while (!thread_ids.insert_unique(new_id).second);
+   return new_id;
+diff --git a/sql/resourcegroups/resource_group_mgr.cc b/sql/resourcegroups/resource_group_mgr.cc
+index a90b15d..309763d 100644
+--- a/sql/resourcegroups/resource_group_mgr.cc
++++ b/sql/resourcegroups/resource_group_mgr.cc
+@@ -119,7 +119,7 @@ Resource_group_mgr *Resource_group_mgr::instance() {
+ static inline bool persist_resource_group(
+     THD *thd, const resourcegroups::Resource_group &resource_group,
+     bool update) {
+-  handlerton *ddse = ha_resolve_by_legacy_type(thd, DB_TYPE_INNODB);
++  handlerton *ddse = ha_resolve_by_legacy_type(thd, DB_TYPE_CTC);
+   if (ddse->is_dict_readonly && ddse->is_dict_readonly()) {
+     LogErr(WARNING_LEVEL, ER_RESOURCE_GROUP_METADATA_UPDATE_SKIPPED);
+     return false;
+@@ -141,7 +141,12 @@ static inline bool persist_resource_group(
+ 
+ static bool deserialize_resource_groups(THD *thd) {
+   DBUG_TRACE;
+-
++  handlerton *ddse = ha_resolve_by_legacy_type(thd, DB_TYPE_CTC);
++  if (!opt_initialize && !mysqld_server_started) {
++    if (ddse->op_before_load_meta(thd) != 0) {
++      return true;
++    }
++  }
+   /*
+     Associate flag SYSTEM_THREAD_DD_INITIALIZE with THD context.
+     This ensures we need not acquire MDL locks during initialization phase.
+@@ -207,7 +212,11 @@ static bool deserialize_resource_groups(THD *thd) {
+   if (persist_resource_group(thd, *res_grp_mgr->sys_default_resource_group(),
+                              sys_default_in_dd))
+     return true;
+-
++  if (!opt_initialize && !mysqld_server_started) {
++    if (ddse->op_after_load_meta(thd) != 0) {
++      return true;
++    }
++  }
+   return false;
+ }
+ 
+diff --git a/sql/rpl_gtid_persist.cc b/sql/rpl_gtid_persist.cc
+index e16b39c..efdfba2 100644
+--- a/sql/rpl_gtid_persist.cc
++++ b/sql/rpl_gtid_persist.cc
+@@ -771,6 +771,8 @@ static void *compress_gtid_table(void *p_thd) {
+       mysql_mutex_unlock(&LOCK_compress_gtid_table);
+       THD_EXIT_COND(thd, nullptr);
+ 
++      continue;  // skip compress gtid table
++
+       THD_STAGE_INFO(thd, stage_compressing_gtid_table);
+       /* Compressing the gtid_executed table. */
+       if (gtid_state->compress(thd)) {
+diff --git a/sql/sql_class.cc b/sql/sql_class.cc
+index c171f0b..a34904d 100644
+--- a/sql/sql_class.cc
++++ b/sql/sql_class.cc
+@@ -2890,6 +2890,17 @@ void THD::update_slow_query_status() {
+     server_status |= SERVER_QUERY_WAS_SLOW;
+ }
+ 
++void THD::add(const char *schema_name, const char *table_name, const invalidate_object_type obj_type)
++{
++  std::map<std::pair<std::string, std::string>, invalidate_object_type>::iterator
++      it = m_invalidate_map.find(typename Invalidate_map::key_type(schema_name, table_name));
++  if (it == m_invalidate_map.end()) {
++    m_invalidate_map.insert(typename Invalidate_map::value_type(
++        typename Invalidate_map::key_type(schema_name, table_name),
++        typename Invalidate_map::mapped_type(obj_type)));
++  }
++}
++
+ /**
+   Initialize the transactional ddl context when executing CREATE TABLE ...
+   SELECT command with engine which supports atomic DDL.
+diff --git a/sql/sql_class.h b/sql/sql_class.h
+index 9f68530..c7004b4 100644
+--- a/sql/sql_class.h
++++ b/sql/sql_class.h
+@@ -841,6 +841,7 @@ class THD : public MDL_context_owner,
+   }
+ 
+  public:
++  bool is_reading_dd = false;
+   MDL_context mdl_context;
+ 
+   /**
+@@ -4417,6 +4418,29 @@ class THD : public MDL_context_owner,
+     @param thd parent session
+   */
+   void copy_table_access_properties(THD *thd);
++ 
++  enum invalidate_object_type {
++    OBJ_ABSTRACT_TABLE,
++    OBJ_SCHEMA,
++    OBJ_EVENT,
++    OBJ_COLUMN_STATISTICS,
++    OBJ_CHARSET,
++    OBJ_COLLATION,
++    OBJ_RT_PROCEDURE,
++    OBJ_RT_FUNCTION,
++    OBJ_TABLESPACE,
++    OBJ_RESOURCE_GROUP,
++    OBJ_SPATIAL_REFERENCE_SYSTEM
++  };
++ private:
++  typedef std::map<std::pair<std::string, std::string>, invalidate_object_type> Invalidate_map;
++  Invalidate_map m_invalidate_map;
++ public:
++  void add(const char *schema_name, const char *table_name, const invalidate_object_type obj_type);
++  const Invalidate_map &invalidates() const { return m_invalidate_map; }
++  //void invalidate();
++  bool is_empty() const { return m_invalidate_map.empty(); }
++  void clear() { m_invalidate_map.clear(); }
+ };
+ 
+ /**
+diff --git a/sql/sql_db.cc b/sql/sql_db.cc
+index 662f522..975e017 100644
+--- a/sql/sql_db.cc
++++ b/sql/sql_db.cc
+@@ -120,6 +120,7 @@ static bool rm_dir_w_symlink(const char *org_path, bool send_error);
+ static void mysql_change_db_impl(THD *thd, const LEX_CSTRING &new_db_name,
+                                  ulong new_db_access,
+                                  const CHARSET_INFO *new_db_charset);
++static bool no_need_schema_dir = true;
+ 
+ bool get_default_db_collation(const dd::Schema &schema,
+                               const CHARSET_INFO **collation) {
+@@ -422,13 +423,13 @@ bool mysql_create_db(THD *thd, const char *db, HA_CREATE_INFO *create_info) {
+       Server should either be in restart mode or upgrade mode to create only
+       dd::Schema object for the dictionary cache.
+     */
+-    if (!schema_dir_exists) {
++    if (!no_need_schema_dir && !schema_dir_exists) {
+       my_printf_error(ER_BAD_DB_ERROR,
+                       "System schema directory does not exist.", MYF(0));
+       return true;
+     }
+   } else if (store_in_dd) {
+-    if (schema_dir_exists) {
++    if (!no_need_schema_dir && !schema_dir_exists) {
+       my_error(ER_SCHEMA_DIR_EXISTS, MYF(0), path);
+       return true;
+     }
+@@ -440,7 +441,7 @@ bool mysql_create_db(THD *thd, const char *db, HA_CREATE_INFO *create_info) {
+                my_strerror(errbuf, sizeof(errbuf), my_errno()));
+       return true;
+     }
+-    if (my_mkdir(path, 0777, MYF(0)) < 0) {
++    if (!no_need_schema_dir && my_mkdir(path, 0777, MYF(0)) < 0) {
+       char errbuf[MYSQL_ERRMSG_SIZE];
+       my_error(ER_SCHEMA_DIR_CREATE_FAILED, MYF(0), db, my_errno(),
+                my_strerror(errbuf, MYSQL_ERRMSG_SIZE, my_errno()));
+@@ -472,14 +473,18 @@ bool mysql_create_db(THD *thd, const char *db, HA_CREATE_INFO *create_info) {
+         other error we ignore the error as we anyway return
+         failure (true) here.
+       */
+-      if (!schema_dir_exists) rm_dir_w_symlink(path, true);
++      if (!no_need_schema_dir && !schema_dir_exists) rm_dir_w_symlink(path, true);
+       return true;
+     }
+   }
+ 
+   // Log the query in the handler's binlog
+-  ha_binlog_log_query(thd, nullptr, LOGCOM_CREATE_DB, thd->query().str,
+-                      thd->query().length, db, "");
++  if (ha_binlog_log_query(thd, nullptr, LOGCOM_CREATE_DB, thd->query().str,
++                      thd->query().length, db, "")) {
++    my_printf_error(ER_BAD_DB_ERROR,
++                      "Binlog create database query failed.", MYF(0));
++    return true;
++  }
+ 
+   /*
+     If we have not added database to the data-dictionary we don't have
+@@ -487,7 +492,7 @@ bool mysql_create_db(THD *thd, const char *db, HA_CREATE_INFO *create_info) {
+     binlog's trx cache, which requires transaction with valid XID.
+   */
+   if (write_db_cmd_to_binlog(thd, db, store_in_dd)) {
+-    if (!schema_dir_exists) rm_dir_w_symlink(path, true);
++    if (!no_need_schema_dir && !schema_dir_exists) rm_dir_w_symlink(path, true);
+     return true;
+   }
+ 
+@@ -496,7 +501,7 @@ bool mysql_create_db(THD *thd, const char *db, HA_CREATE_INFO *create_info) {
+     able to remove directory in case of failure.
+   */
+   if (trans_commit_stmt(thd) || trans_commit(thd)) {
+-    if (!schema_dir_exists) rm_dir_w_symlink(path, true);
++    if (!no_need_schema_dir && !schema_dir_exists) rm_dir_w_symlink(path, true);
+     return true;
+   }
+ 
+@@ -602,8 +607,12 @@ bool mysql_alter_db(THD *thd, const char *db, HA_CREATE_INFO *create_info) {
+     because e.g. NDB needs to propagate the read only option to
+     other mysqld servers in the cluster.
+   */
+-  ha_binlog_log_query(thd, nullptr, LOGCOM_ALTER_DB, thd->query().str,
+-                      thd->query().length, db, "");
++  if (ha_binlog_log_query(thd, nullptr, LOGCOM_ALTER_DB, thd->query().str,
++                      thd->query().length, db, "")) {
++    my_printf_error(ER_BAD_DB_ERROR,
++            "Binlog alter database query failed.", MYF(0));
++    return true;
++  }
+ 
+   /*
+     The original query is written to the binlog and hence replicated.
+@@ -768,16 +777,18 @@ bool mysql_rm_db(THD *thd, const LEX_CSTRING &db, bool if_exists) {
+   } else  // Schema found in DD
+   {
+     /* Database directory does not exist. */
+-    if (schema_dirp == nullptr) {
+-      if (!if_exists) {
+-        my_error(ER_SCHEMA_DIR_MISSING, MYF(0), path);
+-        return true;
+-      }
+-      push_warning_printf(thd, Sql_condition::SL_NOTE, ER_SCHEMA_DIR_MISSING,
+-                          ER_THD(thd, ER_SCHEMA_DIR_MISSING), path);
+-    } else {
+-      if (find_unknown_and_remove_deletable_files(thd, schema_dirp, path)) {
+-        return true;
++    if (!no_need_schema_dir) {
++      if (schema_dirp == nullptr) {
++        if (!if_exists) {
++          my_error(ER_SCHEMA_DIR_MISSING, MYF(0), path);
++          return true;
++        }
++        push_warning_printf(thd, Sql_condition::SL_NOTE, ER_SCHEMA_DIR_MISSING,
++                            ER_THD(thd, ER_SCHEMA_DIR_MISSING), path);
++      } else {
++        if (find_unknown_and_remove_deletable_files(thd, schema_dirp, path)) {
++          return true;
++        }
+       }
+     }
+ 
+@@ -834,10 +845,13 @@ bool mysql_rm_db(THD *thd, const LEX_CSTRING &db, bool if_exists) {
+         other connected server.
+       */
+ 
+-      ha_drop_database(path);
+-      thd->clear_error(); /* @todo Do not ignore errors */
++      if (ha_drop_database(path)) {
++        my_printf_error(ER_BAD_DB_ERROR,
++            "Drop database failed.", MYF(0));
++        error = true;
++      }
+       Disable_binlog_guard binlog_guard(thd);
+-      error = Events::drop_schema_events(thd, *schema);
++      error = (error || Events::drop_schema_events(thd, *schema));
+       error = (error || sp_drop_db_routines(thd, *schema));
+     }
+     thd->pop_internal_handler();
+diff --git a/sql/sql_insert.cc b/sql/sql_insert.cc
+index 70d9c1f..02e6bc6 100644
+--- a/sql/sql_insert.cc
++++ b/sql/sql_insert.cc
+@@ -2681,8 +2681,8 @@ static TABLE *create_table_from_items(THD *thd, HA_CREATE_INFO *create_info,
+   init_tmp_table_share(thd, &share, "", 0, "", "", nullptr);
+ 
+   tmp_table.s->db_create_options = 0;
+-  tmp_table.s->db_low_byte_first = (create_info->db_type == myisam_hton ||
+-                                    create_info->db_type == heap_hton);
++  tmp_table.s->db_low_byte_first =
++      (create_info->db_type == myisam_hton || create_info->db_type == heap_hton || create_info->db_type == tse_hton);
+   tmp_table.set_not_started();
+ 
+   if (!thd->variables.explicit_defaults_for_timestamp)
+diff --git a/sql/sql_plugin.cc b/sql/sql_plugin.cc
+index 3860d34..e89ca4c 100644
+--- a/sql/sql_plugin.cc
++++ b/sql/sql_plugin.cc
+@@ -358,6 +358,7 @@ const LEX_CSTRING plugin_type_names[MYSQL_MAX_PLUGIN_TYPE_NUM] = {
+ 
+ extern int initialize_schema_table(st_plugin_int *plugin);
+ extern int finalize_schema_table(st_plugin_int *plugin);
++extern bool opt_initialize_insecure;
+ 
+ /*
+   The number of elements in both plugin_type_initialize and
+@@ -1272,6 +1273,7 @@ void plugin_unlock_list(THD *thd, plugin_ref *list, size_t count) {
+   mysql_mutex_unlock(&LOCK_plugin);
+ }
+ 
++
+ static int plugin_initialize(st_plugin_int *plugin) {
+   int ret = 1;
+   DBUG_TRACE;
+@@ -1296,6 +1298,69 @@ static int plugin_initialize(st_plugin_int *plugin) {
+     if (strcmp(plugin->name.str, "InnoDB") == 0) {
+       innodb_callback_data = ((handlerton *)plugin->data)->data;
+     }
++    if (strcmp(plugin->name.str, "CTC") == 0) {
++      plugin->load_option = PLUGIN_FORCE;
++
++      handlerton *hton = (handlerton *)plugin->data;
++      hton->set_metadata_switch();
++      int meta_version_match = hton->get_metadata_switch();
++      switch (meta_version_match) {
++        case 0:
++          printf("[ERROR] INIT CTC PLUGIN FAILED! Metadata version not match.\n");
++          LogErr(ERROR_LEVEL, ER_PLUGIN_INIT_FAILED, plugin->name.str);
++          goto err;
++        case 1: // success
++          break;
++        case 2:
++          printf("[ERROR] INIT CTC PLUGIN FAILED! Neither metadata switch is turned on.\n");
++          LogErr(ERROR_LEVEL, ER_PLUGIN_INIT_FAILED, plugin->name.str);
++          goto err;
++        case 3:
++          printf("[ERROR] INIT CTC PLUGIN FAILED! At least one cantian node is not ready.\n");
++          LogErr(ERROR_LEVEL, ER_PLUGIN_INIT_FAILED, plugin->name.str);
++          goto err;
++        default:
++          printf("[ERROR] INIT CTC PLUGIN FAILED! get_metadata_status FAILED, meta_version_match = %d.\n", meta_version_match);
++          LogErr(ERROR_LEVEL, ER_PLUGIN_INIT_FAILED, plugin->name.str);
++          goto err;
++      }
++
++      int ctc_init_status = hton->get_metadata_status();
++      if (opt_initialize || opt_initialize_insecure) { // init stage
++        switch (ctc_init_status) {
++          case 0: // success
++            break;
++          case 1:
++            printf("[ERROR] INIT FAILED! No need to repeat initialization. One node has started initialization, but has not completed.\n");
++            LogErr(ERROR_LEVEL, ER_PLUGIN_INIT_FAILED, plugin->name.str);
++            goto err;
++          case 2:
++            printf("[ERROR] INIT FAILED! No need to repeat initialization. A node has completed initialization.\n");
++            LogErr(ERROR_LEVEL, ER_PLUGIN_INIT_FAILED, plugin->name.str);
++            goto err;
++          default:
++            printf("[ERROR] INIT FAILED! get_metadata_status failed in initialization, ctc_init_status = %d.\n", ctc_init_status);
++            LogErr(ERROR_LEVEL, ER_PLUGIN_INIT_FAILED, plugin->name.str);
++            goto err;
++        }
++      } else { // start stage
++        switch (ctc_init_status) {
++          case 0:
++            printf("[ERROR] START FAILED! Please wait for the initialization to complete. None of the nodes have started initialization yet.\n");
++            LogErr(ERROR_LEVEL, ER_PLUGIN_INIT_FAILED, plugin->name.str);
++            goto err;
++          case 1:
++            printf("[ERROR] START FAILED! Please wait for the initialization to complete. One node has started initialization, but has not completed.\n");
++            LogErr(ERROR_LEVEL, ER_PLUGIN_INIT_FAILED, plugin->name.str);
++            goto err;
++          case 2: // success
++            break;
++          default:
++            printf("[ERROR] START FAILED! get_metadata_status failed in starting, ctc_init_status = %d.\n", ctc_init_status);
++            goto err;
++        }
++      }
++    }
+   } else if (plugin->plugin->init) {
+     if (strcmp(plugin->name.str, "daemon_memcached") == 0) {
+       plugin->data = innodb_callback_data;
+@@ -1566,6 +1631,11 @@ bool plugin_register_builtin_and_init_core_se(int *argc, char **argv) {
+         tmp.load_option = PLUGIN_FORCE;
+       }
+ 
++      if (!my_strcasecmp(&my_charset_latin1, plugin->name, "InnoDB")) {
++        tmp.load_option = PLUGIN_OFF;
++        continue;
++      }
++
+       free_root(&tmp_root, MYF(MY_MARK_BLOCKS_FREE));
+       if (test_plugin_options(&tmp_root, &tmp, argc, argv))
+         tmp.state = PLUGIN_IS_DISABLED;
+diff --git a/sql/sql_rename.cc b/sql/sql_rename.cc
+index 7bd705b..ace7923 100644
+--- a/sql/sql_rename.cc
++++ b/sql/sql_rename.cc
+@@ -35,6 +35,7 @@
+ #include "my_murmur3.h"
+ #include "my_sys.h"
+ #include "mysql/components/services/log_shared.h"
++#include "mysql/plugin.h"
+ #include "mysqld_error.h"
+ #include "sql/dd/cache/dictionary_client.h"  // dd::cache::Dictionary_client
+ #include "sql/dd/dd_table.h"                 // dd::table_storage_engine
+@@ -718,6 +719,7 @@ static bool do_rename(THD *thd, TABLE_LIST *ren_table, const char *new_db,
+           }
+         }
+ 
++        hton->pre_sess_addr = *(uint64_t *)thd_get_ha_data(thd, hton);
+         if (collect_and_lock_fk_tables_for_rename_table(
+                 thd, ren_table->db, old_alias, from_table, new_db, new_alias,
+                 hton, fk_invalidator)) {
+@@ -732,13 +734,17 @@ static bool do_rename(THD *thd, TABLE_LIST *ren_table, const char *new_db,
+             happen. So it is safe to clear invalidator.
+           */
+           fk_invalidator->clear();
++          hton->pre_sess_addr = 0;
+           return true;
+         }
+       }
+ 
+       if (lock_check_constraint_names_for_rename(thd, ren_table->db, old_alias,
+-                                                 from_table, new_db, new_alias))
++                                                 from_table, new_db, new_alias)) {
++                                                  
++        hton->pre_sess_addr = 0;
+         return true;
++      }
+ 
+       /*
+         We commit changes to data-dictionary immediately after renaming
+@@ -777,8 +783,10 @@ static bool do_rename(THD *thd, TABLE_LIST *ren_table, const char *new_db,
+           */
+           fk_invalidator->clear();
+         }
++        hton->pre_sess_addr = 0;
+         return true;
+       }
++      hton->pre_sess_addr = 0;
+ 
+       /*
+         If RENAME TABLE is non-atomic but we have not committed the above
+diff --git a/sql/sql_select.cc b/sql/sql_select.cc
+index 5963cf6..3218795 100644
+--- a/sql/sql_select.cc
++++ b/sql/sql_select.cc
+@@ -2755,7 +2755,7 @@ void QEP_TAB::push_index_cond(const JOIN_TAB *join_tab, uint keyno,
+   TABLE *const tbl = table();
+ 
+   // Disable ICP for Innodb intrinsic temp table because of performance
+-  if (tbl->s->db_type() == innodb_hton && tbl->s->tmp_table != NO_TMP_TABLE &&
++  if ((tbl->s->db_type() == innodb_hton || tbl->s->db_type() == tse_hton) && tbl->s->tmp_table != NO_TMP_TABLE &&
+       tbl->s->tmp_table != TRANSACTIONAL_TMP_TABLE)
+     return;
+ 
+diff --git a/sql/sql_table.cc b/sql/sql_table.cc
+index 04bc666..7230fda 100644
+--- a/sql/sql_table.cc
++++ b/sql/sql_table.cc
+@@ -8670,7 +8670,7 @@ static bool create_table_impl(
+       (create_info->options & HA_LEX_CREATE_TMP_TABLE) !=
+           HA_LEX_CREATE_TMP_TABLE &&
+       (thd->is_server_upgrade_thread() ||
+-       create_info->db_type->db_type == DB_TYPE_INNODB) &&
++       create_info->db_type->db_type == DB_TYPE_CTC) &&
+       (dd::get_dictionary()->is_dd_table_name(db, error_table_name) ||
+        dd::get_dictionary()->is_system_table_name(db, error_table_name));
+   if (is_whitelisted_table) thd->push_internal_handler(&error_handler);
+@@ -9398,6 +9398,10 @@ static bool adjust_fk_child_after_parent_def_change(
+ 
+   if (!check_only && thd->dd_client()->update(child_table_def)) return true;
+ 
++  if (!thd->is_attachable_rw_transaction_active()) {
++    thd->dd_client()->add_modified_objects_before_commit();
++  }
++
+   return false;
+ }
+ 
+@@ -11624,7 +11628,7 @@ static bool fill_alter_inplace_info(THD *thd, TABLE *table,
+         Note: strcmp branch is to be removed in future when we fix it
+         in InnoDB.
+       */
+-      if (ha_alter_info->create_info->db_type->db_type == DB_TYPE_INNODB ||
++      if (ha_alter_info->create_info->db_type->db_type == DB_TYPE_CTC ||
+           ha_alter_info->create_info->db_type->db_type == DB_TYPE_NDBCLUSTER)
+         field_renamed = strcmp(field->field_name, new_field->field_name);
+       else
+diff --git a/sql/sql_tmp_table.cc b/sql/sql_tmp_table.cc
+index 2063261..1c71f77 100644
+--- a/sql/sql_tmp_table.cc
++++ b/sql/sql_tmp_table.cc
+@@ -558,12 +558,15 @@ class Cache_temp_engine_properties {
+   static uint HEAP_MAX_KEY_LENGTH;
+   static uint TEMPTABLE_MAX_KEY_LENGTH;
+   static uint INNODB_MAX_KEY_LENGTH;
++  static uint CTC_MAX_KEY_LENGTH;
+   static uint HEAP_MAX_KEY_PART_LENGTH;
+   static uint TEMPTABLE_MAX_KEY_PART_LENGTH;
+   static uint INNODB_MAX_KEY_PART_LENGTH;
++  static uint CTC_MAX_KEY_PART_LENGTH;
+   static uint HEAP_MAX_KEY_PARTS;
+   static uint TEMPTABLE_MAX_KEY_PARTS;
+   static uint INNODB_MAX_KEY_PARTS;
++  static uint CTC_MAX_KEY_PARTS;
+ 
+   static void init(THD *thd);
+ };
+@@ -609,17 +612,30 @@ void Cache_temp_engine_properties::init(THD *thd) {
+   INNODB_MAX_KEY_PARTS = handler->max_key_parts();
+   destroy(handler);
+   plugin_unlock(nullptr, db_plugin);
++
++  // Cache CTC engine's
++  db_plugin = ha_lock_engine(nullptr, tse_hton);
++  handler = get_new_handler((TABLE_SHARE *)nullptr, false, thd->mem_root,
++                            tse_hton);
++  CTC_MAX_KEY_LENGTH = handler->max_key_length();
++  CTC_MAX_KEY_PART_LENGTH = handler->max_key_parts();
++  CTC_MAX_KEY_PARTS = handler->max_key_parts();
++  destroy(handler);
++  plugin_unlock(nullptr, db_plugin);
+ }
+ 
+ uint Cache_temp_engine_properties::HEAP_MAX_KEY_LENGTH = 0;
+ uint Cache_temp_engine_properties::TEMPTABLE_MAX_KEY_LENGTH = 0;
+ uint Cache_temp_engine_properties::INNODB_MAX_KEY_LENGTH = 0;
++uint Cache_temp_engine_properties::CTC_MAX_KEY_LENGTH = 0;
+ uint Cache_temp_engine_properties::HEAP_MAX_KEY_PART_LENGTH = 0;
+ uint Cache_temp_engine_properties::TEMPTABLE_MAX_KEY_PART_LENGTH = 0;
+ uint Cache_temp_engine_properties::INNODB_MAX_KEY_PART_LENGTH = 0;
++uint Cache_temp_engine_properties::CTC_MAX_KEY_PART_LENGTH = 0;
+ uint Cache_temp_engine_properties::HEAP_MAX_KEY_PARTS = 0;
+ uint Cache_temp_engine_properties::TEMPTABLE_MAX_KEY_PARTS = 0;
+ uint Cache_temp_engine_properties::INNODB_MAX_KEY_PARTS = 0;
++uint Cache_temp_engine_properties::CTC_MAX_KEY_PARTS = 0;
+ 
+ /**
+   Initialize the storage engine properties for the alternative temporary table
+@@ -651,12 +667,12 @@ void get_max_key_and_part_length(uint *max_key_length,
+ 
+   *max_key_length =
+       std::min(Cache_temp_engine_properties::HEAP_MAX_KEY_LENGTH,
+-               Cache_temp_engine_properties::INNODB_MAX_KEY_LENGTH);
++               Cache_temp_engine_properties::CTC_MAX_KEY_LENGTH);
+   *max_key_part_length =
+       std::min(Cache_temp_engine_properties::HEAP_MAX_KEY_PART_LENGTH,
+-               Cache_temp_engine_properties::INNODB_MAX_KEY_PART_LENGTH);
++               Cache_temp_engine_properties::CTC_MAX_KEY_PART_LENGTH);
+   *max_key_parts = std::min(Cache_temp_engine_properties::HEAP_MAX_KEY_PARTS,
+-                            Cache_temp_engine_properties::INNODB_MAX_KEY_PARTS);
++                            Cache_temp_engine_properties::CTC_MAX_KEY_PARTS);
+ }
+ 
+ /**
+@@ -2085,7 +2101,8 @@ bool setup_tmp_table_handler(THD *thd, TABLE *table, ulonglong select_options,
+ 
+     if (use_tmp_disk_storage_engine(thd, table, select_options,
+                                     force_disk_table, mem_engine)) {
+-      hton = innodb_hton;
++      //hton = innodb_hton;
++      hton = tse_hton;
+     } else {
+       switch (mem_engine) {
+         case TMP_TABLE_TEMPTABLE:
+@@ -2186,7 +2203,9 @@ bool open_tmp_table(TABLE *table) {
+   assert(table->s->ref_count() == 1 ||        // not shared, or:
+          table->s->db_type() == heap_hton ||  // using right engines
+          table->s->db_type() == temptable_hton ||
+-         table->s->db_type() == innodb_hton);
++         table->s->db_type() == innodb_hton ||
++         table->s->db_type() == myisam_hton ||
++         table->s->db_type() == tse_hton);
+ 
+   int error;
+   if ((error = table->file->ha_open(table, table->s->table_name.str, O_RDWR,
+@@ -2257,7 +2276,7 @@ static bool create_tmp_table_with_fallback(THD *thd, TABLE *table) {
+   if (error == HA_ERR_RECORD_FILE_FULL &&
+       table->s->db_type() == temptable_hton) {
+     table->file = get_new_handler(
+-        table->s, false, share->alloc_for_tmp_file_handler, innodb_hton);
++        table->s, false, share->alloc_for_tmp_file_handler, tse_hton);
+     error = table->file->create(share->table_name.str, table, &create_info,
+                                 nullptr);
+   }
+@@ -2299,6 +2318,8 @@ static void trace_tmp_table(Opt_trace_context *trace, const TABLE *table) {
+       trace_tmp.add_alnum("record_format", "fixed");
+   } else if (table->s->db_type() == temptable_hton) {
+     trace_tmp.add_alnum("location", "TempTable");
++  } else if (table->s->db_type() == tse_hton) {
++    trace_tmp.add_alnum("location", "CTC");
+   } else {
+     assert(s->db_type() == heap_hton);
+     trace_tmp.add_alnum("location", "memory (heap)")
+@@ -2344,7 +2365,12 @@ bool instantiate_tmp_table(THD *thd, TABLE *table) {
+     if (create_tmp_table_with_fallback(thd, table)) return true;
+     // Make empty record so random data is not written to disk
+     empty_record(table);
++  } else if (share->db_type() == tse_hton) {
++    if (create_tmp_table_with_fallback(thd, table)) return true;
++    // Make empty record so random data is not written to disk
++    empty_record(table);
+   }
++ 
+ 
+   // If a heap table, it's created by open_tmp_table().
+   if (open_tmp_table(table)) {
+@@ -2561,7 +2587,8 @@ bool create_ondisk_from_heap(THD *thd, TABLE *wtable, int error,
+   TABLE_SHARE share = std::move(*old_share);
+   assert(share.ha_share == nullptr);
+ 
+-  share.db_plugin = ha_lock_engine(thd, innodb_hton);
++  //share.db_plugin = ha_lock_engine(thd, innodb_hton);
++  share.db_plugin = ha_lock_engine(thd, tse_hton);
+ 
+   TABLE_LIST *const wtable_list = wtable->pos_in_table_list;
+   Derived_refs_iterator ref_it(wtable_list);
+@@ -2869,7 +2896,9 @@ void encode_innodb_position(uchar *rowid_bytes,
+   order.
+ */
+ bool reposition_innodb_cursor(TABLE *table, ha_rows row_num) {
+-  assert(table->s->db_type() == innodb_hton);
++  assert(table->s->db_type() == tse_hton);
++  my_error(ER_FEATURE_UNSUPPORTED, MYF(0), "reposition_innodb_cursor", "by CTC");
++  return true;
+   if (table->file->ha_rnd_init(false)) return true; /* purecov: inspected */
+   // Per the explanation above, the wanted InnoDB row has PK=row_num.
+   uchar rowid_bytes[6];
+diff --git a/sql/sys_vars.cc b/sql/sys_vars.cc
+index 1012337..62d2c4b 100644
+--- a/sql/sys_vars.cc
++++ b/sql/sys_vars.cc
+@@ -7256,3 +7256,11 @@ static Sys_var_enum Sys_terminology_use_previous(
+     terminology_use_previous_names, DEFAULT(terminology_use_previous::NONE),
+     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr),
+     DEPRECATED_VAR(""));
++
++bool srv_stats_auto_recalc_substitite;
++static Sys_var_bool Sys_substitute_innodb_stats_auto_recalc(
++    "innodb_stats_auto_recalc",
++    "Replacement of the innodb_stats_auto_recalc variable."
++    "the purpose is to prevent errors when setting the innodb_stats_auto_recalc variable"
++    "using meta data in CANTIAN.",
++    GLOBAL_VAR(srv_stats_auto_recalc_substitite), CMD_LINE(OPT_ARG), DEFAULT(false));
+diff --git a/sql/transaction.cc b/sql/transaction.cc
+index 9f955ad..178d46e 100644
+--- a/sql/transaction.cc
++++ b/sql/transaction.cc
+@@ -240,6 +240,14 @@ bool trans_commit(THD *thd, bool ignore_global_read_lock) {
+ 
+   if (trans_check_state(thd)) return true;
+ 
++  /*
++    Add modified uncommitted objects before committing attachable
++    read-write transaction.
++  */
++  if (!thd->is_attachable_rw_transaction_active()) {
++    thd->dd_client()->add_modified_objects_before_commit();
++  }
++
+   thd->server_status &=
+       ~(SERVER_STATUS_IN_TRANS | SERVER_STATUS_IN_TRANS_READONLY);
+   DBUG_PRINT("info", ("clearing SERVER_STATUS_IN_TRANS"));
+@@ -328,6 +336,14 @@ bool trans_commit_implicit(THD *thd, bool ignore_global_read_lock) {
+          !thd->in_sub_stmt &&
+          !thd->get_transaction()->xid_state()->check_in_xa(false));
+ 
++  /*
++    Add modified uncommitted objects before committing attachable
++    read-write transaction.
++  */
++  if (!thd->is_attachable_rw_transaction_active()) {
++    thd->dd_client()->add_modified_objects_before_commit();
++  }
++
+   if (thd->in_multi_stmt_transaction_mode() ||
+       (thd->variables.option_bits & OPTION_TABLE_LOCK)) {
+     /* Safety if one did "drop table" on locked tables */
+diff --git a/sql/window_iterators.cc b/sql/window_iterators.cc
+index cb0f140..a6da724 100644
+--- a/sql/window_iterators.cc
++++ b/sql/window_iterators.cc
+@@ -159,7 +159,7 @@ bool buffer_record_somewhere(THD *thd, Window *w, int64 rowno) {
+     if (create_ondisk_from_heap(thd, t, error, true, &is_duplicate))
+       return true;
+ 
+-    assert(t->s->db_type() == innodb_hton);
++    assert(t->s->db_type() == tse_hton);
+     if (t->file->ha_rnd_init(true)) return true; /* purecov: inspected */
+ 
+     if (!w->m_frame_buffer_positions.empty()) {
+@@ -191,6 +191,8 @@ bool buffer_record_somewhere(THD *thd, Window *w, int64 rowno) {
+         also one-based, so we can use w->frame_buffer_partition_offset() "as is"
+         to construct the position.
+       */
++      my_error(ER_FEATURE_UNSUPPORTED, MYF(0), "encode_innodb_position", "by CTC");
++      return true;
+       encode_innodb_position(
+           w->m_frame_buffer_positions[first_in_partition].m_position,
+           t->file->ref_length, w->frame_buffer_partition_offset());
+diff --git a/storage/archive/ha_archive.cc b/storage/archive/ha_archive.cc
+index ac21c57..345fae9 100644
+--- a/storage/archive/ha_archive.cc
++++ b/storage/archive/ha_archive.cc
+@@ -780,7 +780,7 @@ unsigned int ha_archive::pack_row(uchar *record, azio_stream *writer) {
+   for implementing start_bulk_insert() is that we could skip
+   setting dirty to true each time.
+ */
+-int ha_archive::write_row(uchar *buf) {
++int ha_archive::write_row(uchar *buf, bool write_through MY_ATTRIBUTE((unused))) {
+   int rc;
+   uchar *read_buf = nullptr;
+   ulonglong temp_auto;
+diff --git a/storage/archive/ha_archive.h b/storage/archive/ha_archive.h
+index 4f6bc3a..a777454 100644
+--- a/storage/archive/ha_archive.h
++++ b/storage/archive/ha_archive.h
+@@ -139,7 +139,7 @@ class ha_archive : public handler {
+   int open(const char *name, int mode, uint test_if_locked,
+            const dd::Table *table_def) override;
+   int close(void) override;
+-  int write_row(uchar *buf) override;
++  int write_row(uchar *buf, bool write_through MY_ATTRIBUTE((unused)) = false) override;
+   int real_write_row(uchar *buf, azio_stream *writer);
+   int truncate(dd::Table *table_def) override;
+   int rnd_init(bool scan = true) override;
+diff --git a/storage/blackhole/ha_blackhole.cc b/storage/blackhole/ha_blackhole.cc
+index ff5ac51..60633eb 100644
+--- a/storage/blackhole/ha_blackhole.cc
++++ b/storage/blackhole/ha_blackhole.cc
+@@ -94,7 +94,7 @@ int ha_blackhole::create(const char *, TABLE *, HA_CREATE_INFO *, dd::Table *) {
+   return 0;
+ }
+ 
+-int ha_blackhole::write_row(uchar *) {
++int ha_blackhole::write_row(uchar *, bool write_through MY_ATTRIBUTE((unused)) = false) {
+   DBUG_TRACE;
+   return table->next_number_field ? update_auto_increment() : 0;
+ }
+diff --git a/storage/blackhole/ha_blackhole.h b/storage/blackhole/ha_blackhole.h
+index 951ed39..c236a20 100644
+--- a/storage/blackhole/ha_blackhole.h
++++ b/storage/blackhole/ha_blackhole.h
+@@ -106,7 +106,7 @@ class ha_blackhole : public handler {
+                              enum thr_lock_type lock_type) override;
+ 
+  private:
+-  int write_row(uchar *buf) override;
++  int write_row(uchar *buf, bool write_through MY_ATTRIBUTE((unused))) override;
+   int update_row(const uchar *old_data, uchar *new_data) override;
+   int delete_row(const uchar *buf) override;
+ };
+diff --git a/storage/csv/ha_tina.cc b/storage/csv/ha_tina.cc
+index e3998ce..3e74761 100644
+--- a/storage/csv/ha_tina.cc
++++ b/storage/csv/ha_tina.cc
+@@ -931,7 +931,7 @@ int ha_tina::close(void) {
+   of the file and appends the data. In an error case it really should
+   just truncate to the original position (this is not done yet).
+ */
+-int ha_tina::write_row(uchar *buf) {
++int ha_tina::write_row(uchar *buf, bool write_through MY_ATTRIBUTE((unused)) = false) {
+   int size;
+   DBUG_TRACE;
+ 
+diff --git a/storage/csv/ha_tina.h b/storage/csv/ha_tina.h
+index df63b48..8bcef46 100644
+--- a/storage/csv/ha_tina.h
++++ b/storage/csv/ha_tina.h
+@@ -143,7 +143,7 @@ class ha_tina : public handler {
+   int open(const char *name, int mode, uint open_options,
+            const dd::Table *table_def) override;
+   int close(void) override;
+-  int write_row(uchar *buf) override;
++  int write_row(uchar *buf, bool write_through MY_ATTRIBUTE((unused))) override;
+   int update_row(const uchar *old_data, uchar *new_data) override;
+   int delete_row(const uchar *buf) override;
+   int rnd_init(bool scan = true) override;
+diff --git a/storage/example/ha_example.cc b/storage/example/ha_example.cc
+index e773501..9ef9c99 100644
+--- a/storage/example/ha_example.cc
++++ b/storage/example/ha_example.cc
+@@ -274,7 +274,7 @@ int ha_example::close(void) {
+   sql_insert.cc, sql_select.cc, sql_table.cc, sql_udf.cc and sql_update.cc
+ */
+ 
+-int ha_example::write_row(uchar *) {
++int ha_example::write_row(uchar *, bool write_through MY_ATTRIBUTE((unused)) = false) {
+   DBUG_TRACE;
+   /*
+     Example of a successful write_row. We don't store the data
+diff --git a/storage/example/ha_example.h b/storage/example/ha_example.h
+index c0515b2..a52c408 100644
+--- a/storage/example/ha_example.h
++++ b/storage/example/ha_example.h
+@@ -195,7 +195,7 @@ class ha_example : public handler {
+     We implement this in ha_example.cc. It's not an obligatory method;
+     skip it and and MySQL will treat it as not implemented.
+   */
+-  int write_row(uchar *buf) override;
++  int write_row(uchar *buf, bool write_through MY_ATTRIBUTE((unused))) override;
+ 
+   /** @brief
+     We implement this in ha_example.cc. It's not an obligatory method;
+diff --git a/storage/federated/ha_federated.cc b/storage/federated/ha_federated.cc
+index 05f151e..023b64c 100644
+--- a/storage/federated/ha_federated.cc
++++ b/storage/federated/ha_federated.cc
+@@ -1706,7 +1706,7 @@ bool ha_federated::append_stmt_insert(String *query) {
+   sql_insert.cc, sql_select.cc, sql_table.cc, sql_udf.cc, and sql_update.cc.
+ */
+ 
+-int ha_federated::write_row(uchar *) {
++int ha_federated::write_row(uchar *, bool write_through MY_ATTRIBUTE((unused)) = false) {
+   char values_buffer[FEDERATED_QUERY_BUFFER_SIZE];
+   char insert_field_value_buffer[STRING_BUFFER_USUAL_SIZE];
+   Field **field;
+diff --git a/storage/federated/ha_federated.h b/storage/federated/ha_federated.h
+index 75b29e4..99df51b 100644
+--- a/storage/federated/ha_federated.h
++++ b/storage/federated/ha_federated.h
+@@ -218,7 +218,7 @@ class ha_federated : public handler {
+ 
+   void start_bulk_insert(ha_rows rows) override;
+   int end_bulk_insert() override;
+-  int write_row(uchar *buf) override;
++  int write_row(uchar *buf, bool write_through MY_ATTRIBUTE((unused))) override;
+   int update_row(const uchar *old_data, uchar *new_data) override;
+   int delete_row(const uchar *buf) override;
+   int index_init(uint keynr, bool sorted) override;
+diff --git a/storage/heap/ha_heap.cc b/storage/heap/ha_heap.cc
+index 0d71f25..4178081 100644
+--- a/storage/heap/ha_heap.cc
++++ b/storage/heap/ha_heap.cc
+@@ -204,7 +204,7 @@ void ha_heap::update_key_stats() {
+   key_stat_version = file->s->key_stat_version;
+ }
+ 
+-int ha_heap::write_row(uchar *buf) {
++int ha_heap::write_row(uchar *buf, bool write_through MY_ATTRIBUTE((unused)) = false) {
+   int res;
+   ha_statistic_increment(&System_status_var::ha_write_count);
+   if (table->next_number_field && buf == table->record[0]) {
+diff --git a/storage/heap/ha_heap.h b/storage/heap/ha_heap.h
+index e1fb36c..85f3ec2 100644
+--- a/storage/heap/ha_heap.h
++++ b/storage/heap/ha_heap.h
+@@ -81,7 +81,7 @@ class ha_heap : public handler {
+            const dd::Table *table_def) override;
+   int close(void) override;
+   void set_keys_for_scanning(void);
+-  int write_row(uchar *buf) override;
++  int write_row(uchar *buf, bool write_through MY_ATTRIBUTE((unused))) override;
+   int update_row(const uchar *old_data, uchar *new_data) override;
+   int delete_row(const uchar *buf) override;
+   void get_auto_increment(ulonglong offset, ulonglong increment,
+diff --git a/storage/innobase/handler/ha_innodb.cc b/storage/innobase/handler/ha_innodb.cc
+index e041606..a7fcecb 100644
+--- a/storage/innobase/handler/ha_innodb.cc
++++ b/storage/innobase/handler/ha_innodb.cc
+@@ -8707,7 +8707,7 @@ void innobase_get_multi_value(const TABLE *mysql_table, ulint f_idx,
+  handle.
+  @return error code */
+ 
+-int ha_innobase::write_row(uchar *record) /*!< in: a row in MySQL format */
++int ha_innobase::write_row(uchar *record, bool write_through MY_ATTRIBUTE((unused))) /*!< in: a row in MySQL format */
+ {
+   dberr_t error;
+   int error_result = 0;
+diff --git a/storage/innobase/handler/ha_innodb.h b/storage/innobase/handler/ha_innodb.h
+index 6844bbf..d7b74c6 100644
+--- a/storage/innobase/handler/ha_innodb.h
++++ b/storage/innobase/handler/ha_innodb.h
+@@ -127,10 +127,11 @@ class ha_innobase : public handler {
+ 
+   longlong get_memory_buffer_size() const override;
+ 
+-  int write_row(uchar *buf) override;
++  int write_row(uchar *buf, bool write_through MY_ATTRIBUTE((unused)) = false) override;
+ 
+   int update_row(const uchar *old_data, uchar *new_data) override;
+ 
++
+   int delete_row(const uchar *buf) override;
+ 
+   /** Delete all rows from the table.
+diff --git a/storage/innobase/handler/ha_innopart.h b/storage/innobase/handler/ha_innopart.h
+index 5163227..9dacf52 100644
+--- a/storage/innobase/handler/ha_innopart.h
++++ b/storage/innobase/handler/ha_innopart.h
+@@ -996,7 +996,7 @@ class ha_innopart : public ha_innobase,
+   THR_LOCK_DATA **store_lock(THD *thd, THR_LOCK_DATA **to,
+                              thr_lock_type lock_type) override;
+ 
+-  int write_row(uchar *record) override {
++  int write_row(uchar *record, bool write_through MY_ATTRIBUTE((unused)) = false) override {
+     bool entered = false;
+     auto trx = m_prebuilt->trx;
+ 
+diff --git a/storage/innobase/handler/i_s.cc b/storage/innobase/handler/i_s.cc
+index 9b56731..9218f11 100644
+--- a/storage/innobase/handler/i_s.cc
++++ b/storage/innobase/handler/i_s.cc
+@@ -72,6 +72,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
+ 
+ #include "my_dbug.h"
+ 
++
+ extern mysql_mutex_t LOCK_global_system_variables;
+ 
+ constexpr char plugin_author[] = PLUGIN_AUTHOR_ORACLE;
+@@ -118,6 +119,7 @@ static_assert(I_S_PAGE_TYPE_LAST < (1 << I_S_PAGE_TYPE_BITS),
+               "i_s_page_type[] is too large");
+ 
+ /** Name string for File Page Types */
++#ifdef DEFAULT_INNODB
+ static buf_page_desc_t i_s_page_type[] = {
+     {"ALLOCATED", FIL_PAGE_TYPE_ALLOCATED},
+     {"INDEX", FIL_PAGE_INDEX},
+@@ -152,6 +154,7 @@ static buf_page_desc_t i_s_page_type[] = {
+     {"RTREE_INDEX", I_S_PAGE_TYPE_RTREE},
+     {"IBUF_INDEX", I_S_PAGE_TYPE_IBUF},
+     {"SDI_INDEX", I_S_PAGE_TYPE_SDI}};
++#endif
+ 
+ /** This structure defines information we will fetch from pages
+ currently cached in the buffer pool. It will be used to populate
+@@ -275,6 +278,7 @@ static int i_s_common_deinit(void *p); /*!< in/out: table schema object */
+ /** Auxiliary function to store time_t value in MYSQL_TYPE_DATETIME
+  field.
+  @return 0 on success */
++#ifdef DEFAULT_INNODB
+ static int field_store_time_t(
+     Field *field, /*!< in/out: target field for storage */
+     time_t time)  /*!< in: value to store */
+@@ -299,9 +303,11 @@ static int field_store_time_t(
+ 
+   return (field->store_time(&my_time, MYSQL_TIMESTAMP_DATETIME));
+ }
++#endif
+ 
+ /** Auxiliary function to store char* value in MYSQL_TYPE_STRING field.
+  @return 0 on success */
++#ifdef DEFAULT_INNODB
+ static int field_store_string(
+     Field *field,    /*!< in/out: target field for storage */
+     const char *str) /*!< in: NUL-terminated utf-8 string,
+@@ -320,10 +326,12 @@ static int field_store_string(
+ 
+   return (ret);
+ }
++#endif
+ 
+ /** Store the name of an index in a MYSQL_TYPE_VARCHAR field.
+  Handles the names of incomplete secondary indexes.
+  @return 0 on success */
++#ifdef DEFAULT_INNODB
+ static int field_store_index_name(
+     Field *field,           /*!< in/out: target field for
+                             storage */
+@@ -353,6 +361,7 @@ static int field_store_index_name(
+ 
+   return (ret);
+ }
++#endif
+ 
+ /* Fields of the dynamic table INFORMATION_SCHEMA.innodb_trx
+ Every time any column gets changed, added or removed, please remember
+@@ -532,6 +541,7 @@ static ST_FIELD_INFO innodb_trx_fields_info[] = {
+ /** Read data from cache buffer and fill the INFORMATION_SCHEMA.innodb_trx
+  table with it.
+  @return 0 on success */
++#ifdef DEFAULT_INNODB
+ static int fill_innodb_trx_from_cache(
+     trx_i_s_cache_t *cache, /*!< in: cache to read from */
+     THD *thd,               /*!< in: used to call
+@@ -664,6 +674,7 @@ static int fill_innodb_trx_from_cache(
+ 
+   return 0;
+ }
++#endif
+ 
+ /** Bind the dynamic table INFORMATION_SCHEMA.innodb_trx
+  @return 0 on success */
+@@ -743,6 +754,7 @@ struct st_mysql_plugin i_s_innodb_trx = {
+ /** Common function to fill any of the dynamic tables:
+  INFORMATION_SCHEMA.innodb_trx
+  @return 0 on success */
++#ifdef DEFAULT_INNODB
+ static int trx_i_s_common_fill_table(
+     THD *thd,           /*!< in: thread */
+     TABLE_LIST *tables, /*!< in/out: tables to fill */
+@@ -813,6 +825,15 @@ static int trx_i_s_common_fill_table(
+   return 0;
+ #endif
+ }
++#else
++static int trx_i_s_common_fill_table(
++    THD *thd,           /*!< in: thread */
++    TABLE_LIST *tables, /*!< in/out: tables to fill */
++    Item *)             /*!< in: condition (not used) */
++{
++  return 0;
++}
++#endif
+ 
+ /* Fields of the dynamic table information_schema.innodb_cmp.
+ Every time any column gets changed, added or removed, please remember
+@@ -870,6 +891,7 @@ static ST_FIELD_INFO i_s_cmp_fields_info[] = {
+ /** Fill the dynamic table information_schema.innodb_cmp or
+  innodb_cmp_reset.
+  @return 0 on success, 1 on failure */
++#ifdef DEFAULT_INNODB
+ static int i_s_cmp_fill_low(THD *thd,           /*!< in: thread */
+                             TABLE_LIST *tables, /*!< in/out: tables to fill */
+                             Item *,             /*!< in: condition (ignored) */
+@@ -914,6 +936,15 @@ static int i_s_cmp_fill_low(THD *thd,           /*!< in: thread */
+ 
+   return status;
+ }
++#else
++static int i_s_cmp_fill_low(THD *thd,           /*!< in: thread */
++                            TABLE_LIST *tables, /*!< in/out: tables to fill */
++                            Item *,             /*!< in: condition (ignored) */
++                            ibool reset) /*!< in: TRUE=reset cumulated counts */
++{
++  return 0;
++}
++#endif
+ 
+ /** Fill the dynamic table information_schema.innodb_cmp.
+  @return 0 on success, 1 on failure */
+@@ -1139,6 +1170,7 @@ static ST_FIELD_INFO i_s_cmp_per_index_fields_info[] = {
+  information_schema.innodb_cmp_per_index or
+  information_schema.innodb_cmp_per_index_reset.
+  @return 0 on success, 1 on failure */
++#ifdef DEFAULT_INNODB
+ static int i_s_cmp_per_index_fill_low(
+     THD *thd,           /*!< in: thread */
+     TABLE_LIST *tables, /*!< in/out: tables to fill */
+@@ -1234,7 +1266,16 @@ err:
+ 
+   return status;
+ }
+-
++#else
++static int i_s_cmp_per_index_fill_low(
++    THD *thd,           /*!< in: thread */
++    TABLE_LIST *tables, /*!< in/out: tables to fill */
++    Item *,             /*!< in: condition (ignored) */
++    ibool reset)        /*!< in: TRUE=reset cumulated counts */
++{
++  return 0;
++}
++#endif
+ /** Fill the dynamic table information_schema.innodb_cmp_per_index.
+  @return 0 on success, 1 on failure */
+ static int i_s_cmp_per_index_fill(
+@@ -1449,6 +1490,7 @@ innodb_cmpmem_reset.
+ @param[in]	item	condition (ignored)
+ @param[in]	reset	TRUE=reset cumulated counts
+ @return 0 on success, 1 on failure */
++#ifdef DEFAULT_INNODB
+ static int i_s_cmpmem_fill_low(THD *thd, TABLE_LIST *tables, Item *item,
+                                ibool reset) {
+   int status = 0;
+@@ -1512,6 +1554,12 @@ static int i_s_cmpmem_fill_low(THD *thd, TABLE_LIST *tables, Item *item,
+ 
+   return status;
+ }
++#else
++static int i_s_cmpmem_fill_low(THD *thd, TABLE_LIST *tables, Item *item, ibool reset)
++{
++    return 0;
++}
++#endif
+ 
+ /** Fill the dynamic table information_schema.innodb_cmpmem.
+  @return 0 on success, 1 on failure */
+@@ -1793,6 +1841,7 @@ static ST_FIELD_INFO innodb_metrics_fields_info[] = {
+ 
+ /** Fill the information schema metrics table.
+  @return 0 on success */
++#ifdef DEFAULT_INNODB
+ static int i_s_metrics_fill(
+     THD *thd,             /*!< in: thread */
+     TABLE *table_to_fill) /*!< in/out: fill this table */
+@@ -2036,9 +2085,11 @@ static int i_s_metrics_fill(
+ 
+   return 0;
+ }
++#endif
+ 
+ /** Function to fill information schema metrics tables.
+  @return 0 on success */
++#ifdef DEFAULT_INNODB
+ static int i_s_metrics_fill_table(
+     THD *thd,           /*!< in: thread */
+     TABLE_LIST *tables, /*!< in/out: tables to fill */
+@@ -2055,6 +2106,15 @@ static int i_s_metrics_fill_table(
+ 
+   return 0;
+ }
++#else
++static int i_s_metrics_fill_table(
++    THD *thd,           /*!< in: thread */
++    TABLE_LIST *tables, /*!< in/out: tables to fill */
++    Item *)             /*!< in: condition (not used) */
++{
++  return 0;
++}
++#endif
+ /** Bind the dynamic table INFORMATION_SCHEMA.innodb_metrics
+  @return 0 on success */
+ static int innodb_metrics_init(void *p) /*!< in/out: table schema object */
+@@ -2141,6 +2201,7 @@ static ST_FIELD_INFO i_s_stopword_fields_info[] = {
+ 
+ /** Fill the dynamic table information_schema.innodb_ft_default_stopword.
+  @return 0 on success, 1 on failure */
++#ifdef DEFAULT_INNODB
+ static int i_s_stopword_fill(THD *thd,           /*!< in: thread */
+                              TABLE_LIST *tables, /*!< in/out: tables to fill */
+                              Item *) /*!< in: condition (not used) */
+@@ -2164,7 +2225,14 @@ static int i_s_stopword_fill(THD *thd,           /*!< in: thread */
+ 
+   return 0;
+ }
+-
++#else
++static int i_s_stopword_fill(THD *thd,           /*!< in: thread */
++                             TABLE_LIST *tables, /*!< in/out: tables to fill */
++                             Item *) /*!< in: condition (not used) */
++{
++  return 0;
++}
++#endif
+ /** Bind the dynamic table information_schema.innodb_ft_default_stopword.
+  @return 0 on success */
+ static int i_s_stopword_init(void *p) /*!< in/out: table schema object */
+@@ -2252,6 +2320,7 @@ static ST_FIELD_INFO i_s_fts_doc_fields_info[] = {
+ /** Fill the dynamic table INFORMATION_SCHEMA.INNODB_FT_DELETED or
+  INFORMATION_SCHEMA.INNODB_FT_BEING_DELETED
+  @return 0 on success, 1 on failure */
++#ifdef DEFAULT_INNODB
+ static int i_s_fts_deleted_generic_fill(
+     THD *thd,            /*!< in: thread */
+     TABLE_LIST *tables,  /*!< in/out: tables to fill */
+@@ -2336,7 +2405,15 @@ static int i_s_fts_deleted_generic_fill(
+ 
+   return 0;
+ }
+-
++#else
++static int i_s_fts_deleted_generic_fill(
++    THD *thd,            /*!< in: thread */
++    TABLE_LIST *tables,  /*!< in/out: tables to fill */
++    ibool being_deleted) /*!< in: BEING_DELTED table */
++{
++  return 0;
++}
++#endif
+ /** Fill the dynamic table INFORMATION_SCHEMA.INNODB_FT_DELETED
+  @return 0 on success, 1 on failure */
+ static int i_s_fts_deleted_fill(
+@@ -2553,6 +2630,7 @@ static ST_FIELD_INFO i_s_fts_index_fields_info[] = {
+ /** Go through the Doc Node and its ilist, fill the dynamic table
+  INFORMATION_SCHEMA.INNODB_FT_INDEX_CACHED for one FTS index on the table.
+  @return 0 on success, 1 on failure */
++#ifdef DEFAULT_INNODB
+ static int i_s_fts_index_cache_fill_one_index(
+     fts_index_cache_t *index_cache, /*!< in: FTS index cache */
+     THD *thd,                       /*!< in: thread */
+@@ -2642,8 +2720,11 @@ static int i_s_fts_index_cache_fill_one_index(
+ 
+   return 0;
+ }
++#endif
++
+ /** Fill the dynamic table INFORMATION_SCHEMA.INNODB_FT_INDEX_CACHED
+  @return 0 on success, 1 on failure */
++#ifdef DEFAULT_INNODB
+ static int i_s_fts_index_cache_fill(
+     THD *thd,           /*!< in: thread */
+     TABLE_LIST *tables, /*!< in/out: tables to fill */
+@@ -2707,7 +2788,15 @@ static int i_s_fts_index_cache_fill(
+ 
+   return 0;
+ }
+-
++#else
++static int i_s_fts_index_cache_fill(
++    THD *thd,           /*!< in: thread */
++    TABLE_LIST *tables, /*!< in/out: tables to fill */
++    Item *)             /*!< in: condition (ignored) */
++{
++  return 0;
++}
++#endif
+ /** Bind the dynamic table INFORMATION_SCHEMA.INNODB_FT_INDEX_CACHE
+  @return 0 on success */
+ static int i_s_fts_index_cache_init(void *p) /*!< in/out: table schema object */
+@@ -2780,6 +2869,7 @@ struct st_mysql_plugin i_s_innodb_ft_index_cache = {
+ /** Go through a FTS index auxiliary table, fetch its rows and fill
+  FTS word cache structure.
+  @return DB_SUCCESS on success, otherwise error code */
++#ifdef DEFAULT_INNODB
+ static dberr_t i_s_fts_index_table_fill_selected(
+     dict_index_t *index, /*!< in: FTS index */
+     ib_vector_t *words,  /*!< in/out: vector to hold
+@@ -2867,8 +2957,10 @@ static dberr_t i_s_fts_index_table_fill_selected(
+ 
+   return (error);
+ }
++#endif
+ 
+ /** Free words. */
++#ifdef DEFAULT_INNODB
+ static void i_s_fts_index_table_free_one_fetch(
+     ib_vector_t *words) /*!< in: words fetched */
+ {
+@@ -2889,9 +2981,11 @@ static void i_s_fts_index_table_free_one_fetch(
+ 
+   ib_vector_reset(words);
+ }
++#endif
+ 
+ /** Go through words, fill INFORMATION_SCHEMA.INNODB_FT_INDEX_TABLE.
+  @return	0 on success, 1 on failure */
++#ifdef DEFAULT_INNODB
+ static int i_s_fts_index_table_fill_one_fetch(
+     CHARSET_INFO *index_charset, /*!< in: FTS index charset */
+     THD *thd,                    /*!< in: thread */
+@@ -2986,10 +3080,12 @@ static int i_s_fts_index_table_fill_one_fetch(
+ 
+   return ret;
+ }
++#endif
+ 
+ /** Go through a FTS index and its auxiliary tables, fetch rows in each table
+  and fill INFORMATION_SCHEMA.INNODB_FT_INDEX_TABLE.
+  @return 0 on success, 1 on failure */
++#ifdef DEFAULT_INNODB
+ static int i_s_fts_index_table_fill_one_index(
+     dict_index_t *index, /*!< in: FTS index */
+     THD *thd,            /*!< in: thread */
+@@ -3065,8 +3161,11 @@ func_exit:
+ 
+   return ret;
+ }
++#endif
++
+ /** Fill the dynamic table INFORMATION_SCHEMA.INNODB_FT_INDEX_TABLE
+  @return 0 on success, 1 on failure */
++#ifdef DEFAULT_INNODB
+ static int i_s_fts_index_table_fill(
+     THD *thd,           /*!< in: thread */
+     TABLE_LIST *tables, /*!< in/out: tables to fill */
+@@ -3117,7 +3216,15 @@ static int i_s_fts_index_table_fill(
+ 
+   return 0;
+ }
+-
++#else
++static int i_s_fts_index_table_fill(
++    THD *thd,           /*!< in: thread */
++    TABLE_LIST *tables, /*!< in/out: tables to fill */
++    Item *)             /*!< in: condition (ignored) */
++{
++  return 0;
++}
++#endif
+ /** Bind the dynamic table INFORMATION_SCHEMA.INNODB_FT_INDEX_TABLE
+  @return 0 on success */
+ static int i_s_fts_index_table_init(void *p) /*!< in/out: table schema object */
+@@ -3206,12 +3313,15 @@ static ST_FIELD_INFO i_s_fts_config_fields_info[] = {
+ 
+     END_OF_ST_FIELD_INFO};
+ 
++#ifdef DEFAULT_INNODB
+ static const char *fts_config_key[] = {
+     FTS_OPTIMIZE_LIMIT_IN_SECS, FTS_SYNCED_DOC_ID, FTS_STOPWORD_TABLE_NAME,
+     FTS_USE_STOPWORD, nullptr};
++#endif
+ 
+ /** Fill the dynamic table INFORMATION_SCHEMA.INNODB_FT_CONFIG
+  @return 0 on success, 1 on failure */
++#ifdef DEFAULT_INNODB
+ static int i_s_fts_config_fill(
+     THD *thd,           /*!< in: thread */
+     TABLE_LIST *tables, /*!< in/out: tables to fill */
+@@ -3322,7 +3432,15 @@ static int i_s_fts_config_fill(
+ 
+   return 0;
+ }
+-
++#else
++static int i_s_fts_config_fill(
++    THD *thd,           /*!< in: thread */
++    TABLE_LIST *tables, /*!< in/out: tables to fill */
++    Item *)             /*!< in: condition (ignored) */
++{
++  return 0;
++}
++#endif
+ /** Bind the dynamic table INFORMATION_SCHEMA.INNODB_FT_CONFIG
+  @return 0 on success */
+ static int i_s_fts_config_init(void *p) /*!< in/out: table schema object */
+@@ -3438,6 +3556,7 @@ typedef std::vector<temp_table_info_t, ut_allocator<temp_table_info_t>>
+ /** Fill Information Schema table INNODB_TEMP_TABLE_INFO for a particular
+  temp-table
+  @return 0 on success, 1 on failure */
++#ifdef DEFAULT_INNODB
+ static int i_s_innodb_temp_table_info_fill(
+     THD *thd,                      /*!< in: thread */
+     TABLE_LIST *tables,            /*!< in/out: tables
+@@ -3464,10 +3583,12 @@ static int i_s_innodb_temp_table_info_fill(
+ 
+   return schema_table_store_record(thd, table);
+ }
++#endif
+ 
+ /** Populate current table information to cache
+ @param[in]	table	table
+ @param[in,out]	cache	populate data in this cache */
++#ifdef DEFAULT_INNODB
+ static void innodb_temp_table_populate_cache(const dict_table_t *table,
+                                              temp_table_info_t *cache) {
+   cache->m_table_id = table->id;
+@@ -3483,10 +3604,12 @@ static void innodb_temp_table_populate_cache(const dict_table_t *table,
+ 
+   cache->m_space_id = table->space;
+ }
++#endif
+ 
+ /** This function will iterate over all available table and will fill
+  stats for temp-tables to INNODB_TEMP_TABLE_INFO.
+  @return 0 on success, 1 on failure */
++#ifdef DEFAULT_INNODB
+ static int i_s_innodb_temp_table_info_fill_table(
+     THD *thd,           /*!< in: thread */
+     TABLE_LIST *tables, /*!< in/out: tables to fill */
+@@ -3533,6 +3656,15 @@ static int i_s_innodb_temp_table_info_fill_table(
+ 
+   return status;
+ }
++#else
++static int i_s_innodb_temp_table_info_fill_table(
++    THD *thd,           /*!< in: thread */
++    TABLE_LIST *tables, /*!< in/out: tables to fill */
++    Item *)             /*!< in: condition (ignored) */
++{
++  return 0;
++}
++#endif
+ 
+ /** Bind the dynamic table INFORMATION_SCHEMA.INNODB_TEMP_TABLE_INFO.
+  @return 0 on success, 1 on failure */
+@@ -3841,6 +3973,7 @@ static ST_FIELD_INFO i_s_innodb_buffer_stats_fields_info[] = {
+ /** Fill Information Schema table INNODB_BUFFER_POOL_STATS for a particular
+  buffer pool
+  @return 0 on success, 1 on failure */
++#ifdef DEFAULT_INNODB
+ static int i_s_innodb_stats_fill(
+     THD *thd,                    /*!< in: thread */
+     TABLE_LIST *tables,          /*!< in/out: tables to fill */
+@@ -3935,10 +4068,12 @@ static int i_s_innodb_stats_fill(
+ 
+   return schema_table_store_record(thd, table);
+ }
++#endif
+ 
+ /** This is the function that loops through each buffer pool and fetch buffer
+  pool stats to information schema  table: I_S_INNODB_BUFFER_POOL_STATS
+  @return 0 on success, 1 on failure */
++#ifdef DEFAULT_INNODB
+ static int i_s_innodb_buffer_stats_fill_table(
+     THD *thd,           /*!< in: thread */
+     TABLE_LIST *tables, /*!< in/out: tables to fill */
+@@ -3978,7 +4113,15 @@ static int i_s_innodb_buffer_stats_fill_table(
+ 
+   return status;
+ }
+-
++#else
++static int i_s_innodb_buffer_stats_fill_table(
++    THD *thd,           /*!< in: thread */
++    TABLE_LIST *tables, /*!< in/out: tables to fill */
++    Item *)             /*!< in: condition (ignored) */
++{
++  return 0;
++}
++#endif
+ /** Bind the dynamic table INFORMATION_SCHEMA.INNODB_BUFFER_POOL_STATS.
+  @return 0 on success, 1 on failure */
+ static int i_s_innodb_buffer_pool_stats_init(
+@@ -4201,6 +4344,7 @@ static ST_FIELD_INFO i_s_innodb_buffer_page_fields_info[] = {
+ /** Fill Information Schema table INNODB_BUFFER_PAGE with information
+  cached in the buf_page_info_t array
+  @return 0 on success, 1 on failure */
++#ifdef DEFAULT_INNODB
+ static int i_s_innodb_buffer_page_fill(
+     THD *thd,                          /*!< in: thread */
+     TABLE_LIST *tables,                /*!< in/out: tables to fill */
+@@ -4366,8 +4510,10 @@ static int i_s_innodb_buffer_page_fill(
+ 
+   return 0;
+ }
++#endif
+ 
+ /** Set appropriate page type to a buf_page_info_t structure */
++#ifdef DEFAULT_INNODB
+ static void i_s_innodb_set_page_type(
+     buf_page_info_t *page_info, /*!< in/out: structure to fill with
+                                 scanned info */
+@@ -4430,9 +4576,12 @@ static void i_s_innodb_set_page_type(
+           mach_read_from_4(frame + FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
+   }
+ }
++#endif
++
+ /** Scans pages in the buffer cache, and collect their general information
+  into the buf_page_info_t array which is zero-filled. So any fields
+  that are not initialized in the function will default to 0 */
++#ifdef DEFAULT_INNODB
+ static void i_s_innodb_buffer_page_get_info(
+     const buf_page_t *bpage,    /*!< in: buffer pool page to scan */
+     ulint pool_id,              /*!< in: buffer pool id */
+@@ -4519,10 +4668,12 @@ static void i_s_innodb_buffer_page_get_info(
+ 
+   mutex_exit(mutex);
+ }
++#endif
+ 
+ /** This is the function that goes through each block of the buffer pool
+  and fetch information to information schema tables: INNODB_BUFFER_PAGE.
+  @return 0 on success, 1 on failure */
++#ifdef DEFAULT_INNODB
+ static int i_s_innodb_fill_buffer_pool(
+     THD *thd,             /*!< in: thread */
+     TABLE_LIST *tables,   /*!< in/out: tables to fill */
+@@ -4592,10 +4743,12 @@ static int i_s_innodb_fill_buffer_pool(
+ 
+   return status;
+ }
++#endif
+ 
+ /** Fill page information for pages in InnoDB buffer pool to the
+  dynamic table INFORMATION_SCHEMA.INNODB_BUFFER_PAGE
+  @return 0 on success, 1 on failure */
++#ifdef DEFAULT_INNODB
+ static int i_s_innodb_buffer_page_fill_table(
+     THD *thd,           /*!< in: thread */
+     TABLE_LIST *tables, /*!< in/out: tables to fill */
+@@ -4628,6 +4781,15 @@ static int i_s_innodb_buffer_page_fill_table(
+ 
+   return status;
+ }
++#else
++static int i_s_innodb_buffer_page_fill_table(
++    THD *thd,           /*!< in: thread */
++    TABLE_LIST *tables, /*!< in/out: tables to fill */
++    Item *)             /*!< in: condition (ignored) */
++{
++  return 0;
++}
++#endif
+ 
+ /** Bind the dynamic table INFORMATION_SCHEMA.INNODB_BUFFER_PAGE.
+  @return 0 on success, 1 on failure */
+@@ -4844,6 +5006,7 @@ static ST_FIELD_INFO i_s_innodb_buf_page_lru_fields_info[] = {
+ /** Fill Information Schema table INNODB_BUFFER_PAGE_LRU with information
+  cached in the buf_page_info_t array
+  @return 0 on success, 1 on failure */
++#ifdef DEFAULT_INNODB
+ static int i_s_innodb_buf_page_lru_fill(
+     THD *thd,                          /*!< in: thread */
+     TABLE_LIST *tables,                /*!< in/out: tables to fill */
+@@ -4998,6 +5161,7 @@ static int i_s_innodb_buf_page_lru_fill(
+ 
+   return 0;
+ }
++#endif
+ 
+ /** This is the function that goes through buffer pool's LRU list
+ and fetch information to INFORMATION_SCHEMA.INNODB_BUFFER_PAGE_LRU.
+@@ -5006,6 +5170,7 @@ and fetch information to INFORMATION_SCHEMA.INNODB_BUFFER_PAGE_LRU.
+ @param[in]	buf_pool	buffer pool to scan
+ @param[in]	pool_id		buffer pool id
+ @return 0 on success, 1 on failure */
++#ifdef DEFAULT_INNODB
+ static int i_s_innodb_fill_buffer_lru(THD *thd, TABLE_LIST *tables,
+                                       buf_pool_t *buf_pool,
+                                       const ulint pool_id) {
+@@ -5063,10 +5228,12 @@ exit:
+ 
+   return status;
+ }
++#endif
+ 
+ /** Fill page information for pages in InnoDB buffer pool to the
+  dynamic table INFORMATION_SCHEMA.INNODB_BUFFER_PAGE_LRU
+  @return 0 on success, 1 on failure */
++#ifdef DEFAULT_INNODB
+ static int i_s_innodb_buf_page_lru_fill_table(
+     THD *thd,           /*!< in: thread */
+     TABLE_LIST *tables, /*!< in/out: tables to fill */
+@@ -5099,6 +5266,15 @@ static int i_s_innodb_buf_page_lru_fill_table(
+ 
+   return status;
+ }
++#else
++static int i_s_innodb_buf_page_lru_fill_table(
++    THD *thd,           /*!< in: thread */
++    TABLE_LIST *tables, /*!< in/out: tables to fill */
++    Item *)             /*!< in: condition (ignored) */
++{
++  return 0;
++}
++#endif
+ 
+ /** Bind the dynamic table INFORMATION_SCHEMA.INNODB_BUFFER_PAGE_LRU.
+  @return 0 on success, 1 on failure */
+@@ -5259,6 +5435,7 @@ from INNODB_TABLES.
+ @param[in]	table		table obj
+ @param[in,out]	table_to_fill	fill this table
+ @return 0 on success */
++#ifdef DEFAULT_INNODB
+ static int i_s_dict_fill_innodb_tables(THD *thd, dict_table_t *table,
+                                        TABLE *table_to_fill) {
+   Field **fields;
+@@ -5314,12 +5491,14 @@ static int i_s_dict_fill_innodb_tables(THD *thd, dict_table_t *table,
+ 
+   return 0;
+ }
++#endif
+ 
+ /** Function to go through each record in INNODB_TABLES table, and fill the
+ information_schema.innodb_tables table with related table information
+ @param[in]	thd		thread
+ @param[in,out]	tables		tables to fill
+ @return 0 on success */
++#ifdef DEFAULT_INNODB
+ static int i_s_innodb_tables_fill_table(THD *thd, TABLE_LIST *tables, Item *) {
+   btr_pcur_t pcur;
+   const rec_t *rec;
+@@ -5414,6 +5593,11 @@ static int i_s_innodb_tables_fill_table(THD *thd, TABLE_LIST *tables, Item *) {
+ 
+   return 0;
+ }
++#else
++static int i_s_innodb_tables_fill_table(THD *thd, TABLE_LIST *tables, Item *) {
++  return 0;
++}
++#endif
+ 
+ /** Bind the dynamic table INFORMATION_SCHEMA.innodb_tables
+ @param[in,out]	p	table schema object
+@@ -5564,6 +5748,7 @@ from INNODB_TABLES.
+ @param[in]	ref_count	table reference count
+ @param[in,out]	table_to_fill	fill this table
+ @return 0 on success */
++#ifdef DEFAULT_INNODB
+ static int i_s_dict_fill_innodb_tablestats(THD *thd, dict_table_t *table,
+                                            ulint ref_count,
+                                            TABLE *table_to_fill) {
+@@ -5614,6 +5799,7 @@ static int i_s_dict_fill_innodb_tablestats(THD *thd, dict_table_t *table,
+ 
+   return 0;
+ }
++#endif
+ 
+ /** Function to go through each record in INNODB_TABLES table, and fill the
+ information_schema.innodb_tablestats table with table statistics
+@@ -5621,6 +5807,7 @@ related information
+ @param[in]	thd		thread
+ @param[in,out]	tables		tables to fill
+ @return 0 on success */
++#ifdef DEFAULT_INNODB
+ static int i_s_innodb_tables_fill_table_stats(THD *thd, TABLE_LIST *tables,
+                                               Item *) {
+   btr_pcur_t pcur;
+@@ -5693,6 +5880,12 @@ static int i_s_innodb_tables_fill_table_stats(THD *thd, TABLE_LIST *tables,
+ 
+   return 0;
+ }
++#else
++static int i_s_innodb_tables_fill_table_stats(THD *thd, TABLE_LIST *tables, Item *)
++{
++    return 0;
++}
++#endif
+ 
+ /** Bind the dynamic table INFORMATION_SCHEMA.innodb_tablestats
+ @param[in,out]	p	table schema object
+@@ -5835,6 +6028,7 @@ collected index information
+ @param[in]	index		dict_index_t obj
+ @param[in,out]	table_to_fill	fill this table
+ @return 0 on success */
++#ifdef DEFAULT_INNODB
+ static int i_s_dict_fill_innodb_indexes(THD *thd, const dict_index_t *index,
+                                         TABLE *table_to_fill) {
+   Field **fields;
+@@ -5868,12 +6062,14 @@ static int i_s_dict_fill_innodb_indexes(THD *thd, const dict_index_t *index,
+ 
+   return 0;
+ }
++#endif
+ 
+ /** Function to go through each record in INNODB_INDEXES table, and fill the
+ information_schema.innodb_indexes table with related index information
+ @param[in]	thd		thread
+ @param[in,out]	tables		tables to fill
+ @return 0 on success */
++#ifdef DEFAULT_INNODB
+ static int i_s_innodb_indexes_fill_table(THD *thd, TABLE_LIST *tables, Item *) {
+   btr_pcur_t pcur;
+   const rec_t *rec;
+@@ -5941,7 +6137,11 @@ static int i_s_innodb_indexes_fill_table(THD *thd, TABLE_LIST *tables, Item *) {
+ 
+   return 0;
+ }
+-
++#else
++static int i_s_innodb_indexes_fill_table(THD *thd, TABLE_LIST *tables, Item *) {
++  return 0;
++}
++#endif
+ /** Bind the dynamic table INFORMATION_SCHEMA.innodb_indexes
+ @param[in,out]	p	table schema object
+ @return 0 on success */
+@@ -6081,6 +6281,7 @@ static ST_FIELD_INFO innodb_columns_fields_info[] = {
+ @param[in,out]	field		field to store default value
+ @param[in]	default_val	default value to fill
+ @return	0 on success */
++#ifdef DEFAULT_INNODB
+ static int field_blob_store(Field *field, dict_col_default_t *default_val) {
+   int ret = 0;
+ 
+@@ -6098,6 +6299,7 @@ static int field_blob_store(Field *field, dict_col_default_t *default_val) {
+ 
+   return (ret);
+ }
++#endif
+ 
+ /** Function to populate the information_schema.innodb_columns with
+ related column information
+@@ -6108,6 +6310,7 @@ related column information
+ @param[in]	nth_v_col	virtual column, its sequence number
+ @param[in,out]	table_to_fill	fill this table
+ @return 0 on success */
++#ifdef DEFAULT_INNODB
+ static int i_s_dict_fill_innodb_columns(THD *thd, table_id_t table_id,
+                                         const char *col_name,
+                                         dict_col_t *column, ulint nth_v_col,
+@@ -6148,7 +6351,9 @@ static int i_s_dict_fill_innodb_columns(THD *thd, table_id_t table_id,
+ 
+   return 0;
+ }
++#endif
+ 
++#ifdef DEFAULT_INNODB
+ static void process_rows(THD *thd, TABLE_LIST *tables, const rec_t *rec,
+                          dict_table_t *dd_table, btr_pcur_t &pcur, mtr_t &mtr,
+                          mem_heap_t *heap, bool is_partition) {
+@@ -6236,12 +6441,14 @@ static void process_rows(THD *thd, TABLE_LIST *tables, const rec_t *rec,
+     rec = dd_getnext_system_rec(&pcur, &mtr);
+   }
+ }
++#endif
+ 
+ /** Function to fill information_schema.innodb_columns with information
+ collected by scanning INNODB_COLUMNS table.
+ @param[in]	thd		thread
+ @param[in,out]	tables		tables to fill
+ @return 0 on success */
++#ifdef DEFAULT_INNODB
+ static int i_s_innodb_columns_fill_table(THD *thd, TABLE_LIST *tables, Item *) {
+   btr_pcur_t pcur;
+   const rec_t *rec;
+@@ -6286,7 +6493,11 @@ static int i_s_innodb_columns_fill_table(THD *thd, TABLE_LIST *tables, Item *) {
+ 
+   return 0;
+ }
+-
++#else
++static int i_s_innodb_columns_fill_table(THD *thd, TABLE_LIST *tables, Item *) {
++  return 0;
++}
++#endif
+ /** Bind the dynamic table INFORMATION_SCHEMA.innodb_columns
+ @param[in,out]	p	table schema object
+ @return 0 on success */
+@@ -6396,6 +6607,7 @@ param[in]	pos		virtual column position
+ param[in]	base_pos	base column position
+ param[in,out]	table_to_fill	fill this table
+ @return 0 on success */
++#ifdef DEFAULT_INNODB
+ static int i_s_dict_fill_innodb_virtual(THD *thd, table_id_t table_id,
+                                         ulint pos, ulint base_pos,
+                                         TABLE *table_to_fill) {
+@@ -6415,6 +6627,7 @@ static int i_s_dict_fill_innodb_virtual(THD *thd, table_id_t table_id,
+ 
+   return 0;
+ }
++#endif
+ 
+ /** Function to fill information_schema.innodb_virtual with information
+ collected by scanning INNODB_VIRTUAL table.
+@@ -6422,6 +6635,7 @@ param[in]	thd		thread
+ param[in,out]	tables		tables to fill
+ param[in]	item		condition (not used)
+ @return 0 on success */
++#ifdef DEFAULT_INNODB
+ static int i_s_innodb_virtual_fill_table(THD *thd, TABLE_LIST *tables, Item *) {
+   btr_pcur_t pcur;
+   const rec_t *rec;
+@@ -6481,6 +6695,11 @@ static int i_s_innodb_virtual_fill_table(THD *thd, TABLE_LIST *tables, Item *) {
+ 
+   return 0;
+ }
++#else
++static int i_s_innodb_virtual_fill_table(THD *thd, TABLE_LIST *tables, Item *) {
++  return 0;
++}
++#endif
+ 
+ /** Bind the dynamic table INFORMATION_SCHEMA.innodb_virtual
+ param[in,out]	p	table schema object
+@@ -6677,6 +6896,7 @@ collected by scanning INNODB_TABLESPACESS table.
+ @param[in]      state           tablespace state
+ @param[in,out]  table_to_fill   fill this table
+ @return 0 on success */
++#ifdef DEFAULT_INNODB
+ static int i_s_dict_fill_innodb_tablespaces(
+     THD *thd, space_id_t space_id, const char *name, uint32_t flags,
+     uint32 server_version, uint32 space_version, bool is_encrypted,
+@@ -6808,6 +7028,7 @@ static int i_s_dict_fill_innodb_tablespaces(
+ 
+   return 0;
+ }
++#endif
+ 
+ /** Function to populate INFORMATION_SCHEMA.INNODB_TABLESPACES table.
+ Loop through each record in INNODB_TABLESPACES, and extract the column
+@@ -6815,6 +7036,7 @@ information and fill the INFORMATION_SCHEMA.INNODB_TABLESPACES table.
+ @param[in]	thd		thread
+ @param[in,out]	tables		tables to fill
+ @return 0 on success */
++#ifdef DEFAULT_INNODB
+ static int i_s_innodb_tablespaces_fill_table(THD *thd, TABLE_LIST *tables,
+                                              Item *) {
+   btr_pcur_t pcur;
+@@ -6877,6 +7099,12 @@ static int i_s_innodb_tablespaces_fill_table(THD *thd, TABLE_LIST *tables,
+ 
+   return 0;
+ }
++#else
++static int i_s_innodb_tablespaces_fill_table(THD *thd, TABLE_LIST *tables, Item *)
++{
++    return 0;
++}
++#endif
+ /** Bind the dynamic table INFORMATION_SCHEMA.INNODB_TABLESPACES
+ @param[in,out]	p	table schema object
+ @return 0 on success */
+@@ -6985,6 +7213,7 @@ static ST_FIELD_INFO innodb_cached_indexes_fields_info[] = {
+ @param[in]	index_id	index id
+ @param[in,out]	table_to_fill	fill this table
+ @return 0 on success */
++#ifdef DEFAULT_INNODB
+ static int i_s_fill_innodb_cached_indexes_row(THD *thd, space_id_t space_id,
+                                               ulint index_id,
+                                               TABLE *table_to_fill) {
+@@ -7009,12 +7238,14 @@ static int i_s_fill_innodb_cached_indexes_row(THD *thd, space_id_t space_id,
+ 
+   return 0;
+ }
++#endif
+ 
+ /** Go through each record in INNODB_INDEXES, and fill
+ INFORMATION_SCHEMA.INNODB_CACHED_INDEXES.
+ @param[in]	thd	thread
+ @param[in,out]	tables	tables to fill
+ @return 0 on success */
++#ifdef DEFAULT_INNODB
+ static int i_s_innodb_cached_indexes_fill_table(THD *thd, TABLE_LIST *tables,
+                                                 Item * /* not used */) {
+   MDL_ticket *mdl = nullptr;
+@@ -7078,6 +7309,12 @@ static int i_s_innodb_cached_indexes_fill_table(THD *thd, TABLE_LIST *tables,
+ 
+   return 0;
+ }
++#else
++static int i_s_innodb_cached_indexes_fill_table(THD *thd, TABLE_LIST *tables, Item * /* not used */)
++{
++    return 0;
++}
++#endif
+ 
+ /** Bind the dynamic table INFORMATION_SCHEMA.INNODB_CACHED_INDEXES.
+ @param[in,out]	p	table schema object
+@@ -7204,6 +7441,7 @@ static ST_FIELD_INFO innodb_session_temp_tablespaces_fields_info[] = {
+ @param[in]	ts		temp tablespace object
+ @param[in,out]	table_to_fill	fill this table
+ @return 0 on success */
++#ifdef DEFAULT_INNODB
+ static int i_s_innodb_session_temp_tablespaces_fill_one(
+     THD *thd, const ibt::Tablespace *ts, TABLE *table_to_fill) {
+   Field **fields;
+@@ -7251,12 +7489,14 @@ static int i_s_innodb_session_temp_tablespaces_fill_one(
+ 
+   return 0;
+ }
++#endif
+ 
+ /** Function to populate INFORMATION_SCHEMA.INNODB_SESSION_TEMPORARY_TABLESPACES
+ table. Iterate over the in-memory structure and fill the table
+ @param[in]	thd		thread
+ @param[in,out]	tables		tables to fill
+ @return 0 on success */
++#ifdef DEFAULT_INNODB
+ static int i_s_innodb_session_temp_tablespaces_fill(THD *thd,
+                                                     TABLE_LIST *tables,
+                                                     Item *) {
+@@ -7283,7 +7523,12 @@ static int i_s_innodb_session_temp_tablespaces_fill(THD *thd,
+ 
+   return 0;
+ }
+-
++#else
++static int i_s_innodb_session_temp_tablespaces_fill(THD *thd, TABLE_LIST *tables, Item *)
++{
++    return 0;
++}
++#endif
+ /** Bind the dynamic table
+ INFORMATION_SCHEMA.INNODB_SESSION_TEMPORARY_TABLESPACES
+ @param[in,out]	p	table schema object
+diff --git a/storage/myisam/ha_myisam.cc b/storage/myisam/ha_myisam.cc
+index d05f758..cc4ebfc 100644
+--- a/storage/myisam/ha_myisam.cc
++++ b/storage/myisam/ha_myisam.cc
+@@ -825,7 +825,7 @@ int ha_myisam::close(void) {
+   return err;
+ }
+ 
+-int ha_myisam::write_row(uchar *buf) {
++int ha_myisam::write_row(uchar *buf, bool write_through MY_ATTRIBUTE((unused)) = false) {
+   ha_statistic_increment(&System_status_var::ha_write_count);
+ 
+   /*
+@@ -1786,7 +1786,7 @@ int ha_myisam::create(const char *name, TABLE *table_arg,
+                                     : (ulonglong)0);
+   create_info.data_file_length =
+       ((ulonglong)share->max_rows * share->avg_row_length);
+-  create_info.language = share->table_charset->number;
++  //create_info.language = share->table_charset->number;
+ 
+ #ifndef _WIN32
+   if (my_enable_symlinks) {
+diff --git a/storage/myisam/ha_myisam.h b/storage/myisam/ha_myisam.h
+index 98ca35d..c00f71d 100644
+--- a/storage/myisam/ha_myisam.h
++++ b/storage/myisam/ha_myisam.h
+@@ -114,7 +114,7 @@ class ha_myisam : public handler {
+   int open(const char *name, int mode, uint test_if_locked,
+            const dd::Table *table_def) override;
+   int close(void) override;
+-  int write_row(uchar *buf) override;
++  int write_row(uchar *buf, bool write_through MY_ATTRIBUTE((unused))) override;
+   int update_row(const uchar *old_data, uchar *new_data) override;
+   int delete_row(const uchar *buf) override;
+   int index_read_map(uchar *buf, const uchar *key, key_part_map keypart_map,
+diff --git a/storage/myisammrg/ha_myisammrg.cc b/storage/myisammrg/ha_myisammrg.cc
+index 2107967..cc4f0a7 100644
+--- a/storage/myisammrg/ha_myisammrg.cc
++++ b/storage/myisammrg/ha_myisammrg.cc
+@@ -982,7 +982,7 @@ int ha_myisammrg::close(void) {
+   return rc;
+ }
+ 
+-int ha_myisammrg::write_row(uchar *buf) {
++int ha_myisammrg::write_row(uchar *buf, bool write_through MY_ATTRIBUTE((unused)) = false) {
+   DBUG_TRACE;
+   assert(this->file->children_attached);
+   ha_statistic_increment(&System_status_var::ha_write_count);
+diff --git a/storage/myisammrg/ha_myisammrg.h b/storage/myisammrg/ha_myisammrg.h
+index 11c0fc0..42050e1 100644
+--- a/storage/myisammrg/ha_myisammrg.h
++++ b/storage/myisammrg/ha_myisammrg.h
+@@ -123,7 +123,7 @@ class ha_myisammrg : public handler {
+   int detach_children(void);
+   handler *clone(const char *name, MEM_ROOT *mem_root) override;
+   int close(void) override;
+-  int write_row(uchar *buf) override;
++  int write_row(uchar *buf, bool write_through MY_ATTRIBUTE((unused))) override;
+   int update_row(const uchar *old_data, uchar *new_data) override;
+   int delete_row(const uchar *buf) override;
+   int index_read_map(uchar *buf, const uchar *key, key_part_map keypart_map,
+diff --git a/storage/ndb/plugin/ha_ndbcluster.cc b/storage/ndb/plugin/ha_ndbcluster.cc
+index c29d260..9d13607 100644
+--- a/storage/ndb/plugin/ha_ndbcluster.cc
++++ b/storage/ndb/plugin/ha_ndbcluster.cc
+@@ -12045,7 +12045,7 @@ static int drop_database_impl(THD *thd,
+   return 0;
+ }
+ 
+-static void ndbcluster_drop_database(handlerton *, char *path) {
++static bool ndbcluster_drop_database(handlerton *, char *path) {
+   THD *thd = current_thd;
+   DBUG_TRACE;
+   DBUG_PRINT("enter", ("path: '%s'", path));
+@@ -12056,18 +12056,20 @@ static void ndbcluster_drop_database(handlerton *, char *path) {
+ 
+   if (!schema_dist_client.prepare(db, "")) {
+     /* Don't allow drop database unless schema distribution is ready */
+-    return;
++    return true;
+   }
+ 
+   if (drop_database_impl(thd, schema_dist_client, db) != 0) {
+-    return;
++    return true;
+   }
+ 
+   if (!schema_dist_client.drop_db(db)) {
+     // NOTE! There is currently no way to report an error from this
+     // function, just log an error and proceed
+     ndb_log_error("Failed to distribute 'DROP DATABASE %s'", db);
++    return true;
+   }
++  return false;
+ }
+ 
+ /**
+diff --git a/storage/ndb/plugin/ha_ndbcluster_binlog.cc b/storage/ndb/plugin/ha_ndbcluster_binlog.cc
+index c310cf6..9dec5d4 100644
+--- a/storage/ndb/plugin/ha_ndbcluster_binlog.cc
++++ b/storage/ndb/plugin/ha_ndbcluster_binlog.cc
+@@ -496,7 +496,7 @@ static int ndbcluster_binlog_index_purge_file(THD *thd, const char *filename) {
+      -- privilege tables have been modified
+ */
+ 
+-static void ndbcluster_binlog_log_query(handlerton *, THD *thd,
++static bool ndbcluster_binlog_log_query(handlerton *, THD *thd,
+                                         enum_binlog_command binlog_command,
+                                         const char *query, uint query_length,
+                                         const char *db, const char *) {
+@@ -515,7 +515,7 @@ static void ndbcluster_binlog_log_query(handlerton *, THD *thd,
+         // NOTE! As there is no way return error, this may have to be
+         // revisited, the prepare should be done
+         // much earlier where it can return an error for the query
+-        return;
++        return true;
+       }
+ 
+       // Generate the id, version
+@@ -527,12 +527,18 @@ static void ndbcluster_binlog_log_query(handlerton *, THD *thd,
+       if (result) {
+         // Update the schema with the generated id and version but skip
+         // committing the change in DD. Commit will be done by the caller.
+-        ndb_dd_update_schema_version(thd, db, id, version,
+-                                     true /*skip_commit*/);
++        if (!ndb_dd_update_schema_version(thd, db, id, version,
++                                     true /*skip_commit*/)) {
++          log_and_clear_thd_conditions(m_thd, condition_logging_level::ERROR);
++          ndb_log_error("Failed to update schema version for database '%s'",
++                    db);
++          return true;
++        }
+       } else {
+         // NOTE! There is currently no way to report an error from this
+         // function, just log an error and proceed
+         ndb_log_error("Failed to distribute 'CREATE DATABASE %s'", db);
++        return true;
+       }
+     } break;
+ 
+@@ -546,7 +552,7 @@ static void ndbcluster_binlog_log_query(handlerton *, THD *thd,
+         // NOTE! As there is no way return error, this may have to be
+         // revisited, the prepare should be done
+         // much earlier where it can return an error for the query
+-        return;
++        return true;
+       }
+ 
+       // Generate the id, version
+@@ -558,12 +564,18 @@ static void ndbcluster_binlog_log_query(handlerton *, THD *thd,
+       if (result) {
+         // Update the schema with the generated id and version but skip
+         // committing the change in DD. Commit will be done by the caller.
+-        ndb_dd_update_schema_version(thd, db, id, version,
+-                                     true /*skip_commit*/);
++        if (!ndb_dd_update_schema_version(thd, db, id, version,
++                                     true /*skip_commit*/)) {
++          log_and_clear_thd_conditions(m_thd, condition_logging_level::ERROR);
++          ndb_log_error("Failed to update schema version for database '%s'",
++                    db);
++          return true;
++        }
+       } else {
+         // NOTE! There is currently no way to report an error from this
+         // function, just log an error and proceed
+         ndb_log_error("Failed to distribute 'ALTER DATABASE %s'", db);
++        return true;
+       }
+     } break;
+ 
+@@ -577,6 +589,7 @@ static void ndbcluster_binlog_log_query(handlerton *, THD *thd,
+                           binlog_command));
+       break;
+   }
++  return false;
+ }
+ 
+ static void ndbcluster_acl_notify(THD *thd,
+diff --git a/storage/perfschema/ha_perfschema.cc b/storage/perfschema/ha_perfschema.cc
+index a27da72..75f7e14 100644
+--- a/storage/perfschema/ha_perfschema.cc
++++ b/storage/perfschema/ha_perfschema.cc
+@@ -1581,7 +1581,7 @@ int ha_perfschema::close(void) {
+   return 0;
+ }
+ 
+-int ha_perfschema::write_row(uchar *buf) {
++int ha_perfschema::write_row(uchar *buf, bool write_through MY_ATTRIBUTE((unused)) = false) {
+   int result;
+ 
+   DBUG_TRACE;
+diff --git a/storage/perfschema/ha_perfschema.h b/storage/perfschema/ha_perfschema.h
+index 6efd57e..f8d03e3 100644
+--- a/storage/perfschema/ha_perfschema.h
++++ b/storage/perfschema/ha_perfschema.h
+@@ -153,7 +153,7 @@ class ha_perfschema : public handler {
+     @param buf the row to write
+     @return 0 on success
+   */
+-  int write_row(uchar *buf) override;
++  int write_row(uchar *buf, bool write_through MY_ATTRIBUTE((unused))) override;
+ 
+   void use_hidden_primary_key() override;
+ 
+diff --git a/storage/temptable/include/temptable/handler.h b/storage/temptable/include/temptable/handler.h
+index b9213f8..97bab4b 100644
+--- a/storage/temptable/include/temptable/handler.h
++++ b/storage/temptable/include/temptable/handler.h
+@@ -317,7 +317,7 @@ class Handler : public ::handler {
+    * @return 0 on success or HA_ERR_* error code */
+   int write_row(
+       /** [in] Row to insert. */
+-      uchar *mysql_row) override;
++      uchar *mysql_row, bool write_through MY_ATTRIBUTE((unused)) = false) override;
+ 
+   /** Update a row.
+    * @return 0 on success or HA_ERR_* error code */
+diff --git a/storage/temptable/src/handler.cc b/storage/temptable/src/handler.cc
+index e949235..d46fca8 100644
+--- a/storage/temptable/src/handler.cc
++++ b/storage/temptable/src/handler.cc
+@@ -639,7 +639,7 @@ void Handler::position(const uchar *) {
+   DBUG_PRINT("temptable_api", ("this=%p; saved position=%p", this, row));
+ }
+ 
+-int Handler::write_row(uchar *mysql_row) {
++int Handler::write_row(uchar *mysql_row, bool write_through MY_ATTRIBUTE((unused))) {
+   DBUG_TRACE;
+ 
+   opened_table_validate();

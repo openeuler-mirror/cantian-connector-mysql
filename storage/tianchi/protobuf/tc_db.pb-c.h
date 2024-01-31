@@ -55,7 +55,7 @@ struct  TcDb__TseDDLColumnDataTypeDef
    * be replaced by typmode_t for unifying the definition of columns
    */
   /*
-   * gs_type_t
+   * ct_type_t
    */
   int32_t datatype;
   uint32_t size;

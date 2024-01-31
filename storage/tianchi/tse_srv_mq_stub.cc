@@ -141,7 +141,12 @@ int tse_write_row(tianchi_handler_t *tch, const record_info_t *record_info,
   req->serial_column_offset = serial_column_offset;
   req->flag = flag;
   int result = ERR_CONNECTION_FAILED;
-  int ret = tse_mq_deal_func(shm_inst, TSE_FUNC_TYPE_WRITE_ROW, req, tch->msg_buf);
+  int ret = CT_SUCCESS;
+  if (req->flag.write_through) {
+    ret = tse_mq_deal_func(shm_inst, TSE_FUNC_TYPE_WRITE_THROUGH_ROW, req, tch->msg_buf);
+  } else {
+    ret = tse_mq_deal_func(shm_inst, TSE_FUNC_TYPE_WRITE_ROW, req, tch->msg_buf);
+  }
   tch->sql_stat_start = req->tch.sql_stat_start;
   *tch = req->tch;
   if (ret == CT_SUCCESS) {
@@ -1236,7 +1241,7 @@ int tse_broadcast_rewrite_sql(tianchi_handler_t *tch, tse_ddl_broadcast_request 
   return result;
 }
 
-int tse_get_serial_value(tianchi_handler_t *tch, uint64_t *value, uint16_t auto_inc_step, uint16_t auto_inc_offset) {
+int tse_get_serial_value(tianchi_handler_t *tch, uint64_t *value, dml_flag_t flag) {
   void *shm_inst = get_one_shm_inst(tch);
   get_serial_val_request *req = (get_serial_val_request*)alloc_share_mem(shm_inst, sizeof(get_serial_val_request));
   DBUG_EXECUTE_IF("get_serial_val_ddl_shm_oom", { req = NULL; });
@@ -1245,8 +1250,9 @@ int tse_get_serial_value(tianchi_handler_t *tch, uint64_t *value, uint16_t auto_
     return ERR_ALLOC_MEMORY;
   }
   req->tch = *tch;
-  req->flag.auto_inc_step = auto_inc_step;
-  req->flag.auto_inc_offset = auto_inc_offset;
+  req->flag.auto_inc_step = flag.auto_inc_step;
+  req->flag.auto_inc_offset = flag.auto_inc_offset;
+  req->flag.auto_increase = flag.auto_increase;
   int result = ERR_CONNECTION_FAILED;
   int ret = tse_mq_deal_func(shm_inst, TSE_FUNC_TYPE_GET_SERIAL_VALUE, req, tch->msg_buf);
   *tch = req->tch;

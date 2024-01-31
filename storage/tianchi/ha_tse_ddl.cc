@@ -476,42 +476,43 @@ static bool tse_ddl_fill_column_by_field_fill_type(TcDb__TseDDLColumnDef *column
   return true;
 }
 
-static int tse_prepare_enum_field(THD *thd, Create_field *sql_field) {
+static int tse_prepare_enum_field_impl(THD *thd, Create_field *sql_field, String *def) {
   DBUG_TRACE;
   assert(sql_field->sql_type == MYSQL_TYPE_ENUM);
-
-  if (sql_field->constant_default != nullptr) {
-    String str;
-    String *def = sql_field->constant_default->val_str(&str);
-    /* SQL "NULL" maps to NULL */
-    if (def == nullptr) {
-        if ((sql_field->flags & NOT_NULL_FLAG) != 0) {
-          my_error(ER_INVALID_DEFAULT, MYF(0), sql_field->field_name);
-          return TSE_ENUM_DEFAULT_NULL;
-        }
-    } else {
-      def->length(sql_field->charset->cset->lengthsp(sql_field->charset, def->ptr(), def->length()));
-      TYPELIB *interval = sql_field->interval;
-      if (!interval) {
-        interval = create_typelib(thd->mem_root, sql_field);
-      }
-      uint enum_index = find_type2(interval, def->ptr(), def->length(), sql_field->charset);
-      if (enum_index == 0) {
+  if (!sql_field->charset) {
+    sql_field->charset = &my_charset_bin;
+  }
+  /* SQL "NULL" maps to NULL */
+  if (def == nullptr) {
+      if ((sql_field->flags & NOT_NULL_FLAG) != 0) {
         my_error(ER_INVALID_DEFAULT, MYF(0), sql_field->field_name);
-        return TSE_ENUM_DEFAULT_INVALID;
+        return TSE_ENUM_DEFAULT_NULL;
       }
-      return enum_index;
+  } else {
+    def->length(sql_field->charset->cset->lengthsp(sql_field->charset, def->ptr(), def->length()));
+    TYPELIB *interval = sql_field->interval;
+    if (!interval) {
+      interval = create_typelib(thd->mem_root, sql_field);
     }
+    uint enum_index = find_type2(interval, def->ptr(), def->length(), sql_field->charset);
+    if (enum_index == 0) {
+      my_error(ER_INVALID_DEFAULT, MYF(0), sql_field->field_name);
+      return TSE_ENUM_DEFAULT_INVALID;
+    }
+    return enum_index;
   }
   my_error(ER_INVALID_DEFAULT, MYF(0), "constant default is null");
   return TSE_ENUM_DEFAULT_INVALID;
 }
 
-static bool tse_prepare_set_field(THD *thd, Create_field *sql_field, ulonglong *set_bitmap, 
-  TcDb__TseDDLColumnDef *column) {
+static bool tse_prepare_set_field_impl(THD *thd, Create_field *sql_field, ulonglong *set_bitmap, 
+                                       String *def, TcDb__TseDDLColumnDef *column) {
   DBUG_TRACE;
   assert(sql_field->sql_type == MYSQL_TYPE_SET);
 
+  if (!sql_field->charset) {
+    sql_field->charset = &my_charset_bin;
+  }
   TYPELIB *interval = sql_field->interval;
   if (!interval) {
     /*
@@ -543,64 +544,114 @@ static bool tse_prepare_set_field(THD *thd, Create_field *sql_field, ulonglong *
     }
   }
 
-  if (sql_field->constant_default != nullptr) {
-    const char *not_used;
-    uint not_used2;
-    bool not_found = false;
-    String default_str;
-    String *def = sql_field->constant_default->val_str(&default_str);
-    // SQL "NULL" maps to NULL  
-    if (def == nullptr) {
-      if ((sql_field->flags & NOT_NULL_FLAG) != 0) {
-        my_error(ER_INVALID_DEFAULT, MYF(0), sql_field->field_name);
-        return false;
-      } else {
-        // else, NULL is an allowed value 
-        *set_bitmap = find_set(interval, nullptr, 0, sql_field->charset, &not_used, &not_used2, &not_found);
-      } 
-    } else {
-      // default not NULL */
-     *set_bitmap = find_set(interval, def->ptr(), def->length(), sql_field->charset, &not_used, &not_used2, &not_found);
-    }
-
-    if (not_found) {
+  const char *not_used;
+  uint not_used2;
+  bool not_found = false;
+  // SQL "NULL" maps to NULL  
+  if (def == nullptr) {
+    if ((sql_field->flags & NOT_NULL_FLAG) != 0) {
       my_error(ER_INVALID_DEFAULT, MYF(0), sql_field->field_name);
       return false;
-    }
+    } else {
+      // else, NULL is an allowed value 
+      *set_bitmap = find_set(interval, nullptr, 0, sql_field->charset, &not_used, &not_used2, &not_found);
+    } 
+  } else {
+    // default not NULL */
+    *set_bitmap = find_set(interval, def->ptr(), def->length(), sql_field->charset, &not_used, &not_used2, &not_found);
+  }
+
+  if (not_found) {
+    my_error(ER_INVALID_DEFAULT, MYF(0), sql_field->field_name);
+    return false;
   }
 
   return true;
 }
 
-static bool tse_get_bit_default_value(
-    THD *thd, TcDb__TseDDLColumnDef *column, Field *field, char **mem_start, char *mem_end) {
-  column->is_unsigned = 1;
-  Field_bit *bitfield = dynamic_cast<Field_bit *>(field);
-
-  Field_bit *new_field = bitfield->clone(thd->mem_root);
-  uchar bit_ptr[TSE_MAX_BIT_LEN];
-  for (uint32_t i = 0; i < bitfield->bytes_in_rec; i++) {
-    bit_ptr[i] = bitfield->field_ptr()[i];
+static bool tse_process_string_default_value(TcDb__TseDDLColumnDef *column, string &expr_str,
+                                             char **mem_start, char *mem_end, bool is_blob_type) {
+  if (!is_blob_type) {
+    boost::algorithm::replace_all(expr_str, "'", "''");
+    column->default_text = (char *)tse_ddl_alloc_mem(mem_start, mem_end, expr_str.length() + 1);
+    if (column->default_text == nullptr) {
+      tse_log_error("alloc mem for bit default text failed, mem_start is null");
+      return false;
+    }
+    strncpy(column->default_text, expr_str.c_str(), expr_str.length() + 1);
+  } else {
+    column->default_text = (char *)tse_ddl_alloc_mem(mem_start, mem_end, expr_str.length() * 2 + 1);
+    if (column->default_text == nullptr) {
+      tse_log_error("alloc mem for bit default text failed, mem_start is null");
+      return false;
+    }
+    int pos = 0;
+    for (char &ch : expr_str) {
+      sprintf(column->default_text + pos, "%02X", ch);
+      pos += 2;
+    }
+    column->default_text[pos] = '\0';
   }
-  new_field->set_field_ptr(bit_ptr);
+  return true;
+}
 
+static bool tse_get_bit_default_value(
+    THD *thd, TcDb__TseDDLColumnDef *column, Field *field, const Create_field *fld, const dd::Column *col_obj,
+    char **mem_start, char *mem_end, bool is_expr_value) {
+  column->is_unsigned = 1;
+  longlong num = 0;
+  if (!is_expr_value) {
+    char* bit_value_buf = const_cast<char *>(col_obj->default_value().data());
+    uint32_t bit_value_len = (uint32_t)(col_obj->default_value().length());
+    Field_bit *bitfield = dynamic_cast<Field_bit *>(field);
+    Field_bit *new_field = bitfield->clone(thd->mem_root);
+    uchar bit_ptr[TSE_MAX_BIT_LEN];
+    for (uint32_t i = 0; i < bit_value_len; i++) {
+      bit_ptr[i] = bit_value_buf[i];
+    }
+    new_field->set_field_ptr(bit_ptr);
+    num = new_field->val_int();
+  } else {
+    Item *expr_item;
+    if (fld == nullptr) {
+      expr_item = field->m_default_val_expr->expr_item;
+    } else {
+      expr_item = fld->m_default_val_expr->expr_item;
+    }
+    if (expr_item->type() != Item::STRING_ITEM) {
+      num = expr_item->val_int();
+    } else {
+      StringBuffer<MY_INT64_NUM_DECIMAL_DIGITS + 1> tmp;
+      String *res = expr_item->val_str(&tmp);
+      if (res == nullptr) {
+        num = 0;
+      } else {
+        int err = 0;
+        num = my_strntoll(res->charset(), res->ptr(), res->length(), 10, nullptr,
+                          &err);
+        if (err) {
+          string expr_str(res->c_ptr());
+          return tse_process_string_default_value(column, expr_str, mem_start, mem_end, false);
+        }
+      }
+    }
+  }
 
-  uint32_t num_len = to_string(new_field->val_int()).length();
+  uint32_t num_len = to_string(num).length();
   column->default_text = (char *)tse_ddl_alloc_mem(mem_start, mem_end, num_len + 1);
   if (column->default_text == nullptr) {
     tse_log_error("alloc mem for bit default text failed, mem_start is null");
     return false;
   }
-
-  sprintf(column->default_text, "%llu", new_field->val_int());;
+  sprintf(column->default_text, "%llu", num);
   column->default_text[num_len] = '\0';
 
   return true;
 }
 
 static bool tse_get_datetime_default_value(
-    TcDb__TseDDLColumnDef *column, Field *field, const dd::Column *col_obj, 
-    char **mem_start, char *mem_end, tse_column_option_set_bit *option_set) {
+    TcDb__TseDDLColumnDef *column, Field *field, const Create_field *fld, const dd::Column *col_obj,
+    char **mem_start, char *mem_end, tse_column_option_set_bit *option_set, bool is_expr_value) {
   if (field->has_insert_default_datetime_value_expression()) {
     // current_timestamp (or with ON UPDATE CURRENT_TIMESTAMP) 
     option_set->is_default_func =  1;
@@ -614,16 +665,29 @@ static bool tse_get_datetime_default_value(
     // ON UPDATE CURRENT_TIMESTAMP without default_value
     return true;
   }
-  const uchar *mysql_ptr = (const uchar *)(col_obj->default_value().data());
-  const field_cnvrt_aux_t* mysql_info = get_auxiliary_for_field_convert(field, field->type());
-  assert(mysql_info != NULL);
-
   date_detail_t date_detail;
   // decode mysql datetime from binary
   MYSQL_TIME ltime;
   memset(&ltime, 0, sizeof(MYSQL_TIME));
   memset(&date_detail, 0, sizeof(date_detail_t));
-  decode_mysql_datetime(ltime, mysql_info, mysql_ptr, field);
+  const field_cnvrt_aux_t* mysql_info = get_auxiliary_for_field_convert(field, field->type());
+  assert(mysql_info != NULL);
+  string expr_str;
+  if (is_expr_value) {
+    String str;
+    if (fld) {
+      expr_str = (fld->m_default_val_expr->expr_item->val_str(&str))->c_ptr();
+    } else {
+      expr_str = (field->m_default_val_expr->expr_item->val_str(&str))->c_ptr();
+    }
+    MYSQL_TIME_STATUS status;
+    str_to_datetime(expr_str.c_str(), expr_str.length(), &ltime, TIME_FRAC_TRUNCATE | TIME_FUZZY_DATE,
+      &status);
+  } else {
+    expr_str = const_cast<char *>(col_obj->default_value_utf8().data());
+    const uchar *mysql_ptr = (const uchar *)(col_obj->default_value().data());
+    decode_mysql_datetime(ltime, mysql_info, mysql_ptr, field);
+  }
 
   int ret = assign_mysql_date_detail(mysql_info->mysql_field_type, ltime, &date_detail);
   if (ret != CT_SUCCESS) {
@@ -638,27 +702,59 @@ static bool tse_get_datetime_default_value(
     memcpy(column->default_text, tmp_zero_date, strlen(tmp_zero_date) + 1); 
     return true;
   }
-
   if (field->real_type() == MYSQL_TYPE_TIME2) {
-    char * tmp_value = const_cast<char *>(col_obj->default_value_utf8().data());
     column->default_text = (char *)tse_ddl_alloc_mem(mem_start, mem_end,
-    sizeof(char) * (strlen(tmp_value) + sizeof("1900-01-01 ") + 1));
+                                                     sizeof(char) * (expr_str.length() + sizeof("1900-01-01 ") + 1));
     assert(column->default_text != NULL);
-    sprintf(column->default_text, "1900-01-01 %s", tmp_value);
-  } else if (field->real_type() == MYSQL_TYPE_TIMESTAMP2) {
+    sprintf(column->default_text, "1900-01-01 %s", expr_str.c_str());
+  } else if (!is_expr_value && field->real_type() == MYSQL_TYPE_TIMESTAMP2) {
     char tmp_timestamp[MAX_DATE_STRING_REP_LENGTH];
     int len = my_datetime_to_str(ltime, tmp_timestamp, field->decimals());
     column->default_text = (char *)tse_ddl_alloc_mem(mem_start, mem_end, len + 1);
     assert(column->default_text != NULL);
-    memset(column->default_text, 0, len + 1); 
-    memcpy(column->default_text, tmp_timestamp, len); 
+    memset(column->default_text, 0, len + 1);
+    memcpy(column->default_text, tmp_timestamp, len);
+    column->default_text[len] = '\0';
   } else {
-    column->default_text = const_cast<char *>(col_obj->default_value_utf8().data());
+    column->default_text = (char *)tse_ddl_alloc_mem(mem_start, mem_end, expr_str.length() + 1);
+    strncpy(column->default_text, expr_str.c_str(), expr_str.length() + 1);
   }
-
   return true;
 }
 
+static int tse_prepare_enum_field(THD *thd, Field *field, const Create_field *fld,
+                                  const CHARSET_INFO *field_cs) {
+  int is_enum = 0;
+  String default_str;
+  String *def;
+  Create_field* sql_field;
+  // fld == nullptr 为create，此时field_charset 为空值需处理置位
+  if (fld == nullptr) {
+    Create_field sql_field_local(field, field);
+    if (!field_cs) {
+      sql_field_local.charset = field_cs;
+    }
+    sql_field = sql_field_local.clone(thd->mem_root);
+  } else {
+    // fld != nullptr 为alter，此时field_charset 有值不用置位
+    sql_field = const_cast<Create_field *>(fld);
+  }
+  if (sql_field->constant_default != nullptr) {
+    def = sql_field->constant_default->val_str(&default_str);
+  } else {
+    def = sql_field->m_default_val_expr->expr_item->val_str(&default_str);
+  }
+  if (fld == nullptr) {
+    // 修改ENUM default带charset 
+    // 或设置了全局charset找不到enum_index
+    // 判断当前charset与field charset是否一致
+    if(field_cs == nullptr || strcmp(def->charset()->csname, field_cs->csname) != 0) {
+      sql_field->charset = def->charset();
+    }
+  }
+  is_enum = tse_prepare_enum_field_impl(thd, sql_field, def);
+  return is_enum;
+}
 
 static bool tse_get_enum_default_value(
     THD *thd, TcDb__TseDDLColumnDef *column, const dd::Column *col_obj, Field *field, const Create_field *fld,
@@ -666,25 +762,8 @@ static bool tse_get_enum_default_value(
   int is_enum;
   column->is_unsigned = 1;
   column->datatype->datatype = column->datatype->size == 1 ? TSE_DDL_TYPE_TINY : TSE_DDL_TYPE_SHORT;
-  // fld == nullptr 为create，此时field_charset 为空值需处理置位
-  if (fld == nullptr) {
-    Create_field sql_field(field, field);
-    sql_field.charset = field_cs;
-    // 修改ENUM default带charset 
-    // 或设置了全局charset找不到enum_index
-    if (sql_field.constant_default != nullptr) {
-      String default_str;
-      String *def = sql_field.constant_default->val_str(&default_str);
-      // 判断当前charset与field charset是否一致
-      if(field_cs == nullptr || strcmp(def->charset()->csname, field_cs->csname) != 0) {
-        sql_field.charset = def->charset();
-      }
-    }
-    is_enum = tse_prepare_enum_field(thd, &sql_field);
-  } else {
-    // fld != nullptr 为alter，此时field_charset 有值不用置位
-    is_enum = tse_prepare_enum_field(thd, const_cast<Create_field *>(fld));
-  }
+
+  is_enum = tse_prepare_enum_field(thd, field, fld, field_cs);
 
   if (is_enum == TSE_ENUM_DEFAULT_INVALID) {
     return false;
@@ -702,6 +781,38 @@ static bool tse_get_enum_default_value(
   return true;
 }
 
+static bool tse_prepare_set_field(THD *thd, Field *field, const Create_field *fld, const CHARSET_INFO *field_cs,
+                                  ulonglong *set_bitmap, TcDb__TseDDLColumnDef *column) {
+  bool is_get_set_bitmap = 0;
+  String default_str;
+  String *def;
+  Create_field* sql_field;
+  // fld == nullptr 为create，此时field_charset 为空值需处理置位
+  if (fld == nullptr) {
+    Create_field sql_field_local(field, field);
+    if (!field_cs) {
+      sql_field_local.charset = field_cs;
+    }
+    sql_field = sql_field_local.clone(thd->mem_root);
+  } else {
+    // fld != nullptr 为alter，此时field_charset 有值不用置位
+    sql_field = const_cast<Create_field *>(fld);
+  }
+  if (sql_field->constant_default != nullptr) {
+    def = sql_field->constant_default->val_str(&default_str);
+  } else {
+    def = sql_field->m_default_val_expr->expr_item->val_str(&default_str);
+  }
+  if (fld == nullptr) {
+    if(field_cs == nullptr || strcmp(def->charset()->csname, field_cs->csname) != 0) {
+      sql_field->charset = def->charset();
+    }
+  }
+
+  is_get_set_bitmap = tse_prepare_set_field_impl(thd, sql_field, set_bitmap, def, column);
+  return is_get_set_bitmap;
+}
+
 static bool tse_get_set_default_value(
     THD *thd, TcDb__TseDDLColumnDef *column, Field *field, const Create_field *fld, char **mem_start, 
     char *mem_end, const CHARSET_INFO *field_cs) {
@@ -711,24 +822,7 @@ static bool tse_get_set_default_value(
     column->is_unsigned = 1;
   }
   // fld == nullptr 为create，此时field_charset 为空值需处理置位
-  if (fld == nullptr) {
-    Create_field sql_field(field, field);
-    sql_field.charset = field_cs;
-    // 修改ENUM default带charset 
-    // 或设置了全局charset找不到enum_index
-    if (sql_field.constant_default != nullptr) {
-      String default_str;
-      String *def = sql_field.constant_default->val_str(&default_str);
-      // 判断当前charset与field charset是否一致
-      if(field_cs == nullptr || strcmp(def->charset()->csname, field_cs->csname) != 0) {
-        sql_field.charset = def->charset();
-      }
-    }
-    is_get_set_bitmap = tse_prepare_set_field(thd, &sql_field, &set_bitmap, column);
-  } else {
-    // fld != nullptr 为alter，此时field_charset 有值不用置位
-    is_get_set_bitmap = tse_prepare_set_field(thd, const_cast<Create_field *>(fld), &set_bitmap, column);
-  } 
+  is_get_set_bitmap = tse_prepare_set_field(thd, field, fld, field_cs, &set_bitmap, column);
 
   if (!is_get_set_bitmap) {
     return false;
@@ -743,11 +837,26 @@ static bool tse_get_set_default_value(
   return true;
 }
 
-static void tse_get_string_default_value(
+static bool tse_verify_string_default_length(TcDb__TseDDLColumnDef *column, String* default_str, Field *field,
+                                             const Create_field *fld) {
+  if (column->datatype->datatype == TSE_DDL_TYPE_CLOB) {
+    return true;
+  }
+  const CHARSET_INFO* col_charset = fld ? fld->charset : field->charset();
+  int max_char_count = column->datatype->size / col_charset->mbmaxlen;
+  int default_str_char_count = default_str->numchars();
+  if (default_str_char_count > max_char_count) {
+    my_error(ER_INVALID_DEFAULT, MYF(0), column->name);
+    return false;
+  }
+  return true;
+}
+
+static bool tse_get_string_default_value(
     TcDb__TseDDLColumnDef *column, Field *field, const dd::Column *col_obj, const Create_field *fld,
-    char **mem_start, char *mem_end) {
+    char **mem_start, char *mem_end, bool is_blob_type) {
   char *field_default_string = nullptr;
-  if (fld == nullptr || (fld && fld->constant_default == nullptr)) {
+  if (fld == nullptr) {
     if (!field->m_default_val_expr) {
       if (field->real_type() == MYSQL_TYPE_STRING) {
         field_default_string = const_cast<char *>(col_obj->default_value().data());
@@ -756,19 +865,64 @@ static void tse_get_string_default_value(
       }
     } else {
       String tmp_string;
+      String* tmp_string_ptr;
       assert(field->m_default_val_expr);
-      field_default_string = (field->m_default_val_expr->expr_item->val_str(&tmp_string))->c_ptr();
+      tmp_string_ptr = field->m_default_val_expr->expr_item->val_str(&tmp_string);
+      if (!is_blob_type && !tse_verify_string_default_length(column, tmp_string_ptr, field, fld)) {
+        return false;
+      }
+      field_default_string = tmp_string_ptr->c_ptr();
     }
   } else {
     // for alter table add column
     String tmp_string;
-    field_default_string = (fld->constant_default->val_str(&tmp_string))->c_ptr();
+    String* tmp_string_ptr;
+    if (fld->constant_default != nullptr) {
+      tmp_string_ptr = fld->constant_default->val_str(&tmp_string);
+    } else {
+      tmp_string_ptr = fld->m_default_val_expr->expr_item->val_str(&tmp_string);
+    }
+    if (!tse_verify_string_default_length(column, tmp_string_ptr, field, fld)) {
+        return false;
+    }
+    field_default_string = tmp_string_ptr->c_ptr();
   }
   string expr_str(field_default_string);
-  boost::algorithm::replace_all(expr_str, "'", "''");
-  column->default_text = (char *)tse_ddl_alloc_mem(mem_start, mem_end, sizeof(char) * (expr_str.length() + 1));
-  strncpy(column->default_text, expr_str.c_str(), expr_str.length() + 1);
-  return;
+  return tse_process_string_default_value(column, expr_str, mem_start, mem_end, is_blob_type);
+}
+
+static bool tse_get_numeric_default_value(
+    TcDb__TseDDLColumnDef *column, Field *field, const dd::Column *col_obj, const Create_field *fld,
+    char **mem_start, char *mem_end, bool is_expr_value)
+{
+  char *field_default_string = nullptr;
+  if (is_expr_value) {
+    String tmp_string;
+    Item* expr_item;
+    expr_item = fld ? fld->m_default_val_expr->expr_item : field->m_default_val_expr->expr_item;
+    if (expr_item->type() == Item::VARBIN_ITEM) {
+      longlong num = expr_item->val_int();
+      uint32_t num_len = to_string(num).length();
+      column->default_text = (char *)tse_ddl_alloc_mem(mem_start, mem_end, num_len + 1);
+      if (column->default_text == nullptr) {
+        tse_log_error("alloc mem for set default text failed, mem_start is null");
+        return false;
+      }
+      sprintf(column->default_text, "%llu", num);
+      column->default_text[num_len] = '\0';
+    } else {
+      field_default_string = expr_item->val_str(&tmp_string)->c_ptr();
+      column->default_text = (char *)tse_ddl_alloc_mem(mem_start, mem_end, strlen(field_default_string) + 1);
+      if (column->default_text == nullptr) {
+        tse_log_error("alloc mem for set default text failed, mem_start is null");
+        return false;
+      }
+      strncpy(column->default_text, field_default_string, strlen(field_default_string) + 1);
+    }
+  } else {
+    column->default_text = const_cast<char *>(col_obj->default_value_utf8().data());
+  }
+  return true;
 }
 
 static bool tse_check_expression_default_value(TcDb__TseDDLColumnDef *column, Field *field, const Create_field *fld,
@@ -804,6 +958,7 @@ static bool tse_check_expression_default_value(TcDb__TseDDLColumnDef *column, Fi
   return true;
 }
 
+
 static bool tse_ddl_fill_column_default_value(
   THD *thd, TcDb__TseDDLColumnDef *column, Field *field, const Create_field *fld, const dd::Column *col_obj,
   tse_column_option_set_bit *option_set, char **mem_start, char *mem_end, const CHARSET_INFO *field_cs) {
@@ -823,12 +978,14 @@ static bool tse_ddl_fill_column_default_value(
       return true;
     }
   }
- 
+
+  bool is_blob_type = false;
   switch (field->real_type()) {
     case MYSQL_TYPE_BIT:
-      TSE_RETURN_IF_ERROR(tse_get_bit_default_value(thd, column, field, mem_start, mem_end), false);
+      TSE_RETURN_IF_ERROR(tse_get_bit_default_value(thd, column, field, fld, col_obj, mem_start, mem_end, is_expr_value), false);
       break;
     case MYSQL_TYPE_BLOB:
+      is_blob_type = (column->datatype->datatype != TSE_DDL_TYPE_CLOB);
     case MYSQL_TYPE_JSON:
       if (!is_expr_value) {
         column->default_text = const_cast<char *>(col_obj->default_value_utf8().data());
@@ -836,7 +993,7 @@ static bool tse_ddl_fill_column_default_value(
       }
     case MYSQL_TYPE_STRING:
     case MYSQL_TYPE_VARCHAR:
-      tse_get_string_default_value(column, field, col_obj, fld, mem_start, mem_end);
+      TSE_RETURN_IF_ERROR(tse_get_string_default_value(column, field, col_obj, fld, mem_start, mem_end, is_blob_type), false);
       break;
     case MYSQL_TYPE_ENUM:
       TSE_RETURN_IF_ERROR(tse_get_enum_default_value(thd, column, col_obj, field, fld, mem_start, mem_end, field_cs), false);
@@ -849,10 +1006,10 @@ static bool tse_ddl_fill_column_default_value(
     case MYSQL_TYPE_DATETIME2:
     case MYSQL_TYPE_TIMESTAMP2:
     case MYSQL_TYPE_TIME2:
-      TSE_RETURN_IF_ERROR(tse_get_datetime_default_value(column, field, col_obj, mem_start, mem_end, option_set), false);
+      TSE_RETURN_IF_ERROR(tse_get_datetime_default_value(column, field, fld, col_obj, mem_start, mem_end, option_set, is_expr_value), false);
       break;
     default:
-      column->default_text = const_cast<char *>(col_obj->default_value_utf8().data());
+      TSE_RETURN_IF_ERROR(tse_get_numeric_default_value(column, field, col_obj, fld, mem_start, mem_end, is_expr_value), false);
       break;
   }
   return true;
@@ -1001,10 +1158,16 @@ static int tse_ddl_create_table_fill_foreign_key_info(TcDb__TseDDLCreateTableDef
 static void tse_fill_prefix_func_key_part(TcDb__TseDDLTableKeyPart *req_key_part,
                                           const Field *field, uint16 prefix_len) {
   req_key_part->is_func = true;
-  req_key_part->func_name = const_cast<char *>("substr");
-
-  snprintf(req_key_part->func_text, FUNC_TEXT_MAX_LEN - 1, "substr(%s,1,%d)",
-           field->field_name, prefix_len);
+  if (field->real_type() == MYSQL_TYPE_BLOB && field->charset() == &my_charset_bin &&
+      field->is_flag_set(BINARY_FLAG)) {
+    req_key_part->func_name = const_cast<char *>("substrb");
+    snprintf(req_key_part->func_text, FUNC_TEXT_MAX_LEN - 1, "substrb(%s,1,%d)",
+            field->field_name, prefix_len);
+  } else {
+    req_key_part->func_name = const_cast<char *>("substr");
+    snprintf(req_key_part->func_text, FUNC_TEXT_MAX_LEN - 1, "substr(%s,1,%d)",
+            field->field_name, prefix_len);
+  }
   return;
 }
 
@@ -1516,12 +1679,13 @@ static int fill_create_table_req_base_info(HA_CREATE_INFO *create_info, char *db
 }
 
 static int fill_create_table_req_columns_info(HA_CREATE_INFO *create_info, dd::Table *table_def, TABLE *form,
-           THD *thd, TcDb__TseDDLCreateTableDef *req, char **mem_start, char *mem_end) {
+           THD *thd, ddl_ctrl_t *ddl_ctrl, TcDb__TseDDLCreateTableDef *req, char **mem_start, char *mem_end) {
   uint32_t tse_col_idx = 0;
   uint32_t mysql_col_idx = 0;
   while (tse_col_idx < req->n_columns) {
     Field *field = form->field[mysql_col_idx];
     if (field->is_gcol()) {
+      ddl_ctrl->table_flags |= TSE_TABLE_CONTAINS_VIRCOL;
       if (field->is_virtual_gcol()) {
         mysql_col_idx++;
         req->n_columns--;
@@ -1577,7 +1741,7 @@ int fill_create_table_req(HA_CREATE_INFO *create_info, dd::Table *table_def, cha
   
   assert(form->s->row_type == create_info->row_type);
 
-  ret = fill_create_table_req_columns_info(create_info, table_def, form, thd, &req, &req_mem_start, req_mem_end);
+  ret = fill_create_table_req_columns_info(create_info, table_def, form, thd, ddl_ctrl, &req, &req_mem_start, req_mem_end);
   if (ret != 0) {
     return ret;
   }
@@ -2098,7 +2262,7 @@ static int fill_tse_alter_drop_list(Alter_inplace_info *ha_alter_info, const dd:
 }
 
 static int fill_tse_alter_create_list(THD *thd, TABLE *altered_table, Alter_inplace_info *ha_alter_info,
-  dd::Table *new_table_def, TcDb__TseDDLAlterTableDef *req, char **mem_start, char *mem_end)
+  dd::Table *new_table_def, TcDb__TseDDLAlterTableDef *req, ddl_ctrl_t *ddl_ctrl, char **mem_start, char *mem_end)
 {
   uint32_t tse_col_idx = 0;
   uint32_t mysql_col_idx = 0;
@@ -2108,6 +2272,7 @@ static int fill_tse_alter_create_list(THD *thd, TABLE *altered_table, Alter_inpl
 
     /* Generate Columns Not Processed */
     if (fld->is_gcol()) {
+      ddl_ctrl->table_flags |= TSE_TABLE_CONTAINS_VIRCOL;
       if (fld->is_virtual_gcol()) {
         req->n_create_list--;
         mysql_col_idx++;
@@ -2160,12 +2325,11 @@ static void fill_sys_cur_timestamp(THD *thd, TcDb__TseDDLAlterTableDef *req) {
   return;
 }
 
-static void fill_alter_list_4alter_table(TABLE *altered_table, dd::Table *new_table_def, Alter_inplace_info *ha_alter_info,
+static void fill_alter_list_4alter_table(dd::Table *new_table_def, Alter_inplace_info *ha_alter_info,
             TcDb__TseDDLAlterTableDef *req, size_t rename_cols, uint32_t thd_id, char **req_mem_start, char *req_mem_end) {
   TcDb__TseDDLAlterTableAlterColumn *req_alter = NULL;
   uint32_t copy_rm_num = 0;
   for (uint32_t i = 0; i < req->n_alter_list - rename_cols; i++) {
-    const dd::Column *new_col = new_table_def->get_column(altered_table->s->field[i]->field_name);
     req_alter = req->alter_list[i];
     
     const Alter_column *alter_column = ha_alter_info->alter_info->alter_list.at((size_t)i);
@@ -2187,16 +2351,11 @@ static void fill_alter_list_4alter_table(TABLE *altered_table, dd::Table *new_ta
         req->alter_list[copy_rm_index]->new_name = const_cast<char *>(alter_column->m_new_name);
         req->alter_list[copy_rm_index]->type = req_alter->type;
         copy_rm_num++;
+        continue;
       }
-      if (new_col->has_no_default()) {  // drop default
-        req_alter->has_no_default = true;
-      } else {                                   // set default
-        if (new_col->is_default_value_null()) {  // default null
-          req_alter->is_default_null = true;
-        } else {
-          req_alter->default_text = const_cast<char *>(new_col->default_value_utf8().data());
-        }
-      }
+      const dd::Column *new_col = new_table_def->get_column(alter_column->name);
+      req_alter->has_no_default = new_col->has_no_default() ? true : false;
+      req_alter->is_default_null = new_col->is_default_value_null() ? true : false;
     }
   }
 }
@@ -2238,12 +2397,12 @@ int fill_alter_table_req(TABLE *altered_table, Alter_inplace_info *ha_alter_info
   }
   
   if (req.n_alter_list > 0) {
-    fill_alter_list_4alter_table(altered_table, new_table_def, ha_alter_info, &req,
+    fill_alter_list_4alter_table(new_table_def, ha_alter_info, &req,
                                  rename_cols, ddl_ctrl->tch.thd_id, &req_mem_start, req_mem_end);
   }
 
   TSE_RETURN_IF_ERROR((fill_tse_alter_create_list(thd, altered_table, ha_alter_info,
-                       new_table_def, &req, &req_mem_start, req_mem_end) == CT_SUCCESS), CT_ERROR);
+                       new_table_def, &req, ddl_ctrl, &req_mem_start, req_mem_end) == CT_SUCCESS), CT_ERROR);
 
   // 创建索引相关逻辑填充
   TSE_RETURN_IF_ERROR(tse_ddl_fill_add_key(thd, altered_table, &req, ha_alter_info, req.user), true);

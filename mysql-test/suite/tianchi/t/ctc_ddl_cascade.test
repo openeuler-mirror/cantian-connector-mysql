@@ -1,18 +1,3 @@
-#
-#  Copyright (C) 2023. Huawei Technologies Co., Ltd. All rights reserved.
-
-#   This program is free software; you can redistribute it and/or modify
-#   it under the terms of the GNU General Public License, version 2.0,
-#   as published by the Free Software Foundation.
-
-#   This program is distributed in the hope that it will be useful,
-#   but WITHOUT ANY WARRANTY; without even the implied warranty of
-#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#   GNU General Public License, version 2.0, for more details.
-
-#   You should have received a copy of the GNU General Public License
-#   along with this program; if not, write to the Free Software
-#   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
 CREATE DATABASE IF NOT EXISTS CASCADE_TEST;
 USE CASCADE_TEST;
 
@@ -264,6 +249,538 @@ INSERT INTO `t1` VALUES (1, 'bbb'), (3, 'bbb');
 INSERT INTO `t2` VALUES (100, 1, 'bbb');
 SET SESSION foreign_key_checks=1;
 UPDATE IGNORE `t1` SET a = 3; 
+drop table t1,t2;
+
+drop table if exists t4;
+drop table if exists t3;
+create table t1(a int primary key);
+create table t2(a int primary key);
+create table t3(a int, constraint fk_1 foreign key(a) references t1(a) on update cascade, constraint fk_2 foreign key(a) references t2(a) on update cascade);
+insert into t1 values(1);
+insert into t2 values(1);
+insert into t3 values(1);
+--error 1452
+update t1 set a = 2;
+--error 1452
+update t2 set a = 2;
+drop table t1,t2,t3;
+
+DROP TABLE IF EXISTS T1;
+DROP TABLE IF EXISTS T2;
+CREATE TABLE T1(A INT UNIQUE);
+CREATE TABLE T2(A INT UNIQUE NOT NULL);
+ALTER TABLE T2 ADD FOREIGN KEY FF(A) REFERENCES T1(A) ON UPDATE CASCADE;
+INSERT INTO T1 VALUES(1);
+INSERT INTO T2 VALUES(1);
+--error 1451
+UPDATE T1 SET A = NULL WHERE A = 1;
+DROP TABLE T1,T2;
+
+drop table if exists t1;
+create table t1(
+id int primary key,
+pid int,
+index(pid),
+foreign key(pid) references t1(id) on delete cascade) engine=CTC;
+insert into t1 values(0,0),(1,0),(2,1),(3,2),(4,3),(5,4),(6,5),(7,6),
+(8,7),(9,8),(10,9),(11,10),(12,11),(13,12),(14,13),(15,14);
+--error 3008
+delete from t1 where id = 0;
+drop table t1;
+
+DROP TABLE IF EXISTS T1;
+DROP TABLE IF EXISTS T2;
+DROP TABLE IF EXISTS T3;
+DROP TABLE IF EXISTS T4;
+DROP TABLE IF EXISTS T5;
+DROP TABLE IF EXISTS T6;
+DROP TABLE IF EXISTS T7;
+DROP TABLE IF EXISTS T8;
+DROP TABLE IF EXISTS T9;
+DROP TABLE IF EXISTS T10;
+DROP TABLE IF EXISTS T11;
+DROP TABLE IF EXISTS T12;
+DROP TABLE IF EXISTS T13;
+DROP TABLE IF EXISTS T14;
+DROP TABLE IF EXISTS T15;
+DROP TABLE IF EXISTS T16;
+CREATE TABLE T1(A INT UNIQUE);
+CREATE TABLE T2(A INT UNIQUE, FOREIGN KEY(A) REFERENCES T1(A) ON UPDATE CASCADE);
+CREATE TABLE T3(A INT UNIQUE, FOREIGN KEY(A) REFERENCES T2(A) ON UPDATE CASCADE);
+CREATE TABLE T4(A INT UNIQUE, FOREIGN KEY(A) REFERENCES T3(A) ON UPDATE CASCADE);
+CREATE TABLE T5(A INT UNIQUE, FOREIGN KEY(A) REFERENCES T4(A) ON UPDATE CASCADE);
+CREATE TABLE T6(A INT UNIQUE, FOREIGN KEY(A) REFERENCES T5(A) ON UPDATE CASCADE);
+CREATE TABLE T7(A INT UNIQUE, FOREIGN KEY(A) REFERENCES T6(A) ON UPDATE CASCADE);
+CREATE TABLE T8(A INT UNIQUE, FOREIGN KEY(A) REFERENCES T7(A) ON UPDATE CASCADE);
+CREATE TABLE T9(A INT UNIQUE, FOREIGN KEY(A) REFERENCES T8(A) ON UPDATE CASCADE);
+CREATE TABLE T10(A INT UNIQUE, FOREIGN KEY(A) REFERENCES T9(A) ON UPDATE CASCADE);
+CREATE TABLE T11(A INT UNIQUE, FOREIGN KEY(A) REFERENCES T10(A) ON UPDATE CASCADE);
+CREATE TABLE T12(A INT UNIQUE, FOREIGN KEY(A) REFERENCES T11(A) ON UPDATE CASCADE);
+CREATE TABLE T13(A INT UNIQUE, FOREIGN KEY(A) REFERENCES T12(A) ON UPDATE CASCADE);
+CREATE TABLE T14(A INT UNIQUE, FOREIGN KEY(A) REFERENCES T13(A) ON UPDATE CASCADE);
+CREATE TABLE T15(A INT UNIQUE, FOREIGN KEY(A) REFERENCES T14(A) ON UPDATE CASCADE);
+CREATE TABLE T16(A INT UNIQUE, FOREIGN KEY(A) REFERENCES T15(A) ON UPDATE CASCADE);
+INSERT INTO T1 VALUES(1);
+INSERT INTO T2 VALUES(1);
+INSERT INTO T3 VALUES(1);
+INSERT INTO T4 VALUES(1);
+INSERT INTO T5 VALUES(1);
+INSERT INTO T6 VALUES(1);
+INSERT INTO T7 VALUES(1);
+INSERT INTO T8 VALUES(1);
+INSERT INTO T9 VALUES(1);
+INSERT INTO T10 VALUES(1);
+INSERT INTO T11 VALUES(1);
+INSERT INTO T12 VALUES(1);
+INSERT INTO T13 VALUES(1);
+INSERT INTO T14 VALUES(1);
+INSERT INTO T15 VALUES(1);
+INSERT INTO T16 VALUES(1);
+--error 3008
+UPDATE T1 SET A = 2 WHERE A = 1;
+drop table T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16;
+
+DROP TABLE IF EXISTS T1;
+DROP TABLE IF EXISTS T2;
+CREATE TABLE T1(A DECIMAL(20,5) UNIQUE);
+CREATE TABLE T2(A DECIMAL(19,2) UNIQUE);
+ALTER TABLE T2 ADD FOREIGN KEY FF(A) REFERENCES T1(A) ON UPDATE CASCADE;
+SET foreign_key_checks = 0;
+insert into T1 values(1);
+insert into T2 values(1);
+SET foreign_key_checks = 1;
+update T1 set a = 1.2345678;
+select * from T1;
+select * from T2;
+DROP TABLE T1,T2;
+
+DROP TABLE IF EXISTS T1,T2;
+CREATE TABLE T1(A DECIMAL(20,5) UNIQUE);
+CREATE TABLE T2(A DECIMAL(20,3) UNIQUE);
+ALTER TABLE T2 ADD FOREIGN KEY FF(A) REFERENCES T1(A) ON DELETE SET NULL;
+SET foreign_key_checks = 0;
+insert into T1 values(1);
+insert into T2 values(1);
+SET foreign_key_checks = 1;
+DELETE FROM T1 WHERE A = 1;
+SELECT * FROM T1;
+SELECT * FROM T2;
+DROP TABLE T1,T2;
+
+DROP TABLE IF EXISTS T1,T2;
+CREATE TABLE T1(A DECIMAL(20,5) UNIQUE);
+CREATE TABLE T2(A DECIMAL(18,5) UNIQUE);
+ALTER TABLE T2 ADD FOREIGN KEY FF(A) REFERENCES T1(A) ON DELETE SET NULL;
+SET foreign_key_checks = 0;
+insert into T1 values(1);
+insert into T2 values(1);
+SET foreign_key_checks = 1;
+DELETE FROM T1 WHERE A = 1;
+SELECT * FROM T1;
+SELECT * FROM T2;
+DROP TABLE T1,T2;
+
+DROP TABLE IF EXISTS T1,T2;
+CREATE TABLE T1(A DECIMAL(20,5) UNIQUE);
+CREATE TABLE T2(A DECIMAL(20,3) UNIQUE);
+ALTER TABLE T2 ADD FOREIGN KEY FF(A) REFERENCES T1(A) ON DELETE CASCADE;
+SET foreign_key_checks = 0;
+insert into T1 values(1);
+insert into T2 values(1);
+SET foreign_key_checks = 1;
+DELETE FROM T1 WHERE A = 1;
+SELECT * FROM T1;
+SELECT * FROM T2;
+DROP TABLE T1,T2;
+
+DROP TABLE IF EXISTS T1,T2;
+CREATE TABLE T1(A DECIMAL(20,5) UNIQUE);
+CREATE TABLE T2(A DECIMAL(18,5) UNIQUE);
+ALTER TABLE T2 ADD FOREIGN KEY FF(A) REFERENCES T1(A) ON DELETE CASCADE;
+SET foreign_key_checks = 0;
+insert into T1 values(1);
+insert into T2 values(1);
+SET foreign_key_checks = 1;
+DELETE FROM T1 WHERE A = 1;
+SELECT * FROM T1;
+SELECT * FROM T2;
+DROP TABLE T1,T2;
+
+DROP TABLE IF EXISTS T1,T2;
+CREATE TABLE T1(A DECIMAL(20,5) UNIQUE);
+CREATE TABLE T2(A DECIMAL(20,3) UNIQUE);
+ALTER TABLE T2 ADD FOREIGN KEY FF(A) REFERENCES T1(A) ON UPDATE CASCADE;
+SET foreign_key_checks = 0;
+insert into T1 values(1);
+insert into T2 values(1);
+SET foreign_key_checks = 1;
+UPDATE T1 set A = 1.2345678;
+SELECT * FROM T1;
+SELECT * FROM T2;
+DROP TABLE T1,T2;
+
+DROP TABLE IF EXISTS T1,T2;
+CREATE TABLE T1(A DECIMAL(20,5) UNIQUE);
+CREATE TABLE T2(A DECIMAL(18,5) UNIQUE);
+ALTER TABLE T2 ADD FOREIGN KEY FF(A) REFERENCES T1(A) ON UPDATE CASCADE;
+SET foreign_key_checks = 0;
+insert into T1 values(1);
+insert into T2 values(1);
+SET foreign_key_checks = 1;
+UPDATE T1 set A = 1.2345678;
+SELECT * FROM T1;
+SELECT * FROM T2;
+DROP TABLE T1,T2;
+
+DROP TABLE IF EXISTS T1,T2;
+CREATE TABLE T1(A DECIMAL(20,5) UNIQUE);
+CREATE TABLE T2(A DECIMAL(20,3) UNIQUE);
+ALTER TABLE T2 ADD FOREIGN KEY FF(A) REFERENCES T1(A) ON UPDATE SET NULL;
+SET foreign_key_checks = 0;
+insert into T1 values(1);
+insert into T2 values(1);
+SET foreign_key_checks = 1;
+UPDATE T1 set A = 1.2345678;
+SELECT * FROM T1;
+SELECT * FROM T2;
+DROP TABLE T1,T2;
+
+DROP TABLE IF EXISTS T1,T2;
+CREATE TABLE T1(A DECIMAL(20,5) UNIQUE);
+CREATE TABLE T2(A DECIMAL(18,5) UNIQUE);
+ALTER TABLE T2 ADD FOREIGN KEY FF(A) REFERENCES T1(A) ON UPDATE SET NULL;
+SET foreign_key_checks = 0;
+insert into T1 values(1);
+insert into T2 values(1);
+SET foreign_key_checks = 1;
+UPDATE T1 set A = 1.2345678;
+SELECT * FROM T1;
+SELECT * FROM T2;
+DROP TABLE T1,T2;
+
+DROP TABLE IF EXISTS T1,T2;
+CREATE TABLE T1(A DECIMAL(20,5), B DECIMAL(20,5), UNIQUE KEY(A, B));
+CREATE TABLE T2(A DECIMAL(18,5), B DECIMAL(20,5));
+ALTER TABLE T2 ADD FOREIGN KEY FF(A, B) REFERENCES T1(A, B) ON DELETE SET NULL;
+SET foreign_key_checks = 0;
+insert into T1 values(1, 1);
+insert into T2 values(1, 1);
+SET foreign_key_checks = 1;
+DELETE FROM T1 WHERE A = 1;
+SELECT * FROM T1;
+SELECT * FROM T2;
+DROP TABLE T1,T2;
+
+DROP TABLE IF EXISTS T1,T2;
+CREATE TABLE T1(A DECIMAL(20,5), B DECIMAL(20,5), UNIQUE KEY(A, B));
+CREATE TABLE T2(A DECIMAL(20,5), B DECIMAL(20,5));
+ALTER TABLE T2 ADD FOREIGN KEY FF(A, B) REFERENCES T1(A, B) ON DELETE SET NULL;
+SET foreign_key_checks = 0;
+insert into T1 values(1, 1);
+insert into T2 values(1, 1);
+SET foreign_key_checks = 1;
+DELETE FROM T1 WHERE A = 1;
+SELECT * FROM T1;
+SELECT * FROM T2;
+DROP TABLE T1,T2;
+
+DROP TABLE IF EXISTS T1,T2;
+CREATE TABLE T1(A DECIMAL(20,5), B DECIMAL(20,5), UNIQUE KEY(A, B));
+CREATE TABLE T2(A DECIMAL(20,3), B DECIMAL(20,5));
+ALTER TABLE T2 ADD FOREIGN KEY FF(A, B) REFERENCES T1(A, B) ON DELETE SET NULL;
+SET foreign_key_checks = 0;
+insert into T1 values(1, 1);
+insert into T2 values(1, 1);
+SET foreign_key_checks = 1;
+DELETE FROM T1 WHERE A = 1;
+SELECT * FROM T1;
+SELECT * FROM T2;
+DROP TABLE T1,T2;
+
+drop table if exists t1, t2;
+create table t1(id FLOAT(11,5) primary key);
+create table t2(id FLOAT(11,2) primary key, CONSTRAINT fk_1 FOREIGN KEY (id) REFERENCES t1 (id) on delete set default on update cascade);
+insert into t1 values(1);
+insert into t2 values(1);
+select * from t1;
+select * from t2;
+drop table t1,t2;
+
+drop table if exists f1,c1;
+create table f1(a1 char(1) primary key DEFAULT '');
+create table c1(a1 char(1) DEFAULT '', CONSTRAINT fk_1 FOREIGN KEY (a1) REFERENCES f1 (a1) on update cascade);
+insert into f1(a1) values(1);
+insert into c1(a1) values(1);
+update f1 set a1 = '' where a1 = 1;
+select * from f1;
+select * from c1;
+drop table f1,c1;
+
+drop table if exists f1,c1;
+create table f1(a1 varchar(20) primary key);
+create table c1(a1 varchar(20), CONSTRAINT fk_1 FOREIGN KEY (a1) REFERENCES f1 (a1) on update cascade);
+insert into f1(a1) values('sssa');
+insert into c1(a1) values('sssa');
+update f1 set a1 = 'cddddsd';
+select * from f1;
+select * from c1;
+update f1 set a1 = 'daaass';
+select * from f1;
+select * from c1;
+drop table f1,c1;
+
+drop table if exists t1,t2;
+create table t1(a int NOT NULL AUTO_INCREMENT primary key, b bit(7) ,unique(b));
+create table t2(c varchar(20), d bit(5) not null, foreign key(d) references t1(b) on update cascade);
+insert into t1(b) values(b'1');
+insert into t2 values('jack', b'1');
+update t1 set b = b'1111111';
+select * from t1;
+select * from t2;
+drop table t1,t2;
+
+drop table if exists t1,t2;
+create table t1(a int NOT NULL AUTO_INCREMENT primary key, b bit(9) ,unique(b));
+create table t2(c varchar(20), d bit(8) not null, foreign key(d) references t1(b) on update cascade);
+insert into t1(b) values(b'1');
+--error 1452
+insert into t2 values('jack', b'1');
+drop table t1,t2;
+
+drop table if exists t1,t2;
+create table t1(a int,b enum('1',''),unique(b));
+create table t2(c varchar(20), d enum('1','a','*') not null default ('*'), foreign key(d) references t1(b) on update cascade);
+insert into t1 values(1,'1');
+insert into t2 values('bob','1');
+select * from t1;
+select * from t2;
+drop table t1,t2;
+
+drop table if exists T1,T2;
+create table T1(id decimal(20, 5) primary key);
+create table T2(id decimal(20, 3), constraint FK_ID foreign key (id) references T1(id));
+insert into T1 values(7);
+--error 1452
+insert into T2 values(7);
+drop table T1,T2;
+
+drop table if exists T1,T2;
+create table T1(id decimal(20, 5) unique key);
+create table T2(id decimal(20, 3), constraint FK_ID foreign key (id) references T1(id));
+insert into T2 values(NULL);
+select * from T2;
+drop table T1,T2;
+
+drop table if exists T1,T2;
+set foreign_key_checks = 0;
+create table T1(id decimal(20, 5) primary key);
+create table T2(id decimal(20, 3), constraint FK_ID foreign key (id) references T1(id));
+insert into T1 values(7);
+insert into T2 values(7);
+select * from T1;
+select * from T2;
+set foreign_key_checks = 1;
+drop table T1,T2;
+
+drop table if exists t1,t2;
+CREATE TABLE t1 (
+datetime DATETIME(6),
+UNIQUE KEY datetime (datetime)
+);
+CREATE TABLE t2 (
+datetime DATETIME(5),
+CONSTRAINT fk_datetime FOREIGN KEY (datetime) REFERENCES t1(datetime)
+);
+insert into t1 values('2018-01-18 00:00:00');
+insert into t2 values('2018-01-18 00:00:00');
+select * from t1;
+select * from t2;
+drop table t1,t2;
+
+drop table if exists t1,t2;
+CREATE TABLE t1 (
+datetime DATETIME(5),
+UNIQUE KEY datetime (datetime)
+);
+CREATE TABLE t2 (
+datetime DATETIME(4),
+CONSTRAINT fk_datetime FOREIGN KEY (datetime) REFERENCES t1(datetime)
+);
+insert into t1 values('2018-01-18 00:00:00');
+--error 1452
+insert into t2 values('2018-01-18 00:00:00');
+drop table t1,t2;
+
+drop table if exists t1,t2;
+CREATE TABLE t1 (
+timestamp TIMESTAMP(6),
+UNIQUE KEY timestamp (timestamp)
+);
+CREATE TABLE t2 (
+timestamp TIMESTAMP(5),
+CONSTRAINT fk_timestamp FOREIGN KEY (timestamp) REFERENCES t1(timestamp)
+);
+insert into t1 values('2018-01-18 00:00:00');
+insert into t2 values('2018-01-18 00:00:00');
+select * from t1;
+select * from t2;
+drop table t1,t2;
+
+drop table if exists t1,t2;
+CREATE TABLE t1 (
+timestamp TIMESTAMP(5),
+UNIQUE KEY timestamp (timestamp)
+);
+CREATE TABLE t2 (
+timestamp TIMESTAMP(4),
+CONSTRAINT fk_timestamp FOREIGN KEY (timestamp) REFERENCES t1(timestamp)
+);
+insert into t1 values('2018-01-18 00:00:00');
+--error 1452
+insert into t2 values('2018-01-18 00:00:00');
+drop table t1,t2;
+
+drop table if exists t1,t2;
+create table t1(a int NOT NULL AUTO_INCREMENT primary key, b decimal(65,30),unique(b));
+create table t2(c varchar(20), d decimal(65,30) not null default 1, foreign key(d) references t1(b) on update cascade);
+insert into t1 values(3,2.2250738585072014E-308);
+insert into t2 values('bob',2.2250738585072014E-308);
+insert into t2 values('grace',-2.2250738585072014E-308);
+update t1 set a = 33, b = 999.901 where b<=0;
+select * from t1;
+select * from t2;
+drop table t1,t2;
+
+drop table if exists char4, char5;
+create table char4(c2 char(255) unique key);
+create table char5(c2 char(254) unique key, CONSTRAINT fk_char5 FOREIGN KEY (c2) REFERENCES char4 (c2) on update cascade);
+insert into char4 values('a');
+insert into char5 values('a');
+--error 1451
+update char4 set c2='bbbb';
+drop table char4, char5;
+
+drop table if exists char4, char5;
+create table char4(c2 varchar(255) unique key);
+create table char5(c2 varchar(5) unique key, CONSTRAINT fk_char5 FOREIGN KEY (c2) REFERENCES char4 (c2) on update cascade);
+insert into char4 values('a');
+insert into char5 values('a');
+update char4 set c2='bbbbb';
+select * from char4;
+select * from char5;
+--error 1451
+update char4 set c2='bbbbbb';
+select * from char4;
+select * from char5;
+update char4 set c2='我的啊你不';
+select * from char4;
+select * from char5;
+--error 1451
+update char4 set c2='我的啊你不要';
+select * from char4;
+select * from char5;
+update char4 set c2='我的a你b';
+select * from char4;
+select * from char5;
+drop table char4, char5;
+
+drop table if exists t1,t2;
+create table t1(a varchar(20) unique key);
+create table t2(a varchar(20), CONSTRAINT fk_1 FOREIGN KEY (a) REFERENCES t1 (a) on update cascade);
+insert into t1 values('a');
+insert into t2 values('a');
+update t1 set a = null;
+select * from t1;
+select * from t2;
+drop table t1,t2;
+
+drop table if exists t1,t2,c_t1;
+create table t1(id varchar(255) primary key, i int AUTO_INCREMENT,unique key(i));
+create table t2(c1 varchar(255) unique key, i int AUTO_INCREMENT,unique key(i));
+create table c_t1(c1 varchar(255) unique key
+,CONSTRAINT fk_t1 FOREIGN KEY (c1) REFERENCES t1 (id) on delete set default on update cascade
+,CONSTRAINT fk_t2 FOREIGN KEY (c1) REFERENCES t2 (c1) on delete set default on update cascade);
+insert into t1(id) values('');
+insert into t2(c1) values('');
+insert into c_t1(c1) values('');
+select * from t1;
+select * from t2;
+select * from c_t1;
+select t1.i,t1.id,t2.c1 from t1,t2 where t1.i=t2.i and t1.i=1;
+--error 1452
+update t1,t2 set t1.id='a',t2.c1='b' where t1.i=t2.i and t1.i=1;
+select * from t1;
+select * from t2;
+select * from c_t1;
+drop table t1,t2,c_t1;
+
+drop table if exists t1,t2,t3;
+create table t1(a1 int, a2 int, a3 int, a4 int, a5 int, primary key(a3, a5));
+create table t2(b1 int, b2 int, b3 int, b4 int, b5 int, primary key(b2, b4));
+create table t3(c1 int, c2 int, c3 int, constraint fk_1 foreign key(c1, c2) references t1(a3, a5) on update cascade, constraint fk_2 foreign key(c2, c3) references t2(b2, b4) on update set null);
+insert into t1 values(1,1,1,1,1);
+insert into t2 values(1,1,1,1,1);
+insert into t3 values(1,1,1);
+--error 1452
+update t1 set a5 = 2, a1 = 4;
+--error 1452
+update t1 set a3 = 2, a1 = 4;
+select * from t1;
+select * from t2;
+select * from t3;
+drop table t1,t2,t3;
+
+drop table if exists t1,t2,t3;
+create table t1(a int primary key);
+create table t2(a int primary key);
+create table t3(a int, constraint fk_1 foreign key(a) references t1(a) on update cascade, constraint fk_2 foreign key(a) references t2(a) on update cascade);
+insert into t1 values(1);
+insert into t2 values(1);
+insert into t3 values(1);
+--error 1452
+update t1 set a = 2;
+--error 1452
+update t2 set a = 2;
+drop table t1,t2,t3;
+
+drop table if exists t1,t2,t3;
+create table t1(a int primary key);
+create table t2(a int primary key);
+create table t3(a int, constraint fk_1 foreign key(a) references t1(a) on update cascade, constraint fk_2 foreign key(a) references t2(a) on delete cascade);
+insert into t1 values(1);
+insert into t2 values(1);
+insert into t3 values(1);
+--error 1452
+update t1 set a = 2;
+delete from t2;
+drop table t1,t2,t3;
+
+drop table if exists t1,t2,t3;
+create table t1(a int primary key);
+create table t2(a int primary key);
+create table t3(a int, constraint fk_1 foreign key(a) references t1(a) on update cascade, constraint fk_2 foreign key(a) references t2(a) on delete set null);
+insert into t1 values(1);
+insert into t2 values(1);
+insert into t3 values(1);
+--error 1452
+update t1 set a = 2;
+delete from t2;
+drop table t1,t2,t3;
+
+drop table if exists t1,t2;
+create table t1(a int, b int, primary key(a, b));
+create table t2(a int, b int, constraint fk_1 foreign key(a, b) references t1(a, b) on update cascade);
+insert into t1 values(1, 1);
+insert into t2 values(1, 1);
+alter table t2 add constraint fk_2 foreign key(a, b) references t1(a, b) on delete set null;
+--error 1451
+delete from t1;
+--error 1452
+update t1 set a = 2, b = 2;
+alter table t2 drop foreign key fk_1;
+--error 1451
+update t1 set a = 3, b = 3;
+delete from t1;
 drop table t1,t2;
 
 DROP DATABASE CASCADE_TEST;
