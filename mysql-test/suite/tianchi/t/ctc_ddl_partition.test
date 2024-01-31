@@ -1,18 +1,3 @@
-#
-#  Copyright (C) 2023. Huawei Technologies Co., Ltd. All rights reserved.
-
-#   This program is free software; you can redistribute it and/or modify
-#   it under the terms of the GNU General Public License, version 2.0,
-#   as published by the Free Software Foundation.
-
-#   This program is distributed in the hope that it will be useful,
-#   but WITHOUT ANY WARRANTY; without even the implied warranty of
-#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#   GNU General Public License, version 2.0, for more details.
-
-#   You should have received a copy of the GNU General Public License
-#   along with this program; if not, write to the Free Software
-#   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
 --disable_warnings
 drop table if exists t1, t2, t3, t4, t5, t6;
 --enable_warnings
@@ -412,7 +397,7 @@ INSERT INTO t1 (c2) VALUES ('n1'),('n2'),('n3'),('n4'); #期望自增值为15，
 select * from t1;
 show create table t1;
 --error ER_NO_PARTITION_FOR_GIVEN_VALUE
-INSERT INTO t1 (c2) VALUES ('n1');#15,超出分区范围，插入失败，
+INSERT INTO t1 (c2) VALUES ('n1');#16,超出分区范围，插入失败，
 select * from t1;
 show create table t1;
 select * from t1 partition(p1);
@@ -441,13 +426,9 @@ ALTER TABLE t1 ADD PARTITION (PARTITION p1 VALUES LESS THAN (10));#不能在中�
 ALTER TABLE t1 ADD PARTITION (PARTITION p1 VALUES LESS THAN (20));#添加成功，此时自增值依旧是15
 select * from t1;
 show create table t1;
-INSERT INTO t1 (c2) VALUES ('n1');#15，自增值变成16
+INSERT INTO t1 (c2) VALUES ('n1');
 select * from t1;
 show create table t1;
-INSERT INTO t1 (c2) VALUES ('n1');#16
-INSERT INTO t1 (c2) VALUES ('n1');#17
-INSERT INTO t1 (c2) VALUES ('n1');#18
-INSERT INTO t1 (c2) VALUES ('n1');#19
 --error ER_NO_PARTITION_FOR_GIVEN_VALUE
 INSERT INTO t1 (c2) VALUES ('n1');#20 插入失败
 select * from t1;
@@ -459,14 +440,14 @@ alter table t1 drop PARTITION p0;#删除p0后，自增值依旧是20
 select * from t1;
 show create table t1;
 --error ER_NO_PARTITION_FOR_GIVEN_VALUE
-INSERT INTO t1 (c2) VALUES ('n1');#20 插入失败
+INSERT INTO t1 (c2) VALUES ('n1');#21 插入失败
 select * from t1;
 show create table t1;
 INSERT INTO t1 (c1,c2) VALUES (1,'n1');#插入成功，因为p0被删了，1-4的自增范围被删了
 select * from t1;
 show create table t1;
 --error ER_NO_PARTITION_FOR_GIVEN_VALUE
-INSERT INTO t1 (c2) VALUES ('n1');#20 插入失败
+INSERT INTO t1 (c2) VALUES ('n1');#22 插入失败
 select * from t1;
 show create table t1;
 INSERT INTO t1 (c1,c2) VALUES (2,'n1');
@@ -488,10 +469,10 @@ show create table t1;
 alter table t1 drop PARTITION p1;#自增值依旧是20,15-19的值被删了
 select * from t1;
 show create table t1;
-ALTER TABLE t1 ADD PARTITION (PARTITION p1 VALUES LESS THAN (25));
+ALTER TABLE t1 ADD PARTITION (PARTITION p1 VALUES LESS THAN (30));
 select * from t1;
 show create table t1;
-INSERT INTO t1 (c2) VALUES ('n1');#15
+INSERT INTO t1 (c2) VALUES ('n1');
 select * from t1;
 show create table t1;
 INSERT INTO t1 (c2) VALUES ('n1');

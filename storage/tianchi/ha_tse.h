@@ -44,7 +44,7 @@ using namespace std;
 #define _INT_TO_STR(s) #s
 #define INT_TO_STR(s) _INT_TO_STR(s)
 
-#define CTC_CLIENT_VERSION_MAIN 1
+#define CTC_CLIENT_VERSION_MAIN 3
 #define CTC_CLIENT_VERSION_MINOR 0
 #define CTC_CLIENT_VERSION_PATCH 0
 #define CTC_CLIENT_VERSION_BUGFIX 101
@@ -52,7 +52,10 @@ using namespace std;
   INT_TO_STR(CTC_CLIENT_VERSION_MAIN) \
   "." INT_TO_STR(CTC_CLIENT_VERSION_MINOR) "." INT_TO_STR(CTC_CLIENT_VERSION_PATCH) \
   "." INT_TO_STR(CTC_CLIENT_VERSION_BUGFIX)
-#define CTC_CLIENT_VERSION_NUMBER 1000000U
+
+// 版本号规则：十六进制后两位为小数点后数字，前面为小数点前数字，0x0310 --> 显示为3.16
+#define CTC_CLIENT_VERSION_NUMBER 0x0300u
+
 
 #define CT_NULL_VALUE_LEN   (uint16)0xFFFF
 #define INVALID_MAX_UINT32 (uint32_t)0xFFFFFFFF
@@ -126,7 +129,8 @@ again. */
 
 #define TMP_DIR "tmp"
 #define TSE_TMP_TABLE 1
-#define TSE_INTERNAL_TMP_TABLE 8
+#define TSE_INTERNAL_TMP_TABLE 2
+#define TSE_TABLE_CONTAINS_VIRCOL 4
 
 
 /* cond pushdown */
@@ -226,7 +230,8 @@ class Tse_share : public Handler_share {
  public:
   tianchi_cbo_stats_t *cbo_stats = nullptr;
   int used_count = 0;
-  bool need_fetch_cbo = true;
+  bool need_fetch_cbo = false;
+  time_t get_cbo_time = 0;
 };
 
 /** @brief
@@ -458,7 +463,13 @@ public:
 
   int close(void) override;  // required
 
+#ifdef METADATA_NORMALIZED
+  int write_row(uchar *buf, bool write_through = false) override;
+#endif
+
+#ifndef METADATA_NORMALIZED
   int write_row(uchar *buf) override;
+#endif
 
   int update_row(const uchar *old_data, uchar *new_data) override;
 
