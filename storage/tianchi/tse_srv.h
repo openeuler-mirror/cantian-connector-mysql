@@ -262,6 +262,7 @@ enum TSE_FUNC_TYPE {
     TSE_FUNC_TYPE_CLOSE_TABLE,
     TSE_FUNC_TYPE_CLOSE_SESSION,
     TSE_FUNC_TYPE_WRITE_ROW,
+    TSE_FUNC_TYPE_WRITE_THROUGH_ROW,
     TSE_FUNC_TYPE_UPDATE_ROW,
     TSE_FUNC_TYPE_DELETE_ROW,
     TSE_FUNC_TYPE_RND_INIT,
@@ -474,10 +475,13 @@ typedef struct {
     uint64_t no_logging : 1;
     uint64_t auto_inc_used : 1;
     uint64_t has_explicit_autoinc : 1;
+    uint64_t auto_increase : 1;
     uint64_t autoinc_lock_mode : 2;
     uint64_t auto_inc_step : 16;
     uint64_t auto_inc_offset : 16;
-    uint64_t unused_ops : 21;
+    uint64_t write_through : 1;
+    uint64_t is_create_select : 1;
+    uint64_t unused_ops : 18;
 } dml_flag_t;
 
 typedef struct {
@@ -502,6 +506,9 @@ void tse_free_buf(tianchi_handler_t *tch, uint8_t *buf);
 /* Data Manipulation Language(DML) Related Interface */
 int tse_write_row(tianchi_handler_t *tch, const record_info_t *record_info,
                   uint16_t serial_column_offset, uint64_t *last_insert_id, dml_flag_t flag);
+/* corresponds to cantian. */
+int tse_write_through_row(tianchi_handler_t *tch, const record_info_t *record_info,
+                          uint16_t serial_column_offset, uint64_t *last_insert_id, dml_flag_t flag);
 int tse_bulk_write(tianchi_handler_t *tch, const record_info_t *record_info, uint64_t rec_num,
                    uint32_t *err_pos, dml_flag_t flag, ctc_part_t *part_ids);
 int tse_update_row(tianchi_handler_t *tch, uint16_t new_record_len, const uint8_t *new_record,
@@ -572,7 +579,7 @@ int tse_rename_table(void *alter_def, ddl_ctrl_t *ddl_ctrl);
 int tse_drop_table(void *drop_def, ddl_ctrl_t *ddl_ctrl);
 
 int tse_get_max_sessions_per_node(uint32_t *max_sessions);
-int tse_get_serial_value(tianchi_handler_t *tch, uint64_t *value, uint16_t auto_inc_step, uint16_t auto_inc_offset);
+int tse_get_serial_value(tianchi_handler_t *tch, uint64_t *value, dml_flag_t flag);
 
 int close_mysql_connection(uint32_t thd_id, uint32_t mysql_inst_id);
 int tse_ddl_execute_lock_tables(tianchi_handler_t *tch, char *db_name, tse_lock_table_info *lock_info, int *err_code);

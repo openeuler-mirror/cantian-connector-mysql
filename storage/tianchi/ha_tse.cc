@@ -167,9 +167,9 @@ static MYSQL_THDVAR_UINT(lock_wait_timeout, PLUGIN_VAR_RQCMDARG,
                          "millisecond and values 0 means disable the timeout.",
                          nullptr, nullptr, 50000, 0, 1024 * 1024 * 1024, 0);
 
-static MYSQL_THDVAR_UINT(prefetch_buf_size, PLUGIN_VAR_RQCMDARG,
+static MYSQL_THDVAR_UINT(prefetch_buf_size, PLUGIN_VAR_READONLY,
                          "the maximum buf size of data/index prefetch", nullptr,
-                         nullptr, 120 * 1024, 1024, 120 * 1024, 0);
+                         nullptr, 192 * 1024, 0, 192 * 1024, 0);
 
 static MYSQL_THDVAR_DOUBLE(sampling_ratio, PLUGIN_VAR_RQCMDARG,
                            "sampling ratio used for analyzing tables", nullptr,
@@ -258,6 +258,11 @@ static const Alter_inplace_info::HA_ALTER_FLAGS CTC_ALTER_REBUILD =
     Alter_inplace_info::ADD_STORED_BASE_COLUMN |
     Alter_inplace_info::RECREATE_TABLE;
 
+static const Alter_inplace_info::HA_ALTER_FLAGS CTC_ALTER_COL_ORDER =
+      Alter_inplace_info::DROP_COLUMN |
+      Alter_inplace_info::ALTER_VIRTUAL_COLUMN_ORDER |
+      Alter_inplace_info::ALTER_STORED_COLUMN_ORDER;
+
 static const Alter_inplace_info::HA_ALTER_FLAGS PARTITION_OPERATIONS =
       Alter_inplace_info::ADD_PARTITION | Alter_inplace_info::COALESCE_PARTITION;
 
@@ -284,6 +289,18 @@ void ha_tse_set_inst_id(uint32_t inst_id) { tse_instance_id = inst_id; }
 
 handlerton *get_tse_hton() { return tse_hton; }
 
+/*
+*  Check whether it is CREATE TABLE ... SELECT
+*  reference: populate_table
+ */
+static inline bool is_create_table_check(MYSQL_THD thd) {
+  if (thd->lex->sql_command == SQLCOM_CREATE_TABLE &&
+      thd->lex->is_exec_started()) {
+    return true;
+  }
+  return false;
+}
+
 static bool user_var_set(MYSQL_THD thd, string target_str) {
   user_var_entry *var_entry;
   var_entry = find_or_nullptr(thd->user_vars, target_str);
@@ -309,6 +326,8 @@ dml_flag_t tse_get_dml_flag(THD *thd, bool is_replace, bool auto_inc_used,
   flag.dup_update= dup_update;
   flag.auto_inc_step = thd->variables.auto_increment_increment;
   flag.auto_inc_offset = thd->variables.auto_increment_offset;
+  flag.auto_increase = false;
+  flag.is_create_select = is_create_table_check(thd);
   return flag;
 }
 
@@ -409,18 +428,6 @@ static void tse_unreg_instance() {
   } else {
     tse_log_system("tse release instance id:%u success", ha_tse_get_inst_id());
   }
-}
-
-/* 
-*  Check whether it is CREATE TABLE ... SELECT
-*  reference: populate_table
-*/
-static inline bool is_create_table_check(MYSQL_THD thd) {
-  if (thd->lex->sql_command == SQLCOM_CREATE_TABLE &&
-      thd->lex->is_exec_started()) {
-        return true;
-  }
-  return false;
 }
 
 /* 
@@ -734,16 +741,6 @@ bool ha_tse::check_unsupported_operation(THD *thd, HA_CREATE_INFO *create_info) 
   if (thd->lex->alter_info && (thd->lex->alter_info->flags &
                                Alter_info::ALTER_EXCHANGE_PARTITION)) {
     my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0), "The current operation is not supported.");
-    return true;
-  }
-
-  // 不支持建表语句中是都同时包含 foreign key, select 和create的情况
-  // thd->lex->query_block->field_list_is_empty() 用于判断是否包含select
-  if (create_info != nullptr && 
-      !thd->lex->query_block->field_list_is_empty() && thd->lex->alter_info &&
-      (thd->lex->alter_info->flags & Alter_info::ADD_FOREIGN_KEY) &&
-      (create_info->db_type->flags & HTON_SUPPORTS_ATOMIC_DDL)) {
-    my_error(ER_FOREIGN_KEY_WITH_ATOMIC_CREATE_SELECT, MYF(0));
     return true;
   }
 
@@ -1367,6 +1364,11 @@ void update_member_tch(tianchi_handler_t &tch, handlerton *hton, THD *thd, bool 
     tch.msg_buf = sess_ctx->msg_buf;
   }
 #endif
+#ifdef METADATA_NORMALIZED
+  if (thd->is_reading_dd) {
+    tch.sql_stat_start = 1;
+  }
+#endif
 }
 
 // called in disconnect when current thd is no longer used
@@ -1713,7 +1715,14 @@ static int tse_close_connect(handlerton *hton, THD *thd) {
     tch.is_broadcast = true;
   }
 
-  int ret = tse_close_session(&tch);
+  tianchi_handler_t local_tch;
+  memset(&local_tch, 0, sizeof(local_tch));
+  local_tch.inst_id = tch.inst_id;
+  local_tch.sess_addr = tch.sess_addr;
+  local_tch.thd_id = tch.thd_id;
+  local_tch.is_broadcast = tch.is_broadcast;
+
+  int ret = tse_close_session(&local_tch);
   release_sess_ctx(sess_ctx, hton, thd);
   return convert_tse_error_code_to_mysql((ct_errno_t)ret);
 }
@@ -1732,7 +1741,13 @@ static void tse_kill_connection(handlerton *hton, THD *thd) {
     return;
   }
 
-  tse_kill_session(&tch);
+  tianchi_handler_t local_tch;
+  memset(&local_tch, 0, sizeof(local_tch));
+  local_tch.inst_id = tch.inst_id;
+  local_tch.sess_addr = tch.sess_addr;
+  local_tch.thd_id = tch.thd_id;
+ 
+  tse_kill_session(&local_tch);
   tse_log_system("[TSE_KILL_SESSION]:conn_id:%u, tse_instance_id:%u", tch.thd_id, tch.inst_id);
 }
 
@@ -2374,6 +2389,20 @@ int ha_tse::handle_auto_increment(bool &has_explicit_autoinc) {
   const Discrete_interval *insert_id_info;
   insert_id_for_cur_row = 0;
   /*
+   1. Value set by 'SET INSERT_ID=#'
+   2. Partition table use auto_inc column as part key, update to 0
+  */
+  if ((insert_id_info = thd->auto_inc_intervals_forced.get_next()) != nullptr) {
+    // store insert_id to auto_inc col, reset insert_id
+    ulonglong forced_val = insert_id_info->minimum();
+    table->next_number_field->store(forced_val, true);
+    thd->auto_inc_intervals_forced.clear();
+    has_explicit_autoinc = true;
+    insert_id_for_cur_row = forced_val;
+    return CT_SUCCESS;
+  }
+ 
+  /*
     if has explicit auto_inc value
     1. specify value that is neither null nor zero
     2. specify zero but in NO_AUTO_VALUE_ON_ZERO sql mode
@@ -2386,17 +2415,6 @@ int ha_tse::handle_auto_increment(bool &has_explicit_autoinc) {
         return HA_ERR_AUTOINC_ERANGE;
     }
     has_explicit_autoinc = true;
-    return CT_SUCCESS;
-  }
-
-  // if specify insert_id, use and treat that as explicit value
-  if ((insert_id_info = thd->auto_inc_intervals_forced.get_next()) != nullptr) {
-    // store insert_id to auto_inc col, reset insert_id
-    ulonglong forced_val = insert_id_info->minimum();
-    table->next_number_field->store(forced_val, true);
-    thd->auto_inc_intervals_forced.clear();
-    has_explicit_autoinc = true;
-    insert_id_for_cur_row = forced_val;
     return CT_SUCCESS;
   }
 
@@ -2433,8 +2451,12 @@ int ha_tse::handle_auto_increment(bool &has_explicit_autoinc) {
   item_sum.cc, item_sum.cc, sql_acl.cc, sql_insert.cc,
   sql_insert.cc, sql_select.cc, sql_table.cc, sql_udf.cc and sql_update.cc
 */
-
+#ifdef METADATA_NORMALIZED
+EXTER_ATTACK int ha_tse::write_row(uchar *buf, bool write_through) {
+#endif
+#ifndef METADATA_NORMALIZED
 EXTER_ATTACK int ha_tse::write_row(uchar *buf) {
+#endif
   DBUG_TRACE;
   THD *thd = ha_thd();
 
@@ -2460,6 +2482,12 @@ EXTER_ATTACK int ha_tse::write_row(uchar *buf) {
 
   if (!m_rec_buf_4_writing) {
     dml_flag_t flag = tse_get_dml_flag(thd, false, auto_inc_used, has_explicit_autoinc, false);
+#ifdef METADATA_NORMALIZED
+    flag.write_through = write_through;
+#endif
+#ifndef METADATA_NORMALIZED
+        flag.write_through = false;
+#endif
     error_result = convert_mysql_record_and_write_to_cantian(buf, &cantian_record_buf_size, &serial_column_offset, flag);
     return error_result;
   }
@@ -2600,6 +2628,29 @@ int ha_tse::end_bulk_insert() {
   return ret;
 }
 
+int tse_cmp_key_values(TABLE *table, const uchar *old_data, const uchar *new_data, uint key_nr) {
+  if (key_nr == MAX_KEY) {
+    return 0;
+  }
+
+  KEY *key_info = table->key_info + key_nr;
+  KEY_PART_INFO *key_part = key_info->key_part;
+  KEY_PART_INFO *key_part_end = key_part + key_info->user_defined_key_parts;
+
+  for (; key_part != key_part_end; key_part++) {
+    Field *field = key_part->field;
+    if (key_part->key_part_flag & (HA_BLOB_PART | HA_VAR_LENGTH_PART)) {
+      if (field->cmp_binary((old_data + key_part->offset), (new_data + key_part->offset), (ulong)key_part->length)) {
+        return 1;
+      }
+    } else if (memcmp(old_data + key_part->offset, new_data + key_part->offset, key_part->length)) {
+      return 1;
+    }
+  }
+
+  return 0;
+}
+
 /**
   @brief
   Yes, update_row() does what you expect, it updates a row. old_data will have
@@ -2623,8 +2674,18 @@ int ha_tse::end_bulk_insert() {
   @see
   sql_select.cc, sql_acl.cc, sql_update.cc and sql_insert.cc
 */
-EXTER_ATTACK int ha_tse::update_row(const uchar *, uchar *new_data) {
+EXTER_ATTACK int ha_tse::update_row(const uchar *old_data, uchar *new_data) {
   DBUG_TRACE;
+
+  THD *thd = ha_thd();
+  m_is_replace = (thd->lex->sql_command == SQLCOM_REPLACE ||
+                  thd->lex->sql_command == SQLCOM_REPLACE_SELECT) ? true : m_is_replace;
+  if (thd->lex->sql_command == SQLCOM_REPLACE || thd->lex->sql_command == SQLCOM_REPLACE_SELECT) {
+    uint key_nr = table->file->errkey;
+    if (key_nr < MAX_KEY && tse_cmp_key_values(table, old_data, new_data, key_nr) != 0) {
+      return HA_ERR_KEY_NOT_FOUND;
+    }
+  }
 
   int cantian_new_record_buf_size = TSE_BUF_LEN;
   uint16_t serial_column_offset = 0;
@@ -2660,8 +2721,7 @@ EXTER_ATTACK int ha_tse::update_row(const uchar *, uchar *new_data) {
   }
   // (m_ignore_dup && m_is_replace) -> special case for load data ... replace into
   bool dup_update = m_is_insert_dup || (m_ignore_dup && m_is_replace);
-  THD *thd = ha_thd();
-  dml_flag_t flag = tse_get_dml_flag(thd, false, false, false, dup_update);
+  dml_flag_t flag = tse_get_dml_flag(thd, m_is_replace, false, false, dup_update);
   if (!flag.no_foreign_key_check) {
     flag.no_cascade_check = flag.dd_update ? true : pre_check_for_cascade(true);
   }
@@ -2810,7 +2870,7 @@ void ha_tse::update_blob_addrs(uchar *record) {
   ptrdiff_t old_ptr = (ptrdiff_t)(record - table->record[0]);
   for (uint i = 0; i < table->s->blob_fields; i++) {
     uint field_no = table->s->blob_field[i];
-    if (m_is_covering_index && !bitmap_is_set(table->read_set, field_no)) {
+    if (!bitmap_is_set(table->read_set, field_no)) {
       continue;
     }
 
@@ -3639,6 +3699,12 @@ enum_alter_inplace_result ha_tse::check_if_supported_inplace_alter(
     TABLE *altered_table, Alter_inplace_info *ha_alter_info) {
   DBUG_TRACE;
   THD *thd = ha_thd();
+
+  // remote node execute ALTER statement using default way 
+  if (engine_ddl_passthru(thd)) {
+    return HA_ALTER_INPLACE_EXCLUSIVE_LOCK;
+  }
+
   m_error_if_not_empty = ha_alter_info->error_if_not_empty;
   if (ha_alter_info->handler_flags & ~(CTC_INPLACE_IGNORE | CTC_ALTER_NOREBUILD | CTC_ALTER_REBUILD)) {
     if (ha_alter_info->handler_flags & COLUMN_TYPE_OPERATIONS) {
@@ -3660,8 +3726,7 @@ enum_alter_inplace_result ha_tse::check_if_supported_inplace_alter(
     return HA_ALTER_INPLACE_NOT_SUPPORTED;
   }
 
-  if ((ha_alter_info->handler_flags & Alter_inplace_info::ALTER_STORED_COLUMN_ORDER) ||
-      (ha_alter_info->handler_flags & Alter_inplace_info::DROP_STORED_COLUMN)) {
+  if (ha_alter_info->handler_flags & CTC_ALTER_COL_ORDER) {
     ha_alter_info->unsupported_reason = "Altering column order or drop column";
     return HA_ALTER_INPLACE_NOT_SUPPORTED;
   }
@@ -4552,7 +4617,11 @@ void ha_tse::update_create_info(HA_CREATE_INFO *create_info) {
   uint16_t auto_inc_step = thd->variables.auto_increment_increment;
   uint16_t auto_inc_offset = thd->variables.auto_increment_offset;
   update_member_tch(m_tch, tse_hton, thd);
-  ret = tse_get_serial_value(&m_tch, &inc_value, auto_inc_step, auto_inc_offset);
+  dml_flag_t flag;
+  flag.auto_inc_offset = auto_inc_offset;
+  flag.auto_inc_step = auto_inc_step;
+  flag.auto_increase = false;
+  ret = tse_get_serial_value(&m_tch, &inc_value, flag);
   update_sess_ctx_by_tch(m_tch, tse_hton, thd);
   if (ret != 0) {
     create_info->auto_increment_value = (ulonglong)0;
@@ -4726,13 +4795,26 @@ EXTER_ATTACK int ha_tse::create(const char *name, TABLE *form, HA_CREATE_INFO *c
     return HA_ERR_WRONG_COMMAND;
   }
 
+  /*
+    copy algorithm is used when ha_create is called by mysql_alter_table
+  */
+  bool is_tmp_table = create_info->options & HA_LEX_CREATE_TMP_TABLE || tse_is_temporary(table_def);
+  if (thd->lex->sql_command != SQLCOM_CREATE_TABLE && thd->lex->sql_command != SQLCOM_CREATE_VIEW
+      && thd->lex->alter_info) {
+    if (is_tmp_table) {
+      tse_log_system("Unsupported operation. sql = %s", thd->query().str);
+      return HA_ERR_NOT_ALLOWED_COMMAND;
+    }
+    // do not move this under engine_ddl_passthru(thd) function
+    thd->lex->alter_info->requested_algorithm = Alter_info::ALTER_TABLE_ALGORITHM_COPY;
+  }
+
   if (engine_ddl_passthru(thd)) {
     return ret;
   }
 
   char db_name[SMALL_RECORD_SIZE] = {0};
   char table_name[SMALL_RECORD_SIZE] = {0};
-  bool is_tmp_table = create_info->options & HA_LEX_CREATE_TMP_TABLE || tse_is_temporary(table_def);
   tse_split_normalized_name(name, db_name, SMALL_RECORD_SIZE, table_name, SMALL_RECORD_SIZE, &is_tmp_table);
   if (!is_tmp_table) {
     TSE_RETURN_IF_NOT_ZERO(check_tse_identifier_name(table_def->name().c_str()));
@@ -4745,19 +4827,6 @@ EXTER_ATTACK int ha_tse::create(const char *name, TABLE *form, HA_CREATE_INFO *c
 
   if (thd->lex->sql_command == SQLCOM_TRUNCATE) {
     return ha_tse_truncate_table(&m_tch, thd, db_name, table_name, is_tmp_table);
-  }
-
-  /*
-    copy algorithm is used when ha_create is called by mysql_alter_table
-  */
-
-  if (thd->lex->sql_command != SQLCOM_CREATE_TABLE && thd->lex->sql_command != SQLCOM_CREATE_VIEW
-      && thd->lex->alter_info) {
-    if (is_tmp_table) {
-      tse_log_system("Unsupported operation. sql = %s", thd->query().str);
-      return HA_ERR_NOT_ALLOWED_COMMAND;
-    }
-    thd->lex->alter_info->requested_algorithm = Alter_info::ALTER_TABLE_ALGORITHM_COPY;
   }
 
   if (get_cantian_record_length(form) > CT_MAX_RECORD_LENGTH) {
@@ -5035,8 +5104,8 @@ int ha_tse::get_cbo_stats_4share()
 {
   THD *thd = ha_thd();
   int ret = CT_SUCCESS;
-
-  if (m_share && m_share->need_fetch_cbo) {
+  time_t now = time(nullptr);
+  if (m_share && (m_share->need_fetch_cbo || now - m_share->get_cbo_time > 60)) {
     if (m_tch.ctx_addr == INVALID_VALUE64) {
       char user_name[SMALL_RECORD_SIZE];
       tse_split_normalized_name(table->s->normalized_path.str, user_name, SMALL_RECORD_SIZE, nullptr, 0, nullptr);
@@ -5054,6 +5123,7 @@ int ha_tse::get_cbo_stats_4share()
     if (ret == CT_SUCCESS && m_share->cbo_stats->is_updated) {
       m_share->need_fetch_cbo = false;
     }
+    m_share->get_cbo_time = now;
   }
 
   return ret;

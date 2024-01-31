@@ -30,7 +30,8 @@ class Tsepart_share : public Partition_share {
   //std::vector<u_int8_t *> table_records;
   tianchi_cbo_stats_t *cbo_stats = nullptr;
   int used_count = 0;
-  bool need_fetch_cbo = true;
+  bool need_fetch_cbo = false;
+  time_t get_cbo_time = 0;
 };
 
 
@@ -243,13 +244,17 @@ class ha_tsepart : public ha_tse,
 
   int rnd_pos(uchar *record, uchar *pos) override;
 
-  void part_autoinc_has_expl_non_null_value();
-
   void part_autoinc_has_expl_non_null_value_update_row(uchar *new_data);
-
+#ifdef METADATA_NORMALIZED
+  int write_row(uchar *record, bool write_through MY_ATTRIBUTE((unused)) = false) override {
+#endif
+#ifndef METADATA_NORMALIZED
   int write_row(uchar *record) override {
-    part_autoinc_has_expl_non_null_value();
-    return (Partition_helper::ph_write_row(record));
+#endif
+    if (table->next_number_field) {
+      autoinc_has_expl_non_null_value = true;
+    }
+    return Partition_helper::ph_write_row(record);
   }
 
   int update_row(const uchar *old_record, uchar *new_record) override {

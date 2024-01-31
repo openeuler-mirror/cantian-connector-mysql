@@ -1,0 +1,4 @@
+--disable_warnings
+drop database if exists test;
+create database test;
+--enable_warnings

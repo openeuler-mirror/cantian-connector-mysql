@@ -170,9 +170,11 @@ void ha_tsepart::get_auto_increment(ulonglong, ulonglong, ulonglong,
   uint64 inc_value;
   update_member_tch(m_tch, get_tse_hton(), ha_thd());
   THD* thd = ha_thd();
-  uint16_t auto_inc_step = thd->variables.auto_increment_increment;
-  uint16_t auto_inc_offset = thd->variables.auto_increment_offset;
-  int ret = tse_get_serial_value(&m_tch, &inc_value, auto_inc_step, auto_inc_offset);
+  dml_flag_t flag;
+  flag.auto_inc_offset = thd->variables.auto_increment_increment;
+  flag.auto_inc_step = thd->variables.auto_increment_offset;
+  flag.auto_increase = true;
+  int ret = tse_get_serial_value(&m_tch, &inc_value, flag);
   update_sess_ctx_by_tch(m_tch, get_tse_hton(), ha_thd());
   if (ret != 0) {
     *first_value = (~(ulonglong)0);
@@ -185,28 +187,6 @@ void ha_tsepart::print_error(int error, myf errflag) {
   if (print_partition_error(error)) {
     handler::print_error(error, errflag);
   }
-}
-
-void ha_tsepart::part_autoinc_has_expl_non_null_value() {
-    THD *thd = ha_thd();
-    autoinc_has_expl_non_null_value = table->autoinc_field_has_explicit_non_null_value;
-    if (!table->next_number_field) {
-        return;
-    }
-    // has not explicit auto increment value if insert 0 or insert null
-    if (table->next_number_field->val_int() == 0 && table->autoinc_field_has_explicit_non_null_value) {
-        autoinc_has_expl_non_null_value = false;
-    }
-
-    /* has explicit auto increment value if
-     * 1. set insert id, then insert 0 or null
-     * 2. insert 0 but in NO_AUTO_VALUE_ON_ZERO sql mode
-     */
-    if (thd->auto_inc_intervals_forced.nb_elements() || (table->autoinc_field_has_explicit_non_null_value &&
-                                                         thd->variables.sql_mode & MODE_NO_AUTO_VALUE_ON_ZERO)) {
-        autoinc_has_expl_non_null_value = true;
-    }
-
 }
 
 void ha_tsepart::part_autoinc_has_expl_non_null_value_update_row(uchar *new_data) {
@@ -229,6 +209,7 @@ void ha_tsepart::part_autoinc_has_expl_non_null_value_update_row(uchar *new_data
 int ha_tsepart::write_row_in_part(uint part_id, uchar *record) {
   bool saved_autoinc_has_expl_non_null = table->autoinc_field_has_explicit_non_null_value;
   Field *saved_next_number_field = table->next_number_field;
+  THD *thd = ha_thd();
   if (!autoinc_has_expl_non_null_value_update_row &&
       table->next_number_field && !autoinc_has_expl_non_null_value) {
       table->autoinc_field_has_explicit_non_null_value = false;
@@ -237,6 +218,10 @@ int ha_tsepart::write_row_in_part(uint part_id, uchar *record) {
   if (table->found_next_number_field && autoinc_has_expl_non_null_value_update_row) {
       table->autoinc_field_has_explicit_non_null_value = true;
       table->next_number_field = table->found_next_number_field;
+      if (table->next_number_field->val_int() == 0) {
+        thd->force_one_auto_inc_interval(0);
+      }
+      autoinc_has_expl_non_null_value_update_row = false;
   }
 
   set_partition(part_id);
@@ -1024,7 +1009,8 @@ int ha_tsepart::get_cbo_stats_4share()
 {
   THD *thd = ha_thd();
   int ret = CT_SUCCESS;
-  if (m_part_share->need_fetch_cbo) {
+  time_t now = time(nullptr);
+  if (m_part_share->need_fetch_cbo || now - m_part_share->get_cbo_time > 60) {
     if (m_tch.ctx_addr == INVALID_VALUE64) {
       char user_name[SMALL_RECORD_SIZE];
       tse_split_normalized_name(table->s->normalized_path.str, user_name, SMALL_RECORD_SIZE, nullptr, 0, nullptr);
@@ -1042,6 +1028,7 @@ int ha_tsepart::get_cbo_stats_4share()
     if (ret == CT_SUCCESS && m_part_share->cbo_stats->is_updated) {
       m_part_share->need_fetch_cbo = false;
     }
+    m_part_share->get_cbo_time = now;
   }
 
   return ret;

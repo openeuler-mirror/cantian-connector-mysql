@@ -534,8 +534,8 @@ void convert_json_to_mysql(Field *mysql_field)
 */
 void convert_blob_to_mysql(uchar *cantian_ptr, Field *mysql_field, tianchi_handler_t &tch, uint8_t *mysql_ptr)
 {
+  bitmap_set_bit(mysql_field->table->read_set, mysql_field->field_index());
   lob_locator_t *locator = (lob_locator_t *)(uint8*)cantian_ptr;
-
   uint32_t blob_len = locator->head.size;
   char *blob_buf = (char *)my_malloc(PSI_NOT_INSTRUMENTED, blob_len * sizeof(char), MYF(MY_WME));
   if (blob_len == 0) {
@@ -1518,6 +1518,10 @@ int mysql_record_to_cantian_record(const TABLE &table, record_buf_info_t *record
 void copy_column_data_to_mysql(field_info_t *field_info, const field_cnvrt_aux_t* mysql_info,
                                tianchi_handler_t &tch, bool is_index_only)
 {
+  if (!bitmap_is_set(field_info->field->table->read_set, field_info->field->field_index()) &&
+      tch.sql_command == SQLCOM_SELECT) {
+    return;
+  }
   uchar *src = NULL;
   uint16_t src_len = 0;
   switch (mysql_info->sql_data_type) {

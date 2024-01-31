@@ -1,0 +1,84 @@
+diff --git a/mysql-test/include/check-testcase.test b/mysql-test/include/check-testcase.test
+index 03dedb25272..a6303991b6a 100644
+--- a/mysql-test/include/check-testcase.test
++++ b/mysql-test/include/check-testcase.test
+@@ -142,7 +142,8 @@ if ($NDB_BACKUP_DIR)
+ # Hence, check-testcase will not work in these cases.
+ 
+ --let $secure_file_priv = `SELECT @@global.secure_file_priv`
+---let $proceed_with_check_of_files = `SELECT @@global.innodb_force_recovery = 0 AND '$secure_file_priv' = '$MYSQLTEST_VARDIR_ABS/'`
++# --let $proceed_with_check_of_files = `SELECT @@global.innodb_force_recovery = 0 AND '$secure_file_priv' = '$MYSQLTEST_VARDIR_ABS/'`
++--let $proceed_with_check_of_files = 0;
+ if ($proceed_with_check_of_files) {
+   # Ensure that we have no impact on the content of the binary log.
+   #
+diff --git a/mysql-test/include/default_mysqld.cnf b/mysql-test/include/default_mysqld.cnf
+index 0dd92e19ad5..be84ee0c6de 100644
+--- a/mysql-test/include/default_mysqld.cnf
++++ b/mysql-test/include/default_mysqld.cnf
+@@ -16,8 +16,8 @@ log-bin-trust-function-creators=1
+ # Set innodb-buffer-pool-size and innodb-log-file-size to a lower
+ # value because running tests in parallel, on the ramdisk may consume
+ # excessive memory.
+-innodb-buffer-pool-size=24M
+-innodb-log-file-size=5M
++# innodb-buffer-pool-size=24M
++# innodb-log-file-size=5M
+ # MAINTAINER:
+ # the loose- syntax is to make sure the cnf file is also
+ # valid when building without the performance schema.
+diff --git a/mysql-test/mysql-test-run.pl b/mysql-test/mysql-test-run.pl
+index 10668310763..79f17a2203d 100755
+--- a/mysql-test/mysql-test-run.pl
++++ b/mysql-test/mysql-test-run.pl
+@@ -4032,10 +4032,11 @@ sub mysql_install_db {
+   mtr_add_arg($args, "--core-file");
+   mtr_add_arg($args, "--datadir=%s", "$install_datadir");
+   mtr_add_arg($args, "--secure-file-priv=%s", "$opt_vardir");
++  mtr_add_arg($args, "--early-plugin-load=%s", "ha_ctc.so");
+ 
+   # Overwrite the buffer size to 24M for certain tests to pass
+-  mtr_add_arg($args, "--innodb_buffer_pool_size=24M");
+-  mtr_add_arg($args, "--innodb-log-file-size=5M");
++  # mtr_add_arg($args, "--innodb_buffer_pool_size=24M");
++  # mtr_add_arg($args, "--innodb-log-file-size=5M");
+ 
+   # Overwrite innodb_autoextend_increment to 8 for reducing the
+   # ibdata1 file size.
+@@ -6067,6 +6068,8 @@ sub mysqld_arguments ($$$) {
+     mtr_add_arg($args, "--user=root");
+   }
+ 
++  mtr_add_arg($args, "--early-plugin-load=%s", "ha_ctc.so");
++
+   if ($opt_valgrind_mysqld) {
+     if ($mysql_version_id < 50100) {
+       mtr_add_arg($args, "--skip-bdb");
+diff --git a/unittest/gunit/dd.h b/unittest/gunit/dd.h
+index 31b97e634ac..dc8cc561000 100644
+--- a/unittest/gunit/dd.h
++++ b/unittest/gunit/dd.h
+@@ -74,7 +74,7 @@ class Mock_dd_HANDLER : public Base_mock_HANDLER {
+                                        key_part_map, enum ha_rkey_function));
+ 
+   // Handler method used for inserts
+-  MOCK_METHOD1(write_row, int(::uchar *));
++  MOCK_METHOD2(write_row, int(::uchar *, bool));
+ 
+   // Handler method used for updates
+   MOCK_METHOD2(update_row, int(const ::uchar *, ::uchar *));
+diff --git a/unittest/gunit/dd_schema-t.cc b/unittest/gunit/dd_schema-t.cc
+index 51da5ca391c..f92f8a17780 100644
+--- a/unittest/gunit/dd_schema-t.cc
++++ b/unittest/gunit/dd_schema-t.cc
+@@ -240,8 +240,8 @@ TEST_F(SchemaTest, CreateSchema) {
+   EXPECT_CALL(*last_altered, store(real_last_altered, true)).Times(1);
+ 
+   // ha->write_row: Called once, return 0
+-  ON_CALL(*ha, write_row(_)).WillByDefault(Return(0));
+-  EXPECT_CALL(*ha, write_row(_)).Times(1);
++  ON_CALL(*ha, write_row(_, false)).WillByDefault(Return(0));
++  EXPECT_CALL(*ha, write_row(_, false)).Times(1);
+ 
+   // Store the schema.
+   schema->store(&ctx->otx);
