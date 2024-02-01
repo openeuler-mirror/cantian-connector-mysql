@@ -1,0 +1,461 @@
+drop table if exists DEMO;
+create table DEMO (ID integer not null, NAME varchar(19), AGE integer, GRADE real);
+insert into DEMO values (1, 'LIOR', 35, 6.9);
+insert into DEMO values (4, 'MIKE', 55, 99.92);
+insert into DEMO values (8, 'ROMAN', 40, 94.1);
+insert into DEMO values (16, 'DAN', 60, 1234567890);
+insert into DEMO values (32, 'ZVI', 35, 777.666);
+insert into DEMO values (1, 'Eitan', NULL, 4.9);
+insert into DEMO values (888888, 'zhangdi', NULL, 10000.8);
+insert into DEMO values (1131, 'Hisses', 1, NULL);
+SELECT * FROM DEMO;
+ID	NAME	AGE	GRADE
+1	LIOR	35	6.9
+4	MIKE	55	99.92
+8	ROMAN	40	94.1
+16	DAN	60	1234567890
+32	ZVI	35	777.666
+1	Eitan	NULL	4.9
+888888	zhangdi	NULL	10000.8
+1131	Hisses	1	NULL
+create index aaa ON DEMO (ID);
+select * from DEMO where ID = 1;
+ID	NAME	AGE	GRADE
+1	LIOR	35	6.9
+1	Eitan	NULL	4.9
+select * from DEMO where ID <= 16;
+ID	NAME	AGE	GRADE
+1	LIOR	35	6.9
+1	Eitan	NULL	4.9
+4	MIKE	55	99.92
+8	ROMAN	40	94.1
+16	DAN	60	1234567890
+select * from DEMO where ID < 16;
+ID	NAME	AGE	GRADE
+1	LIOR	35	6.9
+1	Eitan	NULL	4.9
+4	MIKE	55	99.92
+8	ROMAN	40	94.1
+select * from DEMO where ID between 4 and 32;
+ID	NAME	AGE	GRADE
+4	MIKE	55	99.92
+8	ROMAN	40	94.1
+16	DAN	60	1234567890
+32	ZVI	35	777.666
+select * from DEMO where ID >= 32;
+ID	NAME	AGE	GRADE
+32	ZVI	35	777.666
+1131	Hisses	1	NULL
+888888	zhangdi	NULL	10000.8
+select * from DEMO where ID > 32;
+ID	NAME	AGE	GRADE
+1131	Hisses	1	NULL
+888888	zhangdi	NULL	10000.8
+select * from DEMO where ID in (16,32);
+ID	NAME	AGE	GRADE
+16	DAN	60	1234567890
+32	ZVI	35	777.666
+select * from DEMO where ID like '1%';
+ID	NAME	AGE	GRADE
+1	LIOR	35	6.9
+16	DAN	60	1234567890
+1	Eitan	NULL	4.9
+1131	Hisses	1	NULL
+select * from DEMO where ID = 1 order by ID;
+ID	NAME	AGE	GRADE
+1	LIOR	35	6.9
+1	Eitan	NULL	4.9
+select * from DEMO where ID = 1 order by ID desc;
+ID	NAME	AGE	GRADE
+1	LIOR	35	6.9
+1	Eitan	NULL	4.9
+select * from DEMO where ID <= 16 order by ID;
+ID	NAME	AGE	GRADE
+1	LIOR	35	6.9
+1	Eitan	NULL	4.9
+4	MIKE	55	99.92
+8	ROMAN	40	94.1
+16	DAN	60	1234567890
+select * from DEMO where ID < 16 order by ID desc;
+ID	NAME	AGE	GRADE
+8	ROMAN	40	94.1
+4	MIKE	55	99.92
+1	Eitan	NULL	4.9
+1	LIOR	35	6.9
+select * from DEMO where ID between 4 and 32 order by ID;
+ID	NAME	AGE	GRADE
+4	MIKE	55	99.92
+8	ROMAN	40	94.1
+16	DAN	60	1234567890
+32	ZVI	35	777.666
+select * from DEMO where ID between 4 and 32 order by ID desc;
+ID	NAME	AGE	GRADE
+32	ZVI	35	777.666
+16	DAN	60	1234567890
+8	ROMAN	40	94.1
+4	MIKE	55	99.92
+select * from DEMO where ID >= 32 order by ID;
+ID	NAME	AGE	GRADE
+32	ZVI	35	777.666
+1131	Hisses	1	NULL
+888888	zhangdi	NULL	10000.8
+select * from DEMO where ID > 32  order by ID desc;
+ID	NAME	AGE	GRADE
+888888	zhangdi	NULL	10000.8
+1131	Hisses	1	NULL
+select * from DEMO where ID in (16,32) order by ID;
+ID	NAME	AGE	GRADE
+16	DAN	60	1234567890
+32	ZVI	35	777.666
+select * from DEMO where ID in (16,32) order by ID desc;
+ID	NAME	AGE	GRADE
+32	ZVI	35	777.666
+16	DAN	60	1234567890
+select * from DEMO where ID like '1%' order by ID;
+ID	NAME	AGE	GRADE
+1	LIOR	35	6.9
+1	Eitan	NULL	4.9
+16	DAN	60	1234567890
+1131	Hisses	1	NULL
+select * from DEMO where ID like '1%' order by ID desc;
+ID	NAME	AGE	GRADE
+1131	Hisses	1	NULL
+16	DAN	60	1234567890
+1	LIOR	35	6.9
+1	Eitan	NULL	4.9
+drop table DEMO;
+drop table if exists INDEX_DEMO;
+create table INDEX_DEMO (ID integer PRIMARY KEY, CARD_NUM integer UNIQUE NOT NULL, FIRST_NAME VARCHAR(25) NOT NULL, LAST_NAME VARCHAR(25) NOT NULL, AGE integer NOT NULL, EMAIL VARCHAR(30) NOT NULL, BIRTHDAY VARCHAR(20) NOT NULL, GENDER CHAR(10));
+CREATE INDEX IDX_AGE ON INDEX_DEMO(AGE);
+CREATE INDEX IDX_NAME_BIRTHDAY ON INDEX_DEMO(FIRST_NAME, LAST_NAME, BIRTHDAY);
+CREATE INDEX IDX_EMAIL ON INDEX_DEMO(EMAIL);
+insert into INDEX_DEMO (ID, CARD_NUM, FIRST_NAME, LAST_NAME, AGE, EMAIL, BIRTHDAY, GENDER) values (89, 46, 'Gilligan', 'Rostern', 28, 'grostern0@buzzfeed.com', '1992-12-10', 'Male');
+insert into INDEX_DEMO (ID, CARD_NUM, FIRST_NAME, LAST_NAME, AGE, EMAIL, BIRTHDAY, GENDER) values (45, 50, 'Alistair', 'Lempenny', 64, 'alempenny1@foxnews.com', '1991-06-07', 'Male');
+insert into INDEX_DEMO (ID, CARD_NUM, FIRST_NAME, LAST_NAME, AGE, EMAIL, BIRTHDAY, GENDER) values (44, 39, 'Roda', 'Paolo', 45, 'rpaolo2@mozilla.com', '1996-05-12', 'Male');
+insert into INDEX_DEMO (ID, CARD_NUM, FIRST_NAME, LAST_NAME, AGE, EMAIL, BIRTHDAY, GENDER) values (49, 74, 'Marcos', 'Coutts', 91, 'mcoutts3@blogs.com', '1998-12-18', 'Female');
+insert into INDEX_DEMO (ID, CARD_NUM, FIRST_NAME, LAST_NAME, AGE, EMAIL, BIRTHDAY, GENDER) values (6, 81, 'Kalvin', 'Tunnicliff', 35, 'ktunnicliff4@dailymotion.com', '1991-04-03', 'Male');
+insert into INDEX_DEMO (ID, CARD_NUM, FIRST_NAME, LAST_NAME, AGE, EMAIL, BIRTHDAY, GENDER) values (80, 87, 'Morna', 'Colbert', 8, 'mcolbert5@miitbeian.gov.cn', '2001-06-25', 'Male');
+insert into INDEX_DEMO (ID, CARD_NUM, FIRST_NAME, LAST_NAME, AGE, EMAIL, BIRTHDAY, GENDER) values (12, 30, 'Leoine', 'Elms', 19, 'lelms6@ucsd.edu', '2003-11-14', 'Male');
+insert into INDEX_DEMO (ID, CARD_NUM, FIRST_NAME, LAST_NAME, AGE, EMAIL, BIRTHDAY, GENDER) values (31, 77, 'Rita', 'Scotchmore', 28, 'rscotchmore7@illinois.edu', '1991-06-23', 'Male');
+insert into INDEX_DEMO (ID, CARD_NUM, FIRST_NAME, LAST_NAME, AGE, EMAIL, BIRTHDAY, GENDER) values (7, 47, 'Jarib', 'Ausiello', 69, 'jausiello8@wsj.com', '1993-05-10', 'Male');
+insert into INDEX_DEMO (ID, CARD_NUM, FIRST_NAME, LAST_NAME, AGE, EMAIL, BIRTHDAY, GENDER) values (93, 44, 'Dianna', 'Cockle', 15, 'dcockle9@mac.com', '2003-06-10', 'Female');
+insert into INDEX_DEMO (ID, CARD_NUM, FIRST_NAME, LAST_NAME, AGE, EMAIL, BIRTHDAY, GENDER) values (64, 95, 'Tait', 'Tavinor', 63, 'ttavinora@photobucket.com', '1994-11-02', 'Female');
+insert into INDEX_DEMO (ID, CARD_NUM, FIRST_NAME, LAST_NAME, AGE, EMAIL, BIRTHDAY, GENDER) values (83, 83, 'Shannon', 'Covelle', 30, 'scovelleb@tinyurl.com', '2001-01-22', 'Male');
+insert into INDEX_DEMO (ID, CARD_NUM, FIRST_NAME, LAST_NAME, AGE, EMAIL, BIRTHDAY, GENDER) values (20, 76, 'Stevana', 'Alyoshin', 88, 'salyoshinc@wired.com', '1990-11-18', 'Male');
+insert into INDEX_DEMO (ID, CARD_NUM, FIRST_NAME, LAST_NAME, AGE, EMAIL, BIRTHDAY, GENDER) values (19, 12, 'Garrard', 'Bools', 68, 'gboolsd@bandcamp.com', '1993-12-05', 'Female');
+insert into INDEX_DEMO (ID, CARD_NUM, FIRST_NAME, LAST_NAME, AGE, EMAIL, BIRTHDAY, GENDER) values (75, 2, 'Kristi', 'Boules', 46, 'kboulese@amazon.co.uk', '1993-07-29', 'Female');
+insert into INDEX_DEMO (ID, CARD_NUM, FIRST_NAME, LAST_NAME, AGE, EMAIL, BIRTHDAY, GENDER) values (67, 36, 'Mag', 'Dalgarnocht', 74, 'mdalgarnochtf@marketwatch.com', '2000-05-03', 'Male');
+insert into INDEX_DEMO (ID, CARD_NUM, FIRST_NAME, LAST_NAME, AGE, EMAIL, BIRTHDAY, GENDER) values (3, 94, 'Cori', 'Mee', 50, 'cmeeg@fema.gov', '1993-04-29', 'Female');
+insert into INDEX_DEMO (ID, CARD_NUM, FIRST_NAME, LAST_NAME, AGE, EMAIL, BIRTHDAY, GENDER) values (69, 33, 'Emogene', 'Pedroni', 87, 'epedronih@4shared.com', '2005-06-08', 'Female');
+insert into INDEX_DEMO (ID, CARD_NUM, FIRST_NAME, LAST_NAME, AGE, EMAIL, BIRTHDAY, GENDER) values (100, 71, 'Douglas', 'Pardie', 2, 'dpardiei@spiegel.de', '2001-11-05', 'Female');
+insert into INDEX_DEMO (ID, CARD_NUM, FIRST_NAME, LAST_NAME, AGE, EMAIL, BIRTHDAY, GENDER) values (17, 38, 'Karim', 'Mainwaring', 54, 'kmainwaringj@163.com', '2003-01-21','Male');
+select * from INDEX_DEMO;
+ID	CARD_NUM	FIRST_NAME	LAST_NAME	AGE	EMAIL	BIRTHDAY	GENDER
+89	46	Gilligan	Rostern	28	grostern0@buzzfeed.com	1992-12-10	Male
+45	50	Alistair	Lempenny	64	alempenny1@foxnews.com	1991-06-07	Male
+44	39	Roda	Paolo	45	rpaolo2@mozilla.com	1996-05-12	Male
+49	74	Marcos	Coutts	91	mcoutts3@blogs.com	1998-12-18	Female
+6	81	Kalvin	Tunnicliff	35	ktunnicliff4@dailymotion.com	1991-04-03	Male
+80	87	Morna	Colbert	8	mcolbert5@miitbeian.gov.cn	2001-06-25	Male
+12	30	Leoine	Elms	19	lelms6@ucsd.edu	2003-11-14	Male
+31	77	Rita	Scotchmore	28	rscotchmore7@illinois.edu	1991-06-23	Male
+7	47	Jarib	Ausiello	69	jausiello8@wsj.com	1993-05-10	Male
+93	44	Dianna	Cockle	15	dcockle9@mac.com	2003-06-10	Female
+64	95	Tait	Tavinor	63	ttavinora@photobucket.com	1994-11-02	Female
+83	83	Shannon	Covelle	30	scovelleb@tinyurl.com	2001-01-22	Male
+20	76	Stevana	Alyoshin	88	salyoshinc@wired.com	1990-11-18	Male
+19	12	Garrard	Bools	68	gboolsd@bandcamp.com	1993-12-05	Female
+75	2	Kristi	Boules	46	kboulese@amazon.co.uk	1993-07-29	Female
+67	36	Mag	Dalgarnocht	74	mdalgarnochtf@marketwatch.com	2000-05-03	Male
+3	94	Cori	Mee	50	cmeeg@fema.gov	1993-04-29	Female
+69	33	Emogene	Pedroni	87	epedronih@4shared.com	2005-06-08	Female
+100	71	Douglas	Pardie	2	dpardiei@spiegel.de	2001-11-05	Female
+17	38	Karim	Mainwaring	54	kmainwaringj@163.com	2003-01-21	Male
+select * from INDEX_DEMO where AGE = 32;
+ID	CARD_NUM	FIRST_NAME	LAST_NAME	AGE	EMAIL	BIRTHDAY	GENDER
+select * from INDEX_DEMO where AGE <= 32;
+ID	CARD_NUM	FIRST_NAME	LAST_NAME	AGE	EMAIL	BIRTHDAY	GENDER
+100	71	Douglas	Pardie	2	dpardiei@spiegel.de	2001-11-05	Female
+80	87	Morna	Colbert	8	mcolbert5@miitbeian.gov.cn	2001-06-25	Male
+93	44	Dianna	Cockle	15	dcockle9@mac.com	2003-06-10	Female
+12	30	Leoine	Elms	19	lelms6@ucsd.edu	2003-11-14	Male
+89	46	Gilligan	Rostern	28	grostern0@buzzfeed.com	1992-12-10	Male
+31	77	Rita	Scotchmore	28	rscotchmore7@illinois.edu	1991-06-23	Male
+83	83	Shannon	Covelle	30	scovelleb@tinyurl.com	2001-01-22	Male
+select * from INDEX_DEMO where AGE < 30;
+ID	CARD_NUM	FIRST_NAME	LAST_NAME	AGE	EMAIL	BIRTHDAY	GENDER
+100	71	Douglas	Pardie	2	dpardiei@spiegel.de	2001-11-05	Female
+80	87	Morna	Colbert	8	mcolbert5@miitbeian.gov.cn	2001-06-25	Male
+93	44	Dianna	Cockle	15	dcockle9@mac.com	2003-06-10	Female
+12	30	Leoine	Elms	19	lelms6@ucsd.edu	2003-11-14	Male
+89	46	Gilligan	Rostern	28	grostern0@buzzfeed.com	1992-12-10	Male
+31	77	Rita	Scotchmore	28	rscotchmore7@illinois.edu	1991-06-23	Male
+select * from INDEX_DEMO where AGE between 20 and 30;
+ID	CARD_NUM	FIRST_NAME	LAST_NAME	AGE	EMAIL	BIRTHDAY	GENDER
+89	46	Gilligan	Rostern	28	grostern0@buzzfeed.com	1992-12-10	Male
+31	77	Rita	Scotchmore	28	rscotchmore7@illinois.edu	1991-06-23	Male
+83	83	Shannon	Covelle	30	scovelleb@tinyurl.com	2001-01-22	Male
+select * from INDEX_DEMO where AGE >= 30;
+ID	CARD_NUM	FIRST_NAME	LAST_NAME	AGE	EMAIL	BIRTHDAY	GENDER
+83	83	Shannon	Covelle	30	scovelleb@tinyurl.com	2001-01-22	Male
+6	81	Kalvin	Tunnicliff	35	ktunnicliff4@dailymotion.com	1991-04-03	Male
+44	39	Roda	Paolo	45	rpaolo2@mozilla.com	1996-05-12	Male
+75	2	Kristi	Boules	46	kboulese@amazon.co.uk	1993-07-29	Female
+3	94	Cori	Mee	50	cmeeg@fema.gov	1993-04-29	Female
+17	38	Karim	Mainwaring	54	kmainwaringj@163.com	2003-01-21	Male
+64	95	Tait	Tavinor	63	ttavinora@photobucket.com	1994-11-02	Female
+45	50	Alistair	Lempenny	64	alempenny1@foxnews.com	1991-06-07	Male
+19	12	Garrard	Bools	68	gboolsd@bandcamp.com	1993-12-05	Female
+7	47	Jarib	Ausiello	69	jausiello8@wsj.com	1993-05-10	Male
+67	36	Mag	Dalgarnocht	74	mdalgarnochtf@marketwatch.com	2000-05-03	Male
+69	33	Emogene	Pedroni	87	epedronih@4shared.com	2005-06-08	Female
+20	76	Stevana	Alyoshin	88	salyoshinc@wired.com	1990-11-18	Male
+49	74	Marcos	Coutts	91	mcoutts3@blogs.com	1998-12-18	Female
+select * from INDEX_DEMO where AGE > 30;
+ID	CARD_NUM	FIRST_NAME	LAST_NAME	AGE	EMAIL	BIRTHDAY	GENDER
+6	81	Kalvin	Tunnicliff	35	ktunnicliff4@dailymotion.com	1991-04-03	Male
+44	39	Roda	Paolo	45	rpaolo2@mozilla.com	1996-05-12	Male
+75	2	Kristi	Boules	46	kboulese@amazon.co.uk	1993-07-29	Female
+3	94	Cori	Mee	50	cmeeg@fema.gov	1993-04-29	Female
+17	38	Karim	Mainwaring	54	kmainwaringj@163.com	2003-01-21	Male
+64	95	Tait	Tavinor	63	ttavinora@photobucket.com	1994-11-02	Female
+45	50	Alistair	Lempenny	64	alempenny1@foxnews.com	1991-06-07	Male
+19	12	Garrard	Bools	68	gboolsd@bandcamp.com	1993-12-05	Female
+7	47	Jarib	Ausiello	69	jausiello8@wsj.com	1993-05-10	Male
+67	36	Mag	Dalgarnocht	74	mdalgarnochtf@marketwatch.com	2000-05-03	Male
+69	33	Emogene	Pedroni	87	epedronih@4shared.com	2005-06-08	Female
+20	76	Stevana	Alyoshin	88	salyoshinc@wired.com	1990-11-18	Male
+49	74	Marcos	Coutts	91	mcoutts3@blogs.com	1998-12-18	Female
+select * from INDEX_DEMO where AGE in (24,32);
+ID	CARD_NUM	FIRST_NAME	LAST_NAME	AGE	EMAIL	BIRTHDAY	GENDER
+select * from INDEX_DEMO where EMAIL like 'a%';
+ID	CARD_NUM	FIRST_NAME	LAST_NAME	AGE	EMAIL	BIRTHDAY	GENDER
+45	50	Alistair	Lempenny	64	alempenny1@foxnews.com	1991-06-07	Male
+select * from INDEX_DEMO where EMAIL like 'ahake0@homestead.com';
+ID	CARD_NUM	FIRST_NAME	LAST_NAME	AGE	EMAIL	BIRTHDAY	GENDER
+select * from INDEX_DEMO where EMAIL like '%amazon%';
+ID	CARD_NUM	FIRST_NAME	LAST_NAME	AGE	EMAIL	BIRTHDAY	GENDER
+75	2	Kristi	Boules	46	kboulese@amazon.co.uk	1993-07-29	Female
+select * from INDEX_DEMO where EMAIL like '%com';
+ID	CARD_NUM	FIRST_NAME	LAST_NAME	AGE	EMAIL	BIRTHDAY	GENDER
+89	46	Gilligan	Rostern	28	grostern0@buzzfeed.com	1992-12-10	Male
+45	50	Alistair	Lempenny	64	alempenny1@foxnews.com	1991-06-07	Male
+44	39	Roda	Paolo	45	rpaolo2@mozilla.com	1996-05-12	Male
+49	74	Marcos	Coutts	91	mcoutts3@blogs.com	1998-12-18	Female
+6	81	Kalvin	Tunnicliff	35	ktunnicliff4@dailymotion.com	1991-04-03	Male
+7	47	Jarib	Ausiello	69	jausiello8@wsj.com	1993-05-10	Male
+93	44	Dianna	Cockle	15	dcockle9@mac.com	2003-06-10	Female
+64	95	Tait	Tavinor	63	ttavinora@photobucket.com	1994-11-02	Female
+83	83	Shannon	Covelle	30	scovelleb@tinyurl.com	2001-01-22	Male
+20	76	Stevana	Alyoshin	88	salyoshinc@wired.com	1990-11-18	Male
+19	12	Garrard	Bools	68	gboolsd@bandcamp.com	1993-12-05	Female
+67	36	Mag	Dalgarnocht	74	mdalgarnochtf@marketwatch.com	2000-05-03	Male
+69	33	Emogene	Pedroni	87	epedronih@4shared.com	2005-06-08	Female
+17	38	Karim	Mainwaring	54	kmainwaringj@163.com	2003-01-21	Male
+select * from INDEX_DEMO where EMAIL is null;
+ID	CARD_NUM	FIRST_NAME	LAST_NAME	AGE	EMAIL	BIRTHDAY	GENDER
+select * from INDEX_DEMO where ID = 10;
+ID	CARD_NUM	FIRST_NAME	LAST_NAME	AGE	EMAIL	BIRTHDAY	GENDER
+select * from INDEX_DEMO where ID <= 10;
+ID	CARD_NUM	FIRST_NAME	LAST_NAME	AGE	EMAIL	BIRTHDAY	GENDER
+3	94	Cori	Mee	50	cmeeg@fema.gov	1993-04-29	Female
+6	81	Kalvin	Tunnicliff	35	ktunnicliff4@dailymotion.com	1991-04-03	Male
+7	47	Jarib	Ausiello	69	jausiello8@wsj.com	1993-05-10	Male
+select * from INDEX_DEMO where ID < 10;
+ID	CARD_NUM	FIRST_NAME	LAST_NAME	AGE	EMAIL	BIRTHDAY	GENDER
+3	94	Cori	Mee	50	cmeeg@fema.gov	1993-04-29	Female
+6	81	Kalvin	Tunnicliff	35	ktunnicliff4@dailymotion.com	1991-04-03	Male
+7	47	Jarib	Ausiello	69	jausiello8@wsj.com	1993-05-10	Male
+select * from INDEX_DEMO where ID between 10 and 20;
+ID	CARD_NUM	FIRST_NAME	LAST_NAME	AGE	EMAIL	BIRTHDAY	GENDER
+12	30	Leoine	Elms	19	lelms6@ucsd.edu	2003-11-14	Male
+17	38	Karim	Mainwaring	54	kmainwaringj@163.com	2003-01-21	Male
+19	12	Garrard	Bools	68	gboolsd@bandcamp.com	1993-12-05	Female
+20	76	Stevana	Alyoshin	88	salyoshinc@wired.com	1990-11-18	Male
+select * from INDEX_DEMO where ID >= 10;
+ID	CARD_NUM	FIRST_NAME	LAST_NAME	AGE	EMAIL	BIRTHDAY	GENDER
+12	30	Leoine	Elms	19	lelms6@ucsd.edu	2003-11-14	Male
+17	38	Karim	Mainwaring	54	kmainwaringj@163.com	2003-01-21	Male
+19	12	Garrard	Bools	68	gboolsd@bandcamp.com	1993-12-05	Female
+20	76	Stevana	Alyoshin	88	salyoshinc@wired.com	1990-11-18	Male
+31	77	Rita	Scotchmore	28	rscotchmore7@illinois.edu	1991-06-23	Male
+44	39	Roda	Paolo	45	rpaolo2@mozilla.com	1996-05-12	Male
+45	50	Alistair	Lempenny	64	alempenny1@foxnews.com	1991-06-07	Male
+49	74	Marcos	Coutts	91	mcoutts3@blogs.com	1998-12-18	Female
+64	95	Tait	Tavinor	63	ttavinora@photobucket.com	1994-11-02	Female
+67	36	Mag	Dalgarnocht	74	mdalgarnochtf@marketwatch.com	2000-05-03	Male
+69	33	Emogene	Pedroni	87	epedronih@4shared.com	2005-06-08	Female
+75	2	Kristi	Boules	46	kboulese@amazon.co.uk	1993-07-29	Female
+80	87	Morna	Colbert	8	mcolbert5@miitbeian.gov.cn	2001-06-25	Male
+83	83	Shannon	Covelle	30	scovelleb@tinyurl.com	2001-01-22	Male
+89	46	Gilligan	Rostern	28	grostern0@buzzfeed.com	1992-12-10	Male
+93	44	Dianna	Cockle	15	dcockle9@mac.com	2003-06-10	Female
+100	71	Douglas	Pardie	2	dpardiei@spiegel.de	2001-11-05	Female
+select * from INDEX_DEMO where ID > 10;
+ID	CARD_NUM	FIRST_NAME	LAST_NAME	AGE	EMAIL	BIRTHDAY	GENDER
+12	30	Leoine	Elms	19	lelms6@ucsd.edu	2003-11-14	Male
+17	38	Karim	Mainwaring	54	kmainwaringj@163.com	2003-01-21	Male
+19	12	Garrard	Bools	68	gboolsd@bandcamp.com	1993-12-05	Female
+20	76	Stevana	Alyoshin	88	salyoshinc@wired.com	1990-11-18	Male
+31	77	Rita	Scotchmore	28	rscotchmore7@illinois.edu	1991-06-23	Male
+44	39	Roda	Paolo	45	rpaolo2@mozilla.com	1996-05-12	Male
+45	50	Alistair	Lempenny	64	alempenny1@foxnews.com	1991-06-07	Male
+49	74	Marcos	Coutts	91	mcoutts3@blogs.com	1998-12-18	Female
+64	95	Tait	Tavinor	63	ttavinora@photobucket.com	1994-11-02	Female
+67	36	Mag	Dalgarnocht	74	mdalgarnochtf@marketwatch.com	2000-05-03	Male
+69	33	Emogene	Pedroni	87	epedronih@4shared.com	2005-06-08	Female
+75	2	Kristi	Boules	46	kboulese@amazon.co.uk	1993-07-29	Female
+80	87	Morna	Colbert	8	mcolbert5@miitbeian.gov.cn	2001-06-25	Male
+83	83	Shannon	Covelle	30	scovelleb@tinyurl.com	2001-01-22	Male
+89	46	Gilligan	Rostern	28	grostern0@buzzfeed.com	1992-12-10	Male
+93	44	Dianna	Cockle	15	dcockle9@mac.com	2003-06-10	Female
+100	71	Douglas	Pardie	2	dpardiei@spiegel.de	2001-11-05	Female
+select * from INDEX_DEMO where ID in (11,12);
+ID	CARD_NUM	FIRST_NAME	LAST_NAME	AGE	EMAIL	BIRTHDAY	GENDER
+12	30	Leoine	Elms	19	lelms6@ucsd.edu	2003-11-14	Male
+select * from INDEX_DEMO where CARD_NUM = 10;
+ID	CARD_NUM	FIRST_NAME	LAST_NAME	AGE	EMAIL	BIRTHDAY	GENDER
+select * from INDEX_DEMO where CARD_NUM <= 12;
+ID	CARD_NUM	FIRST_NAME	LAST_NAME	AGE	EMAIL	BIRTHDAY	GENDER
+75	2	Kristi	Boules	46	kboulese@amazon.co.uk	1993-07-29	Female
+19	12	Garrard	Bools	68	gboolsd@bandcamp.com	1993-12-05	Female
+select * from INDEX_DEMO where CARD_NUM < 10;
+ID	CARD_NUM	FIRST_NAME	LAST_NAME	AGE	EMAIL	BIRTHDAY	GENDER
+75	2	Kristi	Boules	46	kboulese@amazon.co.uk	1993-07-29	Female
+select * from INDEX_DEMO where CARD_NUM between 10 and 20;
+ID	CARD_NUM	FIRST_NAME	LAST_NAME	AGE	EMAIL	BIRTHDAY	GENDER
+19	12	Garrard	Bools	68	gboolsd@bandcamp.com	1993-12-05	Female
+select * from INDEX_DEMO where CARD_NUM >= 10;
+ID	CARD_NUM	FIRST_NAME	LAST_NAME	AGE	EMAIL	BIRTHDAY	GENDER
+19	12	Garrard	Bools	68	gboolsd@bandcamp.com	1993-12-05	Female
+12	30	Leoine	Elms	19	lelms6@ucsd.edu	2003-11-14	Male
+69	33	Emogene	Pedroni	87	epedronih@4shared.com	2005-06-08	Female
+67	36	Mag	Dalgarnocht	74	mdalgarnochtf@marketwatch.com	2000-05-03	Male
+17	38	Karim	Mainwaring	54	kmainwaringj@163.com	2003-01-21	Male
+44	39	Roda	Paolo	45	rpaolo2@mozilla.com	1996-05-12	Male
+93	44	Dianna	Cockle	15	dcockle9@mac.com	2003-06-10	Female
+89	46	Gilligan	Rostern	28	grostern0@buzzfeed.com	1992-12-10	Male
+7	47	Jarib	Ausiello	69	jausiello8@wsj.com	1993-05-10	Male
+45	50	Alistair	Lempenny	64	alempenny1@foxnews.com	1991-06-07	Male
+100	71	Douglas	Pardie	2	dpardiei@spiegel.de	2001-11-05	Female
+49	74	Marcos	Coutts	91	mcoutts3@blogs.com	1998-12-18	Female
+20	76	Stevana	Alyoshin	88	salyoshinc@wired.com	1990-11-18	Male
+31	77	Rita	Scotchmore	28	rscotchmore7@illinois.edu	1991-06-23	Male
+6	81	Kalvin	Tunnicliff	35	ktunnicliff4@dailymotion.com	1991-04-03	Male
+83	83	Shannon	Covelle	30	scovelleb@tinyurl.com	2001-01-22	Male
+80	87	Morna	Colbert	8	mcolbert5@miitbeian.gov.cn	2001-06-25	Male
+3	94	Cori	Mee	50	cmeeg@fema.gov	1993-04-29	Female
+64	95	Tait	Tavinor	63	ttavinora@photobucket.com	1994-11-02	Female
+select * from INDEX_DEMO where CARD_NUM > 10;
+ID	CARD_NUM	FIRST_NAME	LAST_NAME	AGE	EMAIL	BIRTHDAY	GENDER
+19	12	Garrard	Bools	68	gboolsd@bandcamp.com	1993-12-05	Female
+12	30	Leoine	Elms	19	lelms6@ucsd.edu	2003-11-14	Male
+69	33	Emogene	Pedroni	87	epedronih@4shared.com	2005-06-08	Female
+67	36	Mag	Dalgarnocht	74	mdalgarnochtf@marketwatch.com	2000-05-03	Male
+17	38	Karim	Mainwaring	54	kmainwaringj@163.com	2003-01-21	Male
+44	39	Roda	Paolo	45	rpaolo2@mozilla.com	1996-05-12	Male
+93	44	Dianna	Cockle	15	dcockle9@mac.com	2003-06-10	Female
+89	46	Gilligan	Rostern	28	grostern0@buzzfeed.com	1992-12-10	Male
+7	47	Jarib	Ausiello	69	jausiello8@wsj.com	1993-05-10	Male
+45	50	Alistair	Lempenny	64	alempenny1@foxnews.com	1991-06-07	Male
+100	71	Douglas	Pardie	2	dpardiei@spiegel.de	2001-11-05	Female
+49	74	Marcos	Coutts	91	mcoutts3@blogs.com	1998-12-18	Female
+20	76	Stevana	Alyoshin	88	salyoshinc@wired.com	1990-11-18	Male
+31	77	Rita	Scotchmore	28	rscotchmore7@illinois.edu	1991-06-23	Male
+6	81	Kalvin	Tunnicliff	35	ktunnicliff4@dailymotion.com	1991-04-03	Male
+83	83	Shannon	Covelle	30	scovelleb@tinyurl.com	2001-01-22	Male
+80	87	Morna	Colbert	8	mcolbert5@miitbeian.gov.cn	2001-06-25	Male
+3	94	Cori	Mee	50	cmeeg@fema.gov	1993-04-29	Female
+64	95	Tait	Tavinor	63	ttavinora@photobucket.com	1994-11-02	Female
+select * from INDEX_DEMO where CARD_NUM in (11,12);
+ID	CARD_NUM	FIRST_NAME	LAST_NAME	AGE	EMAIL	BIRTHDAY	GENDER
+19	12	Garrard	Bools	68	gboolsd@bandcamp.com	1993-12-05	Female
+select * from INDEX_DEMO where AGE = 32 order by AGE;
+ID	CARD_NUM	FIRST_NAME	LAST_NAME	AGE	EMAIL	BIRTHDAY	GENDER
+select * from INDEX_DEMO where AGE = 32 order by AGE desc;
+ID	CARD_NUM	FIRST_NAME	LAST_NAME	AGE	EMAIL	BIRTHDAY	GENDER
+select * from INDEX_DEMO where AGE <= 32 order by AGE;
+ID	CARD_NUM	FIRST_NAME	LAST_NAME	AGE	EMAIL	BIRTHDAY	GENDER
+100	71	Douglas	Pardie	2	dpardiei@spiegel.de	2001-11-05	Female
+80	87	Morna	Colbert	8	mcolbert5@miitbeian.gov.cn	2001-06-25	Male
+93	44	Dianna	Cockle	15	dcockle9@mac.com	2003-06-10	Female
+12	30	Leoine	Elms	19	lelms6@ucsd.edu	2003-11-14	Male
+89	46	Gilligan	Rostern	28	grostern0@buzzfeed.com	1992-12-10	Male
+31	77	Rita	Scotchmore	28	rscotchmore7@illinois.edu	1991-06-23	Male
+83	83	Shannon	Covelle	30	scovelleb@tinyurl.com	2001-01-22	Male
+select * from INDEX_DEMO where AGE < 30 order by AGE desc;
+ID	CARD_NUM	FIRST_NAME	LAST_NAME	AGE	EMAIL	BIRTHDAY	GENDER
+31	77	Rita	Scotchmore	28	rscotchmore7@illinois.edu	1991-06-23	Male
+89	46	Gilligan	Rostern	28	grostern0@buzzfeed.com	1992-12-10	Male
+12	30	Leoine	Elms	19	lelms6@ucsd.edu	2003-11-14	Male
+93	44	Dianna	Cockle	15	dcockle9@mac.com	2003-06-10	Female
+80	87	Morna	Colbert	8	mcolbert5@miitbeian.gov.cn	2001-06-25	Male
+100	71	Douglas	Pardie	2	dpardiei@spiegel.de	2001-11-05	Female
+select * from INDEX_DEMO where AGE between 20 and 30 order by AGE;
+ID	CARD_NUM	FIRST_NAME	LAST_NAME	AGE	EMAIL	BIRTHDAY	GENDER
+89	46	Gilligan	Rostern	28	grostern0@buzzfeed.com	1992-12-10	Male
+31	77	Rita	Scotchmore	28	rscotchmore7@illinois.edu	1991-06-23	Male
+83	83	Shannon	Covelle	30	scovelleb@tinyurl.com	2001-01-22	Male
+select * from INDEX_DEMO where AGE between 20 and 30 order by AGE desc;
+ID	CARD_NUM	FIRST_NAME	LAST_NAME	AGE	EMAIL	BIRTHDAY	GENDER
+83	83	Shannon	Covelle	30	scovelleb@tinyurl.com	2001-01-22	Male
+31	77	Rita	Scotchmore	28	rscotchmore7@illinois.edu	1991-06-23	Male
+89	46	Gilligan	Rostern	28	grostern0@buzzfeed.com	1992-12-10	Male
+select * from INDEX_DEMO where AGE >= 30 order by AGE;
+ID	CARD_NUM	FIRST_NAME	LAST_NAME	AGE	EMAIL	BIRTHDAY	GENDER
+83	83	Shannon	Covelle	30	scovelleb@tinyurl.com	2001-01-22	Male
+6	81	Kalvin	Tunnicliff	35	ktunnicliff4@dailymotion.com	1991-04-03	Male
+44	39	Roda	Paolo	45	rpaolo2@mozilla.com	1996-05-12	Male
+75	2	Kristi	Boules	46	kboulese@amazon.co.uk	1993-07-29	Female
+3	94	Cori	Mee	50	cmeeg@fema.gov	1993-04-29	Female
+17	38	Karim	Mainwaring	54	kmainwaringj@163.com	2003-01-21	Male
+64	95	Tait	Tavinor	63	ttavinora@photobucket.com	1994-11-02	Female
+45	50	Alistair	Lempenny	64	alempenny1@foxnews.com	1991-06-07	Male
+19	12	Garrard	Bools	68	gboolsd@bandcamp.com	1993-12-05	Female
+7	47	Jarib	Ausiello	69	jausiello8@wsj.com	1993-05-10	Male
+67	36	Mag	Dalgarnocht	74	mdalgarnochtf@marketwatch.com	2000-05-03	Male
+69	33	Emogene	Pedroni	87	epedronih@4shared.com	2005-06-08	Female
+20	76	Stevana	Alyoshin	88	salyoshinc@wired.com	1990-11-18	Male
+49	74	Marcos	Coutts	91	mcoutts3@blogs.com	1998-12-18	Female
+select * from INDEX_DEMO where AGE > 30  order by AGE desc;
+ID	CARD_NUM	FIRST_NAME	LAST_NAME	AGE	EMAIL	BIRTHDAY	GENDER
+49	74	Marcos	Coutts	91	mcoutts3@blogs.com	1998-12-18	Female
+20	76	Stevana	Alyoshin	88	salyoshinc@wired.com	1990-11-18	Male
+69	33	Emogene	Pedroni	87	epedronih@4shared.com	2005-06-08	Female
+67	36	Mag	Dalgarnocht	74	mdalgarnochtf@marketwatch.com	2000-05-03	Male
+7	47	Jarib	Ausiello	69	jausiello8@wsj.com	1993-05-10	Male
+19	12	Garrard	Bools	68	gboolsd@bandcamp.com	1993-12-05	Female
+45	50	Alistair	Lempenny	64	alempenny1@foxnews.com	1991-06-07	Male
+64	95	Tait	Tavinor	63	ttavinora@photobucket.com	1994-11-02	Female
+17	38	Karim	Mainwaring	54	kmainwaringj@163.com	2003-01-21	Male
+3	94	Cori	Mee	50	cmeeg@fema.gov	1993-04-29	Female
+75	2	Kristi	Boules	46	kboulese@amazon.co.uk	1993-07-29	Female
+44	39	Roda	Paolo	45	rpaolo2@mozilla.com	1996-05-12	Male
+6	81	Kalvin	Tunnicliff	35	ktunnicliff4@dailymotion.com	1991-04-03	Male
+select * from INDEX_DEMO where AGE in (24,32) order by AGE;
+ID	CARD_NUM	FIRST_NAME	LAST_NAME	AGE	EMAIL	BIRTHDAY	GENDER
+select * from INDEX_DEMO where AGE in (24,32) order by AGE desc;
+ID	CARD_NUM	FIRST_NAME	LAST_NAME	AGE	EMAIL	BIRTHDAY	GENDER
+drop table if exists INDEX_DEMO;
+create table DEMO (a int, b int, c int, d int, e int, f int);
+create index idx on DEMO (f,e,d);
+insert into DEMO values (1,2,3,4,null,6);
+insert into DEMO values (1,2,3,4,5,null);
+insert into DEMO values (1,2,3,4,5,6);
+select e,f from DEMO where d = 4;
+e	f
+5	NULL
+NULL	6
+5	6
+Select d from DEMO where f = 6;
+d
+4
+4
+Select e from DEMO where d = 4 and f = 6;
+e
+NULL
+5
+drop table if exists DEMO;
+show variables like '%ctc_prefetch_buf_size%';
+Variable_name	Value
+ctc_prefetch_buf_size	196608

@@ -1,0 +1,1076 @@
+drop database if exists test_DB;
+Warnings:
+Note	1008	Can't drop database 'test_DB'; database doesn't exist
+create database test_DB;
+use test_DB;
+create table t1 (a int, b int, c int, d int, e int);
+insert into t1 values(1, 2, 3, 4, 5);
+insert into t1 values(2, 2, 3, 4, 5);
+insert into t1 values(3, 2, 3, 4, 5);
+insert into t1 values(4, 2, 3, 4, 5);
+insert into t1 values(5, 2, 3, 4, 5);
+select * from t1;
+a	b	c	d	e
+1	2	3	4	5
+2	2	3	4	5
+3	2	3	4	5
+4	2	3	4	5
+5	2	3	4	5
+alter table t1 drop column c;
+select * from t1;
+a	b	d	e
+1	2	4	5
+2	2	4	5
+3	2	4	5
+4	2	4	5
+5	2	4	5
+insert into t1 values(6, 2, 4, 5);
+select * from t1;
+a	b	d	e
+1	2	4	5
+2	2	4	5
+3	2	4	5
+4	2	4	5
+5	2	4	5
+6	2	4	5
+update t1 set e = 55 where a = 5;
+select * from t1;
+a	b	d	e
+1	2	4	5
+2	2	4	5
+3	2	4	5
+4	2	4	5
+5	2	4	55
+6	2	4	5
+alter table t1 drop column d;
+select * from t1;
+a	b	e
+1	2	5
+2	2	5
+3	2	5
+4	2	5
+5	2	55
+6	2	5
+insert into t1 values(7, 2, 5);
+select * from t1;
+a	b	e
+1	2	5
+2	2	5
+3	2	5
+4	2	5
+5	2	55
+6	2	5
+7	2	5
+update t1 set b = 22 where a = 7;
+select * from t1;
+a	b	e
+1	2	5
+2	2	5
+3	2	5
+4	2	5
+5	2	55
+6	2	5
+7	22	5
+update t1 set e = 55 where a = 7;
+select * from t1;
+a	b	e
+1	2	5
+2	2	5
+3	2	5
+4	2	5
+5	2	55
+6	2	5
+7	22	55
+update t1 set b = 8, e = 8 where a = 7;
+select * from t1;
+a	b	e
+1	2	5
+2	2	5
+3	2	5
+4	2	5
+5	2	55
+6	2	5
+7	8	8
+delete from t1 where a = 7;
+select * from t1;
+a	b	e
+1	2	5
+2	2	5
+3	2	5
+4	2	5
+5	2	55
+6	2	5
+drop table t1;
+create table t2 (a int, b int, c int, d int, e int);
+insert into t2 values(1, 2, 3, 4, 5);
+insert into t2 values(2, 2, 3, 4, 5);
+insert into t2 values(3, 2, 3, 4, 5);
+insert into t2 values(4, 2, 3, 4, 5);
+insert into t2 values(5, 2, 3, 4, 5);
+select * from t2;
+a	b	c	d	e
+1	2	3	4	5
+2	2	3	4	5
+3	2	3	4	5
+4	2	3	4	5
+5	2	3	4	5
+create index t2_i on t2(a);
+select* from t2;
+a	b	c	d	e
+1	2	3	4	5
+2	2	3	4	5
+3	2	3	4	5
+4	2	3	4	5
+5	2	3	4	5
+alter table t2 drop column c;
+select * from t2;
+a	b	d	e
+1	2	4	5
+2	2	4	5
+3	2	4	5
+4	2	4	5
+5	2	4	5
+insert into t2 values(6, 2, 4, 5);
+select * from t2;
+a	b	d	e
+1	2	4	5
+2	2	4	5
+3	2	4	5
+4	2	4	5
+5	2	4	5
+6	2	4	5
+update t2 set e = 55 where a = 5;
+select * from t2;
+a	b	d	e
+1	2	4	5
+2	2	4	5
+3	2	4	5
+4	2	4	5
+5	2	4	55
+6	2	4	5
+select a from t2;
+a
+1
+2
+3
+4
+5
+6
+alter table t2 drop column d;
+select * from t2;
+a	b	e
+1	2	5
+2	2	5
+3	2	5
+4	2	5
+5	2	55
+6	2	5
+insert into t2 values(7, 2, 5);
+select * from t2;
+a	b	e
+1	2	5
+2	2	5
+3	2	5
+4	2	5
+5	2	55
+6	2	5
+7	2	5
+update t2 set b = 22 where a = 7;
+select * from t2;
+a	b	e
+1	2	5
+2	2	5
+3	2	5
+4	2	5
+5	2	55
+6	2	5
+7	22	5
+update t2 set e = 55 where a = 7;
+select * from t2;
+a	b	e
+1	2	5
+2	2	5
+3	2	5
+4	2	5
+5	2	55
+6	2	5
+7	22	55
+update t2 set b = 8, e = 8 where a = 7;
+select * from t2;
+a	b	e
+1	2	5
+2	2	5
+3	2	5
+4	2	5
+5	2	55
+6	2	5
+7	8	8
+select a from t2;
+a
+1
+2
+3
+4
+5
+6
+7
+delete from t2 where a = 7;
+select * from t2;
+a	b	e
+1	2	5
+2	2	5
+3	2	5
+4	2	5
+5	2	55
+6	2	5
+drop table t2;
+create table t3 (a int, b int, c int, d int, e int);
+insert into t3 values(1, 2, 3, 4, 5);
+insert into t3 values(2, 2, 3, 4, 5);
+insert into t3 values(3, 2, 3, 4, 5);
+insert into t3 values(4, 2, 3, 4, 5);
+insert into t3 values(5, 2, 3, 4, 5);
+select * from t3;
+a	b	c	d	e
+1	2	3	4	5
+2	2	3	4	5
+3	2	3	4	5
+4	2	3	4	5
+5	2	3	4	5
+create index t3_i on t3(a, b);
+select* from t3;
+a	b	c	d	e
+1	2	3	4	5
+2	2	3	4	5
+3	2	3	4	5
+4	2	3	4	5
+5	2	3	4	5
+alter table t3 drop column c;
+select * from t3;
+a	b	d	e
+1	2	4	5
+2	2	4	5
+3	2	4	5
+4	2	4	5
+5	2	4	5
+insert into t3 values(6, 2, 4, 5);
+select * from t3;
+a	b	d	e
+1	2	4	5
+2	2	4	5
+3	2	4	5
+4	2	4	5
+5	2	4	5
+6	2	4	5
+update t3 set e = 55 where a = 5;
+select * from t3;
+a	b	d	e
+1	2	4	5
+2	2	4	5
+3	2	4	5
+4	2	4	5
+5	2	4	55
+6	2	4	5
+select a from t3;
+a
+1
+2
+3
+4
+5
+6
+select a, b from t3;
+a	b
+1	2
+2	2
+3	2
+4	2
+5	2
+6	2
+alter table t3 drop column d;
+select * from t3;
+a	b	e
+1	2	5
+2	2	5
+3	2	5
+4	2	5
+5	2	55
+6	2	5
+insert into t3 values(7, 2, 5);
+select * from t3;
+a	b	e
+1	2	5
+2	2	5
+3	2	5
+4	2	5
+5	2	55
+6	2	5
+7	2	5
+update t3 set b = 22 where a = 7;
+select * from t3;
+a	b	e
+1	2	5
+2	2	5
+3	2	5
+4	2	5
+5	2	55
+6	2	5
+7	22	5
+update t3 set e = 55 where a = 7;
+select * from t3;
+a	b	e
+1	2	5
+2	2	5
+3	2	5
+4	2	5
+5	2	55
+6	2	5
+7	22	55
+update t3 set b = 8, e = 8 where a = 7;
+select * from t3;
+a	b	e
+1	2	5
+2	2	5
+3	2	5
+4	2	5
+5	2	55
+6	2	5
+7	8	8
+select a from t3;
+a
+1
+2
+3
+4
+5
+6
+7
+select a, b from t3;
+a	b
+1	2
+2	2
+3	2
+4	2
+5	2
+6	2
+7	8
+delete from t3 where a = 7;
+select * from t3;
+a	b	e
+1	2	5
+2	2	5
+3	2	5
+4	2	5
+5	2	55
+6	2	5
+drop table t3;
+create table t4(a int, b varchar(10), c varchar(10), d varchar(20), e varchar(10));
+insert into t4 values(1, "bb", "ccc", "dddd", "eeeee");
+insert into t4 values(2, "bb", "ccc", "dddd", "eeeee");
+insert into t4 values(3, "bb", "ccc", "dddd", "eeeee");
+insert into t4 values(4, "bb", "ccc", "dddd", "eeeee");
+insert into t4 values(5, "bb", "ccc", "dddd", "eeeee");
+select * from t4;
+a	b	c	d	e
+1	bb	ccc	dddd	eeeee
+2	bb	ccc	dddd	eeeee
+3	bb	ccc	dddd	eeeee
+4	bb	ccc	dddd	eeeee
+5	bb	ccc	dddd	eeeee
+alter table t4 drop column c;
+select * from t4;
+a	b	d	e
+1	bb	dddd	eeeee
+2	bb	dddd	eeeee
+3	bb	dddd	eeeee
+4	bb	dddd	eeeee
+5	bb	dddd	eeeee
+insert into t4 values(6, "bb", "dddd", "eeeee");
+select * from t4;
+a	b	d	e
+1	bb	dddd	eeeee
+2	bb	dddd	eeeee
+3	bb	dddd	eeeee
+4	bb	dddd	eeeee
+5	bb	dddd	eeeee
+6	bb	dddd	eeeee
+update t4 set e = "ee" where a = 6;
+select * from t4;
+a	b	d	e
+1	bb	dddd	eeeee
+2	bb	dddd	eeeee
+3	bb	dddd	eeeee
+4	bb	dddd	eeeee
+5	bb	dddd	eeeee
+6	bb	dddd	ee
+alter table t4 drop column d;
+select * from t4;
+a	b	e
+1	bb	eeeee
+2	bb	eeeee
+3	bb	eeeee
+4	bb	eeeee
+5	bb	eeeee
+6	bb	ee
+insert into t4 values(7, "bb", "eeeee");
+select * from t4;
+a	b	e
+1	bb	eeeee
+2	bb	eeeee
+3	bb	eeeee
+4	bb	eeeee
+5	bb	eeeee
+6	bb	ee
+7	bb	eeeee
+update t4 set b = "bbbbbbb" where a = 7;
+select * from t4;
+a	b	e
+1	bb	eeeee
+2	bb	eeeee
+3	bb	eeeee
+4	bb	eeeee
+5	bb	eeeee
+6	bb	ee
+7	bbbbbbb	eeeee
+update t4 set e = "eeeeeee" where a = 7;
+select * from t4;
+a	b	e
+1	bb	eeeee
+2	bb	eeeee
+3	bb	eeeee
+4	bb	eeeee
+5	bb	eeeee
+6	bb	ee
+7	bbbbbbb	eeeeeee
+update t4 set b = "b", e = "e" where a = 7;
+select * from t4;
+a	b	e
+1	bb	eeeee
+2	bb	eeeee
+3	bb	eeeee
+4	bb	eeeee
+5	bb	eeeee
+6	bb	ee
+7	b	e
+delete from t4 where a = 7;
+select * from t4;
+a	b	e
+1	bb	eeeee
+2	bb	eeeee
+3	bb	eeeee
+4	bb	eeeee
+5	bb	eeeee
+6	bb	ee
+select * from t4 where a = 6;
+a	b	e
+6	bb	ee
+drop table t4;
+create table t5(a int, b varchar(10), c varchar(10), d varchar(20), e varchar(10));
+insert into t5 values(1, "bb", "ccc", "dddd", "eeeee");
+insert into t5 values(2, "bb", "ccc", "dddd", "eeeee");
+insert into t5 values(3, "bb", "ccc", "dddd", "eeeee");
+insert into t5 values(4, "bb", "ccc", "dddd", "eeeee");
+insert into t5 values(5, "bb", "ccc", "dddd", "eeeee");
+select * from t5;
+a	b	c	d	e
+1	bb	ccc	dddd	eeeee
+2	bb	ccc	dddd	eeeee
+3	bb	ccc	dddd	eeeee
+4	bb	ccc	dddd	eeeee
+5	bb	ccc	dddd	eeeee
+create index t5_i on t5(a);
+select * from t5;
+a	b	c	d	e
+1	bb	ccc	dddd	eeeee
+2	bb	ccc	dddd	eeeee
+3	bb	ccc	dddd	eeeee
+4	bb	ccc	dddd	eeeee
+5	bb	ccc	dddd	eeeee
+alter table t5 drop column c;
+select * from t5;
+a	b	d	e
+1	bb	dddd	eeeee
+2	bb	dddd	eeeee
+3	bb	dddd	eeeee
+4	bb	dddd	eeeee
+5	bb	dddd	eeeee
+insert into t5 values(6, "bb", "dddd", "eeeee");
+select * from t5;
+a	b	d	e
+1	bb	dddd	eeeee
+2	bb	dddd	eeeee
+3	bb	dddd	eeeee
+4	bb	dddd	eeeee
+5	bb	dddd	eeeee
+6	bb	dddd	eeeee
+update t5 set e = "ee" where a = 6;
+select * from t5;
+a	b	d	e
+1	bb	dddd	eeeee
+2	bb	dddd	eeeee
+3	bb	dddd	eeeee
+4	bb	dddd	eeeee
+5	bb	dddd	eeeee
+6	bb	dddd	ee
+alter table t5 drop column d;
+select * from t5;
+a	b	e
+1	bb	eeeee
+2	bb	eeeee
+3	bb	eeeee
+4	bb	eeeee
+5	bb	eeeee
+6	bb	ee
+insert into t5 values(7, "bb", "eeeee");
+select * from t5;
+a	b	e
+1	bb	eeeee
+2	bb	eeeee
+3	bb	eeeee
+4	bb	eeeee
+5	bb	eeeee
+6	bb	ee
+7	bb	eeeee
+update t5 set b = "bbbbbbb" where a = 7;
+select * from t5;
+a	b	e
+1	bb	eeeee
+2	bb	eeeee
+3	bb	eeeee
+4	bb	eeeee
+5	bb	eeeee
+6	bb	ee
+7	bbbbbbb	eeeee
+update t5 set e = "eeeeeee" where a = 7;
+select * from t5;
+a	b	e
+1	bb	eeeee
+2	bb	eeeee
+3	bb	eeeee
+4	bb	eeeee
+5	bb	eeeee
+6	bb	ee
+7	bbbbbbb	eeeeeee
+update t5 set b = "b", e = "e" where a = 7;
+select * from t5;
+a	b	e
+1	bb	eeeee
+2	bb	eeeee
+3	bb	eeeee
+4	bb	eeeee
+5	bb	eeeee
+6	bb	ee
+7	b	e
+select * from t5 where a = 6;
+a	b	e
+6	bb	ee
+select a from t5;
+a
+1
+2
+3
+4
+5
+6
+7
+delete from t5 where a = 7;
+select * from t5;
+a	b	e
+1	bb	eeeee
+2	bb	eeeee
+3	bb	eeeee
+4	bb	eeeee
+5	bb	eeeee
+6	bb	ee
+drop table t5;
+create table t6(a int, b varchar(10), c varchar(10), d varchar(20), e varchar(10));
+insert into t6 values(1, "bb", "ccc", "dddd", "eeeee");
+insert into t6 values(2, "bb", "ccc", "dddd", "eeeee");
+insert into t6 values(3, "bb", "ccc", "dddd", "eeeee");
+insert into t6 values(4, "bb", "ccc", "dddd", "eeeee");
+insert into t6 values(5, "bb", "ccc", "dddd", "eeeee");
+select * from t6;
+a	b	c	d	e
+1	bb	ccc	dddd	eeeee
+2	bb	ccc	dddd	eeeee
+3	bb	ccc	dddd	eeeee
+4	bb	ccc	dddd	eeeee
+5	bb	ccc	dddd	eeeee
+create index t6_i on t6(a, b);
+select * from t6;
+a	b	c	d	e
+1	bb	ccc	dddd	eeeee
+2	bb	ccc	dddd	eeeee
+3	bb	ccc	dddd	eeeee
+4	bb	ccc	dddd	eeeee
+5	bb	ccc	dddd	eeeee
+alter table t6 drop column c;
+select * from t6;
+a	b	d	e
+1	bb	dddd	eeeee
+2	bb	dddd	eeeee
+3	bb	dddd	eeeee
+4	bb	dddd	eeeee
+5	bb	dddd	eeeee
+insert into t6 values(6, "bb", "dddd", "eeeee");
+select * from t6;
+a	b	d	e
+1	bb	dddd	eeeee
+2	bb	dddd	eeeee
+3	bb	dddd	eeeee
+4	bb	dddd	eeeee
+5	bb	dddd	eeeee
+6	bb	dddd	eeeee
+update t6 set e = "ee" where a = 6;
+select * from t6;
+a	b	d	e
+1	bb	dddd	eeeee
+2	bb	dddd	eeeee
+3	bb	dddd	eeeee
+4	bb	dddd	eeeee
+5	bb	dddd	eeeee
+6	bb	dddd	ee
+alter table t6 drop column d;
+select * from t6;
+a	b	e
+1	bb	eeeee
+2	bb	eeeee
+3	bb	eeeee
+4	bb	eeeee
+5	bb	eeeee
+6	bb	ee
+insert into t6 values(7, "bb", "eeeee");
+select * from t6;
+a	b	e
+1	bb	eeeee
+2	bb	eeeee
+3	bb	eeeee
+4	bb	eeeee
+5	bb	eeeee
+6	bb	ee
+7	bb	eeeee
+update t6 set b = "bbbbbbb" where a = 7;
+select * from t6;
+a	b	e
+1	bb	eeeee
+2	bb	eeeee
+3	bb	eeeee
+4	bb	eeeee
+5	bb	eeeee
+6	bb	ee
+7	bbbbbbb	eeeee
+update t6 set e = "eeeeeee" where a = 7;
+select * from t6;
+a	b	e
+1	bb	eeeee
+2	bb	eeeee
+3	bb	eeeee
+4	bb	eeeee
+5	bb	eeeee
+6	bb	ee
+7	bbbbbbb	eeeeeee
+update t6 set b = "b", e = "e" where a = 7;
+select * from t6;
+a	b	e
+1	bb	eeeee
+2	bb	eeeee
+3	bb	eeeee
+4	bb	eeeee
+5	bb	eeeee
+6	bb	ee
+7	b	e
+select * from t6 where a = 6;
+a	b	e
+6	bb	ee
+select a from t6;
+a
+1
+2
+3
+4
+5
+6
+7
+select a, b from t6;
+a	b
+1	bb
+2	bb
+3	bb
+4	bb
+5	bb
+6	bb
+7	b
+delete from t6 where a = 7;
+select * from t6;
+a	b	e
+1	bb	eeeee
+2	bb	eeeee
+3	bb	eeeee
+4	bb	eeeee
+5	bb	eeeee
+6	bb	ee
+drop table t6;
+create table t7(id int, a_integer integer, b_char char, c_varchar varchar(10), d_deciaml decimal, e_tinyint tinyint, f_bigint bigint, g_float float, h_date date);
+insert into t7 values(1, 1, "b", "varchar", 1, 1, 100, 10.01, 20220923);
+insert into t7 values(2, 1, "b", "varchar", 2, 2, 200, 20.01, 20220923);
+insert into t7 values(3, 1, "b", "varchar", 3, 3, 300, 30.01, 20220923);
+insert into t7 values(4, 1, "b", "varchar", 4, 4, 400, 40.01, 20220923);
+insert into t7 values(5, 1, "b", "varchar", 5, 5, 500, 50.01, 20220923);
+select * from t7;
+id	a_integer	b_char	c_varchar	d_deciaml	e_tinyint	f_bigint	g_float	h_date
+1	1	b	varchar	1	1	100	10.01	2022-09-23
+2	1	b	varchar	2	2	200	20.01	2022-09-23
+3	1	b	varchar	3	3	300	30.01	2022-09-23
+4	1	b	varchar	4	4	400	40.01	2022-09-23
+5	1	b	varchar	5	5	500	50.01	2022-09-23
+alter table t7 drop column b_char;
+select * from t7;
+id	a_integer	c_varchar	d_deciaml	e_tinyint	f_bigint	g_float	h_date
+1	1	varchar	1	1	100	10.01	2022-09-23
+2	1	varchar	2	2	200	20.01	2022-09-23
+3	1	varchar	3	3	300	30.01	2022-09-23
+4	1	varchar	4	4	400	40.01	2022-09-23
+5	1	varchar	5	5	500	50.01	2022-09-23
+insert into t7 values(6, 1, "varchar", 6, 6, 600, 60.01, 20220923);
+select * from t7;
+id	a_integer	c_varchar	d_deciaml	e_tinyint	f_bigint	g_float	h_date
+1	1	varchar	1	1	100	10.01	2022-09-23
+2	1	varchar	2	2	200	20.01	2022-09-23
+3	1	varchar	3	3	300	30.01	2022-09-23
+4	1	varchar	4	4	400	40.01	2022-09-23
+5	1	varchar	5	5	500	50.01	2022-09-23
+6	1	varchar	6	6	600	60.01	2022-09-23
+update t7 set h_date = 20220924 where id = 6;
+select * from t7;
+id	a_integer	c_varchar	d_deciaml	e_tinyint	f_bigint	g_float	h_date
+1	1	varchar	1	1	100	10.01	2022-09-23
+2	1	varchar	2	2	200	20.01	2022-09-23
+3	1	varchar	3	3	300	30.01	2022-09-23
+4	1	varchar	4	4	400	40.01	2022-09-23
+5	1	varchar	5	5	500	50.01	2022-09-23
+6	1	varchar	6	6	600	60.01	2022-09-24
+create index t7_i on t7(id, a_integer);
+select * from t7;
+id	a_integer	c_varchar	d_deciaml	e_tinyint	f_bigint	g_float	h_date
+1	1	varchar	1	1	100	10.01	2022-09-23
+2	1	varchar	2	2	200	20.01	2022-09-23
+3	1	varchar	3	3	300	30.01	2022-09-23
+4	1	varchar	4	4	400	40.01	2022-09-23
+5	1	varchar	5	5	500	50.01	2022-09-23
+6	1	varchar	6	6	600	60.01	2022-09-24
+alter table t7 drop column d_deciaml;
+select * from t7;
+id	a_integer	c_varchar	e_tinyint	f_bigint	g_float	h_date
+1	1	varchar	1	100	10.01	2022-09-23
+2	1	varchar	2	200	20.01	2022-09-23
+3	1	varchar	3	300	30.01	2022-09-23
+4	1	varchar	4	400	40.01	2022-09-23
+5	1	varchar	5	500	50.01	2022-09-23
+6	1	varchar	6	600	60.01	2022-09-24
+insert into t7 values(7, 1, "varchar", 7, 700, 70.01, 20220923);
+select * from t7;
+id	a_integer	c_varchar	e_tinyint	f_bigint	g_float	h_date
+1	1	varchar	1	100	10.01	2022-09-23
+2	1	varchar	2	200	20.01	2022-09-23
+3	1	varchar	3	300	30.01	2022-09-23
+4	1	varchar	4	400	40.01	2022-09-23
+5	1	varchar	5	500	50.01	2022-09-23
+6	1	varchar	6	600	60.01	2022-09-24
+7	1	varchar	7	700	70.01	2022-09-23
+update t7 set g_float = 70.77 where id = 7;
+select * from t7;
+id	a_integer	c_varchar	e_tinyint	f_bigint	g_float	h_date
+1	1	varchar	1	100	10.01	2022-09-23
+2	1	varchar	2	200	20.01	2022-09-23
+3	1	varchar	3	300	30.01	2022-09-23
+4	1	varchar	4	400	40.01	2022-09-23
+5	1	varchar	5	500	50.01	2022-09-23
+6	1	varchar	6	600	60.01	2022-09-24
+7	1	varchar	7	700	70.77	2022-09-23
+select * from t7 where e_tinyint = 7;
+id	a_integer	c_varchar	e_tinyint	f_bigint	g_float	h_date
+7	1	varchar	7	700	70.77	2022-09-23
+select id, a_integer from t7;
+id	a_integer
+1	1
+2	1
+3	1
+4	1
+5	1
+6	1
+7	1
+delete from t7 where id = 7;
+select * from t7;
+id	a_integer	c_varchar	e_tinyint	f_bigint	g_float	h_date
+1	1	varchar	1	100	10.01	2022-09-23
+2	1	varchar	2	200	20.01	2022-09-23
+3	1	varchar	3	300	30.01	2022-09-23
+4	1	varchar	4	400	40.01	2022-09-23
+5	1	varchar	5	500	50.01	2022-09-23
+6	1	varchar	6	600	60.01	2022-09-24
+drop table t7;
+create table t8(a int, b varchar(10), c varchar(10));
+insert into t8 values(1, "bb", "ccc");
+insert into t8 values(2, "bb", "ccc");
+select * from t8;
+a	b	c
+1	bb	ccc
+2	bb	ccc
+create index t8_i on t8(a, b, c);
+select * from t8;
+a	b	c
+1	bb	ccc
+2	bb	ccc
+alter table t8 drop column b;
+select * from t8;
+a	c
+1	ccc
+2	ccc
+select * from t8;
+a	c
+1	ccc
+2	ccc
+insert into t8 values(3, "ccc");
+select * from t8;
+a	c
+1	ccc
+2	ccc
+3	ccc
+select a, c from t8;
+a	c
+1	ccc
+2	ccc
+3	ccc
+drop table t8;
+create table t9 (a int, b int, c int, d int, e int);
+insert into t9 values(1, 2, 3, 4, 5);
+insert into t9 values(2, 2, null, 4, 5);
+insert into t9 values(3, 2, 3, null, 5);
+select * from t9;
+a	b	c	d	e
+1	2	3	4	5
+2	2	NULL	4	5
+3	2	3	NULL	5
+alter table t9 drop column c;
+select * from t9;
+a	b	d	e
+1	2	4	5
+2	2	4	5
+3	2	NULL	5
+insert into t9 values(4, 2, null, 5);
+select * from t9;
+a	b	d	e
+1	2	4	5
+2	2	4	5
+3	2	NULL	5
+4	2	NULL	5
+drop table t9;
+CREATE TABLE t10 (a int, b int, c NUMERIC, d int, e int, f DECIMAL, g int) ;
+insert into t10 values(1,2,3,4,5,6,7);
+insert into t10 values(2,2,3,4,5,6,7);
+insert into t10 values(3,2,3,4,5,6,7);
+select * from t10;
+a	b	c	d	e	f	g
+1	2	3	4	5	6	7
+2	2	3	4	5	6	7
+3	2	3	4	5	6	7
+create index idx10 on t10 (a,b,c);
+alter table t10 drop column b;
+select * from t10;
+a	c	d	e	f	g
+1	3	4	5	6	7
+2	3	4	5	6	7
+3	3	4	5	6	7
+insert into t10 values(4,3,4,5,6,7);
+select * from t10;
+a	c	d	e	f	g
+1	3	4	5	6	7
+2	3	4	5	6	7
+3	3	4	5	6	7
+4	3	4	5	6	7
+select a,c from t10;
+a	c
+1	3
+2	3
+3	3
+4	3
+update t10 set d = 44 where a = 3;
+select * from t10;
+a	c	d	e	f	g
+1	3	4	5	6	7
+2	3	4	5	6	7
+3	3	44	5	6	7
+4	3	4	5	6	7
+update t10 set f = 66 where a = 4;
+select * from t10;
+a	c	d	e	f	g
+1	3	4	5	6	7
+2	3	4	5	6	7
+3	3	44	5	6	7
+4	3	4	5	66	7
+alter table t10 drop column c;
+select * from t10;
+a	d	e	f	g
+1	4	5	6	7
+2	4	5	6	7
+3	44	5	6	7
+4	4	5	66	7
+insert into t10 values(5,4,5,6,7);
+select * from t10;
+a	d	e	f	g
+1	4	5	6	7
+2	4	5	6	7
+3	44	5	6	7
+4	4	5	66	7
+5	4	5	6	7
+select * from t10 where a = 4;
+a	d	e	f	g
+4	4	5	66	7
+drop table t10;
+CREATE TABLE t11 (a int, b int, c NUMERIC, d int, e int, f DECIMAL, g int) ;
+insert into t11 values(1,2,3,4,5,6,7);
+insert into t11 values(2,2,3,4,5,6,7);
+insert into t11 values(3,2,3,4,5,6,7);
+select * from t11;
+a	b	c	d	e	f	g
+1	2	3	4	5	6	7
+2	2	3	4	5	6	7
+3	2	3	4	5	6	7
+create index idx11 on t11 (a,b,c,d,e,f,g);
+alter table t11 drop column b;
+select * from t11;
+a	c	d	e	f	g
+1	3	4	5	6	7
+2	3	4	5	6	7
+3	3	4	5	6	7
+insert into t11 values(4,3,4,5,6,7);
+select * from t11;
+a	c	d	e	f	g
+1	3	4	5	6	7
+2	3	4	5	6	7
+3	3	4	5	6	7
+4	3	4	5	6	7
+update t11 set a = 44, d = 44 where a = 4;
+select * from t11;
+a	c	d	e	f	g
+1	3	4	5	6	7
+2	3	4	5	6	7
+3	3	4	5	6	7
+44	3	44	5	6	7
+alter table t11 drop column c;
+select * from t11;
+a	d	e	f	g
+1	4	5	6	7
+2	4	5	6	7
+3	4	5	6	7
+44	44	5	6	7
+insert into t11 values(5,4,5,6,7);
+select * from t11;
+a	d	e	f	g
+1	4	5	6	7
+2	4	5	6	7
+3	4	5	6	7
+5	4	5	6	7
+44	44	5	6	7
+alter table t11 drop column d;
+select * from t11;
+a	e	f	g
+1	5	6	7
+2	5	6	7
+3	5	6	7
+5	5	6	7
+44	5	6	7
+insert into t11 values(6,5,6,7);
+select * from t11;
+a	e	f	g
+1	5	6	7
+2	5	6	7
+3	5	6	7
+5	5	6	7
+6	5	6	7
+44	5	6	7
+alter table t11 drop column f;
+select * from t11;
+a	e	g
+1	5	7
+2	5	7
+3	5	7
+5	5	7
+6	5	7
+44	5	7
+insert into t11 values(7,5,7);
+select * from t11;
+a	e	g
+1	5	7
+2	5	7
+3	5	7
+5	5	7
+6	5	7
+7	5	7
+44	5	7
+drop table t11;
+create table t12 (a int, b int, c int, d int, e int);
+insert into t12 values(1, 2, 3, 4, 5);
+insert into t12 values(2, 2, 3, 4, 5);
+insert into t12 values(3, 2, 3, 4, 5);
+insert into t12 values(4, 2, 3, 4, 5);
+insert into t12 values(5, 2, 3, 4, 5);
+create index t12_i on t12(a, b, c);
+select * from t12;
+a	b	c	d	e
+1	2	3	4	5
+2	2	3	4	5
+3	2	3	4	5
+4	2	3	4	5
+5	2	3	4	5
+alter table t12 drop column b;
+select * from t12;
+a	c	d	e
+1	3	4	5
+2	3	4	5
+3	3	4	5
+4	3	4	5
+5	3	4	5
+insert into t12 values(6, 3, 4, 5);
+select * from t12;
+a	c	d	e
+1	3	4	5
+2	3	4	5
+3	3	4	5
+4	3	4	5
+5	3	4	5
+6	3	4	5
+update t12 set c = 33 where a = 3;
+select * from t12;
+a	c	d	e
+1	3	4	5
+2	3	4	5
+3	33	4	5
+4	3	4	5
+5	3	4	5
+6	3	4	5
+drop table t12;
+create table t13 (a int, b int, c int, d int, e int);
+insert into t13 values(1, 2, 3, 4, 5);
+insert into t13 values(2, 2, 3, 4, 5);
+insert into t13 values(3, 2, 3, 4, 5);
+create index t13_i on t13(a, b, c, d, e);
+select * from t13;
+a	b	c	d	e
+1	2	3	4	5
+2	2	3	4	5
+3	2	3	4	5
+alter table t13 drop column c;
+select * from t13;
+a	b	d	e
+1	2	4	5
+2	2	4	5
+3	2	4	5
+update t13 set b = 22, d = 44 where a = 3;
+select * from t13;
+a	b	d	e
+1	2	4	5
+2	2	4	5
+3	22	44	5
+drop table t13;
+drop database test_DB;

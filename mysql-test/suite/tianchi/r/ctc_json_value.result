@@ -1,0 +1,295 @@
+drop table if exists t1;
+CREATE TABLE t1(j JSON, KEY i1((JSON_VALUE(j, '$'))));
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `j` json DEFAULT NULL,
+  KEY `i1` ((json_value(`j`, _utf8mb4'$' returning char(512))))
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+INSERT INTO t1 VALUES('"asdf"'),('"dfgh"'),('"FghJ"'),('"fghj"'),('"hjkl"');
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+EXPLAIN SELECT * FROM t1 WHERE JSON_VALUE(j, '$' RETURNING CHAR(10)) = 'fghj';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`j` AS `j` from `test`.`t1` where (json_value(`test`.`t1`.`j`, '$' returning char(10)) = 'fghj')
+SELECT * FROM t1 WHERE JSON_VALUE(j, '$' RETURNING CHAR(10)) = 'fghj';
+j
+"fghj"
+# The index is not used if the JSON_VALUE expressions differ.
+EXPLAIN SELECT * FROM t1 WHERE JSON_VALUE(j, '$' RETURNING CHAR(11)) = 'fghj';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`j` AS `j` from `test`.`t1` where (json_value(`test`.`t1`.`j`, '$' returning char(11)) = 'fghj')
+SELECT * FROM t1 WHERE JSON_VALUE(j, '$' RETURNING CHAR(11)) = 'fghj';
+j
+"fghj"
+EXPLAIN SELECT * FROM t1 WHERE JSON_VALUE(j, '$') = 'fghj';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ref	i1	i1	2051	const	5	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`j` AS `j` from `test`.`t1` where (json_value(`j`, _utf8mb4'$' returning char(512)) = 'fghj')
+DROP TABLE t1;
+CREATE TABLE t1(j JSON, KEY i1((JSON_VALUE(j, '$' RETURNING CHAR(10)))));
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `j` json DEFAULT NULL,
+  KEY `i1` ((json_value(`j`, _utf8mb4'$' returning char(10))))
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+INSERT INTO t1 VALUES('"asdf"'),('"dfgh"'),('"FghJ"'),('"fghj"'),('"hjkl"');
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	error	Unknown - internal error 155 during operation
+EXPLAIN SELECT * FROM t1 WHERE JSON_VALUE(j, '$' RETURNING CHAR(10)) = 'fghj';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ref	i1	i1	43	const	1	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`j` AS `j` from `test`.`t1` where (json_value(`j`, _utf8mb4'$' returning char(10)) = 'fghj')
+SELECT * FROM t1 WHERE JSON_VALUE(j, '$' RETURNING CHAR(10)) = 'fghj';
+j
+# The index is not used if the JSON_VALUE expressions differ.
+EXPLAIN SELECT * FROM t1 WHERE JSON_VALUE(j, '$' RETURNING CHAR(11)) = 'fghj';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`j` AS `j` from `test`.`t1` where (json_value(`test`.`t1`.`j`, '$' returning char(11)) = 'fghj')
+SELECT * FROM t1 WHERE JSON_VALUE(j, '$' RETURNING CHAR(11)) = 'fghj';
+j
+"fghj"
+EXPLAIN SELECT * FROM t1 WHERE JSON_VALUE(j, '$') = 'fghj';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`j` AS `j` from `test`.`t1` where (json_value(`test`.`t1`.`j`, '$' returning char(512)) = 'fghj')
+DROP TABLE t1;
+CREATE TABLE t1(j JSON,
+KEY i1((JSON_VALUE(j, '$' RETURNING CHAR(10) CHARSET utf8mb4))));
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `j` json DEFAULT NULL,
+  KEY `i1` ((json_value(`j`, _utf8mb4'$' returning char(10) character set utf8mb4)))
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+INSERT INTO t1 VALUES('"asdf"'),('"dfgh"'),('"FghJ"'),('"fghj"'),('"hjkl"');
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+EXPLAIN SELECT * FROM t1
+WHERE JSON_VALUE(j, '$' RETURNING CHAR(10) CHARSET utf8mb4) = 'fghj';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ref	i1	i1	43	const	5	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`j` AS `j` from `test`.`t1` where (json_value(`j`, _utf8mb4'$' returning char(10) character set utf8mb4) = 'fghj')
+SELECT * FROM t1
+WHERE JSON_VALUE(j, '$' RETURNING CHAR(10) CHARSET utf8mb4) = 'fghj';
+j
+# The index is not used if the JSON_VALUE expressions differ.
+SELECT * FROM t1 WHERE JSON_VALUE(j, '$' RETURNING CHAR(10) CHARSET latin1) = 'fghj';
+j
+"FghJ"
+"fghj"
+EXPLAIN SELECT * FROM t1
+WHERE JSON_VALUE(j, '$' RETURNING CHAR(10) CHARSET latin1) = 'fghj';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	5	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`j` AS `j` from `test`.`t1` where (json_value(`test`.`t1`.`j`, '$' returning char(10) character set latin1) = 'fghj')
+DROP TABLE t1;
+CREATE TABLE t1(j JSON,   KEY i1((JSON_VALUE(j, '$.name' RETURNING CHAR(100)CHARSET utf8mb4))));
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `j` json DEFAULT NULL,
+  KEY `i1` ((json_value(`j`, _utf8mb4'$.name' returning char(100) character set utf8mb4)))
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+INSERT INTO t1 VALUES('{"name":"First Primary School", "create_time":"2012-05-08", "classes": [{"name":"class 1", 
+    "size":50, "teachers":{"teacher":"Master Zhang", "age":31}}, {"name":"class 2", "size":45, 
+    "teachers":{"teacher":"Master Liu", "age":40}}]}');
+insert into t1 values('{"name":"First Primary School","create_time":"2012-05-08","year":38,
+    "classes":[{"name":"class 1","size":50,"teachers":{"teacher":"Master Zhang","age":31}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 3","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 4","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 5","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 6","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 7","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 8","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 9","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 10","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 11","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 12","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 13","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 14","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 15","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 16","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}},
+        {"name":"class 2","size":45,"teachers":{"teacher":"Master Liu","age":40}}]}');
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+EXPLAIN SELECT * FROM t1 WHERE JSON_VALUE(j, '$.name' RETURNING CHAR(100)) = 'First Primary School';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`j` AS `j` from `test`.`t1` where (json_value(`test`.`t1`.`j`, '$.name' returning char(100)) = 'First Primary School')
+SELECT * FROM t1 WHERE JSON_VALUE(j, '$.name' RETURNING CHAR(100)) = 'First Primary School';
+j
+{"name": "First Primary School", "classes": [{"name": "class 1", "size": 50, "teachers": {"age": 31, "teacher": "Master Zhang"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}], "create_time": "2012-05-08"}
+{"name": "First Primary School", "year": 38, "classes": [{"name": "class 1", "size": 50, "teachers": {"age": 31, "teacher": "Master Zhang"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 3", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 4", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 5", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 6", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 7", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 8", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 9", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 10", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 11", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 12", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 13", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 14", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 15", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 16", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}, {"name": "class 2", "size": 45, "teachers": {"age": 40, "teacher": "Master Liu"}}], "create_time": "2012-05-08"}
+# The index is not used if the JSON_VALUE expressions differ.
+EXPLAIN SELECT * FROM t1 WHERE JSON_VALUE(j, '$.name' RETURNING CHAR(100)) = 'First Primary School';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`j` AS `j` from `test`.`t1` where (json_value(`test`.`t1`.`j`, '$.name' returning char(100)) = 'First Primary School')
+EXPLAIN SELECT * FROM t1 WHERE JSON_VALUE(j, '$.name') = 'First Primary School';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`j` AS `j` from `test`.`t1` where (json_value(`test`.`t1`.`j`, '$.name' returning char(512)) = 'First Primary School')
+DROP TABLE t1;
+CREATE TABLE t1(j JSON, KEY i1((JSON_VALUE(j, '$' RETURNING SIGNED))));
+ERROR HY000: Invalid RETURNING/ON clause, 
+CREATE TABLE t1(j JSON, KEY i1((JSON_VALUE(j, '$' RETURNING UNSIGNED))));
+ERROR HY000: Invalid RETURNING/ON clause, 
+CREATE TABLE t1(j JSON, KEY i1((JSON_VALUE(j, '$' RETURNING DECIMAL(3, 2)))));
+ERROR HY000: Invalid RETURNING/ON clause, 
+CREATE TABLE t1(j JSON, KEY i1((JSON_VALUE(j, '$' RETURNING FLOAT))));
+ERROR HY000: Invalid RETURNING/ON clause, 
+CREATE TABLE t1(j JSON, KEY i1((JSON_VALUE(j, '$' RETURNING DOUBLE))));
+ERROR HY000: Invalid RETURNING/ON clause, 
+CREATE TABLE t1(j JSON, KEY i1((JSON_VALUE(j, '$' RETURNING DATETIME))));
+ERROR HY000: Invalid RETURNING/ON clause, 
+CREATE TABLE t1(j JSON, KEY i1((JSON_VALUE(j, '$' RETURNING TIME))));
+ERROR HY000: Invalid RETURNING/ON clause, 
+CREATE TABLE t1(j JSON, KEY i1((JSON_VALUE(j, '$' RETURNING DATE))));
+ERROR HY000: Invalid RETURNING/ON clause, 

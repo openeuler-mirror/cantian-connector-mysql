@@ -1,0 +1,113 @@
+drop table if exists DEMO;
+set default_storage_engine=CTC;
+create database demo_db_tmp;
+use demo_db_tmp;
+create table DEMO (ID integer not null, NAME varchar(19), AGE integer, GRADE real);
+INSERT INTO DEMO values(30,'DEMO',21,23);
+insert into DEMO values (1, 'DEMO', 35, 6.9);
+select * from DEMO;
+ID	NAME	AGE	GRADE
+30	DEMO	21	23
+1	DEMO	35	6.9
+create TEMPORARY  table DEMO (ID integer not null, NAME varchar(19), AGE integer, GRADE real) AS SELECT * FROM DEMO;
+create TEMPORARY  table DEMO (ID integer not null, NAME varchar(19), AGE integer, GRADE real);
+ERROR 42S01: Table 'DEMO' already exists
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TEMPORARY TABLE `DEMO` (
+  `ID` int NOT NULL,
+  `NAME` varchar(19) DEFAULT NULL,
+  `AGE` int DEFAULT NULL,
+  `GRADE` double DEFAULT NULL
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+create TEMPORARY  table DEMO (ID integer not null, NAME varchar(19), AGE integer, GRADE real);
+ERROR 42S01: Table 'DEMO' already exists
+select * from DEMO;
+ID	NAME	AGE	GRADE
+30	DEMO	21	23
+1	DEMO	35	6.9
+INSERT INTO DEMO values(30,'DEMO_TMP',21,23);
+select * from demo_db_tmp.DEMO;
+ID	NAME	AGE	GRADE
+30	DEMO	21	23
+1	DEMO	35	6.9
+30	DEMO_TMP	21	23
+drop table DEMO;
+insert into DEMO values (1, 'DEMO111', 35, 6.9);
+select * from DEMO;
+ID	NAME	AGE	GRADE
+30	DEMO	21	23
+1	DEMO	35	6.9
+1	DEMO111	35	6.9
+select * from demo_db_tmp.DEMO;
+ID	NAME	AGE	GRADE
+30	DEMO	21	23
+1	DEMO	35	6.9
+1	DEMO111	35	6.9
+drop table DEMO;
+drop table DEMO;
+ERROR 42S02: Unknown table 'demo_db_tmp.DEMO'
+drop database demo_db_tmp;
+drop database demo_db_tmp;
+ERROR HY000: Can't drop database 'demo_db_tmp'; database doesn't exist
+set default_storage_engine=CTC;
+create database demo_db_tmp;
+use demo_db_tmp;
+create table DEMO (ID integer not null, NAME varchar(19), AGE integer, GRADE real);
+INSERT INTO DEMO values(30,'DEMO',21,23);
+insert into DEMO values (1, 'DEMO', 35, 6.9);
+select * from DEMO;
+ID	NAME	AGE	GRADE
+30	DEMO	21	23
+1	DEMO	35	6.9
+create TEMPORARY  table DEMO (ID integer not null, NAME varchar(19), AGE integer, GRADE real) engine=CTC;
+drop TEMPORARY table DEMO;
+create TEMPORARY  table TMP_DEMO (ID integer not null, NAME varchar(19), AGE integer, GRADE real) AS SELECT * FROM DEMO;
+show create table TMP_DEMO;
+Table	Create Table
+TMP_DEMO	CREATE TEMPORARY TABLE `TMP_DEMO` (
+  `ID` int NOT NULL,
+  `NAME` varchar(19) DEFAULT NULL,
+  `AGE` int DEFAULT NULL,
+  `GRADE` double DEFAULT NULL
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+create TEMPORARY  table TMP_DEMO (ID integer not null, NAME varchar(19), AGE integer, GRADE real);
+ERROR 42S01: Table 'TMP_DEMO' already exists
+insert into DEMO values (1, 'DEMO_FLAG', 35, 6.9);
+insert into TMP_DEMO values (1, 'TMP_DEMO_FLAG', 35, 6.9);
+select * from DEMO;
+ID	NAME	AGE	GRADE
+30	DEMO	21	23
+1	DEMO	35	6.9
+1	DEMO_FLAG	35	6.9
+select * from TMP_DEMO;
+ID	NAME	AGE	GRADE
+30	DEMO	21	23
+1	DEMO	35	6.9
+1	TMP_DEMO_FLAG	35	6.9
+select * from demo_db_tmp.DEMO;
+ID	NAME	AGE	GRADE
+30	DEMO	21	23
+1	DEMO	35	6.9
+1	DEMO_FLAG	35	6.9
+select * from demo_db_tmp.TMP_DEMO;
+ID	NAME	AGE	GRADE
+30	DEMO	21	23
+1	DEMO	35	6.9
+1	TMP_DEMO_FLAG	35	6.9
+drop table TMP_DEMO;
+drop table TMP_DEMO;
+ERROR 42S02: Unknown table 'demo_db_tmp.TMP_DEMO'
+select * from TMP_DEMO;
+ERROR 42S02: Table 'demo_db_tmp.TMP_DEMO' doesn't exist
+select * from DEMO;
+ID	NAME	AGE	GRADE
+30	DEMO	21	23
+1	DEMO	35	6.9
+1	DEMO_FLAG	35	6.9
+drop table DEMO;
+drop table DEMO;
+ERROR 42S02: Unknown table 'demo_db_tmp.DEMO'
+select * from DEMO;
+ERROR 42S02: Table 'demo_db_tmp.DEMO' doesn't exist
+drop database demo_db_tmp;

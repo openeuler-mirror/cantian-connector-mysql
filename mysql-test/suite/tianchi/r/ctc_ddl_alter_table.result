@@ -1,0 +1,1637 @@
+drop table if exists DEMO;
+drop table if exists t1;
+create table DEMO (ID integer primary key, NAME varchar(19), AGE integer, GRADE real);
+INSERT INTO DEMO values(1,'demo',1,1.1);
+SELECT * FROM DEMO;
+ID	NAME	AGE	GRADE
+1	demo	1	1.1
+alter table DEMO rename to DEMO1;
+SELECT * FROM DEMO1;
+ID	NAME	AGE	GRADE
+1	demo	1	1.1
+alter table DEMO1 rename to DEMO2;
+SELECT * FROM DEMO2;
+ID	NAME	AGE	GRADE
+1	demo	1	1.1
+SELECT * FROM DEMO1;
+ERROR 42S02: Table 'test.DEMO1' doesn't exist
+desc DEMO2;
+Field	Type	Null	Key	Default	Extra
+ID	int	NO	PRI	NULL	
+NAME	varchar(19)	YES		NULL	
+AGE	int	YES		NULL	
+GRADE	double	YES		NULL	
+insert into DEMO2 values (2, 'LIOR', 35, 6.9);
+SELECT * FROM DEMO2;
+ID	NAME	AGE	GRADE
+1	demo	1	1.1
+2	LIOR	35	6.9
+alter table DEMO2 drop primary key;
+drop table DEMO2;
+create table DEMO (ID integer not null, NAME varchar(19), AGE integer, GRADE real);
+INSERT INTO DEMO values(30,'insert',21,23);
+ALTER TABLE DEMO ADD COLUMN col1 integer;
+insert into DEMO values (1, 'LIOR', 35, 6.9,1987);
+SELECT * FROM DEMO;
+ID	NAME	AGE	GRADE	col1
+30	insert	21	23	NULL
+1	LIOR	35	6.9	1987
+desc DEMO;
+Field	Type	Null	Key	Default	Extra
+ID	int	NO		NULL	
+NAME	varchar(19)	YES		NULL	
+AGE	int	YES		NULL	
+GRADE	double	YES		NULL	
+col1	int	YES		NULL	
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `ID` int NOT NULL,
+  `NAME` varchar(19) DEFAULT NULL,
+  `AGE` int DEFAULT NULL,
+  `GRADE` double DEFAULT NULL,
+  `col1` int DEFAULT NULL
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+show index from DEMO;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+ALTER TABLE DEMO ADD COLUMN col2 integer PRIMARY KEY auto_increment;
+insert into DEMO values (1, 'LIOR', 35, 6.9,1987,3);
+insert into DEMO values (1, 'LIOR', 35, 6.9,1987,3);
+ERROR 23000: Duplicate entry '3' for key 'DEMO.PRIMARY'
+insert into DEMO (ID,NAME, AGE,GRADE,col1) values (1, 'LIOR', 35, 6.9,1987);
+insert into DEMO (ID,NAME, AGE,GRADE,col1) values (1, 'LIOR', 35, 6.9,1987);
+alter table DEMO drop primary key;
+ERROR 42000: Incorrect table definition; there can be only one auto column and it must be defined as a key
+insert into DEMO values (1, 'LIOR', 35, 6.9,1987,3);
+ERROR 23000: Duplicate entry '3' for key 'DEMO.PRIMARY'
+SELECT * FROM DEMO;
+ID	NAME	AGE	GRADE	col1	col2
+30	insert	21	23	NULL	1
+1	LIOR	35	6.9	1987	2
+1	LIOR	35	6.9	1987	3
+1	LIOR	35	6.9	1987	4
+1	LIOR	35	6.9	1987	5
+desc DEMO;
+Field	Type	Null	Key	Default	Extra
+ID	int	NO		NULL	
+NAME	varchar(19)	YES		NULL	
+AGE	int	YES		NULL	
+GRADE	double	YES		NULL	
+col1	int	YES		NULL	
+col2	int	NO	PRI	NULL	auto_increment
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `ID` int NOT NULL,
+  `NAME` varchar(19) DEFAULT NULL,
+  `AGE` int DEFAULT NULL,
+  `GRADE` double DEFAULT NULL,
+  `col1` int DEFAULT NULL,
+  `col2` int NOT NULL AUTO_INCREMENT,
+  PRIMARY KEY (`col2`)
+) ENGINE=CTC AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+show index from DEMO;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+DEMO	0	PRIMARY	1	col2	A	NULL	NULL	NULL		BTREE			YES	NULL
+drop table DEMO;
+create table DEMO (ID integer not null, NAME varchar(19), AGE integer, GRADE real);
+INSERT INTO DEMO values(30,'insert',21,23);
+ALTER TABLE DEMO ADD COLUMN col1 integer;
+insert into DEMO values (1, 'LIOR', 35, 6.9, 1987);
+ALTER TABLE DEMO ADD COLUMN col2 integer UNIQUE KEY;
+insert into DEMO values (2, 'LIOR', 35, 6.9, 1987, 1);
+insert into DEMO values (3, 'AMY', 37, 7.9, 1982, 1);
+ERROR 23000: Duplicate entry '1' for key 'DEMO.col2'
+insert into DEMO values (4, 'BOB', 44, 8.1, 1962, 2);
+insert into DEMO values (3, 'AMY', 37, 7.9, 1982, 2);
+ERROR 23000: Duplicate entry '2' for key 'DEMO.col2'
+insert into DEMO values (3, 'AMY', 37, 7.9, 1982, null);
+insert into DEMO values (3, 'AMY', 37, 7.9, 1982, null);
+ALTER TABLE DEMO DROP INDEX col2;
+insert into DEMO values (3, 'AMY', 37, 7.9, 1982, 2);
+insert into DEMO values (3, 'AMY', 37, 7.9, 1982, null);
+SELECT * FROM DEMO;
+ID	NAME	AGE	GRADE	col1	col2
+30	insert	21	23	NULL	NULL
+1	LIOR	35	6.9	1987	NULL
+2	LIOR	35	6.9	1987	1
+4	BOB	44	8.1	1962	2
+3	AMY	37	7.9	1982	NULL
+3	AMY	37	7.9	1982	NULL
+3	AMY	37	7.9	1982	2
+3	AMY	37	7.9	1982	NULL
+desc DEMO;
+Field	Type	Null	Key	Default	Extra
+ID	int	NO		NULL	
+NAME	varchar(19)	YES		NULL	
+AGE	int	YES		NULL	
+GRADE	double	YES		NULL	
+col1	int	YES		NULL	
+col2	int	YES		NULL	
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `ID` int NOT NULL,
+  `NAME` varchar(19) DEFAULT NULL,
+  `AGE` int DEFAULT NULL,
+  `GRADE` double DEFAULT NULL,
+  `col1` int DEFAULT NULL,
+  `col2` int DEFAULT NULL
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+show index from DEMO;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+drop table DEMO;
+create table DEMO (ID integer not null, NAME varchar(19), AGE integer, GRADE real);
+INSERT INTO DEMO values(30,'insert',21,23);
+ALTER TABLE DEMO ADD COLUMN col1 integer;
+insert into DEMO values (1, 'LIOR', 35, 6.9, 1987);
+SELECT * FROM DEMO;
+ID	NAME	AGE	GRADE	col1
+30	insert	21	23	NULL
+1	LIOR	35	6.9	1987
+desc DEMO;
+Field	Type	Null	Key	Default	Extra
+ID	int	NO		NULL	
+NAME	varchar(19)	YES		NULL	
+AGE	int	YES		NULL	
+GRADE	double	YES		NULL	
+col1	int	YES		NULL	
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `ID` int NOT NULL,
+  `NAME` varchar(19) DEFAULT NULL,
+  `AGE` int DEFAULT NULL,
+  `GRADE` double DEFAULT NULL,
+  `col1` int DEFAULT NULL
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+show index from DEMO;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+drop table DEMO;
+create table DEMO (ID integer not null, NAME varchar(19), AGE integer, GRADE real);
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `ID` int NOT NULL,
+  `NAME` varchar(19) DEFAULT NULL,
+  `AGE` int DEFAULT NULL,
+  `GRADE` double DEFAULT NULL
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+INSERT INTO DEMO values(30,'insert',21,23);
+INSERT INTO DEMO(NAME,ID,AGE,GRADE) values('insert1',31,21,28);
+alter table DEMO rename column ID to NEW_ID;
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `NEW_ID` int NOT NULL,
+  `NAME` varchar(19) DEFAULT NULL,
+  `AGE` int DEFAULT NULL,
+  `GRADE` double DEFAULT NULL
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+INSERT INTO DEMO(NAME,ID,AGE,GRADE) values('insert1',31,21,28);
+ERROR 42S22: Unknown column 'ID' in 'field list'
+INSERT INTO DEMO values(30,'insert3',21,23);
+INSERT INTO DEMO(NAME,NEW_ID,AGE,GRADE) values('insert4',31,21,28);
+alter table DEMO rename column NEW_ID to ID;
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `ID` int NOT NULL,
+  `NAME` varchar(19) DEFAULT NULL,
+  `AGE` int DEFAULT NULL,
+  `GRADE` double DEFAULT NULL
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+INSERT INTO DEMO values(30,'insert5',21,23);
+INSERT INTO DEMO(NAME,NEW_ID,AGE,GRADE) values('insert6',31,21,28);
+ERROR 42S22: Unknown column 'NEW_ID' in 'field list'
+INSERT INTO DEMO(NAME,ID,AGE,GRADE) values('insert7',31,21,28);
+SELECT * FROM DEMO;
+ID	NAME	AGE	GRADE
+30	insert	21	23
+31	insert1	21	28
+30	insert3	21	23
+31	insert4	21	28
+30	insert5	21	23
+31	insert7	21	28
+desc DEMO;
+Field	Type	Null	Key	Default	Extra
+ID	int	NO		NULL	
+NAME	varchar(19)	YES		NULL	
+AGE	int	YES		NULL	
+GRADE	double	YES		NULL	
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `ID` int NOT NULL,
+  `NAME` varchar(19) DEFAULT NULL,
+  `AGE` int DEFAULT NULL,
+  `GRADE` double DEFAULT NULL
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+show index from DEMO;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+drop table DEMO;
+create table DEMO (ID integer not null, NAME varchar(19), AGE integer, GRADE real);
+INSERT INTO DEMO values(30,'insert1',21,23);
+alter table DEMO drop column NAME;
+INSERT INTO DEMO values(30,'insert2',21,23);
+ERROR 21S01: Column count doesn't match value count at row 1
+INSERT INTO DEMO (ID,NAME,AGE,GRADE) values(30,'insert3',21,23);
+ERROR 42S22: Unknown column 'NAME' in 'field list'
+INSERT INTO DEMO (ID,AGE,GRADE) values(312,21,23);
+INSERT INTO DEMO values(313,21,23);
+alter table DEMO drop column AGE;
+INSERT INTO DEMO values(1, 'TEST', 2, 23.33);
+ERROR 21S01: Column count doesn't match value count at row 1
+INSERT INTO DEMO values(2, 23.33);
+INSERT INTO DEMO values(5, 66.33);
+ALTER TABLE DEMO ADD COLUMN NAME varchar(19);
+INSERT INTO DEMO (ID,NAME,GRADE) values(30,'insert20', 23.38);
+desc DEMO;
+Field	Type	Null	Key	Default	Extra
+ID	int	NO		NULL	
+GRADE	double	YES		NULL	
+NAME	varchar(19)	YES		NULL	
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `ID` int NOT NULL,
+  `GRADE` double DEFAULT NULL,
+  `NAME` varchar(19) DEFAULT NULL
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+show index from DEMO;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+drop table DEMO;
+create table DEMO (ID integer not null, NAME varchar(10));
+INSERT INTO DEMO values(1, '1234567890');
+INSERT INTO DEMO values(2, '12345678901');
+ERROR 22001: Data too long for column 'NAME' at row 1
+alter table DEMO modify NAME VARCHAR(11);
+INSERT INTO DEMO values(3, '12345678901');
+INSERT INTO DEMO values(4, '123456789012');
+ERROR 22001: Data too long for column 'NAME' at row 1
+SELECT * FROM DEMO;
+ID	NAME
+1	1234567890
+3	12345678901
+alter table DEMO modify NAME VARCHAR(10);
+ERROR 01000: Data truncated for column 'NAME' at row 2
+delete from DEMO where ID = 3;
+SELECT * FROM DEMO;
+ID	NAME
+1	1234567890
+alter table DEMO modify NAME VARCHAR(10);
+delete from DEMO;
+alter table DEMO modify NAME VARCHAR(10);
+INSERT INTO DEMO values(5, '1234567890');
+INSERT INTO DEMO values(6, '12345678901');
+ERROR 22001: Data too long for column 'NAME' at row 1
+alter table DEMO modify NAME VARCHAR(11) UNIQUE KEY DEFAULT NULL;
+INSERT INTO DEMO values(6, '12345678901');
+INSERT INTO DEMO values(6, '12345678901');
+ERROR 23000: Duplicate entry '12345678901' for key 'DEMO.NAME'
+desc DEMO;
+Field	Type	Null	Key	Default	Extra
+ID	int	NO		NULL	
+NAME	varchar(11)	YES	UNI	NULL	
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `ID` int NOT NULL,
+  `NAME` varchar(11) DEFAULT NULL,
+  UNIQUE KEY `NAME` (`NAME`)
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+show index from DEMO;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+DEMO	0	NAME	1	NAME	A	NULL	NULL	NULL	YES	BTREE			YES	NULL
+INSERT INTO DEMO values(28, 'BOB');
+insert into DEMO (ID) values (4);
+insert into DEMO values (4,null);
+insert into DEMO values (4,null);
+INSERT INTO DEMO values(3, 'BOB');
+ERROR 23000: Duplicate entry 'BOB' for key 'DEMO.NAME'
+SELECT * FROM DEMO;
+ID	NAME
+5	1234567890
+6	12345678901
+28	BOB
+4	NULL
+4	NULL
+4	NULL
+desc DEMO;
+Field	Type	Null	Key	Default	Extra
+ID	int	NO		NULL	
+NAME	varchar(11)	YES	UNI	NULL	
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `ID` int NOT NULL,
+  `NAME` varchar(11) DEFAULT NULL,
+  UNIQUE KEY `NAME` (`NAME`)
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+show index from DEMO;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+DEMO	0	NAME	1	NAME	A	NULL	NULL	NULL	YES	BTREE			YES	NULL
+drop table DEMO;
+create table DEMO (ID integer not null, col integer);
+INSERT INTO DEMO values(1, 1);
+INSERT INTO DEMO values(2, 1);
+SELECT * FROM DEMO;
+ID	col
+1	1
+2	1
+alter table DEMO modify col integer UNIQUE KEY auto_increment;
+ERROR 23000: ALTER TABLE causes auto_increment resequencing, resulting in duplicate entry '1' for key 'DEMO.col'
+delete from DEMO where ID = 2;
+SELECT * FROM DEMO;
+ID	col
+1	1
+alter table DEMO modify col integer UNIQUE KEY auto_increment;
+insert into DEMO (ID) values(3);
+insert into DEMO (ID) values(4);
+insert into DEMO (ID) values(5);
+insert into DEMO (ID) values(6);
+ALTER TABLE DEMO DROP INDEX col;
+ERROR 42000: Incorrect table definition; there can be only one auto column and it must be defined as a key
+INSERT INTO DEMO values(2, 1);
+ERROR 23000: Duplicate entry '1' for key 'DEMO.col'
+SELECT * FROM DEMO;
+ID	col
+1	1
+3	2
+4	3
+5	4
+6	5
+desc DEMO;
+Field	Type	Null	Key	Default	Extra
+ID	int	NO		NULL	
+col	int	NO	PRI	NULL	auto_increment
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `ID` int NOT NULL,
+  `col` int NOT NULL AUTO_INCREMENT,
+  UNIQUE KEY `col` (`col`)
+) ENGINE=CTC AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+show index from DEMO;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+DEMO	0	col	1	col	A	NULL	NULL	NULL		BTREE			YES	NULL
+drop table DEMO;
+create table DEMO (ID integer, col integer);
+insert into DEMO values(1,1);
+insert into DEMO values(2,1);
+insert into DEMO (col) values(3);
+insert into DEMO (col) values(4);
+SELECT * FROM DEMO;
+ID	col
+1	1
+2	1
+NULL	3
+NULL	4
+desc DEMO;
+Field	Type	Null	Key	Default	Extra
+ID	int	YES		NULL	
+col	int	YES		NULL	
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `ID` int DEFAULT NULL,
+  `col` int DEFAULT NULL
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+show index from DEMO;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+alter table DEMO change ID ID integer PRIMARY KEY auto_increment;
+DELETE FROM DEMO;
+insert into DEMO values(1,1);
+insert into DEMO values(2,1);
+insert into DEMO values(2,3);
+ERROR 23000: Duplicate entry '2' for key 'DEMO.PRIMARY'
+SELECT * FROM DEMO;
+ID	col
+2	1
+1	1
+alter table DEMO change ID ID integer PRIMARY KEY auto_increment;
+ERROR 42000: Multiple primary key defined
+DELETE FROM DEMO where col = 3;
+SELECT * FROM DEMO;
+ID	col
+2	1
+1	1
+alter table DEMO change ID ID integer PRIMARY KEY auto_increment;
+ERROR 42000: Multiple primary key defined
+insert into DEMO (ID) values(1);
+ERROR 23000: Duplicate entry '1' for key 'DEMO.PRIMARY'
+insert into DEMO (ID) values(2);
+ERROR 23000: Duplicate entry '2' for key 'DEMO.PRIMARY'
+insert into DEMO (ID) values(3);
+SELECT * FROM DEMO;
+ID	col
+3	NULL
+2	1
+1	1
+insert into DEMO (col) values(4);
+insert into DEMO (col) values(5);
+insert into DEMO (col) values(6);
+SELECT * FROM DEMO;
+ID	col
+6	5
+5	4
+3	NULL
+2	1
+1	1
+7	6
+insert into DEMO (col) values(33);
+insert into DEMO (col) values(44);
+SELECT * FROM DEMO;
+ID	col
+6	5
+5	4
+3	NULL
+2	1
+1	1
+7	6
+8	33
+9	44
+desc DEMO;
+Field	Type	Null	Key	Default	Extra
+ID	int	NO	PRI	NULL	auto_increment
+col	int	YES		NULL	
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `ID` int NOT NULL AUTO_INCREMENT,
+  `col` int DEFAULT NULL,
+  PRIMARY KEY (`ID`)
+) ENGINE=CTC AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+show index from DEMO;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+DEMO	0	PRIMARY	1	ID	A	NULL	NULL	NULL		BTREE			YES	NULL
+drop table DEMO;
+create table DEMO (ID integer not null, NAME varchar(19), AGE integer, GRADE real);
+insert into DEMO values(1,'insert1',1,1.1);
+SELECT * FROM DEMO;
+ID	NAME	AGE	GRADE
+1	insert1	1	1.1
+alter table DEMO alter column ID set default 1;
+insert into DEMO (NAME, AGE, GRADE) values ('BOB', 36, 6.9);
+alter table DEMO alter column ID set default 112;
+insert into DEMO (NAME, AGE, GRADE) values ('BOB2', 36, 6.9);
+alter table DEMO alter column ID drop default;
+insert into DEMO (NAME, AGE, GRADE) values ('AMY', 32, 8.1);
+ERROR HY000: Field 'ID' doesn't have a default value
+insert into DEMO (ID, NAME, AGE, GRADE) values (3,'ALEX', 45, 9.2);
+SELECT * FROM DEMO;
+ID	NAME	AGE	GRADE
+1	insert1	1	1.1
+1	BOB	36	6.9
+112	BOB2	36	6.9
+3	ALEX	45	9.2
+desc DEMO;
+Field	Type	Null	Key	Default	Extra
+ID	int	NO		NULL	
+NAME	varchar(19)	YES		NULL	
+AGE	int	YES		NULL	
+GRADE	double	YES		NULL	
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `ID` int NOT NULL,
+  `NAME` varchar(19) DEFAULT NULL,
+  `AGE` int DEFAULT NULL,
+  `GRADE` double DEFAULT NULL
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+show index from DEMO;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+drop table DEMO;
+create table DEMO (ID integer PRIMARY KEY auto_increment NOT NULL);
+insert into DEMO values (null);
+insert into DEMO values (null);
+ALTER TABLE DEMO ADD COLUMN col1 integer;
+ALTER TABLE DEMO ADD COLUMN col2 integer;
+ALTER TABLE DEMO ADD UNIQUE (col1);
+insert into DEMO values (null,null,null);
+insert into DEMO values (null,null,null);
+show index from DEMO;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+DEMO	0	PRIMARY	1	ID	A	NULL	NULL	NULL		BTREE			YES	NULL
+DEMO	0	col1	1	col1	A	NULL	NULL	NULL	YES	BTREE			YES	NULL
+INSERT INTO DEMO (col1,col2) values(1,1);
+INSERT INTO DEMO (col1,col2) values(2,1);
+INSERT INTO DEMO (col1,col2) values(1,1);
+ERROR 23000: Duplicate entry '1' for key 'DEMO.col1'
+INSERT INTO DEMO (col1,col2) values(3,1);
+SELECT * FROM DEMO;
+ID	col1	col2
+1	NULL	NULL
+2	NULL	NULL
+3	NULL	NULL
+4	NULL	NULL
+5	1	1
+6	2	1
+8	3	1
+desc DEMO;
+Field	Type	Null	Key	Default	Extra
+ID	int	NO	PRI	NULL	auto_increment
+col1	int	YES	UNI	NULL	
+col2	int	YES		NULL	
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `ID` int NOT NULL AUTO_INCREMENT,
+  `col1` int DEFAULT NULL,
+  `col2` int DEFAULT NULL,
+  PRIMARY KEY (`ID`),
+  UNIQUE KEY `col1` (`col1`)
+) ENGINE=CTC AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+show index from DEMO;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+DEMO	0	PRIMARY	1	ID	A	NULL	NULL	NULL		BTREE			YES	NULL
+DEMO	0	col1	1	col1	A	NULL	NULL	NULL	YES	BTREE			YES	NULL
+ALTER TABLE DEMO DROP INDEX col1;
+show index from DEMO;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+DEMO	0	PRIMARY	1	ID	A	NULL	NULL	NULL		BTREE			YES	NULL
+INSERT INTO DEMO (col1,col2) values(1,1);
+SELECT * FROM DEMO;
+ID	col1	col2
+1	NULL	NULL
+2	NULL	NULL
+3	NULL	NULL
+4	NULL	NULL
+5	1	1
+6	2	1
+8	3	1
+9	1	1
+desc DEMO;
+Field	Type	Null	Key	Default	Extra
+ID	int	NO	PRI	NULL	auto_increment
+col1	int	YES		NULL	
+col2	int	YES		NULL	
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `ID` int NOT NULL AUTO_INCREMENT,
+  `col1` int DEFAULT NULL,
+  `col2` int DEFAULT NULL,
+  PRIMARY KEY (`ID`)
+) ENGINE=CTC AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+show index from DEMO;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+DEMO	0	PRIMARY	1	ID	A	NULL	NULL	NULL		BTREE			YES	NULL
+drop table DEMO;
+create table DEMO (ID integer PRIMARY KEY auto_increment NOT NULL);
+ALTER TABLE DEMO ADD COLUMN col1 integer;
+ALTER TABLE DEMO ADD COLUMN col2 integer;
+ALTER TABLE DEMO ADD UNIQUE (col1,col2);
+show index from DEMO;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+DEMO	0	PRIMARY	1	ID	A	NULL	NULL	NULL		BTREE			YES	NULL
+DEMO	0	col1	1	col1	A	NULL	NULL	NULL	YES	BTREE			YES	NULL
+DEMO	0	col1	2	col2	A	NULL	NULL	NULL	YES	BTREE			YES	NULL
+INSERT INTO DEMO (col1,col2) values(1,1);
+INSERT INTO DEMO (col1,col2) values(2,1);
+INSERT INTO DEMO (col1,col2) values(1,2);
+INSERT INTO DEMO (col1,col2) values(2,2);
+INSERT INTO DEMO (col1,col2) values(1,1);
+ERROR 23000: Duplicate entry '1-1' for key 'DEMO.col1'
+SELECT * FROM DEMO;
+ID	col1	col2
+1	1	1
+2	2	1
+3	1	2
+4	2	2
+desc DEMO;
+Field	Type	Null	Key	Default	Extra
+ID	int	NO	PRI	NULL	auto_increment
+col1	int	YES	MUL	NULL	
+col2	int	YES		NULL	
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `ID` int NOT NULL AUTO_INCREMENT,
+  `col1` int DEFAULT NULL,
+  `col2` int DEFAULT NULL,
+  PRIMARY KEY (`ID`),
+  UNIQUE KEY `col1` (`col1`,`col2`)
+) ENGINE=CTC AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+show index from DEMO;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+DEMO	0	PRIMARY	1	ID	A	NULL	NULL	NULL		BTREE			YES	NULL
+DEMO	0	col1	1	col1	A	NULL	NULL	NULL	YES	BTREE			YES	NULL
+DEMO	0	col1	2	col2	A	NULL	NULL	NULL	YES	BTREE			YES	NULL
+ALTER TABLE DEMO DROP INDEX col1;
+INSERT INTO DEMO (col1,col2) values(1,1);
+SELECT * FROM DEMO;
+ID	col1	col2
+1	1	1
+2	2	1
+3	1	2
+4	2	2
+6	1	1
+desc DEMO;
+Field	Type	Null	Key	Default	Extra
+ID	int	NO	PRI	NULL	auto_increment
+col1	int	YES		NULL	
+col2	int	YES		NULL	
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `ID` int NOT NULL AUTO_INCREMENT,
+  `col1` int DEFAULT NULL,
+  `col2` int DEFAULT NULL,
+  PRIMARY KEY (`ID`)
+) ENGINE=CTC AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+show index from DEMO;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+DEMO	0	PRIMARY	1	ID	A	NULL	NULL	NULL		BTREE			YES	NULL
+drop table DEMO;
+create table DEMO (ID integer UNIQUE KEY auto_increment NOT NULL);
+insert into DEMO values (null);
+insert into DEMO values (null);
+insert into DEMO values (1);
+ERROR 23000: Duplicate entry '1' for key 'DEMO.ID'
+insert into DEMO values (null);
+SELECT * FROM DEMO;
+ID
+1
+2
+3
+ALTER TABLE DEMO ADD COLUMN col1 integer;
+ALTER TABLE DEMO ADD COLUMN col2 integer;
+ALTER TABLE DEMO ADD PRIMARY KEY (col1);
+ERROR HY000: Can't set NULL value for column 'col1'
+UPDATE DEMO set col1 = 1 where ID = 1;
+UPDATE DEMO set col1 = 2 where ID = 2;
+UPDATE DEMO set col1 = 3 where ID = 3;
+ALTER TABLE DEMO ADD PRIMARY KEY (col1);
+SELECT * FROM DEMO;
+ID	col1	col2
+1	1	NULL
+2	2	NULL
+3	3	NULL
+show index from DEMO;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+DEMO	0	PRIMARY	1	col1	A	NULL	NULL	NULL		BTREE			YES	NULL
+DEMO	0	ID	1	ID	A	NULL	NULL	NULL		BTREE			YES	NULL
+INSERT INTO DEMO (col1,col2) values(1,1);
+ERROR 23000: Duplicate entry '1' for key 'DEMO.PRIMARY'
+INSERT INTO DEMO (col1,col2) values(4,1);
+INSERT INTO DEMO (col1,col2) values(null,1);
+ERROR 23000: Column 'col1' cannot be null
+INSERT INTO DEMO (col1,col2) values(5,1);
+SELECT * FROM DEMO;
+ID	col1	col2
+1	1	NULL
+2	2	NULL
+3	3	NULL
+5	4	1
+6	5	1
+desc DEMO;
+Field	Type	Null	Key	Default	Extra
+ID	int	NO	UNI	NULL	auto_increment
+col1	int	NO	PRI	NULL	
+col2	int	YES		NULL	
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `ID` int NOT NULL AUTO_INCREMENT,
+  `col1` int NOT NULL,
+  `col2` int DEFAULT NULL,
+  PRIMARY KEY (`col1`),
+  UNIQUE KEY `ID` (`ID`)
+) ENGINE=CTC AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+show index from DEMO;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+DEMO	0	PRIMARY	1	col1	A	NULL	NULL	NULL		BTREE			YES	NULL
+DEMO	0	ID	1	ID	A	NULL	NULL	NULL		BTREE			YES	NULL
+ALTER TABLE DEMO DROP PRIMARY KEY;
+show index from DEMO;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+DEMO	0	ID	1	ID	A	NULL	NULL	NULL		BTREE			YES	NULL
+INSERT INTO DEMO (col1,col2) values(1,1);
+SELECT * FROM DEMO;
+ID	col1	col2
+1	1	NULL
+2	2	NULL
+3	3	NULL
+5	4	1
+6	5	1
+7	1	1
+desc DEMO;
+Field	Type	Null	Key	Default	Extra
+ID	int	NO	PRI	NULL	auto_increment
+col1	int	NO		NULL	
+col2	int	YES		NULL	
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `ID` int NOT NULL AUTO_INCREMENT,
+  `col1` int NOT NULL,
+  `col2` int DEFAULT NULL,
+  UNIQUE KEY `ID` (`ID`)
+) ENGINE=CTC AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+show index from DEMO;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+DEMO	0	ID	1	ID	A	NULL	NULL	NULL		BTREE			YES	NULL
+drop table DEMO;
+create table DEMO (ID integer UNIQUE KEY auto_increment NOT NULL);
+insert into DEMO values (null);
+insert into DEMO values (null);
+ALTER TABLE DEMO ADD COLUMN col1 integer;
+ALTER TABLE DEMO ADD COLUMN col2 integer;
+SELECT * FROM DEMO;
+ID	col1	col2
+1	NULL	NULL
+2	NULL	NULL
+ALTER TABLE DEMO ADD PRIMARY KEY (col1,col2);
+ERROR HY000: Can't set NULL value for column 'col1'
+UPDATE DEMO set col1 = 1;
+ALTER TABLE DEMO ADD PRIMARY KEY (col1,col2);
+ERROR HY000: Can't set NULL value for column 'col2'
+UPDATE DEMO set col2 = 2;
+SELECT * FROM DEMO;
+ID	col1	col2
+1	1	2
+2	1	2
+ALTER TABLE DEMO ADD PRIMARY KEY (col1,col2);
+ERROR 23000: Duplicate entry for key 'DEMO.PRIMARY'
+UPDATE DEMO set col1 = 2 where ID = 2;
+ALTER TABLE DEMO ADD PRIMARY KEY (col1,col2);
+SELECT * FROM DEMO;
+ID	col1	col2
+1	1	2
+2	2	2
+show index from DEMO;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+DEMO	0	PRIMARY	1	col1	A	NULL	NULL	NULL		BTREE			YES	NULL
+DEMO	0	PRIMARY	2	col2	A	NULL	NULL	NULL		BTREE			YES	NULL
+DEMO	0	ID	1	ID	A	NULL	NULL	NULL		BTREE			YES	NULL
+INSERT INTO DEMO (col1,col2) values(1,1);
+INSERT INTO DEMO (col1,col2) values(3,3);
+INSERT INTO DEMO (col1,col2) values(3,4);
+INSERT INTO DEMO (col1,col2) values(4,3);
+INSERT INTO DEMO (col1,col2) values(4,4);
+INSERT INTO DEMO (col1,col2) values(3,3);
+ERROR 23000: Duplicate entry '3-3' for key 'DEMO.PRIMARY'
+INSERT INTO DEMO (col1,col2) values(3,4);
+ERROR 23000: Duplicate entry '3-4' for key 'DEMO.PRIMARY'
+INSERT INTO DEMO (col1,col2) values(4,3);
+ERROR 23000: Duplicate entry '4-3' for key 'DEMO.PRIMARY'
+INSERT INTO DEMO (col1,col2) values(4,4);
+ERROR 23000: Duplicate entry '4-4' for key 'DEMO.PRIMARY'
+UPDATE DEMO set col1 = 2 where ID = 1;
+ERROR 23000: Duplicate entry '2-2' for key 'DEMO.PRIMARY'
+SELECT * FROM DEMO;
+ID	col1	col2
+1	1	2
+2	2	2
+3	1	1
+4	3	3
+5	3	4
+6	4	3
+7	4	4
+UPDATE DEMO set col1 = 100 where ID = 1;
+SELECT * FROM DEMO;
+ID	col1	col2
+1	100	2
+2	2	2
+3	1	1
+4	3	3
+5	3	4
+6	4	3
+7	4	4
+desc DEMO;
+Field	Type	Null	Key	Default	Extra
+ID	int	NO	UNI	NULL	auto_increment
+col1	int	NO	PRI	NULL	
+col2	int	NO	PRI	NULL	
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `ID` int NOT NULL AUTO_INCREMENT,
+  `col1` int NOT NULL,
+  `col2` int NOT NULL,
+  PRIMARY KEY (`col1`,`col2`),
+  UNIQUE KEY `ID` (`ID`)
+) ENGINE=CTC AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+show index from DEMO;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+DEMO	0	PRIMARY	1	col1	A	NULL	NULL	NULL		BTREE			YES	NULL
+DEMO	0	PRIMARY	2	col2	A	NULL	NULL	NULL		BTREE			YES	NULL
+DEMO	0	ID	1	ID	A	NULL	NULL	NULL		BTREE			YES	NULL
+INSERT INTO DEMO (col1,col2) values(3,3);
+ERROR 23000: Duplicate entry '3-3' for key 'DEMO.PRIMARY'
+ALTER TABLE DEMO DROP PRIMARY KEY;
+INSERT INTO DEMO (col1,col2) values(3,3);
+SELECT * FROM DEMO;
+ID	col1	col2
+1	100	2
+2	2	2
+3	1	1
+4	3	3
+5	3	4
+6	4	3
+7	4	4
+13	3	3
+desc DEMO;
+Field	Type	Null	Key	Default	Extra
+ID	int	NO	PRI	NULL	auto_increment
+col1	int	NO		NULL	
+col2	int	NO		NULL	
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `ID` int NOT NULL AUTO_INCREMENT,
+  `col1` int NOT NULL,
+  `col2` int NOT NULL,
+  UNIQUE KEY `ID` (`ID`)
+) ENGINE=CTC AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+show index from DEMO;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+DEMO	0	ID	1	ID	A	NULL	NULL	NULL		BTREE			YES	NULL
+INSERT INTO DEMO (col1,col2) values(1,1);
+drop table DEMO;
+create table DEMO (ID integer PRIMARY KEY not null, NAME varchar(19), AGE integer, GRADE real);
+INSERT INTO DEMO values(1,'insert1',1,1.1);
+INSERT INTO DEMO values(1,'insert2',1,1.2);
+ERROR 23000: Duplicate entry '1' for key 'DEMO.PRIMARY'
+INSERT INTO DEMO values(2,'insert2',1,1.2);
+SELECT * FROM DEMO;
+ID	NAME	AGE	GRADE
+1	insert1	1	1.1
+2	insert2	1	1.2
+alter table DEMO modify ID int auto_increment;
+desc DEMO;
+Field	Type	Null	Key	Default	Extra
+ID	int	NO	PRI	NULL	auto_increment
+NAME	varchar(19)	YES		NULL	
+AGE	int	YES		NULL	
+GRADE	double	YES		NULL	
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `ID` int NOT NULL AUTO_INCREMENT,
+  `NAME` varchar(19) DEFAULT NULL,
+  `AGE` int DEFAULT NULL,
+  `GRADE` double DEFAULT NULL,
+  PRIMARY KEY (`ID`)
+) ENGINE=CTC AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+show index from DEMO;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+DEMO	0	PRIMARY	1	ID	A	NULL	NULL	NULL		BTREE			YES	NULL
+INSERT INTO DEMO (NAME, AGE, GRADE) values('insert3',1,1.2);
+INSERT INTO DEMO (NAME, AGE, GRADE) values('insert4',1,1.2);
+INSERT INTO DEMO (NAME, AGE, GRADE) values('insert5',1,1.2);
+INSERT INTO DEMO (NAME, AGE, GRADE) values('insert6',1,1.2);
+INSERT INTO DEMO values(null, 'insert6',1,1.2);
+INSERT INTO DEMO values(null, 'insert6',1,1.2);
+INSERT INTO DEMO values(null, 'insert6',1,1.2);
+SELECT * FROM DEMO;
+ID	NAME	AGE	GRADE
+1	insert1	1	1.1
+2	insert2	1	1.2
+3	insert3	1	1.2
+4	insert4	1	1.2
+5	insert5	1	1.2
+6	insert6	1	1.2
+7	insert6	1	1.2
+8	insert6	1	1.2
+9	insert6	1	1.2
+desc DEMO;
+Field	Type	Null	Key	Default	Extra
+ID	int	NO	PRI	NULL	auto_increment
+NAME	varchar(19)	YES		NULL	
+AGE	int	YES		NULL	
+GRADE	double	YES		NULL	
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `ID` int NOT NULL AUTO_INCREMENT,
+  `NAME` varchar(19) DEFAULT NULL,
+  `AGE` int DEFAULT NULL,
+  `GRADE` double DEFAULT NULL,
+  PRIMARY KEY (`ID`)
+) ENGINE=CTC AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+show index from DEMO;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+DEMO	0	PRIMARY	1	ID	A	NULL	NULL	NULL		BTREE			YES	NULL
+alter table DEMO modify ID int;
+desc DEMO;
+Field	Type	Null	Key	Default	Extra
+ID	int	NO	PRI	NULL	
+NAME	varchar(19)	YES		NULL	
+AGE	int	YES		NULL	
+GRADE	double	YES		NULL	
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `ID` int NOT NULL,
+  `NAME` varchar(19) DEFAULT NULL,
+  `AGE` int DEFAULT NULL,
+  `GRADE` double DEFAULT NULL,
+  PRIMARY KEY (`ID`)
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+show index from DEMO;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+DEMO	0	PRIMARY	1	ID	A	NULL	NULL	NULL		BTREE			YES	NULL
+INSERT INTO DEMO values(null, 'insert6',1,1.2);
+ERROR 23000: Column 'ID' cannot be null
+INSERT INTO DEMO values(7, 'insert6',1,1.2);
+ERROR 23000: Duplicate entry '7' for key 'DEMO.PRIMARY'
+INSERT INTO DEMO values(8, 'insert6',1,1.2);
+ERROR 23000: Duplicate entry '8' for key 'DEMO.PRIMARY'
+SELECT * FROM DEMO;
+ID	NAME	AGE	GRADE
+1	insert1	1	1.1
+2	insert2	1	1.2
+3	insert3	1	1.2
+4	insert4	1	1.2
+5	insert5	1	1.2
+6	insert6	1	1.2
+7	insert6	1	1.2
+8	insert6	1	1.2
+9	insert6	1	1.2
+drop table DEMO;
+create table DEMO (ID integer PRIMARY KEY not null, NAME varchar(19), AGE integer, GRADE real);
+ALTER TABLE DEMO MODIFY ID integer COMMENT 'id of user';
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `ID` int NOT NULL COMMENT 'id of user',
+  `NAME` varchar(19) DEFAULT NULL,
+  `AGE` int DEFAULT NULL,
+  `GRADE` double DEFAULT NULL,
+  PRIMARY KEY (`ID`)
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+ALTER TABLE DEMO MODIFY NAME varchar(19) COMMENT 'name of user', MODIFY AGE integer COMMENT 'age of user';
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `ID` int NOT NULL COMMENT 'id of user',
+  `NAME` varchar(19) DEFAULT NULL COMMENT 'name of user',
+  `AGE` int DEFAULT NULL COMMENT 'age of user',
+  `GRADE` double DEFAULT NULL,
+  PRIMARY KEY (`ID`)
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table DEMO;
+create table t1 (col1 INT, col2 INT, col3 INT);
+alter table t1 add column col4 int invisible;
+insert into t1 values(1, 2, 3, 4);
+ERROR 21S01: Column count doesn't match value count at row 1
+insert into t1 (col1, col2, col3, col4) values (11, 22, 33, 44), (111, 222, 333, 444);
+select * from t1;
+col1	col2	col3
+11	22	33
+111	222	333
+select col1, col2, col3, col4 from t1;
+col1	col2	col3	col4
+11	22	33	44
+111	222	333	444
+alter table t1 modify column col1 INT INVISIBLE;
+alter table t1 alter column col2 set INVISIBLE;
+alter table t1 change column col4 col4 INT VISIBLE;
+insert into t1 values(1, 2, 3, 4);
+ERROR 21S01: Column count doesn't match value count at row 1
+insert into t1 (col3, col4) values (3333,4444);
+select * from t1;
+col3	col4
+33	44
+333	444
+3333	4444
+select col1, col2, col3, col4 from t1;
+col1	col2	col3	col4
+11	22	33	44
+111	222	333	444
+NULL	NULL	3333	4444
+alter table t1 alter column col2 set VISIBLE;
+select * from t1;
+col2	col3	col4
+22	33	44
+222	333	444
+NULL	3333	4444
+drop table t1;
+CREATE TABLE t1 (COL_1 INT COMMENT '列1', COL_2 INTEGER COMMENT '列2', COL_3 BIGINT PRIMARY KEY COMMENT '列3');
+ALTER TABLE t1 MODIFY COLUMN COL_3 TINYINT;
+ALTER TABLE t1 MODIFY COLUMN COL_3 SMALLINT;
+ALTER TABLE t1 MODIFY COLUMN COL_3 MEDIUMINT;
+ALTER TABLE t1 MODIFY COLUMN COL_3 INT;
+ALTER TABLE t1 MODIFY COLUMN COL_3 INTEGER;
+ALTER TABLE t1 MODIFY COLUMN COL_3 BIGINT;
+ALTER TABLE t1 MODIFY COLUMN COL_3 FLOAT;
+ALTER TABLE t1 MODIFY COLUMN COL_3 DOUBLE;
+ALTER TABLE t1 MODIFY COLUMN COL_3 VARCHAR(20);
+DROP TABLE t1;
+CREATE TABLE `test`.`supplier`(
+group_id int(11) not null primary key,
+group_name varchar(255) not null
+);
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+CREATE TABLE `test`.`supplier11` (
+id int(11) NOT NULL,
+supplier_id int(11) NOT NULL DEFAULT 1,
+supplier_name varchar(255) NOT NULL,
+group_id int(11) NOT NULL,
+PRIMARY KEY (`id`),
+UNIQUE KEY `uni_sid`(supplier_id) USING BTREE,
+CONSTRAINT `fk_gid` FOREIGN KEY (`group_id`) REFERENCES `test`.`supplier`(`group_id`) ON DELETE NO ACTION ON UPDATE NO ACTION,
+CONSTRAINT `chk_1` CHECK (supplier_id > 2 and supplier_id < 100)
+);
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+ALTER TABLE `test`.`supplier11` DROP CHECK `chk_1`;
+ALTER TABLE `test`.`supplier11` ADD CONSTRAINT `chk_1000` CHECK((`supplier_id` > 2) and (`supplier_id` < 1000));
+DROP TABLE `test`.`supplier11`;
+DROP TABLE `test`.`supplier`;
+create table DEMO_KEY (ID integer, AGE integer, GRADE real);
+alter table DEMO_KEY add column col1 integer primary key;
+alter table DEMO_KEY drop primary key;
+alter table DEMO_KEY add primary key (id);
+drop table DEMO_KEY;
+drop table if exists TEST_COL;
+drop table if exists FK_TEST;
+CREATE TABLE TEST_COL (id int(18));
+ALTER TABLE TEST_COL ADD COLUMN Col2 integer;
+ALTER TABLE TEST_COL DROP COLUMN col2;
+ALTER TABLE TEST_COL RENAME COLUMN ID TO my_ID;
+ALTER TABLE TEST_COL ADD COLUMN col3 integer;
+ALTER TABLE TEST_COL CHANGE COLUMN coL3 my_col3 varchar(20);
+show create table TEST_COL;
+Table	Create Table
+TEST_COL	CREATE TABLE `TEST_COL` (
+  `my_ID` int DEFAULT NULL,
+  `my_col3` varchar(20) DEFAULT NULL
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+CREATE TABLE FK_TEST (id int(18) primary key);
+ALTER TABLE TEST_COL ADD CONSTRAINT my_fk_CONS FOREIGN KEY(MY_ID) REFERENCES FK_TEST(Id);
+show create table TEST_COL;
+Table	Create Table
+TEST_COL	CREATE TABLE `TEST_COL` (
+  `my_ID` int DEFAULT NULL,
+  `my_col3` varchar(20) DEFAULT NULL,
+  KEY `my_fk_CONS` (`my_ID`),
+  CONSTRAINT `my_fk_CONS` FOREIGN KEY (`my_ID`) REFERENCES `FK_TEST` (`id`)
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+ALTER TABLE TEST_COL DROP FOREIGN KEY my_fk_CONS;
+ALTER TABLE TEST_COL ADD INDEX (My_col3);
+show create table TEST_COL;
+Table	Create Table
+TEST_COL	CREATE TABLE `TEST_COL` (
+  `my_ID` int DEFAULT NULL,
+  `my_col3` varchar(20) DEFAULT NULL,
+  KEY `my_fk_CONS` (`my_ID`),
+  KEY `my_col3` (`my_col3`)
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+ALTER TABLE TEST_COL drop index MY_Col3;
+drop table TEST_COL;
+drop table FK_TEST;
+drop table if exists test;
+create table test(c1 int, c2 int, c3 double);
+insert into test values (1,2,10),(2,3,4),(3,5,6),(4,12,16),(1,2,4),(10,2,17),(6,12,21);
+alter table test partition by range(c1)(partition p0 values less than (4),
+partition p1 values less than (7), partition p2 values less than (12));
+alter table test partition by range(c1)(partition p0 values less than (7),
+partition p1 values less than (12));
+alter table test partition by range(c1)(partition p0 values less than (7),
+partition p1 values less than (10));
+ERROR HY000: Table has no partition for value 10
+alter table test partition by range(c1)(partition p0 values less than (7),
+partition p1 values less than (10));
+ERROR HY000: Table has no partition for value 10
+alter table test partition by range(c1)(partition p0 values less than (7),
+partition p1 values less than (12));
+alter table test partition by range(c2)(partition p0 values less than (7),
+partition p1 values less than (12));
+ERROR HY000: Table has no partition for value 12
+alter table test partition by range(c2)(partition p0 values less than (7),
+partition p1 values less than (12));
+ERROR HY000: Table has no partition for value 12
+alter table test partition by range(c2)(partition p0 values less than (7),
+partition p1 values less than (15));
+alter table test partition by range(c2)(partition p0 values less than (20));
+alter table test partition by range(c2)(partition p0 values less than (25));
+alter table test partition by range(c2)(partition p0 values less than (20));
+alter table test partition by range(c2)(partition p0 values less than (25));
+drop table test;
+create table test(c1 int, c2 int) partition by range(c1) (partition p0 values less than (6),
+partition p1 values less than (10));
+insert into test values (1,2),(3,4),(6,6),(9,10);
+alter table test partition by range(c1) (partition p0 values less than (7));
+ERROR HY000: Table has no partition for value 9
+alter table test partition by range(c1) (partition p0 values less than (20));
+drop table test;
+create table test (a int, b int, c int, d int);
+alter table test rename column a to b, rename column b to c, rename column c to a;
+show create table test;
+Table	Create Table
+test	CREATE TABLE `test` (
+  `b` int DEFAULT NULL,
+  `c` int DEFAULT NULL,
+  `a` int DEFAULT NULL,
+  `d` int DEFAULT NULL
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+alter table test rename column a to b, rename column b to a, rename column c to newc;
+show create table test;
+Table	Create Table
+test	CREATE TABLE `test` (
+  `a` int DEFAULT NULL,
+  `newc` int DEFAULT NULL,
+  `b` int DEFAULT NULL,
+  `d` int DEFAULT NULL
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+alter table test rename column a to b;
+ERROR 42S21: Duplicate column name 'b'
+drop table test;
+CREATE TABLE test (C123456789C123456789C123456789C123456789C123456789C123456789C1234 INT, b int);
+ERROR 42000: Identifier name 'C123456789C123456789C123456789C123456789C123456789C123456789C1234' is too long
+CREATE TABLE test (C123456789C123456789C123456789C123456789C123456789C123456789C123 INT, b int);
+alter table test rename column C123456789C123456789C123456789C123456789C123456789C123456789C123 to b,
+rename column b to C123456789C123456789C123456789C123456789C123456789C123456789C123;
+show create table test;
+Table	Create Table
+test	CREATE TABLE `test` (
+  `b` int DEFAULT NULL,
+  `C123456789C123456789C123456789C123456789C123456789C123456789C123` int DEFAULT NULL
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table test;
+create table test (a integer primary key, b varchar(19) not null, c integer, d real);
+insert into test values (1, 'LIOR', 35, 6.9);
+insert into test values (4, 'MIKE', 55, 99.92);
+insert into test values (8, 'ROMAN', 40, 94.1);
+insert into test values (5, 'Eitan', NULL, 4.9);
+insert into test values (7, 'zhangdi', NULL, 10000.8);
+insert into test values (9, 'Hisses', 1, NULL);
+alter table test rename column a to b, rename column b to c, rename column c to a;
+show create table test;
+Table	Create Table
+test	CREATE TABLE `test` (
+  `b` int NOT NULL,
+  `c` varchar(19) NOT NULL,
+  `a` int DEFAULT NULL,
+  `d` double DEFAULT NULL,
+  PRIMARY KEY (`b`)
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table test;
+create table test(a INT,b VARCHAR(255) NOT NULL);
+alter table test change column b b INT;
+insert into test values (1,2),(3,4),(6,6),(9,10);
+select * from test;
+a	b
+1	2
+3	4
+6	6
+9	10
+drop table test;
+create table test(a INT,b INT NOT NULL);
+alter table test change column b b VARCHAR(255);
+insert into test values (1,'aa'),(2,'bb'),(3,'cc'),(4,'dd');
+select * from test;
+a	b
+1	aa
+2	bb
+3	cc
+4	dd
+drop table test;
+CREATE TABLE t1 (a int, b int);
+INSERT INTO t1 VALUES (1,4),(2,2),(2,2),(4,1),(4,1),(4,1),(4,1),(2,1),(2,1);
+SELECT SUM(b) FROM t1 GROUP BY a WITH ROLLUP;
+SUM(b)
+4
+6
+4
+14
+SELECT DISTINCT SUM(b) FROM t1 GROUP BY a WITH ROLLUP;
+SUM(b)
+4
+6
+14
+SELECT SUM(b), COUNT(DISTINCT b) FROM t1 GROUP BY a WITH ROLLUP;
+SUM(b)	COUNT(DISTINCT b)
+4	1
+6	2
+4	1
+14	3
+SELECT DISTINCT SUM(b), COUNT(DISTINCT b) FROM t1 GROUP BY a WITH ROLLUP;
+SUM(b)	COUNT(DISTINCT b)
+4	1
+6	2
+14	3
+SELECT SUM(b), COUNT(*) FROM t1 GROUP BY a WITH ROLLUP;
+SUM(b)	COUNT(*)
+4	1
+6	4
+4	4
+14	9
+SELECT DISTINCT SUM(b), COUNT(*) FROM t1 GROUP BY a WITH ROLLUP;
+SUM(b)	COUNT(*)
+4	1
+6	4
+4	4
+14	9
+SELECT SUM(b), COUNT(DISTINCT b), COUNT(*) FROM t1 GROUP BY a WITH ROLLUP;
+SUM(b)	COUNT(DISTINCT b)	COUNT(*)
+4	1	1
+6	2	4
+4	1	4
+14	3	9
+SELECT DISTINCT SUM(b), COUNT(DISTINCT b), COUNT(*) FROM t1 GROUP BY a WITH ROLLUP;
+SUM(b)	COUNT(DISTINCT b)	COUNT(*)
+4	1	1
+6	2	4
+4	1	4
+14	3	9
+SELECT a, SUM(b) FROM t1 GROUP BY a,b WITH ROLLUP;
+a	SUM(b)
+1	4
+1	4
+2	2
+2	4
+2	6
+4	4
+4	4
+NULL	14
+SELECT DISTINCT a, SUM(b) FROM t1 GROUP BY a,b WITH ROLLUP;
+a	SUM(b)
+1	4
+2	2
+2	4
+2	6
+4	4
+NULL	14
+SELECT b, a, SUM(b) FROM t1 GROUP BY a,b WITH ROLLUP;
+b	a	SUM(b)
+4	1	4
+NULL	1	4
+1	2	2
+2	2	4
+NULL	2	6
+1	4	4
+NULL	4	4
+NULL	NULL	14
+SELECT DISTINCT b,a, SUM(b) FROM t1 GROUP BY a,b WITH ROLLUP;
+b	a	SUM(b)
+4	1	4
+NULL	1	4
+1	2	2
+2	2	4
+NULL	2	6
+1	4	4
+NULL	4	4
+NULL	NULL	14
+ALTER TABLE t1 ADD COLUMN c INT;
+SELECT a,b,SUM(c) FROM t1 GROUP BY a,b,c WITH ROLLUP;
+a	b	SUM(c)
+1	4	NULL
+1	4	NULL
+1	NULL	NULL
+2	1	NULL
+2	1	NULL
+2	2	NULL
+2	2	NULL
+2	NULL	NULL
+4	1	NULL
+4	1	NULL
+4	NULL	NULL
+NULL	NULL	NULL
+SELECT distinct a,b,SUM(c) FROM t1 GROUP BY a,b,c WITH ROLLUP;
+a	b	SUM(c)
+1	4	NULL
+1	NULL	NULL
+2	1	NULL
+2	2	NULL
+2	NULL	NULL
+4	1	NULL
+4	NULL	NULL
+NULL	NULL	NULL
+drop table t1;
+CREATE TABLE t1 (a int, b int);
+INSERT INTO t1 VALUES (1,4),(2,2),(2,2),(4,1),(4,1),(4,1),(4,1),(2,1),(2,1);
+ALTER TABLE t1 ADD COLUMN c INT;
+ALTER TABLE t1 ADD COLUMN d INT;
+SELECT * FROM t1;
+a	b	c	d
+1	4	NULL	NULL
+2	2	NULL	NULL
+2	2	NULL	NULL
+4	1	NULL	NULL
+4	1	NULL	NULL
+4	1	NULL	NULL
+4	1	NULL	NULL
+2	1	NULL	NULL
+2	1	NULL	NULL
+UPDATE t1 SET c = 3 WHERE a = 1;
+SELECT * FROM t1;
+a	b	c	d
+1	4	3	NULL
+2	2	NULL	NULL
+2	2	NULL	NULL
+4	1	NULL	NULL
+4	1	NULL	NULL
+4	1	NULL	NULL
+4	1	NULL	NULL
+2	1	NULL	NULL
+2	1	NULL	NULL
+ALTER TABLE t1 DROP COLUMN c;
+SELECT * FROM t1;
+a	b	d
+1	4	NULL
+2	2	NULL
+2	2	NULL
+4	1	NULL
+4	1	NULL
+4	1	NULL
+4	1	NULL
+2	1	NULL
+2	1	NULL
+UPDATE t1 SET d = 4 WHERE a = 1;
+SELECT * FROM t1;
+a	b	d
+1	4	4
+2	2	NULL
+2	2	NULL
+4	1	NULL
+4	1	NULL
+4	1	NULL
+4	1	NULL
+2	1	NULL
+2	1	NULL
+ALTER TABLE t1 ADD COLUMN e INT;
+SELECT * FROM t1;
+a	b	d	e
+1	4	4	NULL
+2	2	NULL	NULL
+2	2	NULL	NULL
+4	1	NULL	NULL
+4	1	NULL	NULL
+4	1	NULL	NULL
+4	1	NULL	NULL
+2	1	NULL	NULL
+2	1	NULL	NULL
+ALTER TABLE t1 DROP COLUMN b;
+SELECT * FROM t1;
+a	d	e
+1	4	NULL
+2	NULL	NULL
+2	NULL	NULL
+4	NULL	NULL
+4	NULL	NULL
+4	NULL	NULL
+4	NULL	NULL
+2	NULL	NULL
+2	NULL	NULL
+INSERT INTO t1 VALUES (8,NULL,NULL),(9,3,5),(10,5,NULL),(11,NULL,7);
+SELECT * FROM t1;
+a	d	e
+1	4	NULL
+2	NULL	NULL
+2	NULL	NULL
+4	NULL	NULL
+4	NULL	NULL
+4	NULL	NULL
+4	NULL	NULL
+2	NULL	NULL
+2	NULL	NULL
+8	NULL	NULL
+9	3	5
+10	5	NULL
+11	NULL	7
+drop table t1;
+create table t1(a int, b int, c int auto_increment unique key);
+insert into t1 values (1,1,1);
+alter table t1 drop column c;
+select * from t1;
+a	b
+1	1
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int DEFAULT NULL,
+  `b` int DEFAULT NULL
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table t1;
+create table t1(a int, b int unique key, c int auto_increment primary key);
+insert into t1 values (1,1,1);
+alter table t1 drop column c;
+select * from t1;
+a	b
+1	1
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int DEFAULT NULL,
+  `b` int DEFAULT NULL,
+  UNIQUE KEY `b` (`b`)
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table t1;
+CREATE TABLE t1(c1 TINYINT NOT NULL, c2 TINYINT NOT NULL, c3 TINYINT NOT NULL);
+INSERT INTO t1 VALUES(1,3,1),(3,1,2),(2,2,1),(8,9,2),(7,5,1);
+SELECT * FROM t1;
+c1	c2	c3
+1	3	1
+3	1	2
+2	2	1
+8	9	2
+7	5	1
+ALTER TABLE t1 ORDER BY c1,c2,c3;
+SELECT * FROM t1;
+c1	c2	c3
+1	3	1
+2	2	1
+3	1	2
+7	5	1
+8	9	2
+ALTER TABLE t1 ORDER BY c2 desc;
+SELECT * FROM t1;
+c1	c2	c3
+8	9	2
+7	5	1
+1	3	1
+2	2	1
+3	1	2
+ALTER TABLE t1 ORDER BY c3;
+SELECT * FROM t1;
+c1	c2	c3
+7	5	1
+1	3	1
+2	2	1
+8	9	2
+3	1	2
+ALTER TABLE t1 ORDER BY c1 asc;
+SELECT * FROM t1;
+c1	c2	c3
+1	3	1
+2	2	1
+3	1	2
+7	5	1
+8	9	2
+DROP TABLE t1;
+CREATE TABLE IF NOT EXISTS t1 (
+id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+pattern VARCHAR(5000) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+pattern_database VARCHAR(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin,
+replacement VARCHAR(5000) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+enabled ENUM('YES', 'NO') CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL
+DEFAULT 'YES',
+message VARCHAR(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin,
+pattern_digest VARCHAR(64),
+normalized_pattern VARCHAR(5000)
+) DEFAULT CHARSET = utf8mb4 ENGINE=CTC;
+show tables;
+Tables_in_test
+t1
+ALTER TABLE t1 DROP COLUMN pattern_digest,ALGORITHM = COPY;
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `pattern` varchar(5000) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `pattern_database` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `replacement` varchar(5000) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `enabled` enum('YES','NO') CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT 'YES',
+  `message` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `normalized_pattern` varchar(5000) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table t1;
+SET sql_mode = 'NO_ENGINE_SUBSTITUTION';
+DROP TABLE IF EXISTS t1;
+Warnings:
+Note	1051	Unknown table 'test.t1'
+SET CHARACTER SET koi8r;
+CREATE TABLE t1 (
+comment CHAR(32) ASCII NOT NULL,
+koi8_ru_f CHAR(32) CHARACTER SET koi8r NOT NULL default ''
+) CHARSET=latin5;
+INSERT INTO t1 (koi8_ru_f,comment) VALUES ('a','LAT SMALL A');
+ALTER TABLE t1 ADD ucs2_f CHAR(32) CHARACTER SET ucs2;
+ALTER TABLE t1 CHANGE ucs2_f ucs2_f CHAR(32) UNICODE NOT NULL;
+Warnings:
+Warning	1265	Data truncated for column 'ucs2_f' at row 1
+DROP TABLE t1;
+SET sql_mode = DEFAULT;
+create table t1(col int, col1 varchar(3000));
+insert into t1 values (1,'abc');
+alter table t1 modify column col1 varchar(5000);
+drop table t1;
+CREATE TABLE t1(a FLOAT);
+INSERT INTO t1 values(1.5);
+ALTER TABLE t1 MODIFY COLUMN a FLOAT;
+ALTER TABLE t1 CHANGE COLUMN a a FLOAT;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` float DEFAULT NULL
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+DROP TABLE t1;
+CREATE TABLE t1(a DOUBLE);
+INSERT INTO t1 values(1.5);
+ALTER TABLE t1 MODIFY COLUMN a DOUBLE;
+ALTER TABLE t1 CHANGE COLUMN a a DOUBLE;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` double DEFAULT NULL
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+DROP TABLE t1;
+create table t1 (f1 int unique, f2 int, f3 float DEFAULT 0.0);
+INSERT INTO t1 VALUES (1, 80, 0.0);
+INSERT INTO t1 VALUES (2, 81, 0.0);
+create table t2 (f1 int, f2 int, f3 float DEFAULT 0.0, constraint c1 foreign key (f2) references t1(f1) on update cascade);
+show create table t2;
+Table	Create Table
+t2	CREATE TABLE `t2` (
+  `f1` int DEFAULT NULL,
+  `f2` int DEFAULT NULL,
+  `f3` float DEFAULT '0',
+  KEY `c1` (`f2`),
+  CONSTRAINT `c1` FOREIGN KEY (`f2`) REFERENCES `t1` (`f1`) ON UPDATE CASCADE
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+INSERT INTO t2 VALUES (51, 1, 0.0);
+INSERT INTO t2 VALUES (52, 2, 0.0);
+ALTER TABLE t1 DROP COLUMN f1;
+ERROR HY000: Cannot drop column 'f1': needed in a foreign key constraint 'c1' of table 't2'
+ALTER TABLE t1 DROP COLUMN f2;
+ALTER TABLE t2 DROP COLUMN f2;
+ERROR HY000: Cannot drop column 'f2': needed in a foreign key constraint 'c1'
+ALTER TABLE t2 DROP COLUMN f1;
+drop table t2;
+drop table t1;
+CREATE TABLE t1(fld1 INT);
+ALTER TABLE t1 RENAME COLUMN fld1 TO fld1;
+DROP TABLE t1;
+CREATE TABLE t1(fld1 INT);
+ALTER TABLE t1 RENAME COLUMN fld1 TO fld2;
+DROP TABLE t1;
+CREATE TABLE t1(fld1 INT, fld2 INT);
+ALTER TABLE t1 RENAME COLUMN fld1 TO fld2, RENAME COLUMN fld2 TO fld1;
+DROP TABLE t1;
+CREATE TABLE t1(fld1 INT, fld2 INT);
+ALTER TABLE t1 RENAME COLUMN fld1 TO fld1, RENAME COLUMN fld2 TO fld2;
+DROP TABLE t1;
+CREATE TABLE t1(fld1 INT, fld2 INT, fld3 INT);
+ALTER TABLE t1 RENAME COLUMN fld1 TO fld1, RENAME COLUMN fld2 TO fld3, RENAME COLUMN fld3 TO fld2;
+DROP TABLE t1;
+CREATE TABLE t1(fld1 INT, fld2 INT, fld3 INT);
+ALTER TABLE t1 RENAME COLUMN fld1 TO fld1, RENAME COLUMN fld2 TO fld2, RENAME COLUMN fld3 TO fld3;
+DROP TABLE t1;
+CREATE TABLE t1(fld1 INT, fld2 INT, fld3 INT);
+ALTER TABLE t1 RENAME COLUMN fld1 TO fld2, RENAME COLUMN fld3 TO fld4, RENAME COLUMN fld2 TO fld1;
+DROP TABLE t1;
+CREATE TABLE t1(col1 int);
+INSERT INTO t1 values (1234);
+ALTER TABLE t1 ADD COLUMN col2 int NOT NULL;
+ALTER TABLE t1 ADD COLUMN coL3 double NOT NULL;
+ALTER TABLE t1 ADD COLUMN col4 float NOT NULL;
+ALTER TABLE t1 ADD COLUMN col5 blob NOT NULL;
+ALTER TABLE t1 ADD COLUMN col6 blob NOT NULL, ADD COLUMN col7 int NOT NULL;
+ALTER TABLE t1 DROP COLUMN col2, ADD COLUMN col8 int NOT NULL, ADD COLUMN col9 int;
+ALTER TABLE t1 ADD COLUMN col10 int NOT NULL, DROP COLUMN col3, DROP COLUMN col4;
+SELECT * FROM t1;
+col1	col5	col6	col7	col8	col9	col10
+1234			0	0	NULL	0
+ALTER TABLE t1 ADD COLUMN col15 int default 333;
+ALTER TABLE t1 ADD COLUMN col16 int NOT NULL default 444;
+SELECT * FROM t1;
+col1	col5	col6	col7	col8	col9	col10	col15	col16
+1234			0	0	NULL	0	333	444
+DROP TABLE t1;
+create table t1 (i int unsigned not null auto_increment primary key);
+insert into t1 values (null),(null),(null),(null);
+alter table t1 drop i,add i int unsigned not null auto_increment, drop primary key, add primary key (i);
+drop table t1;
+CREATE TABLE t1 (c1 FLOAT(6,2));
+INSERT INTO t1 VALUES (123);
+ALTER TABLE t1 MODIFY COLUMN c1 FLOAT(7,3);
+drop table t1;
+CREATE TABLE t1 (c1 DOUBLE(6,2));
+INSERT INTO t1 VALUES (123);
+ALTER TABLE t1 MODIFY COLUMN c1 DOUBLE(7,3);
+drop table t1;
+CREATE TABLE t1 (c1 REAL(6,2));
+INSERT INTO t1 VALUES (123);
+ALTER TABLE t1 MODIFY COLUMN c1 REAL(7,3);
+drop table t1;
+CREATE TABLE t1 (c1 FLOAT(6,2), c2 DOUBLE(6,2), c3 REAL(6,2));
+INSERT INTO t1 VALUES (123, 456, 789);
+ALTER TABLE t1 MODIFY COLUMN c2 DOUBLE(7,3);
+drop table t1;
+create database db1;
+create database db2;
+use db1;
+create table t(id int primary key);
+create table t1(
+a int DEFAULT NULL,
+c float,
+id int primary key auto_increment,
+foreign key(id) references t(id));
+alter table t1 rename to t2, add column b int, algorithm = copy;
+alter table t2 rename to t1;
+rename table t1 to db2.t2;
+alter table db2.t2 modify column c int;
+alter table db2.t2 alter column a drop default, rename to t1;
+alter table t1 rename to db2.t2;
+alter table db2.t2 rename to db1.t1, modify column c char(10);
+alter table t1 rename to t2;
+drop database db1;
+drop database db2;

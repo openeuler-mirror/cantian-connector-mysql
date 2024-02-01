@@ -1,0 +1,62 @@
+create tablespace ts01 add datafile 'ts_01.ibd' autoextend_size=1M;
+alter tablespace ts01 rename to ts01_new;
+alter tablespace ts01 autoextend_size = 64K;
+ERROR HY000: Tablespace ts01 doesn't exist.
+alter tablespace ts01_new autoextend_size = 64K;
+drop tablespace ts01_new;
+create tablespace ts04 add datafile 'ts_04' autoextend_size=1M;
+ERROR HY000: The ADD DATAFILE filepath must end with '.ibd'.
+create tablespace ts01 add datafile 'ts_01.ibd' autoextend_size=1M;
+alter tablespace ts01 add datafile 'ts_02.ibd' autoextend_size=4M;
+ERROR 42000: The storage engine for the table doesn't support ALTER TABLESPACE ... ADD DATAFILE
+alter tablespace ts01 drop datafile 'ts_01.ibd';
+ERROR 42000: The storage engine for the table doesn't support ALTER TABLESPACE ... DROP DATAFILE
+drop tablespace ts01;
+select @@global.max_connections into @ctc_saved_max_connections;
+set global max_connections=0;
+ERROR HY000: Current SE cannot provide less than one connection.
+set global max_connections=10000;
+ERROR HY000: Current SE can only provide 1365 connections for one mysql-server
+SET session super_read_only= 1;
+ERROR HY000: Variable 'super_read_only' is a GLOBAL variable and should be set with SET GLOBAL
+SET session super_read_only= 0;
+ERROR HY000: Variable 'super_read_only' is a GLOBAL variable and should be set with SET GLOBAL
+set @ctc_ddl_enabled=true;
+create user test_user;
+drop user test_user;
+set @ctc_dcl_disabled=1;
+create user test_user;
+ERROR HY000: DCL query is not allowed (ctc_dcl_disabled = true)
+set @ctc_dcl_disabled=0;
+set global ctc_stats_enabled=ON;
+show engine ctc status;
+Type	Name	Status
+ctc		
+======================================CTC_STATS=====================================
+Interface:   Call counter    Used Time    Average Time
+
+======================================CTC_STATS=====================================
+
+create table t1(i int);
+insert into t1 value(123);
+set debug = '+d, non_metadata_normalization';
+lock table t1 write;
+unlock tables;
+set debug = '-d, non_metadata_normalization';
+set sort_buffer_size = (select i from t1);
+Warnings:
+Warning	1292	Truncated incorrect sort_buffer_size value: '123'
+drop table t1;
+set global ctc_stats_enabled=OFF;
+set global max_connections=101;
+set global max_connections=default;
+set global autocommit=false;
+set global autocommit=true;
+CREATE TEMPORARY TABLE t_processlist AS SELECT ID FROM information_schema.processlist;
+DROP TABLE t_processlist;
+create table t1(a blob default("test"));
+alter table t1 add column b varchar(10) default ("test");
+alter table t1 add column b1 varchar(10) default "test";
+alter table t1 add column c bit default ("10");
+alter table t1 add column d bit default (10);
+drop table t1;

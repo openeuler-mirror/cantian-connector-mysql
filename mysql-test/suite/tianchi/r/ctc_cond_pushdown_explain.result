@@ -1,0 +1,368 @@
+drop table if exists t1, t2, t3, t4, t5, t6, t7;
+CREATE TABLE t1(c1 TINYINT, c2 SMALLINT not null, c3 MEDIUMINT, c4 INT unsigned, c5 INT, c6 BIGINT, c7 BIGINT unsigned);
+INSERT INTO t1 VALUES (1,1,1,1,1,1,1), (2,2,2,2,2,2,2);
+INSERT INTO t1 VALUES (null, 5, null, null, null, null,null);
+INSERT INTO t1 VALUES (3,3,3,3,3,3,3), (4,4,4,4,4,4,4);
+INSERT INTO t1 VALUES (null, 7, null, null, null, null,null);
+INSERT INTO t1 VALUES (8,8,127,255,8,8,8);
+select * from t1;
+c1	c2	c3	c4	c5	c6	c7
+1	1	1	1	1	1	1
+2	2	2	2	2	2	2
+NULL	5	NULL	NULL	NULL	NULL	NULL
+3	3	3	3	3	3	3
+4	4	4	4	4	4	4
+NULL	7	NULL	NULL	NULL	NULL	NULL
+8	8	127	255	8	8	8
+select * from t1 where c1 > 1;
+c1	c2	c3	c4	c5	c6	c7
+2	2	2	2	2	2	2
+3	3	3	3	3	3	3
+4	4	4	4	4	4	4
+8	8	127	255	8	8	8
+explain select * from t1 where c1 > 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t1`.`c1` > 1)
+select * from t1 where c2 < 7;
+c1	c2	c3	c4	c5	c6	c7
+1	1	1	1	1	1	1
+2	2	2	2	2	2	2
+NULL	5	NULL	NULL	NULL	NULL	NULL
+3	3	3	3	3	3	3
+4	4	4	4	4	4	4
+explain select * from t1 where c2 < 7;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t1`.`c2` < 7)
+select * from t1 where c3 = 3;
+c1	c2	c3	c4	c5	c6	c7
+3	3	3	3	3	3	3
+explain select * from t1 where c3 = 3;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t1`.`c3` = 3)
+select * from t1 where c4 >= 4;
+c1	c2	c3	c4	c5	c6	c7
+4	4	4	4	4	4	4
+8	8	127	255	8	8	8
+explain select * from t1 where c4 >= 4;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t1`.`c4` >= 4)
+select * from t1 where c5 <= 8;
+c1	c2	c3	c4	c5	c6	c7
+1	1	1	1	1	1	1
+2	2	2	2	2	2	2
+3	3	3	3	3	3	3
+4	4	4	4	4	4	4
+8	8	127	255	8	8	8
+explain select * from t1 where c5 <= 8;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t1`.`c5` <= 8)
+select * from t1 where c6 != 2;
+c1	c2	c3	c4	c5	c6	c7
+1	1	1	1	1	1	1
+3	3	3	3	3	3	3
+4	4	4	4	4	4	4
+8	8	127	255	8	8	8
+explain select * from t1 where c6 != 2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	66.67	Using where; Using pushed condition (`test`.`t1`.`c6` <> 2)
+select * from t1 where c5 <=> null;
+c1	c2	c3	c4	c5	c6	c7
+NULL	5	NULL	NULL	NULL	NULL	NULL
+NULL	7	NULL	NULL	NULL	NULL	NULL
+explain select * from t1 where c5 <=> null;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t1`.`c5` <=> NULL)
+select * from t1 where c1 = null;
+c1	c2	c3	c4	c5	c6	c7
+explain select * from t1 where c1 = null;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t1`.`c1` = NULL)
+select * from t1 where c7 = 8;
+c1	c2	c3	c4	c5	c6	c7
+8	8	127	255	8	8	8
+explain select * from t1 where c7 = 8;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t1`.`c7` = 8)
+CREATE TABLE t2(c1 char(10), c2 varchar(20), c3 varchar(20) binary);
+INSERT INTO t2 VALUES ('1234','abcd','abcd'), ('123','ABCD','ABCD'),('123456','aBcD','aBcD'),('23456','abCD','abCD'),('','',''),(null, null, null);
+select * from t2;
+c1	c2	c3
+1234	abcd	abcd
+123	ABCD	ABCD
+123456	aBcD	aBcD
+23456	abCD	abCD
+		
+NULL	NULL	NULL
+select * from t2 where c1 like '%123%';
+c1	c2	c3
+1234	abcd	abcd
+123	ABCD	ABCD
+123456	aBcD	aBcD
+explain select * from t2 where c1 like '%123%';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t2`.`c1` like '%123%')
+select * from t2 where c2 like '%abc%';
+c1	c2	c3
+1234	abcd	abcd
+123	ABCD	ABCD
+123456	aBcD	aBcD
+23456	abCD	abCD
+explain select * from t2 where c2 like '%abc%';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t2`.`c2` like '%abc%')
+select * from t2 where c1 is null;
+c1	c2	c3
+NULL	NULL	NULL
+explain select * from t2 where c1 is null;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t2`.`c1` is null)
+select * from t2 where c2 is null;
+c1	c2	c3
+NULL	NULL	NULL
+explain select * from t2 where c2 is null;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t2`.`c2` is null)
+select * from t2 where c1 is not null;
+c1	c2	c3
+1234	abcd	abcd
+123	ABCD	ABCD
+123456	aBcD	aBcD
+23456	abCD	abCD
+		
+explain select * from t2 where c1 is not null;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	3	66.67	Using where; Using pushed condition (`test`.`t2`.`c1` is not null)
+select * from t2 where c2 is not null;
+c1	c2	c3
+1234	abcd	abcd
+123	ABCD	ABCD
+123456	aBcD	aBcD
+23456	abCD	abCD
+		
+explain select * from t2 where c2 is not null;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	3	66.67	Using where; Using pushed condition (`test`.`t2`.`c2` is not null)
+select * from t2 where c3 like '%abc%';
+c1	c2	c3
+1234	abcd	abcd
+explain select * from t2 where c3 like '%abc%';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t2	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t2`.`c3` like '%abc%')
+CREATE TABLE t3(c1 float , c2 float(6,3), c3 double, c4 double(6,3));
+INSERT INTO t3 VALUES (1.1,11.11,1.1,11.11), (2.2,22.22,2.2,22.22), (3.3,33.33,3.3,33.33);
+select * from t3;
+c1	c2	c3	c4
+1.1	11.110	1.1	11.110
+2.2	22.220	2.2	22.220
+3.3	33.330	3.3	33.330
+select * from t3 where c1 = 1.1;
+c1	c2	c3	c4
+explain select * from t3 where c1 = 1.1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t3`.`c1` = 1.1)
+select * from t3 where c2 > 1.1;
+c1	c2	c3	c4
+1.1	11.110	1.1	11.110
+2.2	22.220	2.2	22.220
+3.3	33.330	3.3	33.330
+explain select * from t3 where c2 > 1.1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t3`.`c2` > 1.100000023841858)
+select * from t3 where c3 < 3.3;
+c1	c2	c3	c4
+1.1	11.110	1.1	11.110
+2.2	22.220	2.2	22.220
+explain select * from t3 where c3 < 3.3;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t3`.`c3` < 3.3)
+select * from t3 where c4 >= 11.11;
+c1	c2	c3	c4
+1.1	11.110	1.1	11.110
+2.2	22.220	2.2	22.220
+3.3	33.330	3.3	33.330
+explain select * from t3 where c4 >= 11.11;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t3`.`c4` >= 11.11)
+select * from t3 where c1 <= 3.3;
+c1	c2	c3	c4
+1.1	11.110	1.1	11.110
+2.2	22.220	2.2	22.220
+3.3	33.330	3.3	33.330
+explain select * from t3 where c1 <= 3.3;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t3`.`c1` <= 3.3)
+select * from t3 where c2 != 22.22;
+c1	c2	c3	c4
+1.1	11.110	1.1	11.110
+3.3	33.330	3.3	33.330
+explain select * from t3 where c2 != 22.22;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	3	66.67	Using where; Using pushed condition (`test`.`t3`.`c2` <> 22.219999313354492)
+select * from t3 where c3 <=> 2.2;
+c1	c2	c3	c4
+2.2	22.220	2.2	22.220
+explain select * from t3 where c3 <=> 2.2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t3	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t3`.`c3` <=> 2.2)
+CREATE TABLE t4(c1 DECIMAL(10,5) UNSIGNED NOT NULL, c2 DECIMAL(10,5) SIGNED NULL, c3 DECIMAL);
+INSERT INTO t4 VALUES ('11111.11111','11111.11111','1111111111'),('22222.22222','22222.22222','2222222222'),('33333.33333','33333.33333','3333333333');
+select * from t4;
+c1	c2	c3
+11111.11111	11111.11111	1111111111
+22222.22222	22222.22222	2222222222
+33333.33333	33333.33333	3333333333
+select * from t4 where c1 = '11111.11111';
+c1	c2	c3
+11111.11111	11111.11111	1111111111
+explain select * from t4 where c1 = '11111.11111';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t4	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t4`.`c1` = 11111.11111)
+select * from t4 where c1 > '22222.22222';
+c1	c2	c3
+33333.33333	33333.33333	3333333333
+explain select * from t4 where c1 > '22222.22222';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t4	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t4`.`c1` > 22222.22222)
+select * from t4 where c1 < '33333.33333';
+c1	c2	c3
+11111.11111	11111.11111	1111111111
+22222.22222	22222.22222	2222222222
+explain select * from t4 where c1 < '33333.33333';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t4	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t4`.`c1` < 33333.33333)
+select * from t4 where c2 >= '11111.11111';
+c1	c2	c3
+11111.11111	11111.11111	1111111111
+22222.22222	22222.22222	2222222222
+33333.33333	33333.33333	3333333333
+explain select * from t4 where c2 >= '11111.11111';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t4	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t4`.`c2` >= 11111.11111)
+select * from t4 where c2 <= '22222.22222';
+c1	c2	c3
+11111.11111	11111.11111	1111111111
+22222.22222	22222.22222	2222222222
+explain select * from t4 where c2 <= '22222.22222';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t4	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t4`.`c2` <= 22222.22222)
+select * from t4 where c2 != '33333.33333';
+c1	c2	c3
+11111.11111	11111.11111	1111111111
+22222.22222	22222.22222	2222222222
+explain select * from t4 where c2 != '33333.33333';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t4	NULL	ALL	NULL	NULL	NULL	NULL	3	66.67	Using where; Using pushed condition (`test`.`t4`.`c2` <> 33333.33333)
+select * from t4 where c3 <=> '1111111111';
+c1	c2	c3
+11111.11111	11111.11111	1111111111
+explain select * from t4 where c3 <=> '1111111111';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t4	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t4`.`c3` <=> 1111111111)
+CREATE TABLE t5(c1 year, c2 TIME, c3 DATE, c4 DATETIME, c5 TIMESTAMP);
+INSERT INTO t5 VALUES (94, '1999-12-31 23:59:59', '2000-01-01', '2008-02-29 13:13:13', '2012-03-04 11:21:14');
+INSERT INTO t5 VALUES (2014, '2001-12-31 23:59:59', '2004-01-01', '2007-01-29 13:13:13', '2014-03-04 11:21:14');
+INSERT INTO t5 VALUES (2023, '2009-12-31 23:59:59', '2012-01-01', '2015-05-29 13:13:13', '2020-03-04 11:21:14');
+select * from t5;
+c1	c2	c3	c4	c5
+1994	23:59:59	2000-01-01	2008-02-29 13:13:13	2012-03-04 11:21:14
+2014	23:59:59	2004-01-01	2007-01-29 13:13:13	2014-03-04 11:21:14
+2023	23:59:59	2012-01-01	2015-05-29 13:13:13	2020-03-04 11:21:14
+select * from t5 where c1 = 1994;
+c1	c2	c3	c4	c5
+1994	23:59:59	2000-01-01	2008-02-29 13:13:13	2012-03-04 11:21:14
+explain select * from t5 where c1 = 1994;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t5	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t5`.`c1` = 1994)
+select * from t5 where c2 > '23:59:50';
+c1	c2	c3	c4	c5
+1994	23:59:59	2000-01-01	2008-02-29 13:13:13	2012-03-04 11:21:14
+2014	23:59:59	2004-01-01	2007-01-29 13:13:13	2014-03-04 11:21:14
+2023	23:59:59	2012-01-01	2015-05-29 13:13:13	2020-03-04 11:21:14
+explain select * from t5 where c2 > '23:59:50';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t5	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t5`.`c2` > TIME'23:59:50')
+select * from t5 where c3 < '2012-01-01';
+c1	c2	c3	c4	c5
+1994	23:59:59	2000-01-01	2008-02-29 13:13:13	2012-03-04 11:21:14
+2014	23:59:59	2004-01-01	2007-01-29 13:13:13	2014-03-04 11:21:14
+explain select * from t5 where c3 < '2012-01-01';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t5	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t5`.`c3` < DATE'2012-01-01')
+select * from t5 where c4 >= '2008-02-29 13:13:13';
+c1	c2	c3	c4	c5
+1994	23:59:59	2000-01-01	2008-02-29 13:13:13	2012-03-04 11:21:14
+2023	23:59:59	2012-01-01	2015-05-29 13:13:13	2020-03-04 11:21:14
+explain select * from t5 where c4 >= '2008-02-29 13:13:13';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t5	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t5`.`c4` >= TIMESTAMP'2008-02-29 13:13:13')
+select * from t5 where c5 <=> '2020-03-04 11:21:14';
+c1	c2	c3	c4	c5
+2023	23:59:59	2012-01-01	2015-05-29 13:13:13	2020-03-04 11:21:14
+explain select * from t5 where c5 <=> '2020-03-04 11:21:14';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t5	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t5`.`c5` <=> TIMESTAMP'2020-03-04 11:21:14')
+CREATE TABLE t6(x VARCHAR(10), gc INTEGER GENERATED ALWAYS AS (x LIKE 'abba' ESCAPE 'b'), y INTEGER, gc_1 INTEGER GENERATED ALWAYS AS (y + 1), z varchar(20));
+insert into t6 values('abba', default, 1, default, 'aasf');
+insert into t6 values('aba', default, 2, default, 'afgc');
+insert into t6 values('bbba', default, 4, default, 'test');
+select * from t6;
+x	gc	y	gc_1	z
+abba	0	1	2	aasf
+aba	1	2	3	afgc
+bbba	0	4	5	test
+explain select * from t6 where gc <> 0;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t6	NULL	ALL	NULL	NULL	NULL	NULL	3	66.67	Using where
+select * from t6 where x = 'abba';
+x	gc	y	gc_1	z
+abba	0	1	2	aasf
+explain select * from t6 where x = 'abba';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t6	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t6`.`x` = 'abba')
+select * from t6 where y = 2;
+x	gc	y	gc_1	z
+aba	1	2	3	afgc
+explain select * from t6 where y = 2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t6	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t6`.`y` = 2)
+select * from t6 where z = 'test';
+x	gc	y	gc_1	z
+bbba	0	4	5	test
+explain select * from t6 where z = 'test';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t6	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t6`.`z` = 'test')
+CREATE TABLE t7(c1 TINYINT, c2 SMALLINT not null, c3 MEDIUMINT, c4 INT);
+insert into t7 values(-1, -5, -7, -9);
+insert into t7 values(-11, -15, -17, -19);
+insert into t7 values(-21, -25, -27, -29);
+insert into t7 values(-31, -35, -37, -39);
+select * from t7 where c1 < -10;
+c1	c2	c3	c4
+-11	-15	-17	-19
+-21	-25	-27	-29
+-31	-35	-37	-39
+explain select * from t7 where c1 < -10;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t7	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t7`.`c1` < <cache>(-(10)))
+select * from t7 where c2 >= -15;
+c1	c2	c3	c4
+-1	-5	-7	-9
+-11	-15	-17	-19
+explain select * from t7 where c2 >= -15;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t7	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t7`.`c2` >= <cache>(-(15)))
+select * from t7 where c3 = -27;
+c1	c2	c3	c4
+-21	-25	-27	-29
+explain select * from t7 where c3 = -27;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t7	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t7`.`c3` = <cache>(-(27)))
+select * from t7 where c4 != -39;
+c1	c2	c3	c4
+-1	-5	-7	-9
+-11	-15	-17	-19
+-21	-25	-27	-29
+explain select * from t7 where c4 != -39;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t7	NULL	ALL	NULL	NULL	NULL	NULL	3	66.67	Using where; Using pushed condition (`test`.`t7`.`c4` <> <cache>(-(39)))
+drop table t1, t2, t3, t4, t5, t6, t7;

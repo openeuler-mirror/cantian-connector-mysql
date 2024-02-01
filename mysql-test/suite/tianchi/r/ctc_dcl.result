@@ -1,0 +1,349 @@
+drop user if exists yyz;
+Warnings:
+Note	3162	Authorization ID 'yyz'@'%' does not exist.
+select @ctc_dcl_disabled;
+@ctc_dcl_disabled
+NULL
+create user yyz;
+select user from mysql.user;
+user
+yyz
+mysql.infoschema
+mysql.session
+mysql.sys
+root
+drop user if exists yyz;
+set @ctc_dcl_disabled = true;
+select @ctc_dcl_disabled;
+@ctc_dcl_disabled
+1
+create user yyz;
+ERROR HY000: DCL query is not allowed (ctc_dcl_disabled = true)
+select user from mysql.user;
+user
+mysql.infoschema
+mysql.session
+mysql.sys
+root
+drop user if exists yyz;
+ERROR HY000: DCL query is not allowed (ctc_dcl_disabled = true)
+set @ctc_dcl_disabled = TRUE;
+select @ctc_dcl_disabled;
+@ctc_dcl_disabled
+1
+create user yyz;
+ERROR HY000: DCL query is not allowed (ctc_dcl_disabled = true)
+select user from mysql.user;
+user
+mysql.infoschema
+mysql.session
+mysql.sys
+root
+drop user if exists yyz;
+ERROR HY000: DCL query is not allowed (ctc_dcl_disabled = true)
+set @ctc_dcl_disabled = 1;
+select @ctc_dcl_disabled;
+@ctc_dcl_disabled
+1
+create user yyz;
+ERROR HY000: DCL query is not allowed (ctc_dcl_disabled = true)
+select user from mysql.user;
+user
+mysql.infoschema
+mysql.session
+mysql.sys
+root
+drop user if exists yyz;
+ERROR HY000: DCL query is not allowed (ctc_dcl_disabled = true)
+set @ctc_dcl_disabled = 'true';
+select @ctc_dcl_disabled;
+@ctc_dcl_disabled
+true
+create user yyz;
+ERROR HY000: DCL query is not allowed (ctc_dcl_disabled = true)
+select user from mysql.user;
+user
+mysql.infoschema
+mysql.session
+mysql.sys
+root
+drop user if exists yyz;
+ERROR HY000: DCL query is not allowed (ctc_dcl_disabled = true)
+set @ctc_dcl_disabled = 'True';
+select @ctc_dcl_disabled;
+@ctc_dcl_disabled
+True
+create user yyz;
+ERROR HY000: DCL query is not allowed (ctc_dcl_disabled = true)
+select user from mysql.user;
+user
+mysql.infoschema
+mysql.session
+mysql.sys
+root
+drop user if exists yyz;
+ERROR HY000: DCL query is not allowed (ctc_dcl_disabled = true)
+set @ctc_dcl_disabled = '1';
+select @ctc_dcl_disabled;
+@ctc_dcl_disabled
+1
+create user yyz;
+ERROR HY000: DCL query is not allowed (ctc_dcl_disabled = true)
+select user from mysql.user;
+user
+mysql.infoschema
+mysql.session
+mysql.sys
+root
+drop user if exists yyz;
+ERROR HY000: DCL query is not allowed (ctc_dcl_disabled = true)
+set @ctc_dcl_disabled = false;
+select @ctc_dcl_disabled;
+@ctc_dcl_disabled
+0
+create user yyz;
+select user from mysql.user;
+user
+yyz
+mysql.infoschema
+mysql.session
+mysql.sys
+root
+drop user if exists yyz;
+select user from mysql.user;
+user
+mysql.infoschema
+mysql.session
+mysql.sys
+root
+set @ctc_dcl_disabled = 0;
+select @ctc_dcl_disabled;
+@ctc_dcl_disabled
+0
+create user yyz;
+select user from mysql.user;
+user
+yyz
+mysql.infoschema
+mysql.session
+mysql.sys
+root
+drop user if exists yyz;
+select user from mysql.user;
+user
+mysql.infoschema
+mysql.session
+mysql.sys
+root
+set @ctc_dcl_disabled = 123;
+select @ctc_dcl_disabled;
+@ctc_dcl_disabled
+123
+create user yyz;
+select user from mysql.user;
+user
+yyz
+mysql.infoschema
+mysql.session
+mysql.sys
+root
+drop user if exists yyz;
+select user from mysql.user;
+user
+mysql.infoschema
+mysql.session
+mysql.sys
+root
+set @ctc_dcl_disabled = 'false';
+select @ctc_dcl_disabled;
+@ctc_dcl_disabled
+false
+create user yyz;
+select user from mysql.user;
+user
+yyz
+mysql.infoschema
+mysql.session
+mysql.sys
+root
+drop user if exists yyz;
+select user from mysql.user;
+user
+mysql.infoschema
+mysql.session
+mysql.sys
+root
+set @ctc_dcl_disabled = 'abc';
+select @ctc_dcl_disabled;
+@ctc_dcl_disabled
+abc
+create user yyz;
+select user from mysql.user;
+user
+yyz
+mysql.infoschema
+mysql.session
+mysql.sys
+root
+drop user if exists yyz;
+select user from mysql.user;
+user
+mysql.infoschema
+mysql.session
+mysql.sys
+root
+set @ctc_dcl_disabled = NULL;
+select @ctc_dcl_disabled;
+@ctc_dcl_disabled
+NULL
+create user yyz;
+select user from mysql.user;
+user
+yyz
+mysql.infoschema
+mysql.session
+mysql.sys
+root
+drop user if exists yyz;
+select user from mysql.user;
+user
+mysql.infoschema
+mysql.session
+mysql.sys
+root
+set @ctc_dcl_disabled = true;
+select @ctc_dcl_disabled;
+@ctc_dcl_disabled
+1
+drop user if exists yyz;
+ERROR HY000: DCL query is not allowed (ctc_dcl_disabled = true)
+create user yyz;
+ERROR HY000: DCL query is not allowed (ctc_dcl_disabled = true)
+select user from mysql.user;
+user
+mysql.infoschema
+mysql.session
+mysql.sys
+root
+rename user yyz to mysqltest_1;
+ERROR HY000: DCL query is not allowed (ctc_dcl_disabled = true)
+alter user mysqltest_1 identified by 'systpass';
+ERROR HY000: DCL query is not allowed (ctc_dcl_disabled = true)
+show grants for mysqltest_1;
+ERROR 42000: There is no such grant defined for user 'mysqltest_1' on host '%'
+drop user if exists mysqltest_1;
+ERROR HY000: DCL query is not allowed (ctc_dcl_disabled = true)
+create user mysqltest_1;
+ERROR HY000: DCL query is not allowed (ctc_dcl_disabled = true)
+grant CREATE TEMPORARY TABLES, LOCK TABLES on mysqltest.* to mysqltest_1;
+ERROR HY000: DCL query is not allowed (ctc_dcl_disabled = true)
+show grants for mysqltest_1;
+ERROR 42000: There is no such grant defined for user 'mysqltest_1' on host '%'
+flush privileges;
+show grants for mysqltest_1;
+ERROR 42000: There is no such grant defined for user 'mysqltest_1' on host '%'
+revoke CREATE TEMPORARY TABLES on mysqltest.* from mysqltest_1;
+ERROR HY000: DCL query is not allowed (ctc_dcl_disabled = true)
+show grants for mysqltest_1;
+ERROR 42000: There is no such grant defined for user 'mysqltest_1' on host '%'
+grant ALL PRIVILEGES on mysqltest.* to mysqltest_1 with grant option;
+ERROR HY000: DCL query is not allowed (ctc_dcl_disabled = true)
+flush privileges;
+show grants for mysqltest_1;
+ERROR 42000: There is no such grant defined for user 'mysqltest_1' on host '%'
+revoke LOCK TABLES, ALTER on mysqltest.* from mysqltest_1;
+ERROR HY000: DCL query is not allowed (ctc_dcl_disabled = true)
+show grants for mysqltest_1;
+ERROR 42000: There is no such grant defined for user 'mysqltest_1' on host '%'
+revoke all privileges on mysqltest.* from mysqltest_1;
+ERROR HY000: DCL query is not allowed (ctc_dcl_disabled = true)
+drop user if exists mysqltest_1;
+ERROR HY000: DCL query is not allowed (ctc_dcl_disabled = true)
+flush privileges;
+create role role1;
+ERROR HY000: DCL query is not allowed (ctc_dcl_disabled = true)
+create user mysqltest_1;
+ERROR HY000: DCL query is not allowed (ctc_dcl_disabled = true)
+grant role1 to mysqltest_1;
+ERROR HY000: DCL query is not allowed (ctc_dcl_disabled = true)
+drop role if exists role1;
+ERROR HY000: DCL query is not allowed (ctc_dcl_disabled = true)
+drop user if exists mysqltest_1;
+ERROR HY000: DCL query is not allowed (ctc_dcl_disabled = true)
+create role role1;
+ERROR HY000: DCL query is not allowed (ctc_dcl_disabled = true)
+create user mysqltest_1;
+ERROR HY000: DCL query is not allowed (ctc_dcl_disabled = true)
+set default role all to role1;
+ERROR HY000: DCL query is not allowed (ctc_dcl_disabled = true)
+alter user current_user() default role none;
+ERROR HY000: DCL query is not allowed (ctc_dcl_disabled = true)
+revoke role1 from mysqltest_1;
+ERROR HY000: DCL query is not allowed (ctc_dcl_disabled = true)
+drop role if exists role1;
+ERROR HY000: DCL query is not allowed (ctc_dcl_disabled = true)
+drop user if exists mysqltest_1;
+ERROR HY000: DCL query is not allowed (ctc_dcl_disabled = true)
+set @ctc_dcl_disabled = false;
+select @ctc_dcl_disabled;
+@ctc_dcl_disabled
+0
+drop user if exists yyz;
+Warnings:
+Note	3162	Authorization ID 'yyz'@'%' does not exist.
+create user yyz;
+select user from mysql.user;
+user
+yyz
+mysql.infoschema
+mysql.session
+mysql.sys
+root
+rename user yyz to mysqltest_1;
+alter user mysqltest_1 identified by 'systpass';
+show grants for mysqltest_1;
+Grants for mysqltest_1@%
+GRANT USAGE ON *.* TO `mysqltest_1`@`%`
+drop user if exists mysqltest_1;
+create user mysqltest_1;
+grant CREATE TEMPORARY TABLES, LOCK TABLES on mysqltest.* to mysqltest_1;
+show grants for mysqltest_1;
+Grants for mysqltest_1@%
+GRANT USAGE ON *.* TO `mysqltest_1`@`%`
+GRANT CREATE TEMPORARY TABLES, LOCK TABLES ON `mysqltest`.* TO `mysqltest_1`@`%`
+flush privileges;
+show grants for mysqltest_1;
+Grants for mysqltest_1@%
+GRANT USAGE ON *.* TO `mysqltest_1`@`%`
+GRANT CREATE TEMPORARY TABLES, LOCK TABLES ON `mysqltest`.* TO `mysqltest_1`@`%`
+revoke CREATE TEMPORARY TABLES on mysqltest.* from mysqltest_1;
+show grants for mysqltest_1;
+Grants for mysqltest_1@%
+GRANT USAGE ON *.* TO `mysqltest_1`@`%`
+GRANT LOCK TABLES ON `mysqltest`.* TO `mysqltest_1`@`%`
+grant ALL PRIVILEGES on mysqltest.* to mysqltest_1 with grant option;
+flush privileges;
+show grants for mysqltest_1;
+Grants for mysqltest_1@%
+GRANT USAGE ON *.* TO `mysqltest_1`@`%`
+GRANT ALL PRIVILEGES ON `mysqltest`.* TO `mysqltest_1`@`%` WITH GRANT OPTION
+revoke LOCK TABLES, ALTER on mysqltest.* from mysqltest_1;
+show grants for mysqltest_1;
+Grants for mysqltest_1@%
+GRANT USAGE ON *.* TO `mysqltest_1`@`%`
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, REFERENCES, INDEX, CREATE TEMPORARY TABLES, EXECUTE, CREATE VIEW, SHOW VIEW, CREATE ROUTINE, ALTER ROUTINE, EVENT, TRIGGER ON `mysqltest`.* TO `mysqltest_1`@`%` WITH GRANT OPTION
+revoke all privileges on mysqltest.* from mysqltest_1;
+drop user if exists mysqltest_1;
+flush privileges;
+create role role1;
+create user mysqltest_1;
+grant role1 to mysqltest_1;
+drop role if exists role1;
+drop user if exists mysqltest_1;
+create role role1;
+create user mysqltest_1;
+set default role all to role1;
+alter user current_user() default role none;
+revoke role1 from mysqltest_1;
+drop role if exists role1;
+drop user if exists mysqltest_1;

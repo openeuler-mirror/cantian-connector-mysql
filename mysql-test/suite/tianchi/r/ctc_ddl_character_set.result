@@ -1,0 +1,170 @@
+CREATE DATABASE `CHAR_DB` DEFAULT CHARACTER SET utf8 DEFAULT COLLATE utf8_general_ci;
+Warnings:
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	3778	'utf8_general_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+use CHAR_DB;
+SELECT @@character_set_database, @@collation_database;
+@@character_set_database	@@collation_database
+utf8mb3	utf8_general_ci
+create table DEMO (ID integer not null, NAME varchar(20));
+INSERT INTO DEMO values(1,'abc');
+INSERT INTO DEMO values(3,'Abc');
+select * from DEMO where NAME = 'aBc';
+ID	NAME
+1	abc
+3	Abc
+INSERT INTO DEMO values(4,'数据库字符集字符序为表的字符集字符序汉字');
+INSERT INTO DEMO values(5,'数据库字符集字符序为表的字符集字符序汉字1');
+ERROR 22001: Data too long for column 'NAME' at row 1
+ALTER DATABASE CHAR_DB DEFAULT CHARACTER SET ascii DEFAULT COLLATE ascii_bin;
+INSERT INTO DEMO values(5,'张据库字符集字符序为表的字符集字符序汉字');
+INSERT INTO DEMO values(5,'张据库字符集字符序为表的字符集字符序汉字1');
+ERROR 22001: Data too long for column 'NAME' at row 1
+select * from DEMO;
+ID	NAME
+1	abc
+3	Abc
+4	数据库字符集字符序为表的字符集字符序汉字
+5	张据库字符集字符序为表的字符集字符序汉字
+ALTER TABLE DEMO ADD COLUMN NAME1 varchar(20);
+INSERT INTO DEMO values(6,'张据库字符集字符序为表的字符集字符序汉字','张据库字符集字符序为表的字符集字符序汉字');
+INSERT INTO DEMO values(7,'张据库字符集字符序为表的字符集字符序汉字','张据库字符集字符序为表的字符集字符序汉字1');
+ERROR 22001: Data too long for column 'NAME1' at row 1
+ALTER TABLE DEMO ADD COLUMN NAME2 varchar(20) CHARACTER SET ascii COLLATE ascii_bin;
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `ID` int NOT NULL,
+  `NAME` varchar(20) DEFAULT NULL,
+  `NAME1` varchar(20) DEFAULT NULL,
+  `NAME2` varchar(20) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL
+) ENGINE=CTC DEFAULT CHARSET=utf8mb3
+INSERT INTO DEMO values(8,'张据库字符集字符序为表的字符集字符序汉字','张据库字符集字符序为表的字符集字符序汉字','abcdeabcdeabcdeabcdef');
+ERROR 22001: Data too long for column 'NAME2' at row 1
+INSERT INTO DEMO values(8,'张据库字符集字符序为表的字符集字符序汉字','张据库字符集字符序为表的字符集字符序汉字','abcdeabcdeabcdeabcde');
+INSERT INTO DEMO values(8,'张据库字符集字符序为表的字符集字符序汉字','张据库字符集字符序为表的字符集字符序汉字','汉字');
+ERROR HY000: Incorrect string value: '\xE6\xB1\x89\xE5\xAD\x97' for column 'NAME2' at row 1
+ALTER TABLE  DEMO DEFAULT CHARACTER SET ascii COLLATE ascii_bin;
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `ID` int NOT NULL,
+  `NAME` varchar(20) CHARACTER SET utf8 DEFAULT NULL,
+  `NAME1` varchar(20) CHARACTER SET utf8 DEFAULT NULL,
+  `NAME2` varchar(20) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL
+) ENGINE=CTC DEFAULT CHARSET=ascii COLLATE=ascii_bin
+ALTER TABLE DEMO ADD COLUMN NAME3 varchar(20);
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `ID` int NOT NULL,
+  `NAME` varchar(20) CHARACTER SET utf8 DEFAULT NULL,
+  `NAME1` varchar(20) CHARACTER SET utf8 DEFAULT NULL,
+  `NAME2` varchar(20) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL,
+  `NAME3` varchar(20) COLLATE ascii_bin DEFAULT NULL
+) ENGINE=CTC DEFAULT CHARSET=ascii COLLATE=ascii_bin
+INSERT INTO DEMO values(8,'张据库字符集字符序为表的字符集字符序汉字','张据库字符集字符序为表的字符集字符序汉字','abc', '汉字');
+ERROR HY000: Incorrect string value: '\xE6\xB1\x89\xE5\xAD\x97' for column 'NAME3' at row 1
+INSERT INTO DEMO values(8,'张据库字符集字符序为表的字符集字符序汉字','张据库字符集字符序为表的字符集字符序汉字','abc', 'abcdeabcdeabcdeabcdef');
+ERROR 22001: Data too long for column 'NAME3' at row 1
+INSERT INTO DEMO values(8,'张据库字符集字符序为表的字符集字符序汉字','张据库字符集字符序为表的字符集字符序汉字','abc', 'abcdeabcdeabcdeabcde');
+select * from DEMO;
+ID	NAME	NAME1	NAME2	NAME3
+1	abc	NULL	NULL	NULL
+3	Abc	NULL	NULL	NULL
+4	数据库字符集字符序为表的字符集字符序汉字	NULL	NULL	NULL
+5	张据库字符集字符序为表的字符集字符序汉字	NULL	NULL	NULL
+6	张据库字符集字符序为表的字符集字符序汉字	张据库字符集字符序为表的字符集字符序汉字	NULL	NULL
+8	张据库字符集字符序为表的字符集字符序汉字	张据库字符集字符序为表的字符集字符序汉字	abcdeabcdeabcdeabcde	NULL
+8	张据库字符集字符序为表的字符集字符序汉字	张据库字符集字符序为表的字符集字符序汉字	abc	abcdeabcdeabcdeabcde
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `ID` int NOT NULL,
+  `NAME` varchar(20) CHARACTER SET utf8 DEFAULT NULL,
+  `NAME1` varchar(20) CHARACTER SET utf8 DEFAULT NULL,
+  `NAME2` varchar(20) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL,
+  `NAME3` varchar(20) COLLATE ascii_bin DEFAULT NULL
+) ENGINE=CTC DEFAULT CHARSET=ascii COLLATE=ascii_bin
+drop table DEMO;
+create table t1(c1 varchar(10) collate utf8mb4_general_ci);
+insert into t1 values('aaa'),('aAA '),('AAA'),('aAA'),('AAA '),('BBB'),('bBb'),('Bbb'),('AAa'),('AaA');
+select c1 from t1;
+c1
+aaa
+aAA 
+AAA
+aAA
+AAA 
+BBB
+bBb
+Bbb
+AAa
+AaA
+create index idx1 on t1(c1);
+select c1 from t1;
+c1
+aaa
+aAA 
+AAA
+aAA
+AAA 
+AAa
+AaA
+BBB
+bBb
+Bbb
+alter table t1 modify c1 varchar(10) collate utf8mb3_bin;
+Warnings:
+Warning	3778	'utf8_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+select c1 from t1;
+c1
+AAA
+AAA 
+AAa
+AaA
+BBB
+Bbb
+aAA 
+aAA
+aaa
+bBb
+alter table t1 modify c1 varchar(10) collate utf8mb4_general_ci;
+select c1 from t1;
+c1
+aaa
+aAA 
+AAA
+aAA
+AAA 
+AAa
+AaA
+BBB
+bBb
+Bbb
+drop table t1;
+create table DEMO (ID integer not null, NAME varchar(20) character set utf8 collate utf8_bin);
+Warnings:
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	3778	'utf8_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+INSERT INTO DEMO values(1,'abc');
+INSERT INTO DEMO values(3,'Abc');
+select * from DEMO where NAME = 'abc';
+ID	NAME
+1	abc
+ALTER TABLE  DEMO DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci;
+Warnings:
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	3778	'utf8_general_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+INSERT INTO DEMO values(4,'Abc');
+select * from DEMO where NAME = 'abc';
+ID	NAME
+1	abc
+ALTER TABLE DEMO ADD COLUMN NAME1 varchar(20);
+INSERT INTO DEMO values(5,'1','abc');
+INSERT INTO DEMO values(6,'1','Abc');
+select * from DEMO where NAME1 = 'aBc';
+ID	NAME	NAME1
+5	1	abc
+6	1	Abc
+drop database CHAR_DB;

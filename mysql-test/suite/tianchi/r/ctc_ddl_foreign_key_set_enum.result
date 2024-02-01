@@ -1,0 +1,85 @@
+drop table if exists PARTABLE;
+create table PARTABLE(
+ID INT,
+COL_1 ENUM('Low', 'Medium', 'High'),
+COL_2 SET('a', 'b', 'c', 'd'),
+primary key(ID, COL_1,COL_2)
+) ;
+create table COMPATIBLE_TABLE(
+ID INT,
+COL_1 ENUM('Low', 'Medium', 'High'),
+COL_2 SET('a', 'b', 'c', 'd'),
+CONSTRAINT fk_id foreign key(ID, COL_1, COL_2) references PARTABLE(ID, COL_1,COL_2)
+) ;
+INSERT INTO PARTABLE VALUES  (1,'Low','a,d');
+INSERT INTO PARTABLE VALUES  (2,'Medium','a');
+INSERT INTO PARTABLE VALUES  (3,'High','c,d');
+INSERT INTO COMPATIBLE_TABLE VALUES  (10,'Low','a,b,c');
+ERROR 23000: Cannot add or update a child row: a foreign key constraint fails (Referenced key value not found in parent tables(test.PARTABLE))
+INSERT INTO COMPATIBLE_TABLE VALUES  (1,'Low','a,d');
+INSERT INTO COMPATIBLE_TABLE VALUES  (20,'Medium','a,b,c');
+ERROR 23000: Cannot add or update a child row: a foreign key constraint fails (Referenced key value not found in parent tables(test.PARTABLE))
+INSERT INTO COMPATIBLE_TABLE VALUES   (3,'High','c,d');
+select * from COMPATIBLE_TABLE;
+ID	COL_1	COL_2
+1	Low	a,d
+3	High	c,d
+desc COMPATIBLE_TABLE;
+Field	Type	Null	Key	Default	Extra
+ID	int	YES	MUL	NULL	
+COL_1	enum('Low','Medium','High')	YES		NULL	
+COL_2	set('a','b','c','d')	YES		NULL	
+show index from COMPATIBLE_TABLE;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+COMPATIBLE_TABLE	1	fk_id	1	ID	A	NULL	NULL	NULL	YES	BTREE			YES	NULL
+COMPATIBLE_TABLE	1	fk_id	2	COL_1	A	NULL	NULL	NULL	YES	BTREE			YES	NULL
+COMPATIBLE_TABLE	1	fk_id	3	COL_2	A	NULL	NULL	NULL	YES	BTREE			YES	NULL
+drop table COMPATIBLE_TABLE;
+drop table PARTABLE;
+drop table if exists PARTABLE;
+Warnings:
+Note	1051	Unknown table 'test.PARTABLE'
+drop table if exists COMPATIBLE_TABLE;
+Warnings:
+Note	1051	Unknown table 'test.COMPATIBLE_TABLE'
+create table PARTABLE(
+ID INT,
+COL_1 ENUM('Low', 'Medium', 'High'),
+COL_2 SET('a', 'b', 'c', 'd'),
+primary key(COL_1,COL_2)
+) ;
+create table COMPATIBLE_TABLE(
+ID INT,
+COL_1 ENUM('Low', 'Medium', 'High'),
+COL_2 SET('a', 'b', 'c', 'd')
+) ;
+alter table COMPATIBLE_TABLE add constraint fk_id foreign key(COL_1, COL_2) references PARTABLE(COL_1,COL_2);
+INSERT INTO PARTABLE VALUES  (1,'Low','a,d');
+INSERT INTO PARTABLE VALUES  (2,'Medium','a');
+INSERT INTO PARTABLE VALUES  (3,'High','c,d');
+select * from PARTABLE;
+ID	COL_1	COL_2
+1	Low	a,d
+2	Medium	a
+3	High	c,d
+INSERT INTO COMPATIBLE_TABLE VALUES  (10,'Low','a,b,c');
+ERROR 23000: Cannot add or update a child row: a foreign key constraint fails (Referenced key value not found in parent tables(test.PARTABLE))
+INSERT INTO COMPATIBLE_TABLE VALUES  (1,'Low','a,d');
+INSERT INTO COMPATIBLE_TABLE VALUES  (20,'Medium','a,b,c');
+ERROR 23000: Cannot add or update a child row: a foreign key constraint fails (Referenced key value not found in parent tables(test.PARTABLE))
+INSERT INTO COMPATIBLE_TABLE VALUES   (3,'High','c,d');
+select * from COMPATIBLE_TABLE;
+ID	COL_1	COL_2
+1	Low	a,d
+3	High	c,d
+desc COMPATIBLE_TABLE;
+Field	Type	Null	Key	Default	Extra
+ID	int	YES		NULL	
+COL_1	enum('Low','Medium','High')	YES	MUL	NULL	
+COL_2	set('a','b','c','d')	YES		NULL	
+show index from COMPATIBLE_TABLE;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+COMPATIBLE_TABLE	1	fk_id	1	COL_1	A	NULL	NULL	NULL	YES	BTREE			YES	NULL
+COMPATIBLE_TABLE	1	fk_id	2	COL_2	A	NULL	NULL	NULL	YES	BTREE			YES	NULL
+drop table COMPATIBLE_TABLE;
+drop table PARTABLE;

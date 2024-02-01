@@ -1,0 +1,14 @@
+SET GLOBAL protocol_compression_algorithms= "zstd";
+SET GLOBAL protocol_compression_algorithms= "zstd";
+drop table if exists t1;
+create table t1 (ID integer not null, NAME varchar(19), AGE integer, GRADE real);
+insert into t1 values (1, 'LIOR', 35, 6.9);
+insert into t1 values (4, 'MIKE', 55, 99.92);
+SELECT * FROM t1;
+ID	NAME	AGE	GRADE
+1	LIOR	35	6.9
+4	MIKE	55	99.92
+drop table t1;
+SET GLOBAL protocol_compression_algorithms= "zlib";
+SET GLOBAL protocol_compression_algorithms= "zlib";
+SET GLOBAL protocol_compression_algorithms= "zlib,zstd,uncompressed";

@@ -1,0 +1,43 @@
+connection default
+SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
+CREATE TABLE t1 (id INT);
+INSERT INTO t1 VALUES (1),(2);
+CREATE TABLE t2 (id INT PRIMARY KEY);
+INSERT INTO t2 VALUES (1),(2);
+COMMIT;
+start test case1
+START TRANSACTION;
+select * from t1 where id = 1 for update;
+id
+1
+connection con1
+SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
+START TRANSACTION;
+select * from t1 for update;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+select * from t1 for update skip locked;
+id
+select * from t1 for update nowait;
+ERROR HY000: Statement aborted because lock(s) could not be acquired immediately and NOWAIT is set.
+commit;
+connection default
+commit;
+start test case2
+START TRANSACTION;
+select * from t2 where id = 1 for update;
+id
+1
+connection con1
+START TRANSACTION;
+select * from t2 for update;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+select * from t2 for update skip locked;
+id
+2
+select * from t2 for update nowait;
+ERROR HY000: Statement aborted because lock(s) could not be acquired immediately and NOWAIT is set.
+commit;
+connection default
+commit;
+DROP TABLE t1;
+DROP TABLE t2;

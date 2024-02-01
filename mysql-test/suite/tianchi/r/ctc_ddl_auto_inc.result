@@ -1,0 +1,1201 @@
+drop table if exists DEMO;
+create table DEMO (ID TINYINT PRIMARY KEY auto_increment ,ID1 integer);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (-100, 1);
+insert DEMO values (-100, 1);
+ERROR 23000: Duplicate entry '-100' for key 'DEMO.PRIMARY'
+insert DEMO values (-127, 1);
+insert DEMO values (-128, 1);
+insert DEMO values (-129, 1);
+ERROR 22003: Out of range value for column 'ID' at row 1
+insert DEMO values (null, 3);
+insert DEMO values (30, 3);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (60, 3);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+select * from DEMO;
+ID	ID1
+1	3
+2	3
+3	3
+-100	1
+-127	1
+-128	1
+4	3
+30	3
+31	3
+32	3
+60	3
+61	3
+62	3
+update DEMO set ID = 80 where ID1 = 3;
+ERROR 23000: Duplicate entry '80' for key 'DEMO.PRIMARY'
+select * from DEMO;
+ID	ID1
+1	3
+2	3
+3	3
+-100	1
+-127	1
+-128	1
+4	3
+30	3
+31	3
+32	3
+60	3
+61	3
+62	3
+insert DEMO values (80, 80);
+delete from DEMO where ID = 80;
+insert DEMO values (null, 81);
+update DEMO set ID = 90 where ID1 = 80;
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (126, 2147483646);
+insert DEMO values (null, 2147483647);
+insert DEMO values (null, 2147483647);
+ERROR 23000: Duplicate entry '127' for key 'DEMO.PRIMARY'
+insert DEMO values (128, 2147483647);
+ERROR 22003: Out of range value for column 'ID' at row 1
+select *from DEMO;
+ID	ID1
+1	3
+2	3
+3	3
+-100	1
+-127	1
+-128	1
+4	3
+30	3
+31	3
+32	3
+60	3
+61	3
+62	3
+82	3
+81	81
+83	3
+126	2147483646
+127	2147483647
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `ID` tinyint NOT NULL AUTO_INCREMENT,
+  `ID1` int DEFAULT NULL,
+  PRIMARY KEY (`ID`)
+) ENGINE=CTC AUTO_INCREMENT=127 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table DEMO;
+create table DEMO (ID TINYINT unsigned PRIMARY KEY auto_increment ,ID1 integer);
+insert DEMO values (-1, 3);
+ERROR 22003: Out of range value for column 'ID' at row 1
+insert DEMO values (0, 3);
+insert DEMO values (0, 3);
+insert DEMO values (1, 3);
+ERROR 23000: Duplicate entry '1' for key 'DEMO.PRIMARY'
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (20, 3);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (50, 3);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+select * from DEMO;
+ID	ID1
+1	3
+2	3
+3	3
+4	3
+5	3
+20	3
+21	3
+22	3
+50	3
+51	3
+52	3
+update DEMO set ID = 110 where ID1 = 3;
+ERROR 23000: Duplicate entry '110' for key 'DEMO.PRIMARY'
+select * from DEMO;
+ID	ID1
+1	3
+2	3
+3	3
+4	3
+5	3
+20	3
+21	3
+22	3
+50	3
+51	3
+52	3
+insert DEMO values (110, 110);
+delete from DEMO where ID = 110;
+insert DEMO values (null, 111);
+update DEMO set ID = 120 where ID1 = 111;
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (254, 254);
+insert DEMO values (null, 255);
+insert DEMO values (null, 256);
+ERROR 23000: Duplicate entry '255' for key 'DEMO.PRIMARY'
+insert DEMO values (256, 256);
+ERROR 22003: Out of range value for column 'ID' at row 1
+select *from DEMO;
+ID	ID1
+1	3
+2	3
+3	3
+4	3
+5	3
+20	3
+21	3
+22	3
+50	3
+51	3
+52	3
+121	3
+120	111
+122	3
+254	254
+255	255
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `ID` tinyint unsigned NOT NULL AUTO_INCREMENT,
+  `ID1` int DEFAULT NULL,
+  PRIMARY KEY (`ID`)
+) ENGINE=CTC AUTO_INCREMENT=255 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table DEMO;
+create table DEMO (ID SMALLINT PRIMARY KEY auto_increment ,ID1 integer);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (-100, 1);
+insert DEMO values (-100, 1);
+ERROR 23000: Duplicate entry '-100' for key 'DEMO.PRIMARY'
+insert DEMO values (-32768, 1);
+insert DEMO values (-128, 1);
+insert DEMO values (-32769, 1);
+ERROR 22003: Out of range value for column 'ID' at row 1
+insert DEMO values (null, 3);
+insert DEMO values (30, 3);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (60, 3);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+select * from DEMO;
+ID	ID1
+1	3
+2	3
+3	3
+-100	1
+-32768	1
+-128	1
+4	3
+30	3
+31	3
+32	3
+60	3
+61	3
+62	3
+update DEMO set ID = 80 where ID1 = 3;
+ERROR 23000: Duplicate entry '80' for key 'DEMO.PRIMARY'
+select * from DEMO;
+ID	ID1
+1	3
+2	3
+3	3
+-100	1
+-32768	1
+-128	1
+4	3
+30	3
+31	3
+32	3
+60	3
+61	3
+62	3
+insert DEMO values (80, 80);
+delete from DEMO where ID = 80;
+insert DEMO values (null, 81);
+update DEMO set ID = 90 where ID1 = 80;
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (32766, 2147483646);
+insert DEMO values (null, 2147483647);
+insert DEMO values (null, 2147483647);
+ERROR 23000: Duplicate entry '32767' for key 'DEMO.PRIMARY'
+insert DEMO values (32768, 2147483647);
+ERROR 22003: Out of range value for column 'ID' at row 1
+select *from DEMO;
+ID	ID1
+1	3
+2	3
+3	3
+-100	1
+-32768	1
+-128	1
+4	3
+30	3
+31	3
+32	3
+60	3
+61	3
+62	3
+82	3
+81	81
+83	3
+32766	2147483646
+32767	2147483647
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `ID` smallint NOT NULL AUTO_INCREMENT,
+  `ID1` int DEFAULT NULL,
+  PRIMARY KEY (`ID`)
+) ENGINE=CTC AUTO_INCREMENT=32767 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table DEMO;
+create table DEMO (ID SMALLINT unsigned PRIMARY KEY auto_increment ,ID1 integer);
+insert DEMO values (-1, 3);
+ERROR 22003: Out of range value for column 'ID' at row 1
+insert DEMO values (0, 3);
+insert DEMO values (0, 3);
+insert DEMO values (1, 3);
+ERROR 23000: Duplicate entry '1' for key 'DEMO.PRIMARY'
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (20, 3);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (200, 3);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+select * from DEMO;
+ID	ID1
+1	3
+2	3
+3	3
+4	3
+5	3
+20	3
+21	3
+22	3
+200	3
+201	3
+202	3
+update DEMO set ID = 210 where ID1 = 3;
+ERROR 23000: Duplicate entry '210' for key 'DEMO.PRIMARY'
+select * from DEMO;
+ID	ID1
+1	3
+2	3
+3	3
+4	3
+5	3
+20	3
+21	3
+22	3
+200	3
+201	3
+202	3
+insert DEMO values (210, 210);
+delete from DEMO where ID = 210;
+insert DEMO values (null, 211);
+update DEMO set ID = 230 where ID1 = 210;
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (65534, 65535);
+insert DEMO values (null, 65535);
+insert DEMO values (null, 65535);
+ERROR 23000: Duplicate entry '65535' for key 'DEMO.PRIMARY'
+insert DEMO values (65536, 65536);
+ERROR 22003: Out of range value for column 'ID' at row 1
+select *from DEMO;
+ID	ID1
+1	3
+2	3
+3	3
+4	3
+5	3
+20	3
+21	3
+22	3
+200	3
+201	3
+202	3
+212	3
+211	211
+213	3
+65534	65535
+65535	65535
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `ID` smallint unsigned NOT NULL AUTO_INCREMENT,
+  `ID1` int DEFAULT NULL,
+  PRIMARY KEY (`ID`)
+) ENGINE=CTC AUTO_INCREMENT=65535 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table DEMO;
+create table DEMO (ID MEDIUMINT PRIMARY KEY auto_increment ,ID1 integer);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (-100, 1);
+insert DEMO values (-100, 1);
+ERROR 23000: Duplicate entry '-100' for key 'DEMO.PRIMARY'
+insert DEMO values (-8388608, 1);
+insert DEMO values (-128, 1);
+insert DEMO values (-8388609, 1);
+ERROR 22003: Out of range value for column 'ID' at row 1
+insert DEMO values (null, 3);
+insert DEMO values (30, 3);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (60, 3);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+select * from DEMO;
+ID	ID1
+1	3
+2	3
+3	3
+-100	1
+-8388608	1
+-128	1
+4	3
+30	3
+31	3
+32	3
+60	3
+61	3
+62	3
+update DEMO set ID = 80 where ID1 = 3;
+ERROR 23000: Duplicate entry '80' for key 'DEMO.PRIMARY'
+select * from DEMO;
+ID	ID1
+1	3
+2	3
+3	3
+-100	1
+-8388608	1
+-128	1
+4	3
+30	3
+31	3
+32	3
+60	3
+61	3
+62	3
+insert DEMO values (80, 80);
+delete from DEMO where ID = 80;
+insert DEMO values (null, 81);
+update DEMO set ID = 90 where ID1 = 80;
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (8388606, 8388606);
+insert DEMO values (null, 8388607);
+insert DEMO values (null, 8388607);
+ERROR 23000: Duplicate entry '8388607' for key 'DEMO.PRIMARY'
+insert DEMO values (8388608, 8388608);
+ERROR 22003: Out of range value for column 'ID' at row 1
+select *from DEMO;
+ID	ID1
+1	3
+2	3
+3	3
+-100	1
+-8388608	1
+-128	1
+4	3
+30	3
+31	3
+32	3
+60	3
+61	3
+62	3
+82	3
+81	81
+83	3
+8388606	8388606
+8388607	8388607
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `ID` mediumint NOT NULL AUTO_INCREMENT,
+  `ID1` int DEFAULT NULL,
+  PRIMARY KEY (`ID`)
+) ENGINE=CTC AUTO_INCREMENT=8388607 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table DEMO;
+create table DEMO (ID MEDIUMINT unsigned PRIMARY KEY auto_increment ,ID1 integer);
+insert DEMO values (-1, 3);
+ERROR 22003: Out of range value for column 'ID' at row 1
+insert DEMO values (0, 3);
+insert DEMO values (0, 3);
+insert DEMO values (1, 3);
+ERROR 23000: Duplicate entry '1' for key 'DEMO.PRIMARY'
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (20, 3);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (200, 3);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+select * from DEMO;
+ID	ID1
+1	3
+2	3
+3	3
+4	3
+5	3
+20	3
+21	3
+22	3
+200	3
+201	3
+202	3
+update DEMO set ID = 210 where ID1 = 3;
+ERROR 23000: Duplicate entry '210' for key 'DEMO.PRIMARY'
+select * from DEMO;
+ID	ID1
+1	3
+2	3
+3	3
+4	3
+5	3
+20	3
+21	3
+22	3
+200	3
+201	3
+202	3
+insert DEMO values (210, 210);
+delete from DEMO where ID = 210;
+insert DEMO values (null, 211);
+update DEMO set ID = 230 where ID1 = 210;
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (16777214, 16777214);
+insert DEMO values (null, 16777215);
+insert DEMO values (null, 16777215);
+ERROR 23000: Duplicate entry '16777215' for key 'DEMO.PRIMARY'
+insert DEMO values (16777216, 16777216);
+ERROR 22003: Out of range value for column 'ID' at row 1
+select *from DEMO;
+ID	ID1
+1	3
+2	3
+3	3
+4	3
+5	3
+20	3
+21	3
+22	3
+200	3
+201	3
+202	3
+212	3
+211	211
+213	3
+16777214	16777214
+16777215	16777215
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `ID` mediumint unsigned NOT NULL AUTO_INCREMENT,
+  `ID1` int DEFAULT NULL,
+  PRIMARY KEY (`ID`)
+) ENGINE=CTC AUTO_INCREMENT=16777215 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table DEMO;
+create table DEMO (ID integer PRIMARY KEY auto_increment ,ID1 integer);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (-100, 1);
+insert DEMO values (-100, 1);
+ERROR 23000: Duplicate entry '-100' for key 'DEMO.PRIMARY'
+insert DEMO values (-101, 1);
+insert DEMO values (null, 3);
+insert DEMO values (100, 3);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (200, 3);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+select * from DEMO;
+ID	ID1
+1	3
+2	3
+3	3
+-100	1
+-101	1
+4	3
+100	3
+101	3
+102	3
+200	3
+201	3
+202	3
+update DEMO set ID = 2000 where ID1 = 3;
+ERROR 23000: Duplicate entry '2000' for key 'DEMO.PRIMARY'
+select * from DEMO;
+ID	ID1
+1	3
+2	3
+3	3
+-100	1
+-101	1
+4	3
+100	3
+101	3
+102	3
+200	3
+201	3
+202	3
+insert DEMO values (2000, 2000);
+delete from DEMO where ID = 2000;
+insert DEMO values (null, 20001);
+update DEMO set ID = 20001 where ID1 = 20001;
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (2147483646, 2147483646);
+insert DEMO values (null, 2147483647);
+insert DEMO values (null, 2147483647);
+ERROR 23000: Duplicate entry '2147483647' for key 'DEMO.PRIMARY'
+insert DEMO values (2147483648, 2147483647);
+ERROR 22003: Out of range value for column 'ID' at row 1
+insert DEMO values (2147483644, 2147483644);
+insert DEMO values (-2147483646, -2147483646);
+insert DEMO values (-2147483647, -2147483646);
+insert DEMO values (-2147483648, -2147483646);
+insert DEMO values (-2147483649, -2147483646);
+ERROR 22003: Out of range value for column 'ID' at row 1
+select *from DEMO;
+ID	ID1
+1	3
+2	3
+3	3
+-100	1
+-101	1
+4	3
+100	3
+101	3
+102	3
+200	3
+201	3
+202	3
+20002	3
+20001	20001
+20003	3
+2147483646	2147483646
+2147483647	2147483647
+2147483644	2147483644
+-2147483646	-2147483646
+-2147483647	-2147483646
+-2147483648	-2147483646
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `ID` int NOT NULL AUTO_INCREMENT,
+  `ID1` int DEFAULT NULL,
+  PRIMARY KEY (`ID`)
+) ENGINE=CTC AUTO_INCREMENT=2147483647 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table DEMO;
+create table DEMO (ID integer unsigned PRIMARY KEY auto_increment ,ID1 integer);
+insert DEMO values (-1, 3);
+ERROR 22003: Out of range value for column 'ID' at row 1
+insert DEMO values (0, 3);
+insert DEMO values (0, 3);
+insert DEMO values (1, 3);
+ERROR 23000: Duplicate entry '1' for key 'DEMO.PRIMARY'
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (100, 3);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (200, 3);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+select * from DEMO;
+ID	ID1
+1	3
+2	3
+3	3
+4	3
+5	3
+100	3
+101	3
+102	3
+200	3
+201	3
+202	3
+update DEMO set ID = 2000 where ID1 = 3;
+ERROR 23000: Duplicate entry '2000' for key 'DEMO.PRIMARY'
+select * from DEMO;
+ID	ID1
+1	3
+2	3
+3	3
+4	3
+5	3
+100	3
+101	3
+102	3
+200	3
+201	3
+202	3
+insert DEMO values (2000, 2000);
+delete from DEMO where ID = 2000;
+insert DEMO values (null, 20001);
+update DEMO set ID = 20001 where ID1 = 20001;
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (2147483646, 2147483646);
+insert DEMO values (null, 2147483647);
+insert DEMO values (4294967294, 2147483646);
+insert DEMO values (null, 2147483646);
+insert DEMO values (null, 2147483646);
+ERROR 23000: Duplicate entry '4294967295' for key 'DEMO.PRIMARY'
+select *from DEMO;
+ID	ID1
+1	3
+2	3
+3	3
+4	3
+5	3
+100	3
+101	3
+102	3
+200	3
+201	3
+202	3
+20002	3
+20001	20001
+20003	3
+2147483646	2147483646
+2147483647	2147483647
+4294967294	2147483646
+4294967295	2147483646
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `ID` int unsigned NOT NULL AUTO_INCREMENT,
+  `ID1` int DEFAULT NULL,
+  PRIMARY KEY (`ID`)
+) ENGINE=CTC AUTO_INCREMENT=4294967295 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table DEMO;
+create table DEMO (ID BIGINT PRIMARY KEY auto_increment ,ID1 BIGINT);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (-100, 1);
+insert DEMO values (-100, 1);
+ERROR 23000: Duplicate entry '-100' for key 'DEMO.PRIMARY'
+insert DEMO values (-9223372036854775808, 1);
+insert DEMO values (-128, 1);
+insert DEMO values (-9223372036854775809, 1);
+ERROR 22003: Out of range value for column 'ID' at row 1
+insert DEMO values (null, 3);
+insert DEMO values (30, 3);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (60, 3);
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+select * from DEMO;
+ID	ID1
+1	3
+2	3
+3	3
+-100	1
+-9223372036854775808	1
+-128	1
+4	3
+30	3
+31	3
+32	3
+60	3
+61	3
+62	3
+update DEMO set ID = 80 where ID1 = 3;
+ERROR 23000: Duplicate entry '80' for key 'DEMO.PRIMARY'
+select * from DEMO;
+ID	ID1
+1	3
+2	3
+3	3
+-100	1
+-9223372036854775808	1
+-128	1
+4	3
+30	3
+31	3
+32	3
+60	3
+61	3
+62	3
+insert DEMO values (80, 80);
+delete from DEMO where ID = 80;
+insert DEMO values (null, 81);
+update DEMO set ID = 90 where ID1 = 80;
+insert DEMO values (null, 3);
+insert DEMO values (null, 3);
+insert DEMO values (9223372036854775806, 9223372036854775806);
+insert DEMO values (null, 9223372036854775807);
+insert DEMO values (null, 9223372036854775807);
+ERROR 23000: Duplicate entry '9223372036854775807' for key 'DEMO.PRIMARY'
+insert DEMO values (9223372036854775808, 9223372036854775808);
+ERROR 22003: Out of range value for column 'ID' at row 1
+select *from DEMO;
+ID	ID1
+1	3
+2	3
+3	3
+-100	1
+-9223372036854775808	1
+-128	1
+4	3
+30	3
+31	3
+32	3
+60	3
+61	3
+62	3
+82	3
+81	81
+83	3
+9223372036854775806	9223372036854775806
+9223372036854775807	9223372036854775807
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `ID` bigint NOT NULL AUTO_INCREMENT,
+  `ID1` bigint DEFAULT NULL,
+  PRIMARY KEY (`ID`)
+) ENGINE=CTC AUTO_INCREMENT=9223372036854775807 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table DEMO;
+create table DEMO (ID BIGINT unsigned PRIMARY KEY auto_increment ,ID1 BIGINT);
+insert DEMO values (9223372036854775806, 100);
+insert DEMO values (null, 100);
+insert DEMO values (18446744073709551200, 200);
+insert DEMO values (null, 330);
+insert DEMO values (18446744073709551608, 330);
+insert DEMO values (null, 330);
+insert DEMO values (null, 330);
+insert DEMO values (18446744073709551614, 100);
+insert DEMO values (null, 320);
+ERROR HY000: Failed to read auto-increment value from storage engine
+insert DEMO values (null, 320);
+ERROR HY000: Failed to read auto-increment value from storage engine
+select * from DEMO;
+ID	ID1
+9223372036854775806	100
+9223372036854775807	100
+18446744073709551200	200
+18446744073709551201	330
+18446744073709551608	330
+18446744073709551609	330
+18446744073709551610	330
+18446744073709551614	100
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `ID` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `ID1` bigint DEFAULT NULL,
+  PRIMARY KEY (`ID`)
+) ENGINE=CTC AUTO_INCREMENT=18446744073709551615 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table DEMO;
+create table DEMO (ID1 BIGINT);
+alter table DEMO add column ID BIGINT unsigned PRIMARY KEY auto_increment;
+drop table DEMO;
+create table DEMO (ID BIGINT, ID1 BIGINT);
+alter table DEMO modify ID BIGINT unsigned PRIMARY KEY auto_increment;
+drop table DEMO;
+create table DEMO (ID int PRIMARY KEY auto_increment);
+insert into DEMO values (null),(null),(null),(null);
+select @@last_insert_id;
+@@last_insert_id
+1
+insert into DEMO values (null),(null),(null),(null);
+select @@last_insert_id;
+@@last_insert_id
+5
+drop table DEMO;
+create table t1(col int);
+alter table t1 add column col1 int auto_increment unique key;
+alter table t1 add primary key(col);
+insert into t1 values (0,1);
+insert into t1 values (1,1);
+ERROR 23000: Duplicate entry '1' for key 't1.col1'
+insert into t1 values (2,2);
+insert into t1 values (2,3);
+ERROR 23000: Duplicate entry '2' for key 't1.PRIMARY'
+insert into t1 (col) values (3);
+select * from t1;
+col	col1
+0	1
+2	2
+3	3
+drop table t1;
+create table t1(col int);
+alter table t1 add column col1 int auto_increment primary key;
+alter table t1 add unique key(col);
+insert into t1 values (0,1);
+insert into t1 values (1,1);
+ERROR 23000: Duplicate entry '1' for key 't1.PRIMARY'
+insert into t1 values (2,2);
+insert into t1 values (2,3);
+ERROR 23000: Duplicate entry '2' for key 't1.col'
+insert into t1 (col) values (3);
+select * from t1;
+col	col1
+0	1
+2	2
+3	3
+drop table t1;
+create table t1(c1 int primary key auto_increment);
+insert into t1 values(1);
+insert into t1 values(2);
+insert into t1 values(4);
+insert into t1 values(-1);
+insert into t1 values(-3);
+insert into t1 values(-2147483648);
+insert into t1 values();
+insert into t1 values();
+insert into t1 values(2147483646);
+insert into t1 values();
+insert into t1 values();
+ERROR 23000: Duplicate entry '2147483647' for key 't1.PRIMARY'
+select * from t1;
+c1
+-2147483648
+-3
+-1
+1
+2
+4
+5
+6
+2147483646
+2147483647
+select * from t1 where c1 = 2147483646;
+c1
+2147483646
+select * from t1 where c1 = -2147483648;
+c1
+-2147483648
+select * from t1 where c1 > 0;
+c1
+1
+2
+4
+5
+6
+2147483646
+2147483647
+drop table t1;
+create table t1(c1 tinyint AUTO_INCREMENT,c2 int, primary key(c1,c2) );
+insert into t1 values(127 ,1);
+INSERT INTO t1(c2) VALUES(33);
+INSERT INTO t1(c2) VALUES(34);
+INSERT INTO t1(c2) VALUES(35);
+INSERT INTO t1 VALUES(-1, -1);
+INSERT INTO t1(c2) VALUES(36);
+select * from t1;
+c1	c2
+-1	-1
+127	1
+127	33
+127	34
+127	35
+127	36
+drop table t1;
+create table DEMO (ID BIGINT unsigned PRIMARY KEY auto_increment);
+insert DEMO values (-1);
+ERROR 22003: Out of range value for column 'ID' at row 1
+insert DEMO values (-2);
+ERROR 22003: Out of range value for column 'ID' at row 1
+insert DEMO values (0);
+insert DEMO values ();
+insert DEMO values ();
+insert DEMO values (2);
+ERROR 23000: Duplicate entry '2' for key 'DEMO.PRIMARY'
+select * from DEMO;
+ID
+1
+2
+3
+insert DEMO values (9223372036854775806);
+insert DEMO values (null);
+insert DEMO values (18446744073709551200);
+insert DEMO values (null);
+insert DEMO values (null);
+insert DEMO values (null);
+insert DEMO values (18446744073709551614);
+insert DEMO values (null);
+ERROR HY000: Failed to read auto-increment value from storage engine
+drop table DEMO;
+create table DEMO (id INT NOT NULL AUTO_INCREMENT, name VARCHAR(50), purchased DATE, KEY(id));
+insert into DEMO (name, purchased) values ("Jack","2022-01-01");
+insert into DEMO (name, purchased) values ("Amy","2022-01-01");
+insert into DEMO (name, purchased) values ("Echo","2022-01-10");
+insert into DEMO (name, purchased) values ("Jack","2022-01-11");
+insert into DEMO (name, purchased) values ("Jack","2022-01-13");
+insert into DEMO (name, purchased) values ("Amy","2022-01-13");
+insert into DEMO (name, purchased) values ("Amy","2022-01-13");
+select * from DEMO;
+id	name	purchased
+1	Jack	2022-01-01
+2	Amy	2022-01-01
+3	Echo	2022-01-10
+4	Jack	2022-01-11
+5	Jack	2022-01-13
+6	Amy	2022-01-13
+7	Amy	2022-01-13
+select * from DEMO where id = 1;
+id	name	purchased
+1	Jack	2022-01-01
+select * from DEMO where name = "Amy" and purchased = "2022-01-01";
+id	name	purchased
+2	Amy	2022-01-01
+insert into DEMO values(10,"Candy","2023-05-01");
+insert into DEMO (name, purchased) values ("Jack","2022-01-13");
+update DEMO SET id = 11 where name = "Candy";
+select * from DEMO;
+id	name	purchased
+1	Jack	2022-01-01
+2	Amy	2022-01-01
+3	Echo	2022-01-10
+4	Jack	2022-01-11
+5	Jack	2022-01-13
+6	Amy	2022-01-13
+7	Amy	2022-01-13
+11	Candy	2023-05-01
+11	Jack	2022-01-13
+drop table DEMO;
+create table DEMO (id INT NOT NULL AUTO_INCREMENT UNIQUE, name VARCHAR(50), KEY(id));
+insert into DEMO (name) values ("Jack");
+insert into DEMO (name) values ("Zoey");
+update DEMO SET id = 5 where name = "Zoey";
+insert into DEMO (name) values ("Maya");
+select * from DEMO;
+id	name
+1	Jack
+5	Zoey
+6	Maya
+select * from DEMO where name = "Maya";
+id	name
+6	Maya
+drop table DEMO;
+create table DEMO(id INT NOT NULL AUTO_INCREMENT, name VARCHAR(50), purchased DATE, key(id, name));
+insert into DEMO (name, purchased) values ("Jack","2022-01-01");
+insert into DEMO (name, purchased) values ("Bob","2022-01-01");
+insert into DEMO (name, purchased) values ("Amy","2022-01-01");
+insert into DEMO (name, purchased) values ("Jack","2022-01-05");
+insert into DEMO (name, purchased) values ("Amy","2022-01-05");
+insert into DEMO (name, purchased) values (null,null);
+select * from DEMO;
+id	name	purchased
+1	Jack	2022-01-01
+2	Bob	2022-01-01
+3	Amy	2022-01-01
+4	Jack	2022-01-05
+5	Amy	2022-01-05
+6	NULL	NULL
+select * from DEMO where name = "Jack";
+id	name	purchased
+1	Jack	2022-01-01
+4	Jack	2022-01-05
+select * from DEMO where id > 0;
+id	name	purchased
+1	Jack	2022-01-01
+2	Bob	2022-01-01
+3	Amy	2022-01-01
+4	Jack	2022-01-05
+5	Amy	2022-01-05
+6	NULL	NULL
+select * from DEMO where name = "Amy" and id = 5;
+id	name	purchased
+5	Amy	2022-01-05
+select * from DEMO where purchased between "2022-01-03" and "2022-01-06";
+id	name	purchased
+4	Jack	2022-01-05
+5	Amy	2022-01-05
+update DEMO SET name = "Eric" where name = "Jack";
+select * from DEMO;
+id	name	purchased
+1	Eric	2022-01-01
+2	Bob	2022-01-01
+3	Amy	2022-01-01
+4	Eric	2022-01-05
+5	Amy	2022-01-05
+6	NULL	NULL
+drop table DEMO;
+CREATE TABLE DEMO(c1 DOUBLE AUTO_INCREMENT KEY, c2 CHAR(10))ROW_FORMAT=REDUNDANT,ENGINE=CTC;
+Warnings:
+Warning	3856	AUTO_INCREMENT support for FLOAT/DOUBLE columns is deprecated and will be removed in a future release. Consider removing AUTO_INCREMENT from column 'c1'.
+insert into DEMO values (0.1, "aaa");
+insert into DEMO values (0.5, "bbb");
+insert into DEMO values (0.6, "bbb");
+insert into DEMO values (10.5, "sdss");
+insert into DEMO values (null, "dssd");
+select * from DEMO;
+c1	c2
+1	aaa
+2	bbb
+0.6	bbb
+10.5	sdss
+11	dssd
+insert into DEMO values (13.5, "sdss");
+insert into DEMO values (null, "dssd");
+select * from DEMO;
+c1	c2
+1	aaa
+2	bbb
+0.6	bbb
+10.5	sdss
+11	dssd
+13.5	sdss
+15	dssd
+insert into DEMO values (15.9, "sdss");
+insert into DEMO values (null, "dssd");
+select * from DEMO;
+c1	c2
+1	aaa
+2	bbb
+0.6	bbb
+10.5	sdss
+11	dssd
+13.5	sdss
+15	dssd
+15.9	sdss
+17	dssd
+select * from DEMO where c1 = 1;
+c1	c2
+1	aaa
+update DEMO set c1 =10 where c1=15;
+delete from DEMO where c1 = 1;
+insert into DEMO values (null, "sdss");
+select * from DEMO;
+c1	c2
+2	bbb
+0.6	bbb
+10.5	sdss
+11	dssd
+13.5	sdss
+10	dssd
+15.9	sdss
+17	dssd
+18	sdss
+drop table DEMO;
+CREATE TABLE DEMO(a FLOAT AUTO_INCREMENT KEY) ENGINE = CTC;
+Warnings:
+Warning	3856	AUTO_INCREMENT support for FLOAT/DOUBLE columns is deprecated and will be removed in a future release. Consider removing AUTO_INCREMENT from column 'a'.
+insert into DEMO values (null);
+insert into DEMO values (null);
+insert into DEMO values (3.1);
+insert into DEMO values (null);
+insert into DEMO values (3.9);
+select * from DEMO;
+a
+1
+2
+3.1
+3.9
+4
+insert into DEMO values (10.5);
+insert into DEMO values (null);
+select * from DEMO;
+a
+1
+2
+3.1
+3.9
+4
+10.5
+11
+insert into DEMO values (11.5);
+insert into DEMO values (null);
+select * from DEMO;
+a
+1
+2
+3.1
+3.9
+4
+10.5
+11
+11.5
+13
+select * from DEMO where a = 1;
+a
+1
+update DEMO set a =10 where a =3.1;
+delete from DEMO where a = 1;
+insert into DEMO values (null);
+select * from DEMO;
+a
+2
+3.1
+3.9
+4
+10.5
+11
+11.5
+13
+14
+drop table DEMO;
+CREATE TABLE DEMO(ID int);
+alter table DEMO add column ID1 double PRIMARY KEY auto_increment;
+Warnings:
+Warning	3856	AUTO_INCREMENT support for FLOAT/DOUBLE columns is deprecated and will be removed in a future release. Consider removing AUTO_INCREMENT from column 'ID1'.
+drop table DEMO;
+CREATE TABLE DEMO(ID int);
+alter table DEMO add column ID1 float PRIMARY KEY auto_increment;
+Warnings:
+Warning	3856	AUTO_INCREMENT support for FLOAT/DOUBLE columns is deprecated and will be removed in a future release. Consider removing AUTO_INCREMENT from column 'ID1'.
+drop table DEMO;
+create table DEMO (ID int unsigned PRIMARY KEY auto_increment);
+alter table DEMO drop primary key, add unique(ID);
+alter table DEMO drop key ID, add key(ID);
+drop table DEMO;
+CREATE TABLE DEMO (ID int(5) unsigned NOT NULL auto_increment, PRIMARY KEY (ID));
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+CREATE UNIQUE INDEX test on DEMO (ID);
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `ID` int unsigned NOT NULL AUTO_INCREMENT,
+  PRIMARY KEY (`ID`),
+  UNIQUE KEY `test` (`ID`)
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+DROP INDEX test ON DEMO;
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `ID` int unsigned NOT NULL AUTO_INCREMENT,
+  PRIMARY KEY (`ID`)
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table DEMO;
+create table DEMO (ID int unsigned PRIMARY KEY auto_increment);
+alter table DEMO drop primary key, add key(ID);
+drop table DEMO;
+create table DEMO (ID int unsigned PRIMARY KEY auto_increment);
+alter table DEMO drop primary key;
+ERROR 42000: Incorrect table definition; there can be only one auto column and it must be defined as a key
+drop table DEMO;
+CREATE TABLE DEMO (f1 INT, f2 INT, f3 INT);
+ALTER TABLE DEMO ADD CONSTRAINT PRIMARY KEY (f1);
+ALTER TABLE DEMO DROP CONSTRAINT `primary`, DROP COLUMN f3;
+ALTER TABLE DEMO ADD CONSTRAINT PRIMARY KEY (f1);
+drop table DEMO;

@@ -1,0 +1,236 @@
+create table t1(c1 int, c2 integer default '0' not null, c3 binary(10) default '' not null key) charset binary;
+insert into t1 values(0, default, default);
+insert into t1 values(1, 1, 'abc');
+select c1, c2, hex(c3) from t1;
+c1	c2	hex(c3)
+0	0	00000000000000000000
+1	1	61626300000000000000
+drop table t1;
+create table t1(c1 int, c2 integer default '0' not null, c3 binary(10) default '' not null, key(c1, c3)) charset binary;
+insert into t1 values(0, default, default);
+insert into t1 values(1, 1, 'abc');
+select c1, c2, hex(c3) from t1;
+c1	c2	hex(c3)
+0	0	00000000000000000000
+1	1	61626300000000000000
+drop table t1;
+create table t1(c1 int, c2 integer default '0' not null, c3 varbinary(10) default '' not null key) charset binary;
+insert into t1 values(0, default, default);
+insert into t1 values(1, 1, 'abc');
+select c1, c2, c3 from t1;
+c1	c2	c3
+0	0	
+1	1	abc
+drop table t1;
+create table t1(c1 int, c2 integer default '0' not null, c3 varbinary(10) default '' not null, key(c1, c3)) charset binary;
+insert into t1 values(0, default, default);
+insert into t1 values(1, 1, 'abc');
+select c1, c2, c3 from t1;
+c1	c2	c3
+0	0	
+1	1	abc
+drop table t1;
+create table t1(c1 int, c2 integer default '0' not null, c3 char(10) default '' not null, c4 varchar(120) default '' not null) charset binary;
+insert into t1 values(0, default, default, default);
+insert into t1 values(1, 1, 'abc', 'def');
+select c1, c2, hex(c3), c4 from t1;
+c1	c2	hex(c3)	c4
+0	0	00000000000000000000	
+1	1	61626300000000000000	def
+drop table t1;
+create table t1(c1 int, c2 integer default '0' not null, c3 char(10) default '' not null, c4 varchar(120) default '' not null) charset binary;
+create index idx1 on t1(c1);
+create index idx2 on t1(c2);
+create index idx3 on t1(c3);
+create index idx4 on t1(c4);
+create index idx5 on t1(c1, c2);
+create index idx6 on t1(c2, c3);
+create index idx7 on t1(c3, c4);
+create index idx8 on t1(c2, c3, c4);
+create index idx9 on t1(c1, c2, c3);
+create index idx10 on t1(c1, c2, c3, c4);
+insert into t1 values(0, default, default, default);
+insert into t1 values(1, 1, 'abc', 'def');
+select c1, c2, hex(c3), c4 from t1;
+c1	c2	hex(c3)	c4
+0	0	00000000000000000000	
+1	1	61626300000000000000	def
+drop table t1;
+create table t1(c1 int, c2 integer, c3 char(10), c4 varchar(120)) charset binary;
+create index idx1 on t1(c1);
+create index idx2 on t1(c2);
+create index idx3 on t1(c3);
+create index idx4 on t1(c4);
+create index idx5 on t1(c1, c2);
+create index idx6 on t1(c2, c3);
+create index idx7 on t1(c3, c4);
+create index idx8 on t1(c2, c3, c4);
+create index idx9 on t1(c1, c2, c3);
+create index idx10 on t1(c1, c2, c3, c4);
+insert into t1 values(1, 1, 'abc', 'def');
+select c1, c2, hex(c3), c4 from t1;
+c1	c2	hex(c3)	c4
+1	1	61626300000000000000	def
+drop table t1;
+create table t1(c1 int, c2 integer default '0' not null, c3 binary(10) default '' not null, c4 varbinary(120) default '' not null) charset binary;
+insert into t1 values(0, default, default, default);
+insert into t1 values(1, 1, 'abc', 'def');
+select c1, c2, hex(c3), c4 from t1;
+c1	c2	hex(c3)	c4
+0	0	00000000000000000000	
+1	1	61626300000000000000	def
+drop table t1;
+create table t1(c1 int, c2 integer default '0' not null, c3 binary(10) default '' not null, c4 varbinary(120) default '' not null) charset binary;
+create index idx1 on t1(c1);
+create index idx2 on t1(c2);
+create index idx3 on t1(c3);
+create index idx4 on t1(c4);
+create index idx5 on t1(c1, c2);
+create index idx6 on t1(c2, c3);
+create index idx7 on t1(c3, c4);
+create index idx8 on t1(c2, c3, c4);
+create index idx9 on t1(c1, c2, c3);
+create index idx10 on t1(c1, c2, c3, c4);
+insert into t1 values(0, default, default, default);
+insert into t1 values(1, 1, 'abc', 'def');
+select c1, c2, hex(c3), c4 from t1;
+c1	c2	hex(c3)	c4
+0	0	00000000000000000000	
+1	1	61626300000000000000	def
+drop table t1;
+create table t1(c1 int, c2 integer, c3 binary(10), c4 varbinary(120)) charset binary;
+create index idx1 on t1(c1);
+create index idx2 on t1(c2);
+create index idx3 on t1(c3);
+create index idx4 on t1(c4);
+create index idx5 on t1(c1, c2);
+create index idx6 on t1(c2, c3);
+create index idx7 on t1(c3, c4);
+create index idx8 on t1(c2, c3, c4);
+create index idx9 on t1(c1, c2, c3);
+create index idx10 on t1(c1, c2, c3, c4);
+insert into t1 values(1, 1, 'abc', 'def');
+select c1, c2, hex(c3), c4 from t1;
+c1	c2	hex(c3)	c4
+1	1	61626300000000000000	def
+drop table t1;
+create table t1(c1 int, c2 integer default '0' not null, c3 char(10) default null, c4 varchar(120) default null) charset binary;
+insert into t1 values(0, default, default, default);
+insert into t1 values(1, 1, 'abc', 'def');
+select c1, c2, hex(c3), c4 from t1;
+c1	c2	hex(c3)	c4
+0	0	NULL	NULL
+1	1	61626300000000000000	def
+drop table t1;
+create table t1(c1 int, c2 integer default '0' not null, c3 char(10) default null, c4 varchar(120) default null) charset binary;
+create index idx1 on t1(c1);
+create index idx2 on t1(c2);
+create index idx3 on t1(c3);
+create index idx4 on t1(c4);
+create index idx5 on t1(c1, c2);
+create index idx6 on t1(c2, c3);
+create index idx7 on t1(c3, c4);
+create index idx8 on t1(c2, c3, c4);
+create index idx9 on t1(c1, c2, c3);
+create index idx10 on t1(c1, c2, c3, c4);
+insert into t1 values(0, default, default, default);
+insert into t1 values(1, 1, 'abc', 'def');
+select c1, c2, hex(c3), c4 from t1;
+c1	c2	hex(c3)	c4
+0	0	NULL	NULL
+1	1	61626300000000000000	def
+drop table t1;
+create table t1(c1 int, c2 integer, c3 char(10), c4 varchar(120)) charset binary;
+create index idx1 on t1(c1);
+create index idx2 on t1(c2);
+create index idx3 on t1(c3);
+create index idx4 on t1(c4);
+create index idx5 on t1(c1, c2);
+create index idx6 on t1(c2, c3);
+create index idx7 on t1(c3, c4);
+create index idx8 on t1(c2, c3, c4);
+create index idx9 on t1(c1, c2, c3);
+create index idx10 on t1(c1, c2, c3, c4);
+insert into t1 values(1, 1, 'abc', 'def');
+select c1, c2, hex(c3), c4 from t1;
+c1	c2	hex(c3)	c4
+1	1	61626300000000000000	def
+drop table t1;
+create table t1(c1 int, c2 integer default '0' not null, c3 binary(10) default null, c4 varbinary(120) default null) charset binary;
+insert into t1 values(0, default, default, default);
+insert into t1 values(1, 1, 'abc', 'def');
+select c1, c2, hex(c3), c4 from t1;
+c1	c2	hex(c3)	c4
+0	0	NULL	NULL
+1	1	61626300000000000000	def
+drop table t1;
+create table t1(c1 int, c2 integer default '0' not null, c3 binary(10) default null, c4 varbinary(120) default null) charset binary;
+create index idx1 on t1(c1);
+create index idx2 on t1(c2);
+create index idx3 on t1(c3);
+create index idx4 on t1(c4);
+create index idx5 on t1(c1, c2);
+create index idx6 on t1(c2, c3);
+create index idx7 on t1(c3, c4);
+create index idx8 on t1(c2, c3, c4);
+create index idx9 on t1(c1, c2, c3);
+create index idx10 on t1(c1, c2, c3, c4);
+insert into t1 values(0, default, default, default);
+insert into t1 values(1, 1, 'abc', 'def');
+select c1, c2, hex(c3), c4 from t1;
+c1	c2	hex(c3)	c4
+0	0	NULL	NULL
+1	1	61626300000000000000	def
+drop table t1;
+create table t1(c1 int, c2 integer default '0' not null, c3 binary(10) default b'101' not null, c4 varbinary(120) default b'101' not null) charset binary;
+insert into t1 values(0, default, default, default);
+insert into t1 values(1, 1, 'abc', 'def');
+select c1, c2, hex(c3), hex(c4) from t1;
+c1	c2	hex(c3)	hex(c4)
+0	0	05000000000000000000	05
+1	1	61626300000000000000	646566
+drop table t1;
+create table t1(c1 int, c2 integer default '0' not null, c3 binary(10) default b'101' not null, c4 varbinary(120) default b'101' not null) charset binary;
+create index idx1 on t1(c1);
+create index idx2 on t1(c2);
+create index idx3 on t1(c3);
+create index idx4 on t1(c4);
+create index idx5 on t1(c1, c2);
+create index idx6 on t1(c2, c3);
+create index idx7 on t1(c3, c4);
+create index idx8 on t1(c2, c3, c4);
+create index idx9 on t1(c1, c2, c3);
+create index idx10 on t1(c1, c2, c3, c4);
+insert into t1 values(0, default, default, default);
+insert into t1 values(1, 1, 'abc', 'def');
+select c1, c2, hex(c3), hex(c4) from t1;
+c1	c2	hex(c3)	hex(c4)
+0	0	05000000000000000000	05
+1	1	61626300000000000000	646566
+drop table t1;
+create table t1(c1 int, c2 integer default '0' not null, c3 binary(10) default 'aaaaa' not null, c4 varbinary(120) default 'aaaaa' not null) charset binary;
+insert into t1 values(0, default, default, default);
+insert into t1 values(1, 1, 'abc', 'def');
+select c1, c2, hex(c3), c4 from t1;
+c1	c2	hex(c3)	c4
+0	0	61616161610000000000	aaaaa
+1	1	61626300000000000000	def
+drop table t1;
+create table t1(c1 int, c2 integer default '0' not null, c3 binary(10) default 'aaaaa' not null, c4 varbinary(120) default 'aaaaa' not null) charset binary;
+create index idx1 on t1(c1);
+create index idx2 on t1(c2);
+create index idx3 on t1(c3);
+create index idx4 on t1(c4);
+create index idx5 on t1(c1, c2);
+create index idx6 on t1(c2, c3);
+create index idx7 on t1(c3, c4);
+create index idx8 on t1(c2, c3, c4);
+create index idx9 on t1(c1, c2, c3);
+create index idx10 on t1(c1, c2, c3, c4);
+insert into t1 values(0, default, default, default);
+insert into t1 values(1, 1, 'abc', 'def');
+select c1, c2, hex(c3), c4 from t1;
+c1	c2	hex(c3)	c4
+0	0	61616161610000000000	aaaaa
+1	1	61626300000000000000	def
+drop table t1;
