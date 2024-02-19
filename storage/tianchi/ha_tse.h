@@ -162,6 +162,13 @@ enum class metadata_switchs {
   CLUSTER_NOT_READY
 };
 
+enum class dis_cluster_role {
+  DEFAULT = -1,
+  PRIMARY,
+  STANDBY,
+  CLUSTER_NOT_READY
+};
+
 typedef int (*tse_prefetch_fn)(tianchi_handler_t *tch, uint8_t *records, uint16_t *record_lens,
                                uint32_t *recNum, uint64_t *rowids, int32 max_row_size);
 

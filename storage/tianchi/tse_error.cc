@@ -82,6 +82,9 @@ bool convert_cantian_err_to_mysql(ct_errno_t error) {
     case ERR_CAPABILITY_NOT_SUPPORT:
       my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0), "Cantian capability not support.");
       break;
+    case ERR_DATABASE_ROLE:
+      my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0), "Cantian database role not support this operation.");
+      break;
     case ERR_COLUMNS_MISMATCH:
       my_error(ER_WRONG_VALUE_COUNT, MYF(0));
       break;
