@@ -189,7 +189,7 @@ int tse_bulk_write(tianchi_handler_t *tch, const record_info_t *record_info, uin
 }
 
 int tse_update_row(tianchi_handler_t *tch, uint16_t new_record_len, const uint8_t *new_record,
-                   const uint16_t *upd_cols, uint16_t col_num, dml_flag_t flag) {
+                   const uint16_t *upd_cols, uint16_t col_num, dml_flag_t flag, bool *is_mysqld_starting) {
   assert(new_record_len < BIG_RECORD_SIZE);
   assert(col_num <= TSE_MAX_COLUMNS);
   void *shm_inst = get_one_shm_inst(tch);
@@ -203,6 +203,15 @@ int tse_update_row(tianchi_handler_t *tch, uint16_t new_record_len, const uint8_
   req->col_num = col_num;
   req->new_record = const_cast<uint8_t *>(new_record);
   req->flag = flag;
+  req->is_mysqld_starting = *is_mysqld_starting;
+  /*
+    The MySQL would try to update tables in starting progress:
+    1. mysql.charset 2. mysql.resource_groups 
+    If the Cantian is in slave-cluster (read-only) this would obviously cause error.
+    So we should not allow the MySQL update tables in strating progress on a slave-cantian-cluster.
+    The newly added flag is to inform cantian, the mysqld is starting .
+    Cantian would return CT_SUCCESS when it is in slave-cluster and mysqld is starting,
+  */
   memcpy(req->upd_cols, upd_cols, sizeof(uint16_t) * col_num);
   int result = ERR_CONNECTION_FAILED;
   int ret = tse_mq_deal_func(shm_inst, TSE_FUNC_TYPE_UPDATE_ROW, req, tch->msg_buf);
@@ -513,6 +522,7 @@ int tse_index_read(tianchi_handler_t *tch, record_info_t *record_info, index_key
   req->cond = cond;
   req->is_replace = is_replace;
   req->result = 0;
+  req->is_mysqld_starting = is_starting();
 
   int result = ERR_CONNECTION_FAILED;
   int ret = tse_mq_deal_func(shm_inst, TSE_FUNC_TYPE_INDEX_READ, req, tch->msg_buf);
