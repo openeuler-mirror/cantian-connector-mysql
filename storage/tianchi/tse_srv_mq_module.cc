@@ -66,6 +66,8 @@ static void* mq_msg_handler(void *arg) {
       execute_ddl_mysql_sql_request *req =
           (execute_ddl_mysql_sql_request *)message_block->seg_buf[0];
       req->result = tse_ddl_execute_update(req->thd_id, &req->broadcast_req, &req->allow_fail);
+      tse_log_system("[Disaster Recovery] execute_ddl_mysql_sql : db:%s, sql_txt:%s,result:%d", req->broadcast_req.db_name,
+                   req->broadcast_req.sql_str, req->result);
       tse_log_note("execute_ddl_mysql_sql : db:%s, sql_txt:%s,result:%d", req->broadcast_req.db_name,
                    req->broadcast_req.sql_str, req->result);
       CTC_IGNORE_ERROR_WHEN_MYSQL_SHUTDOWN(req, "tse_ddl_execute_update");
@@ -100,6 +102,28 @@ static void* mq_msg_handler(void *arg) {
       tse_log_note("invalidate dd cache: thd_id : %d, inst_id : %d, ret : %d.", req->tch.thd_id, req->tch.inst_id,
                   req->result);
       CTC_IGNORE_ERROR_WHEN_MYSQL_SHUTDOWN(req, "tse_invalidate_mysql_dd_cache");
+      break;
+    }
+    case TSE_FUNC_TYPE_INVALIDATE_ALL_OBJECTS: {
+      struct invalidate_all_dd_cache_request *req = (struct invalidate_all_dd_cache_request *)message_block->seg_buf[0];
+      req->result = tse_invalidate_all_dd_cache();
+      tse_log_note("[Disaster Recovery] invalidate all dd cache.");
+      CTC_IGNORE_ERROR_WHEN_MYSQL_SHUTDOWN(req, "tse_invalidate_all_mysql_dd_cache");
+      break;
+    }
+    case TSE_FUNC_TYPE_UPDATE_DDCACHE: {
+      struct update_mysql_dd_cache_request *req = (struct update_mysql_dd_cache_request *)message_block->seg_buf[0];
+      req->result = tse_update_mysql_dd_cache(req->sql_str);
+      tse_log_note("update dd cache: thd_id : %d, inst_id : %d, ret : %d.", req->thd_id, req->inst_id,
+                  req->result);
+      CTC_IGNORE_ERROR_WHEN_MYSQL_SHUTDOWN(req, "tse_update_mysql_dd_cache");
+      break;
+    }
+    case TSE_FUNC_SET_CLUSTER_ROLE_BY_CANTIAN: {
+      struct set_cluster_role_by_cantian_request *req = (struct set_cluster_role_by_cantian_request *)message_block->seg_buf[0];
+      req->result = tse_set_cluster_role_by_cantian(req->is_slave);
+      tse_log_note("[Disaster Recovery] Set cluster role by cantian, is_slave:%d", req->is_slave);
+      CTC_IGNORE_ERROR_WHEN_MYSQL_SHUTDOWN(req, "tse_update_mysql_dd_cache");
       break;
     }
     default: {

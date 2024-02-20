@@ -157,6 +157,10 @@ int32_t ctc_metadata_normalization = (int32_t)metadata_switchs::DEFAULT;
 static MYSQL_SYSVAR_INT(metadata_normalization, ctc_metadata_normalization, PLUGIN_VAR_READONLY,
                         "Option for Mysql-Cantian metadata normalization.", nullptr, nullptr, -1, -1, 3, 0);
 
+int32_t cluster_role = (int32_t)dis_cluster_role::DEFAULT;
+static MYSQL_SYSVAR_INT(disaster_cluster_role, cluster_role, PLUGIN_VAR_READONLY,
+                        "flag for Disaster Recovery Cluster Role.", nullptr, nullptr, -1, -1, 2, 0);
+
 int32_t ctc_max_cursors_no_autocommit = 128;
 static MYSQL_SYSVAR_INT(max_cursors_no_autocommit, ctc_max_cursors_no_autocommit, PLUGIN_VAR_RQCMDARG,
                         "Size of max cursors for no autocommit in commit/rollback.", nullptr, nullptr, 128, 0, 8192, 0);
@@ -217,6 +221,7 @@ static SYS_VAR *tse_system_variables[] = {
   MYSQL_SYSVAR(version),
   MYSQL_SYSVAR(stats_enabled),
   MYSQL_SYSVAR(autoinc_lock_mode),
+  MYSQL_SYSVAR(disaster_cluster_role),
   nullptr
 };
 
@@ -1746,7 +1751,7 @@ static void tse_kill_connection(handlerton *hton, THD *thd) {
   local_tch.inst_id = tch.inst_id;
   local_tch.sess_addr = tch.sess_addr;
   local_tch.thd_id = tch.thd_id;
- 
+
   tse_kill_session(&local_tch);
   tse_log_system("[TSE_KILL_SESSION]:conn_id:%u, tse_instance_id:%u", tch.thd_id, tch.inst_id);
 }
@@ -2389,20 +2394,6 @@ int ha_tse::handle_auto_increment(bool &has_explicit_autoinc) {
   const Discrete_interval *insert_id_info;
   insert_id_for_cur_row = 0;
   /*
-   1. Value set by 'SET INSERT_ID=#'
-   2. Partition table use auto_inc column as part key, update to 0
-  */
-  if ((insert_id_info = thd->auto_inc_intervals_forced.get_next()) != nullptr) {
-    // store insert_id to auto_inc col, reset insert_id
-    ulonglong forced_val = insert_id_info->minimum();
-    table->next_number_field->store(forced_val, true);
-    thd->auto_inc_intervals_forced.clear();
-    has_explicit_autoinc = true;
-    insert_id_for_cur_row = forced_val;
-    return CT_SUCCESS;
-  }
- 
-  /*
     if has explicit auto_inc value
     1. specify value that is neither null nor zero
     2. specify zero but in NO_AUTO_VALUE_ON_ZERO sql mode
@@ -2418,6 +2409,20 @@ int ha_tse::handle_auto_increment(bool &has_explicit_autoinc) {
     return CT_SUCCESS;
   }
 
+  /*
+   1. Value set by 'SET INSERT_ID=#'
+   2. Partition table use auto_inc column as part key, update to 0
+  */
+  if ((insert_id_info = thd->auto_inc_intervals_forced.get_next()) != nullptr) {
+    // store insert_id to auto_inc col, reset insert_id
+    ulonglong forced_val = insert_id_info->minimum();
+    table->next_number_field->store(forced_val, true);
+    thd->auto_inc_intervals_forced.clear();
+    has_explicit_autoinc = true;
+    insert_id_for_cur_row = forced_val;
+    return CT_SUCCESS;
+  }
+ 
   has_explicit_autoinc = false;
   return CT_SUCCESS;
 }
@@ -2628,6 +2633,21 @@ int ha_tse::end_bulk_insert() {
   return ret;
 }
 
+static bool check_if_update_primary_key(TABLE *table) {
+  if (table->s->primary_key < MAX_KEY) {
+    KEY *keyinfo;
+    keyinfo = table->s->key_info + table->s->primary_key;
+    for (uint i = 0; i < keyinfo->user_defined_key_parts; i++) {
+      uint fieldnr = keyinfo->key_part[i].fieldnr - 1;
+      if (bitmap_is_set(table->write_set, fieldnr)) {
+        return true;
+      }
+    }
+  }
+ 
+  return false;
+}
+
 int tse_cmp_key_values(TABLE *table, const uchar *old_data, const uchar *new_data, uint key_nr) {
   if (key_nr == MAX_KEY) {
     return 0;
@@ -2693,8 +2713,9 @@ EXTER_ATTACK int ha_tse::update_row(const uchar *old_data, uchar *new_data) {
   
 
   vector<uint16_t> upd_fields;
+  bool update_primary_key = m_tch.change_data_capture && check_if_update_primary_key(table);
   for (uint16_t i = 0; i < table->write_set->n_bits; i++) {
-    if (m_tch.change_data_capture || bitmap_is_set(table->write_set, i)) {
+    if (update_primary_key || bitmap_is_set(table->write_set, i)) {
       upd_fields.push_back(i);
     }
   }
@@ -2725,8 +2746,9 @@ EXTER_ATTACK int ha_tse::update_row(const uchar *old_data, uchar *new_data) {
   if (!flag.no_foreign_key_check) {
     flag.no_cascade_check = flag.dd_update ? true : pre_check_for_cascade(true);
   }
+  bool is_mysqld_starting = is_starting();
   ret = (ct_errno_t)tse_update_row(&m_tch, cantian_new_record_buf_size, tse_buf,
-                                   &upd_fields[0], upd_fields.size(), flag);
+                                   &upd_fields[0], upd_fields.size(), flag, &is_mysqld_starting);
   check_error_code_to_mysql(thd, &ret);
   // 如果m_tse_buf为空，说明tse_buf是动态申请的，在函数退出之前要释放掉
   if (m_tse_buf == nullptr) {
@@ -3940,6 +3962,46 @@ THR_LOCK_DATA **ha_tse::store_lock(THD *, THR_LOCK_DATA **to,
   return to;
 }
 
+int tse_query_cluster_role(bool *is_slave, bool *cantian_cluster_ready) {
+  void *shm_inst = get_one_shm_inst(NULL);
+  query_cluster_role_request *req = (query_cluster_role_request*) alloc_share_mem(shm_inst, sizeof(query_cluster_role_request));
+  DBUG_EXECUTE_IF("check_init_shm_oom", { req = NULL; });
+  if (req == NULL) {
+      tse_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, sizeof(query_cluster_role_request));
+      return ERR_ALLOC_MEMORY;
+  }
+ 
+  int result = ERR_CONNECTION_FAILED;
+  int ret = tse_mq_deal_func(shm_inst, TSE_FUNC_QUERY_CLUSTER_ROLE, req, nullptr);
+  if (ret == CT_SUCCESS) {
+    result = req->result;
+    *is_slave = req->is_slave;
+    *cantian_cluster_ready = req->cluster_ready;
+  }
+  free_share_mem(shm_inst, req);
+ 
+  return result;
+}
+ 
+int32_t tse_get_cluster_role() {
+  if (cluster_role != (int32_t)dis_cluster_role::DEFAULT) {
+    return cluster_role;
+  }
+  // todo: add mutex for cluster_role.
+  bool is_slave = false;
+  bool cantian_cluster_ready = false;
+  int ret = tse_query_cluster_role(&is_slave, &cantian_cluster_ready);
+  if (ret != CT_SUCCESS || !cantian_cluster_ready) {
+    cluster_role = (int32_t)dis_cluster_role::CLUSTER_NOT_READY;
+    tse_log_error("[Disaster Rocovery] tse_query_cluster_role failed with error code: %d, is_slave:%d, cantian_cluster_ready: %d", ret, is_slave, cantian_cluster_ready);
+    return cluster_role;
+  }
+  tse_log_system("[Disaster Recovery] is_slave:%d, cantian_cluster_ready:%d", is_slave, cantian_cluster_ready);
+  tse_set_cluster_role_by_cantian(is_slave);
+ 
+  return cluster_role;
+}
+
 /**
   @brief
   As MySQL will execute an external lock for every new table it uses when it
@@ -4186,6 +4248,16 @@ static bool ctc_show_status(handlerton *, THD *thd, stat_print_fn *stat_print, e
   }
 
   return false;
+}
+
+int tse_set_cluster_role_by_cantian(bool is_slave) {
+  // todo: add mutex for cluster_role
+  if (is_slave) {
+    cluster_role = (int32_t)dis_cluster_role::STANDBY;
+  } else {
+    cluster_role = (int32_t)dis_cluster_role::PRIMARY;
+  }
+  return 0;
 }
 
 void tse_set_metadata_switch() { // MySQL为元数据归一版本
