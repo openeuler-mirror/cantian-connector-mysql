@@ -33,8 +33,8 @@
 #  https://dev.mysql.com/doc/dev/mysql-server/latest/PAGE_MYSQL_TEST_RUN.html
 #
 ##############################################################################
-$ENV{MTR_BINDIR} = '/home/regress/mysql-server/bld_debug';
-chdir('/home/regress/mysql-server/mysql-test');
+$ENV{MTR_BINDIR} = '/usr/local/mysql';
+#chdir('/home/regress/mysql-server/mysql-test');
  
 use strict;
 use warnings;
@@ -6258,11 +6258,24 @@ sub mysqld_start ($$$$) {
   # Remember data dir for gmon.out files if using gprof
   $gprof_dirs{ $mysqld->value('datadir') } = 1 if $opt_gprof;
 
-  if (daac_start()) {
-    mtr_error("Failed to start daac.");
-  }
+#   if (daac_start()) {
+#     mtr_error("Failed to start daac.");
+#   }
   if (defined $exe) {
-    $mysqld->{'proc'} = `pidof mysqld`;
+    $mysqld->{'proc'} =
+          My::SafeProcess->new(name        => $mysqld->name(),
+                               path        => $exe,
+                               args        => \$args,
+                               output      => $output,
+                               error       => $output,
+                               append      => 1,
+                               verbose     => $opt_verbose,
+                               nocore      => $opt_skip_core,
+                               host        => undef,
+                               shutdown    => sub { mysqld_stop($mysqld) },
+                               envs        => \@opt_mysqld_envs,
+                               pid_file    => $pid_file,
+                               daemon_mode => $mysqld->{'daemonize'});
     mtr_verbose("Started $mysqld->{proc}");
   }
 

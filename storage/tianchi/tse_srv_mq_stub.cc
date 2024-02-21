@@ -1457,3 +1457,24 @@ int ctc_record_sql_for_cantian(tianchi_handler_t *tch, tse_ddl_broadcast_request
   free_share_mem(shm_inst, req);
   return result;
 }
+
+int tse_query_cluster_role(bool *is_slave, bool *cantian_cluster_ready) {
+  void *shm_inst = get_one_shm_inst(NULL);
+  query_cluster_role_request *req = (query_cluster_role_request*) alloc_share_mem(shm_inst, sizeof(query_cluster_role_request));
+  DBUG_EXECUTE_IF("check_init_shm_oom", { req = NULL; });
+  if (req == NULL) {
+      tse_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, sizeof(query_cluster_role_request));
+      return ERR_ALLOC_MEMORY;
+  }
+
+  int result = ERR_CONNECTION_FAILED;
+  int ret = tse_mq_deal_func(shm_inst, TSE_FUNC_QUERY_CLUSTER_ROLE, req, nullptr);
+  if (ret == CT_SUCCESS) {
+    result = req->result;
+    *is_slave = req->is_slave;
+    *cantian_cluster_ready = req->cluster_ready;
+  }
+  free_share_mem(shm_inst, req);
+
+  return result;
+}
