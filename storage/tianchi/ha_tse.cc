@@ -370,8 +370,12 @@ bool is_alter_table_scan(bool m_error_if_not_empty) {
 
 bool ddl_enabled_normal(MYSQL_THD thd) {
   return !user_var_set(thd, "ctc_ddl_local_enabled") &&
-         (tse_concurrent_ddl == true ||
-          (tse_concurrent_ddl == false && user_var_set(thd, "ctc_ddl_enabled")));
+         (tse_concurrent_ddl == true || user_var_set(thd, "ctc_ddl_enabled"));
+}
+
+bool engine_skip_ddl(MYSQL_THD thd) {
+  // 接口流程不需要走到参天: 用于参天SYS库操作
+  return user_var_set(thd, "ctc_ddl_local_enabled") && tse_concurrent_ddl == true;
 }
 
 bool engine_ddl_passthru(MYSQL_THD thd) {
@@ -379,8 +383,8 @@ bool engine_ddl_passthru(MYSQL_THD thd) {
   if (is_meta_version_initialize()) {
     return false;
   }
-
-  return is_initialize() || !mysqld_server_started || user_var_set(thd, "ctc_ddl_local_enabled");
+  bool is_mysql_local = user_var_set(thd, "ctc_ddl_local_enabled");
+  return is_initialize() || !mysqld_server_started || is_mysql_local;
 }
 
 bool ha_tse::is_replay_ddl(MYSQL_THD thd) {
@@ -1348,6 +1352,8 @@ void update_member_tch(tianchi_handler_t &tch, handlerton *hton, THD *thd, bool 
     tch.cursor_ref = 0;
     tch.pre_sess_addr = 0;
     tch.msg_buf = nullptr;
+    tch.change_data_capture = 0;
+    tch.read_only_in_ct = false;
     return;
   }
 
@@ -1617,7 +1623,7 @@ static int tse_commit(handlerton *hton, THD *thd, bool commit_trx) {
       tse_log_error("commit atomic ddl failed with error code: %d", ret);
       return convert_tse_error_code_to_mysql(ret);
     }
-    if (is_ddl_commit) {
+    if (is_ddl_commit && !engine_skip_ddl(thd)) {
       tse_ddl_broadcast_request broadcast_req {{0}, {0}, {0}, {0}, 0, 0, 0, 0, {0}};
       string sql = string(thd->query().str).substr(0, thd->query().length);
       FILL_BROADCAST_BASE_REQ(broadcast_req, sql.c_str(), thd->m_main_security_ctx.priv_user().str,
@@ -1757,6 +1763,9 @@ static void tse_kill_connection(handlerton *hton, THD *thd) {
 }
 
 static int tse_pre_create_db4cantian(THD *thd, tianchi_handler_t *tch) {
+  if (engine_skip_ddl(thd)) {
+    return CT_SUCCESS;
+  }
   char user_name[SMALL_RECORD_SIZE];
   tse_copy_name(user_name, thd->lex->name.str, SMALL_RECORD_SIZE);
   int error_code = 0;
@@ -1931,6 +1940,10 @@ static bool tse_notify_exclusive_mdl(THD *thd, const MDL_key *mdl_key,
   }
   
   if (!IS_METADATA_NORMALIZATION()) {
+    if (engine_skip_ddl(thd)) {
+      tse_log_warning("[CTC_NOMETA_SQL]:record sql str only generate metadata. sql:%s", thd->query().str);
+      return false;
+    }
     if (!ddl_enabled_normal(thd)) {
       my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0), "DDL not allowed in this mode, Please check the value of @@ctc_concurrent_ddl.");
       return true;
@@ -4189,6 +4202,9 @@ static int tse_check_tx_isolation() {
 }
 
 static int tse_create_db(THD *thd, handlerton *hton) {
+  if (engine_skip_ddl(thd)) {
+    return CT_SUCCESS;
+  }
   tianchi_handler_t tch;
   TSE_RETURN_IF_NOT_ZERO(get_tch_in_handler_data(hton, thd, tch));
 
@@ -4881,7 +4897,7 @@ EXTER_ATTACK int ha_tse::create(const char *name, TABLE *form, HA_CREATE_INFO *c
     thd->lex->alter_info->requested_algorithm = Alter_info::ALTER_TABLE_ALGORITHM_COPY;
   }
 
-  if (engine_ddl_passthru(thd)) {
+  if (engine_skip_ddl(thd) || engine_ddl_passthru(thd)) {
     return ret;
   }
 

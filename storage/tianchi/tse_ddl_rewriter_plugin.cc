@@ -1084,6 +1084,10 @@ bool plugin_ddl_block(MYSQL_THD thd,
   }
 
   if (!IS_METADATA_NORMALIZATION()) {
+    if (engine_skip_ddl(thd)) {
+      tse_log_warning("[CTC_NOMETA_SQL]:record sql str only generate metadata. sql:%s", query_str.c_str());
+      return false;
+    }
     // disallow ddl query if ctc_concurrent_ddl=OFF and tse_enable_ddl not set
     if (!ddl_enabled_normal(thd)) {
       my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0), "DDL not allowed in this mode, Please check the value of @@ctc_concurrent_ddl.");
@@ -1185,7 +1189,7 @@ static int tse_check_metadata_switch() {
 
 static int tse_ddl_rewrite(MYSQL_THD thd, mysql_event_class_t event_class,
                            const void *event) {
-  if(is_meta_version_initialize()) {
+  if (is_meta_version_initialize()) {
     return 0;
   }
 
@@ -1198,7 +1202,7 @@ static int tse_ddl_rewrite(MYSQL_THD thd, mysql_event_class_t event_class,
   enum enum_sql_command sql_cmd = thd->lex->sql_command;
   auto it = ddl_cmds.find(sql_cmd);
 
-  bool need_forward = true;
+  bool need_forward = !engine_skip_ddl(thd);
   string query_str = string(event_parse->query.str).substr(0, event_parse->query.length);
 
   if (plugin_ddl_passthru(thd, it)) {

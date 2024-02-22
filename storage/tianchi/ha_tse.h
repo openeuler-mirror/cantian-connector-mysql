@@ -333,8 +333,8 @@ public:
   ulonglong table_flags() const override {
     DBUG_TRACE;
     return (HA_BINLOG_ROW_CAPABLE | HA_BINLOG_STMT_CAPABLE | HA_NULL_IN_KEY | HA_DESCENDING_INDEX |
-            HA_CAN_INDEX_VIRTUAL_GENERATED_COLUMN | HA_GENERATED_COLUMNS | HA_NO_READ_LOCAL_LOCK |
-            HA_SUPPORTS_DEFAULT_EXPRESSION | HA_CAN_INDEX_BLOBS | HA_CAN_EXPORT | HA_CAN_SQL_HANDLER |
+            HA_COUNT_ROWS_INSTANT | HA_GENERATED_COLUMNS | HA_NO_READ_LOCAL_LOCK |
+            HA_SUPPORTS_DEFAULT_EXPRESSION | HA_CAN_INDEX_BLOBS | HA_CAN_SQL_HANDLER |
             HA_ATTACHABLE_TRX_COMPATIBLE);
   }
 
@@ -967,8 +967,8 @@ void tse_ddl_hook_cantian_error(const char *tag, THD *thd, ddl_ctrl_t *ddl_ctrl,
                                 ct_errno_t *ret);
 int tse_ddl_handle_fault(const char *tag, const THD *thd,
                          const ddl_ctrl_t *ddl_ctrl, ct_errno_t ret, const char *param = nullptr, int fix_ret = 0);
-bool ddl_enabled_local(MYSQL_THD thd);
 bool ddl_enabled_normal(MYSQL_THD thd);
+bool engine_skip_ddl(MYSQL_THD thd);
 bool engine_ddl_passthru(MYSQL_THD thd);
 bool is_alter_table_copy(MYSQL_THD thd, const char *name = nullptr);
 bool is_alter_table_scan(bool m_error_if_not_empty);
