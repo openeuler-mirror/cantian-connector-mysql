@@ -103,6 +103,7 @@
 #include "sql/sql_insert.h"
 #include "sql/sql_plugin.h"
 #include "sql/sql_initialize.h"                // opt_initialize_insecure
+#include "sql/dd/upgrade/server.h"             // UPGRADE_FORCE
 #include "sql/abstract_query_plan.h"
 
 #include "tse_stats.h"
@@ -364,6 +365,12 @@ bool is_meta_version_initialize() {
   return false;
 }
 
+// 是否为--upgrade=FORCE
+bool is_meta_version_upgrading_force() {
+  bool is_meta_normalization = CHECK_HAS_MEMBER(handlerton, get_metadata_switch);
+  return is_meta_normalization && (opt_upgrade_mode == UPGRADE_FORCE);
+}
+
 bool is_alter_table_scan(bool m_error_if_not_empty) {
   return m_error_if_not_empty;
 }
@@ -380,7 +387,7 @@ bool engine_skip_ddl(MYSQL_THD thd) {
 
 bool engine_ddl_passthru(MYSQL_THD thd) {
   // 元数据归一初始化场景，接口流程需要走到参天
-  if (is_meta_version_initialize()) {
+  if (is_meta_version_initialize() || is_meta_version_upgrading_force()) {
     return false;
   }
   bool is_mysql_local = user_var_set(thd, "ctc_ddl_local_enabled");
