@@ -1166,11 +1166,12 @@ static void tse_my_timestamp_to_binary(const struct timeval *tm, uchar *ptr, uin
       mi_int3store(ptr + 4, tm->tv_usec);
   }
 }
+
 /**
   @brief
   convert datetime data from cantian to mysql
 */
-static void convert_datetime_to_mysql(const field_cnvrt_aux_t* mysql_info,
+static void convert_datetime_to_mysql(tianchi_handler_t &tch, const field_cnvrt_aux_t* mysql_info,
   uint8_t *mysql_ptr, uchar *cantian_ptr, Field *mysql_field)
 {
   if (mysql_info->mysql_field_type == MYSQL_TYPE_DATE) {
@@ -1181,7 +1182,7 @@ static void convert_datetime_to_mysql(const field_cnvrt_aux_t* mysql_info,
     cnvrt_time_decimal(cantian_ptr, DATETIME_MAX_DECIMALS, mysql_ptr, mysql_field->decimals(), mysql_field->pack_length());
     return;
   }
-  if (mysql_info->mysql_field_type == MYSQL_TYPE_DATETIME) {
+  if (mysql_info->mysql_field_type == MYSQL_TYPE_DATETIME && !tch.read_only_in_ct) {
     cnvrt_datetime_decimal(cantian_ptr, DATETIME_MAX_DECIMALS, mysql_ptr, mysql_field->decimals(), mysql_field->pack_length());
     return;
   }
@@ -1192,6 +1193,28 @@ static void convert_datetime_to_mysql(const field_cnvrt_aux_t* mysql_info,
   cm_decode_date(date, &date_detail);
 
   switch (mysql_info->mysql_field_type) {
+    case MYSQL_TYPE_DATETIME: {
+      // Assigning Values for MYSQL_TIME
+      MYSQL_TIME ltime;
+      ltime.day = date_detail.day;
+      ltime.month = date_detail.mon;
+      ltime.year = date_detail.year;
+      ltime.second = date_detail.sec;
+      ltime.minute = date_detail.min;
+      ltime.hour = date_detail.hour;
+      ltime.second_part = 0;
+      ltime.neg = false;
+      ltime.time_zone_displacement = 0;
+      ltime.time_type = MYSQL_TIMESTAMP_DATETIME;
+
+      uchar data[8];
+      longlong ll = TIME_to_longlong_datetime_packed(ltime);
+      int dec = mysql_field->decimals();
+      my_datetime_packed_to_binary(ll, data, dec);
+
+      memcpy(mysql_ptr, data, mysql_field->pack_length());
+      break;
+    }
     case MYSQL_TYPE_YEAR:
       *(uint8_t *)mysql_ptr = date_detail.year == 0 ? (uint8_t)0 : (uint8_t)(date_detail.year - 1900);
       break;
@@ -1531,11 +1554,11 @@ void copy_column_data_to_mysql(field_info_t *field_info, const field_cnvrt_aux_t
       break;
     case DATETIME_DATA:
       convert_datetime_to_mysql(
-          mysql_info, field_info->mysql_cur_field, field_info->cantian_cur_field, field_info->field);
+          tch, mysql_info, field_info->mysql_cur_field, field_info->cantian_cur_field, field_info->field);
       break;
     case STRING_DATA: {
       lob_locator_t *locator = NULL;
-      if (!VARCHAR_AS_BLOB(field_info->field->row_pack_length())) {
+      if (!VARCHAR_AS_BLOB(field_info->field->row_pack_length()) || tch.read_only_in_ct) {
         src = field_info->cantian_cur_field;
         src_len = field_info->field_len;
       } else {
