@@ -132,6 +132,8 @@ again. */
 #define TSE_INTERNAL_TMP_TABLE 2
 #define TSE_TABLE_CONTAINS_VIRCOL 4
 
+#define CTC_ANALYZE_TIME_SEC 60
+
 
 /* cond pushdown */
 #define INVALID_MAX_COLUMN (uint16_t)0xFFFF
@@ -681,7 +683,7 @@ public:
   int records(ha_rows *num_rows) override;
   int records_from_index(ha_rows *num_rows, uint inx) override;
 
-  void set_tse_range_key(tse_range_key *tse_range_key, key_range *mysql_range_key, tse_cmp_type_t default_type);
+  void set_tse_range_key(tse_key *tse_key, key_range *mysql_range_key, bool is_min_key);
 
   /**
     @brief
