@@ -122,6 +122,8 @@
 #include "sql/sql_table.h"
 #include "sql/mysqld_thd_manager.h"
 #include "sql/sql_backup_lock.h"
+#include "ctc_meta_data.h"
+#include "sql/mysqld.h"
 
 //------------------------------------------------------------------------------//
 //                        SYSTEM VARIABLES //
@@ -2766,9 +2768,8 @@ EXTER_ATTACK int ha_tse::update_row(const uchar *old_data, uchar *new_data) {
   if (!flag.no_foreign_key_check) {
     flag.no_cascade_check = flag.dd_update ? true : pre_check_for_cascade(true);
   }
-  bool is_mysqld_starting = is_starting();
   ret = (ct_errno_t)tse_update_row(&m_tch, cantian_new_record_buf_size, tse_buf,
-                                   &upd_fields[0], upd_fields.size(), flag, &is_mysqld_starting);
+                                   &upd_fields[0], upd_fields.size(), flag);
   check_error_code_to_mysql(thd, &ret);
   // 如果m_tse_buf为空，说明tse_buf是动态申请的，在函数退出之前要释放掉
   if (m_tse_buf == nullptr) {
@@ -3981,27 +3982,6 @@ THR_LOCK_DATA **ha_tse::store_lock(THD *, THR_LOCK_DATA **to,
 
   return to;
 }
-
-int tse_query_cluster_role(bool *is_slave, bool *cantian_cluster_ready) {
-  void *shm_inst = get_one_shm_inst(NULL);
-  query_cluster_role_request *req = (query_cluster_role_request*) alloc_share_mem(shm_inst, sizeof(query_cluster_role_request));
-  DBUG_EXECUTE_IF("check_init_shm_oom", { req = NULL; });
-  if (req == NULL) {
-      tse_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, sizeof(query_cluster_role_request));
-      return ERR_ALLOC_MEMORY;
-  }
- 
-  int result = ERR_CONNECTION_FAILED;
-  int ret = tse_mq_deal_func(shm_inst, TSE_FUNC_QUERY_CLUSTER_ROLE, req, nullptr);
-  if (ret == CT_SUCCESS) {
-    result = req->result;
-    *is_slave = req->is_slave;
-    *cantian_cluster_ready = req->cluster_ready;
-  }
-  free_share_mem(shm_inst, req);
- 
-  return result;
-}
  
 int32_t tse_get_cluster_role() {
   if (cluster_role != (int32_t)dis_cluster_role::DEFAULT) {
@@ -4277,8 +4257,34 @@ int tse_set_cluster_role_by_cantian(bool is_slave) {
   // todo: add mutex for cluster_role
   if (is_slave) {
     cluster_role = (int32_t)dis_cluster_role::STANDBY;
+    if(is_starting() || is_initialize()) {
+      tse_log_system("[Disaster Recovecy] starting or initializing");
+      super_read_only = true;
+      read_only = true;
+      opt_readonly = true;
+      tse_log_system("[Disaster Recovery] set super_read_only = true.");
+    } else {
+      tse_ddl_broadcast_request local_req {{0}, {0}, {0}, {0}, 0, 0, 0, 0, {0}};
+      memcpy(local_req.user_name, "super_read_only", strlen("super_read_only"));
+      memcpy(local_req.user_ip, "on", strlen("on"));
+      ctc_set_sys_var(&local_req);
+      tse_log_system("[Disaster Recovery] ctc_set_sys_var: local_req->user_ip: %s", local_req.user_ip);
+    }
   } else {
     cluster_role = (int32_t)dis_cluster_role::PRIMARY;
+    if(is_starting() || is_initialize()) {
+      tse_log_system("[Disaster Recovecy] starting or initializing");
+      super_read_only = false;
+      read_only = false;
+      opt_readonly = false;
+      tse_log_system("[Disaster Recovery] set super_read_only = false.");
+    } else {
+      tse_ddl_broadcast_request local_req {{0}, {0}, {0}, {0}, 0, 0, 0, 0, {0}};
+      memcpy(local_req.user_name, "super_read_only", strlen("super_read_only"));
+      memcpy(local_req.user_ip, "off", strlen("off"));
+      ctc_set_sys_var(&local_req);
+      tse_log_system("[Disaster Recovery] ctc_set_sys_var: local_req->user_ip: %s", local_req.user_ip);
+    }
   }
   return 0;
 }
@@ -4559,6 +4565,7 @@ static typename std::enable_if<CHECK_HAS_MEMBER(T, get_inst_id)>::type set_hton_
   tse_hton->op_after_load_meta = tse_op_after_load_meta;
   tse_hton->drop_database = tse_drop_database_with_err;
   tse_hton->binlog_log_query = tse_binlog_log_query_with_err;
+  tse_hton->get_cluster_role = tse_get_cluster_role;
 }
 
 template <typename T>

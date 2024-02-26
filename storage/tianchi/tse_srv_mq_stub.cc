@@ -35,7 +35,7 @@
   } while (0)
 
 // 双进程模式在 tse_init 中已经提前获取 inst_id
-int tse_alloc_inst_id(uint32_t *inst_id) {
+int tse_alloc_inst_id(uint32_t *inst_id) { 
   *inst_id = ha_tse_get_inst_id();
   return tse_mq_register_func();
 }
@@ -189,7 +189,7 @@ int tse_bulk_write(tianchi_handler_t *tch, const record_info_t *record_info, uin
 }
 
 int tse_update_row(tianchi_handler_t *tch, uint16_t new_record_len, const uint8_t *new_record,
-                   const uint16_t *upd_cols, uint16_t col_num, dml_flag_t flag, bool *is_mysqld_starting) {
+                   const uint16_t *upd_cols, uint16_t col_num, dml_flag_t flag) {
   assert(new_record_len < BIG_RECORD_SIZE);
   assert(col_num <= TSE_MAX_COLUMNS);
   void *shm_inst = get_one_shm_inst(tch);
@@ -203,15 +203,7 @@ int tse_update_row(tianchi_handler_t *tch, uint16_t new_record_len, const uint8_
   req->col_num = col_num;
   req->new_record = const_cast<uint8_t *>(new_record);
   req->flag = flag;
-  req->is_mysqld_starting = *is_mysqld_starting;
-  /*
-    The MySQL would try to update tables in starting progress:
-    1. mysql.charset 2. mysql.resource_groups 
-    If the Cantian is in slave-cluster (read-only) this would obviously cause error.
-    So we should not allow the MySQL update tables in strating progress on a slave-cantian-cluster.
-    The newly added flag is to inform cantian, the mysqld is starting .
-    Cantian would return CT_SUCCESS when it is in slave-cluster and mysqld is starting,
-  */
+
   memcpy(req->upd_cols, upd_cols, sizeof(uint16_t) * col_num);
   int result = ERR_CONNECTION_FAILED;
   int ret = tse_mq_deal_func(shm_inst, TSE_FUNC_TYPE_UPDATE_ROW, req, tch->msg_buf);
@@ -522,7 +514,6 @@ int tse_index_read(tianchi_handler_t *tch, record_info_t *record_info, index_key
   req->cond = cond;
   req->is_replace = is_replace;
   req->result = 0;
-  req->is_mysqld_starting = is_starting();
 
   int result = ERR_CONNECTION_FAILED;
   int ret = tse_mq_deal_func(shm_inst, TSE_FUNC_TYPE_INDEX_READ, req, tch->msg_buf);
@@ -1464,5 +1455,27 @@ int ctc_record_sql_for_cantian(tianchi_handler_t *tch, tse_ddl_broadcast_request
     result = req->result;
   }
   free_share_mem(shm_inst, req);
+  return result;
+}
+
+int tse_query_cluster_role(bool *is_slave, bool *cantian_cluster_ready) {
+  void *shm_inst = get_one_shm_inst(NULL);
+  query_cluster_role_request *req = (query_cluster_role_request*) alloc_share_mem(shm_inst, sizeof(query_cluster_role_request));
+  DBUG_EXECUTE_IF("check_init_shm_oom", { req = NULL; });
+  if (req == NULL) {
+      tse_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, sizeof(query_cluster_role_request));
+      return ERR_ALLOC_MEMORY;
+  }
+ 
+  int result = ERR_CONNECTION_FAILED;
+  int ret = tse_mq_deal_func(shm_inst, TSE_FUNC_QUERY_CLUSTER_ROLE, req, nullptr);
+  if (ret == CT_SUCCESS) {
+      result = req->result;
+      *is_slave = req->is_slave;
+      *cantian_cluster_ready = req->cluster_ready;
+  }
+  free_share_mem(shm_inst, req);
+  tse_log_system("[Disaster Recovery] is_slave: %d", *is_slave);
+ 
   return result;
 }

@@ -143,6 +143,8 @@ again. */
     }
 
 #define IS_METADATA_NORMALIZATION() (tse_get_metadata_switch() == (int32_t)metadata_switchs::MATCH_META)
+#define IS_PRIMARY_ROLE() (tse_get_cluster_role() == (int32_t)dis_cluster_role::PRIMARY)
+#define IS_STANDBY_ROLE() (tse_get_cluster_role() == (int32_t)dis_cluster_role::STANDBY)
 
 static const uint ROW_ID_LENGTH = sizeof(uint64_t);
 static const uint TSE_START_TIMEOUT = 120; // seconds
