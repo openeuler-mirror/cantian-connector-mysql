@@ -103,6 +103,7 @@
 #include "sql/sql_insert.h"
 #include "sql/sql_plugin.h"
 #include "sql/sql_initialize.h"                // opt_initialize_insecure
+#include "sql/dd/upgrade/server.h"             // UPGRADE_FORCE
 #include "sql/abstract_query_plan.h"
 
 #include "tse_stats.h"
@@ -121,6 +122,8 @@
 #include "sql/sql_table.h"
 #include "sql/mysqld_thd_manager.h"
 #include "sql/sql_backup_lock.h"
+#include "ctc_meta_data.h"
+#include "sql/mysqld.h"
 
 //------------------------------------------------------------------------------//
 //                        SYSTEM VARIABLES //
@@ -203,6 +206,11 @@ static MYSQL_SYSVAR_UINT(autoinc_lock_mode, ctc_autoinc_lock_mode, PLUGIN_VAR_RQ
                          "The AUTOINC lock modes supported by CTC.", nullptr, nullptr, CTC_AUTOINC_NO_LOCKING,
                          CTC_AUTOINC_OLD_STYLE_LOCKING, CTC_AUTOINC_NO_LOCKING, 0);
 
+uint32_t ctc_update_analyze_time = CTC_ANALYZE_TIME_SEC;
+static MYSQL_SYSVAR_UINT(update_analyze_time, ctc_update_analyze_time, PLUGIN_VAR_RQCMDARG,
+                         "CBO updating time by CTC.", nullptr, nullptr, CTC_ANALYZE_TIME_SEC,
+                         0, UINT32_MAX, 0);
+
 // All global and session system variables must be published to mysqld before
 // use. This is done by constructing a NULL-terminated array of the variables
 // and linking to it in the plugin public interface.
@@ -222,6 +230,7 @@ static SYS_VAR *tse_system_variables[] = {
   MYSQL_SYSVAR(stats_enabled),
   MYSQL_SYSVAR(autoinc_lock_mode),
   MYSQL_SYSVAR(disaster_cluster_role),
+  MYSQL_SYSVAR(update_analyze_time),
   nullptr
 };
 
@@ -364,6 +373,12 @@ bool is_meta_version_initialize() {
   return false;
 }
 
+// 是否为--upgrade=FORCE
+bool is_meta_version_upgrading_force() {
+  bool is_meta_normalization = CHECK_HAS_MEMBER(handlerton, get_metadata_switch);
+  return is_meta_normalization && (opt_upgrade_mode == UPGRADE_FORCE);
+}
+
 bool is_alter_table_scan(bool m_error_if_not_empty) {
   return m_error_if_not_empty;
 }
@@ -380,7 +395,7 @@ bool engine_skip_ddl(MYSQL_THD thd) {
 
 bool engine_ddl_passthru(MYSQL_THD thd) {
   // 元数据归一初始化场景，接口流程需要走到参天
-  if (is_meta_version_initialize()) {
+  if (is_meta_version_initialize() || is_meta_version_upgrading_force()) {
     return false;
   }
   bool is_mysql_local = user_var_set(thd, "ctc_ddl_local_enabled");
@@ -2759,9 +2774,8 @@ EXTER_ATTACK int ha_tse::update_row(const uchar *old_data, uchar *new_data) {
   if (!flag.no_foreign_key_check) {
     flag.no_cascade_check = flag.dd_update ? true : pre_check_for_cascade(true);
   }
-  bool is_mysqld_starting = is_starting();
   ret = (ct_errno_t)tse_update_row(&m_tch, cantian_new_record_buf_size, tse_buf,
-                                   &upd_fields[0], upd_fields.size(), flag, &is_mysqld_starting);
+                                   &upd_fields[0], upd_fields.size(), flag);
   check_error_code_to_mysql(thd, &ret);
   // 如果m_tse_buf为空，说明tse_buf是动态申请的，在函数退出之前要释放掉
   if (m_tse_buf == nullptr) {
@@ -3205,7 +3219,7 @@ EXTER_ATTACK int ha_tse::rnd_pos(uchar *buf, uchar *pos) {
 
 void ha_tse::info_low() {
   if (m_share && m_share->cbo_stats != nullptr) {
-    stats.records = m_share->cbo_stats->estimate_rows;
+    stats.records = m_share->cbo_stats->tse_cbo_stats_table.estimate_rows;
   }
 }
 
@@ -3820,20 +3834,30 @@ enum_alter_inplace_result ha_tse::check_if_supported_inplace_alter(
   @brief
   Construct tse range key based on mysql range key
 */
-void ha_tse::set_tse_range_key(tse_range_key *tse_range_key, key_range *mysql_range_key, tse_cmp_type_t default_type) {
+void ha_tse::set_tse_range_key(tse_key *tse_key, key_range *mysql_range_key, bool is_min_key) {
   if (!mysql_range_key) {
-    tse_range_key->cmp_type = CMP_TYPE_UNKNOWN;
-    tse_range_key->len = 0;
+    tse_key->cmp_type = CMP_TYPE_NULL;
+    tse_key->len = 0;
+    tse_key->col_map = 0; 
     return;
   }
 
-  tse_range_key->col_map = mysql_range_key->keypart_map;
-  tse_range_key->key = (const char *)mysql_range_key->key;
-  tse_range_key->len = mysql_range_key->length;
-  if (mysql_range_key->flag == HA_READ_KEY_EXACT) {
-    tse_range_key->cmp_type = CMP_TYPE_EQUAL;
-  } else {
-    tse_range_key->cmp_type = default_type;
+  tse_key->col_map = mysql_range_key->keypart_map;
+  tse_key->key = mysql_range_key->key;
+  tse_key->len = mysql_range_key->length;
+  
+  switch(mysql_range_key->flag) {
+    case HA_READ_KEY_EXACT:
+      tse_key->cmp_type = CMP_TYPE_CLOSE_INTERNAL;
+      break;
+    case HA_READ_BEFORE_KEY:
+      tse_key->cmp_type = CMP_TYPE_OPEN_INTERNAL;
+      break;
+    case HA_READ_AFTER_KEY:
+      tse_key->cmp_type = is_min_key ? CMP_TYPE_OPEN_INTERNAL : CMP_TYPE_CLOSE_INTERNAL;
+      break;
+    default:
+      tse_key->cmp_type = CMP_TYPE_NULL;
   }
 }
 
@@ -3853,22 +3877,32 @@ void ha_tse::set_tse_range_key(tse_range_key *tse_range_key, key_range *mysql_ra
 ha_rows ha_tse::records_in_range(uint inx, key_range *min_key,
                                  key_range *max_key) {
   DBUG_TRACE;
-  tse_range_key tse_min_key;
-  tse_range_key tse_max_key;
-  set_tse_range_key(&tse_min_key, min_key, CMP_TYPE_GREAT);
-  set_tse_range_key(&tse_max_key, max_key, CMP_TYPE_LESS);
+  tse_key tse_min_key;
+  tse_key tse_max_key;
+  set_tse_range_key(&tse_min_key, min_key, true);
+  set_tse_range_key(&tse_max_key, max_key, false);
+  if (tse_max_key.len < tse_min_key.len) {
+    tse_max_key.cmp_type = CMP_TYPE_NULL;
+  } else if (tse_max_key.len > tse_min_key.len) {
+    tse_min_key.cmp_type = CMP_TYPE_NULL;
+  }
+  tse_range_key key = {&tse_min_key, &tse_max_key};
 
   uint64_t n_rows = 0;
-  part_info_t part_info = {0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF};
+  double density;
 
   if (m_share) {
-    double density = calc_density_one_table(inx, &tse_min_key, &tse_max_key, part_info, m_share->cbo_stats, *table);
+    if (!m_share->cbo_stats->is_updated) {
+        tse_log_debug("table %s has not been analyzed", table->alias);
+        density = DEFAULT_RANGE_DENSITY;
+    }
+    density = calc_density_one_table(inx, &key, m_share->cbo_stats->tse_cbo_stats_table, *table);
     /*
     * This is a safe-guard logic since we don't handle tse call error in this method,
     * we need this to make sure that our optimizer continue to work even when we
     * miscalculated the density, and it's still prefer index read
     */
-    n_rows += m_share->cbo_stats->estimate_rows * density;
+    n_rows += m_share->cbo_stats->tse_cbo_stats_table.estimate_rows * density;
   }
 
   /*
@@ -3973,27 +4007,6 @@ THR_LOCK_DATA **ha_tse::store_lock(THD *, THR_LOCK_DATA **to,
   }
 
   return to;
-}
-
-int tse_query_cluster_role(bool *is_slave, bool *cantian_cluster_ready) {
-  void *shm_inst = get_one_shm_inst(NULL);
-  query_cluster_role_request *req = (query_cluster_role_request*) alloc_share_mem(shm_inst, sizeof(query_cluster_role_request));
-  DBUG_EXECUTE_IF("check_init_shm_oom", { req = NULL; });
-  if (req == NULL) {
-      tse_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, sizeof(query_cluster_role_request));
-      return ERR_ALLOC_MEMORY;
-  }
- 
-  int result = ERR_CONNECTION_FAILED;
-  int ret = tse_mq_deal_func(shm_inst, TSE_FUNC_QUERY_CLUSTER_ROLE, req, nullptr);
-  if (ret == CT_SUCCESS) {
-    result = req->result;
-    *is_slave = req->is_slave;
-    *cantian_cluster_ready = req->cluster_ready;
-  }
-  free_share_mem(shm_inst, req);
- 
-  return result;
 }
  
 int32_t tse_get_cluster_role() {
@@ -4270,8 +4283,34 @@ int tse_set_cluster_role_by_cantian(bool is_slave) {
   // todo: add mutex for cluster_role
   if (is_slave) {
     cluster_role = (int32_t)dis_cluster_role::STANDBY;
+    if(is_starting() || is_initialize()) {
+      tse_log_system("[Disaster Recovecy] starting or initializing");
+      super_read_only = true;
+      read_only = true;
+      opt_readonly = true;
+      tse_log_system("[Disaster Recovery] set super_read_only = true.");
+    } else {
+      tse_ddl_broadcast_request local_req {{0}, {0}, {0}, {0}, 0, 0, 0, 0, {0}};
+      memcpy(local_req.user_name, "super_read_only", strlen("super_read_only"));
+      memcpy(local_req.user_ip, "on", strlen("on"));
+      ctc_set_sys_var(&local_req);
+      tse_log_system("[Disaster Recovery] ctc_set_sys_var: local_req->user_ip: %s", local_req.user_ip);
+    }
   } else {
     cluster_role = (int32_t)dis_cluster_role::PRIMARY;
+    if(is_starting() || is_initialize()) {
+      tse_log_system("[Disaster Recovecy] starting or initializing");
+      super_read_only = false;
+      read_only = false;
+      opt_readonly = false;
+      tse_log_system("[Disaster Recovery] set super_read_only = false.");
+    } else {
+      tse_ddl_broadcast_request local_req {{0}, {0}, {0}, {0}, 0, 0, 0, 0, {0}};
+      memcpy(local_req.user_name, "super_read_only", strlen("super_read_only"));
+      memcpy(local_req.user_ip, "off", strlen("off"));
+      ctc_set_sys_var(&local_req);
+      tse_log_system("[Disaster Recovery] ctc_set_sys_var: local_req->user_ip: %s", local_req.user_ip);
+    }
   }
   return 0;
 }
@@ -4552,6 +4591,7 @@ static typename std::enable_if<CHECK_HAS_MEMBER(T, get_inst_id)>::type set_hton_
   tse_hton->op_after_load_meta = tse_op_after_load_meta;
   tse_hton->drop_database = tse_drop_database_with_err;
   tse_hton->binlog_log_query = tse_binlog_log_query_with_err;
+  tse_hton->get_cluster_role = tse_get_cluster_role;
 }
 
 template <typename T>
@@ -5161,30 +5201,17 @@ int ha_tse::initialize_cbo_stats()
   if (!m_share || m_share->cbo_stats != nullptr) {
     return CT_SUCCESS;
   }
-  m_share->cbo_stats = (tianchi_cbo_stats_t*)tse_alloc_buf(&m_tch, sizeof(tianchi_cbo_stats_t));
+  m_share->cbo_stats = (tianchi_cbo_stats_t*)my_malloc(PSI_NOT_INSTRUMENTED, sizeof(tianchi_cbo_stats_t), MYF(MY_WME));
   if (m_share->cbo_stats == nullptr) {
     tse_log_error("alloc shm mem failed, m_share->cbo_stats size(%lu)", sizeof(tianchi_cbo_stats_t));
     return ERR_ALLOC_MEMORY;
   }
-  *m_share->cbo_stats = {0, 0, 0, 0, nullptr, nullptr, nullptr, 0, nullptr, nullptr, nullptr, 0, 0, 0, 0,{}};
-  m_share->cbo_stats->tse_cbo_stats_table.num_distincts =
-    (uint32_t *)tse_alloc_buf(&m_tch, table->s->fields * sizeof(uint32_t));
+  *m_share->cbo_stats = {0, 0, 0, 0, 0, 0, nullptr, nullptr};
 
-  m_share->cbo_stats->tse_cbo_stats_table.low_values =
-    (cache_variant_t *)tse_alloc_buf(&m_tch, table->s->fields * sizeof(cache_variant_t));
+  m_share->cbo_stats->tse_cbo_stats_table.columns =
+    (tse_cbo_stats_column_t*)my_malloc(PSI_NOT_INSTRUMENTED, table->s->fields * sizeof(tse_cbo_stats_column_t), MYF(MY_WME));
 
-  m_share->cbo_stats->tse_cbo_stats_table.high_values =
-    (cache_variant_t *)tse_alloc_buf(&m_tch, table->s->fields * sizeof(cache_variant_t));
-  
-  if (m_share->cbo_stats->tse_cbo_stats_table.num_distincts == nullptr
-      || m_share->cbo_stats->tse_cbo_stats_table.low_values == nullptr
-      || m_share->cbo_stats->tse_cbo_stats_table.high_values == nullptr) {
-    tse_log_error("alloc shm mem error, size(%lu)",
-                table->s->fields * sizeof(uint32_t) + 2 * table->s->fields * sizeof(cache_variant_t));
-    free_cbo_stats();
-    return ERR_ALLOC_MEMORY;
-  }
-  
+  m_share->cbo_stats->msg_len = table->s->fields * sizeof(tse_cbo_stats_column_t);
   return CT_SUCCESS;
 }
 
@@ -5193,7 +5220,7 @@ int ha_tse::get_cbo_stats_4share()
   THD *thd = ha_thd();
   int ret = CT_SUCCESS;
   time_t now = time(nullptr);
-  if (m_share && (m_share->need_fetch_cbo || now - m_share->get_cbo_time > 60)) {
+  if (m_share && (m_share->need_fetch_cbo || now - m_share->get_cbo_time > ctc_update_analyze_time)) {
     if (m_tch.ctx_addr == INVALID_VALUE64) {
       char user_name[SMALL_RECORD_SIZE];
       tse_split_normalized_name(table->s->normalized_path.str, user_name, SMALL_RECORD_SIZE, nullptr, 0, nullptr);
@@ -5223,22 +5250,9 @@ void ha_tse::free_cbo_stats()
     return;
   }
 
-  if (m_share->cbo_stats->tse_cbo_stats_table.num_distincts != nullptr) {
-    tse_free_buf(&m_tch, (uchar *) m_share->cbo_stats->tse_cbo_stats_table.num_distincts);
-    m_share->cbo_stats->tse_cbo_stats_table.num_distincts = nullptr;
-  }
-
-  if (m_share->cbo_stats->tse_cbo_stats_table.low_values != nullptr) {
-    tse_free_buf(&m_tch, (uchar *) m_share->cbo_stats->tse_cbo_stats_table.low_values);
-    m_share->cbo_stats->tse_cbo_stats_table.low_values = nullptr;
-  }
-
-  if (m_share->cbo_stats->tse_cbo_stats_table.high_values != nullptr) {
-    tse_free_buf(&m_tch, (uchar *) m_share->cbo_stats->tse_cbo_stats_table.high_values);
-    m_share->cbo_stats->tse_cbo_stats_table.high_values = nullptr;
-  }
-
-  tse_free_buf(&m_tch, (uchar *) m_share->cbo_stats);
+  my_free((m_share->cbo_stats->tse_cbo_stats_table.columns));
+  m_share->cbo_stats->tse_cbo_stats_table.columns = nullptr;
+  my_free((uchar *)(m_share->cbo_stats));
   m_share->cbo_stats = nullptr;
 
 }

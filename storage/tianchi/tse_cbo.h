@@ -23,21 +23,45 @@
 #include "sql/dd/types/table.h"
 #include "srv_mq_msg.h"
 
+#define REAL_EPSINON 0.00001
+
+typedef enum en_tse_compare_type {
+    GREAT = 0,
+    EQUAL,
+    LESS,
+    UNCOMPARABLE
+} compare_type;
+
+typedef enum en_tse_query_type {
+    QUERY_TYPE_NULL = 0,
+    QUERY_TYPE_NOT_NULL,
+    QUERY_TYPE_EQUAL
+} query_type;
 
 typedef enum en_tse_cmp_type {
-    CMP_TYPE_UNKNOWN = 0,
-    CMP_TYPE_EQUAL,
-    CMP_TYPE_GREAT,
-    CMP_TYPE_LESS
+    CMP_TYPE_NULL = 0,
+    CMP_TYPE_OPEN_INTERNAL,
+    CMP_TYPE_CLOSE_INTERNAL
 } tse_cmp_type_t;
- 
-/* range key type */
+
 typedef struct {
-    const char *key;
+    const uchar *key;
     uint len;
     tse_cmp_type_t cmp_type;
     uint64_t col_map;
+} tse_key;
+
+typedef struct {
+    tse_key *min_key;
+    tse_key *max_key;
 } tse_range_key;
+
+typedef struct {
+    tse_cmp_type_t min_type;
+    tse_cmp_type_t max_type;
+    cache_variant_t *max_key_val;
+    cache_variant_t *min_key_val;
+} field_stats_val;
 
 typedef struct {
     uint32_t part_id;
@@ -46,7 +70,7 @@ typedef struct {
     uint32_t subpart_num;
 } part_info_t;
 
-double calc_density_one_table(uint16_t idx_id, tse_range_key *min_key, tse_range_key *max_key, 
-                              part_info_t part_info, tianchi_cbo_stats_t *cbo_stats, const TABLE &table);
+double calc_density_one_table(uint16_t idx_id, tse_range_key *key,
+                              tse_cbo_stats_table_t cbo_stats, const TABLE &table);
 
 #endif

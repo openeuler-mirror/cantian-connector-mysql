@@ -35,7 +35,7 @@
   } while (0)
 
 // 双进程模式在 tse_init 中已经提前获取 inst_id
-int tse_alloc_inst_id(uint32_t *inst_id) {
+int tse_alloc_inst_id(uint32_t *inst_id) { 
   *inst_id = ha_tse_get_inst_id();
   return tse_mq_register_func();
 }
@@ -189,7 +189,7 @@ int tse_bulk_write(tianchi_handler_t *tch, const record_info_t *record_info, uin
 }
 
 int tse_update_row(tianchi_handler_t *tch, uint16_t new_record_len, const uint8_t *new_record,
-                   const uint16_t *upd_cols, uint16_t col_num, dml_flag_t flag, bool *is_mysqld_starting) {
+                   const uint16_t *upd_cols, uint16_t col_num, dml_flag_t flag) {
   assert(new_record_len < BIG_RECORD_SIZE);
   assert(col_num <= TSE_MAX_COLUMNS);
   void *shm_inst = get_one_shm_inst(tch);
@@ -203,15 +203,6 @@ int tse_update_row(tianchi_handler_t *tch, uint16_t new_record_len, const uint8_
   req->col_num = col_num;
   req->new_record = const_cast<uint8_t *>(new_record);
   req->flag = flag;
-  req->is_mysqld_starting = *is_mysqld_starting;
-  /*
-    The MySQL would try to update tables in starting progress:
-    1. mysql.charset 2. mysql.resource_groups 
-    If the Cantian is in slave-cluster (read-only) this would obviously cause error.
-    So we should not allow the MySQL update tables in strating progress on a slave-cantian-cluster.
-    The newly added flag is to inform cantian, the mysqld is starting .
-    Cantian would return CT_SUCCESS when it is in slave-cluster and mysqld is starting,
-  */
   memcpy(req->upd_cols, upd_cols, sizeof(uint16_t) * col_num);
   int result = ERR_CONNECTION_FAILED;
   int ret = tse_mq_deal_func(shm_inst, TSE_FUNC_TYPE_UPDATE_ROW, req, tch->msg_buf);
@@ -522,7 +513,6 @@ int tse_index_read(tianchi_handler_t *tch, record_info_t *record_info, index_key
   req->cond = cond;
   req->is_replace = is_replace;
   req->result = 0;
-  req->is_mysqld_starting = is_starting();
 
   int result = ERR_CONNECTION_FAILED;
   int ret = tse_mq_deal_func(shm_inst, TSE_FUNC_TYPE_INDEX_READ, req, tch->msg_buf);
@@ -749,64 +739,65 @@ int tse_analyze_table(tianchi_handler_t *tch, const char *db_name, const char *t
   return result;
 }
 
-int tse_get_huge_part_table_cbo_stats(tianchi_handler_t *tch, tianchi_cbo_stats_t *stats) {
-  void *shm_inst = get_one_shm_inst(tch);
-  uint32_t request_size = sizeof(get_cbo_stats_request) + sizeof(tianchi_cbo_stats_t)
-                          + stats->part_table_info.rows_and_blocks_size;
-  uint32_t req_size = request_size + stats->part_table_info.high_value_size
-                      + stats->part_table_info.num_distinct_size
-                      + stats->part_table_info.low_value_size;
-  uint8_t *req_buf = new uint8_t[req_size];
-  get_cbo_stats_request *req = (get_cbo_stats_request *)req_buf;
-  req->tch = *tch;
-  memcpy(req_buf + sizeof(get_cbo_stats_request), stats,
-    sizeof(tianchi_cbo_stats_t) + stats->part_table_info.rows_and_blocks_size);
-  uint8_t *stats_offset = req_buf + sizeof(get_cbo_stats_request);
-  req->stats = (tianchi_cbo_stats_t *)stats_offset;
-
-  int result = ERR_CONNECTION_FAILED;
-  int ret = tse_mq_batch_send_message(shm_inst, TSE_FUNC_TYPE_GET_HUGE_PART_TABLE_CBO_STATS, req_buf,
-                                      request_size, req_size);
-  if (ret != CT_SUCCESS) {
-    result = ret;
-    tse_log_error("tse_mq_batch_send_message failed in get_huge_part_table_cbo_stats: %d", ret);
-  } else if (req->result == CT_SUCCESS) {
-    // 此时req指向的参天区域，需要将其指向mysql数据区
-    req->stats = (tianchi_cbo_stats_t *)stats_offset;
-    req->stats->tse_cbo_stats_table.part_table_num_distincts = stats->tse_cbo_stats_table.part_table_num_distincts;
-    req->stats->tse_cbo_stats_table.part_table_low_values = stats->tse_cbo_stats_table.part_table_low_values;
-    req->stats->tse_cbo_stats_table.part_table_high_values = stats->tse_cbo_stats_table.part_table_high_values;
-
-    *tch = req->tch;
-    memcpy(stats, req_buf + sizeof(get_cbo_stats_request), req_size - sizeof(get_cbo_stats_request));
-    result = req->result;
-  }
-  delete[] req_buf;
-  return result;
-}
-
 int tse_get_cbo_stats(tianchi_handler_t *tch, tianchi_cbo_stats_t *stats) {
-  if (stats->part_table_info.low_value_size > MAX_MESSAGE_SIZE) {
-    return tse_get_huge_part_table_cbo_stats(tch, stats);
-  }
   void *shm_inst = get_one_shm_inst(tch);
   get_cbo_stats_request *req = (get_cbo_stats_request*)alloc_share_mem(shm_inst, sizeof(get_cbo_stats_request));
+
   if (req == NULL) {
     tse_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, sizeof(get_cbo_stats_request));
     return ERR_ALLOC_MEMORY;
   }
-  req->tch = *tch;
-  req->stats = stats;
 
+  req->stats = (tianchi_cbo_stats_t *)alloc_share_mem(shm_inst, sizeof(tianchi_cbo_stats_t));
+  if (req->stats == NULL) {
+    tse_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, sizeof(get_cbo_stats_request));
+    return ERR_ALLOC_MEMORY;
+  }
+
+  bool is_part_table = stats->tse_cbo_stats_part_table != nullptr ? true : false;
+  req->stats->msg_len = stats->msg_len;
+  if (!is_part_table) {
+    req->stats->tse_cbo_stats_table.columns = (tse_cbo_stats_column_t*)alloc_share_mem(shm_inst, req->stats->msg_len);
+  } else {
+    req->stats->first_partid = stats->first_partid;
+    req->stats->num_part_fetch = stats->num_part_fetch;
+    req->stats->tse_cbo_stats_part_table = 
+        (tse_cbo_stats_table_t*)alloc_share_mem(shm_inst, stats->num_part_fetch * sizeof(tse_cbo_stats_table_t));  
+    for (uint i = 0; i < stats->num_part_fetch; i++) {
+        req->stats->tse_cbo_stats_part_table[i].columns =
+            (tse_cbo_stats_column_t*)alloc_share_mem(shm_inst, stats->msg_len);
+    }
+  }
+
+  req->tch = *tch;
   int result = ERR_CONNECTION_FAILED;
   int ret = tse_mq_deal_func(shm_inst, TSE_FUNC_TYPE_GET_CBO_STATS, req, tch->msg_buf);
   if (ret == CT_SUCCESS) {
     if (req->result == CT_SUCCESS) {
-      *tch = req->tch;
-      stats = req->stats;
+        if (!is_part_table) {
+            *tch = req->tch;
+            memcpy(stats->tse_cbo_stats_table.columns, req->stats->tse_cbo_stats_table.columns, stats->msg_len);
+            stats->is_updated = req->stats->is_updated;
+            stats->tse_cbo_stats_table.estimate_rows = req->stats->tse_cbo_stats_table.estimate_rows;
+        } else {
+          stats->is_updated = req->stats->is_updated;
+          for (uint i = 0; i < stats->num_part_fetch; i++) {
+            stats->tse_cbo_stats_part_table[i+stats->first_partid].estimate_rows = req->stats->tse_cbo_stats_part_table[i].estimate_rows;
+            memcpy(stats->tse_cbo_stats_part_table[i+stats->first_partid].columns, req->stats->tse_cbo_stats_part_table[i].columns, stats->msg_len);
+          }
+        }
     }
     result = req->result;
   }
+  if (!is_part_table) {
+    free_share_mem(shm_inst, req->stats->tse_cbo_stats_table.columns);
+  } else {
+    for (uint i = 0; i < stats->num_part_fetch; i++) {
+      free_share_mem(shm_inst, req->stats->tse_cbo_stats_part_table[i].columns);
+    }
+    free_share_mem(shm_inst, req->stats->tse_cbo_stats_part_table);
+  }
+  free_share_mem(shm_inst, req->stats);
   free_share_mem(shm_inst, req);
   return result;
 }
@@ -1464,5 +1455,26 @@ int ctc_record_sql_for_cantian(tianchi_handler_t *tch, tse_ddl_broadcast_request
     result = req->result;
   }
   free_share_mem(shm_inst, req);
+  return result;
+}
+
+int tse_query_cluster_role(bool *is_slave, bool *cantian_cluster_ready) {
+  void *shm_inst = get_one_shm_inst(NULL);
+  query_cluster_role_request *req = (query_cluster_role_request*) alloc_share_mem(shm_inst, sizeof(query_cluster_role_request));
+  DBUG_EXECUTE_IF("check_init_shm_oom", { req = NULL; });
+  if (req == NULL) {
+      tse_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, sizeof(query_cluster_role_request));
+      return ERR_ALLOC_MEMORY;
+  }
+
+  int result = ERR_CONNECTION_FAILED;
+  int ret = tse_mq_deal_func(shm_inst, TSE_FUNC_QUERY_CLUSTER_ROLE, req, nullptr);
+  if (ret == CT_SUCCESS) {
+    result = req->result;
+    *is_slave = req->is_slave;
+    *cantian_cluster_ready = req->cluster_ready;
+  }
+  free_share_mem(shm_inst, req);
+
   return result;
 }

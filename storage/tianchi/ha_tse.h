@@ -132,6 +132,8 @@ again. */
 #define TSE_INTERNAL_TMP_TABLE 2
 #define TSE_TABLE_CONTAINS_VIRCOL 4
 
+#define CTC_ANALYZE_TIME_SEC 60
+
 
 /* cond pushdown */
 #define INVALID_MAX_COLUMN (uint16_t)0xFFFF
@@ -143,6 +145,8 @@ again. */
     }
 
 #define IS_METADATA_NORMALIZATION() (tse_get_metadata_switch() == (int32_t)metadata_switchs::MATCH_META)
+#define IS_PRIMARY_ROLE() (tse_get_cluster_role() == (int32_t)dis_cluster_role::PRIMARY)
+#define IS_STANDBY_ROLE() (tse_get_cluster_role() == (int32_t)dis_cluster_role::STANDBY)
 
 static const uint ROW_ID_LENGTH = sizeof(uint64_t);
 static const uint TSE_START_TIMEOUT = 120; // seconds
@@ -679,7 +683,7 @@ public:
   int records(ha_rows *num_rows) override;
   int records_from_index(ha_rows *num_rows, uint inx) override;
 
-  void set_tse_range_key(tse_range_key *tse_range_key, key_range *mysql_range_key, tse_cmp_type_t default_type);
+  void set_tse_range_key(tse_key *tse_key, key_range *mysql_range_key, bool is_min_key);
 
   /**
     @brief
