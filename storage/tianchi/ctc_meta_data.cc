@@ -123,26 +123,7 @@ static void release_tse_mdl_thd_by_key(uint64_t mdl_thd_key) {
   g_tse_mdl_thd_map.erase(mdl_thd_key);
 }
 
-static void ctc_reload_acl_caches() {
-  THD *reload_acl_thd = new (std::nothrow) THD;
-  my_thread_init();
-  reload_acl_thd->set_new_thread_id();
-  reload_acl_thd->thread_stack = (char *)&reload_acl_thd;
-  reload_acl_thd->store_globals();
-  reload_acl_thd->set_query("tse_mdl_thd_notify", 18);
-
-  reload_acl_caches(reload_acl_thd, false);
-  tse_log_system("[TSE_RELOAD_ACL]:reload acl caches thd_id:%u", reload_acl_thd->thread_id());
-
-  reload_acl_thd->release_resources();
-  delete reload_acl_thd;
-
-  my_thread_end();
-}
-
 static void release_tse_mdl_thd_by_cantian_id(uint16_t cantian_inst_id) {
-  ctc_reload_acl_caches();
-
   lock_guard<mutex> lock(m_tse_mdl_thd_mutex);
   for (auto iter = g_tse_mdl_thd_map.begin(); iter != g_tse_mdl_thd_map.end(); ) {
     if (tse_get_cantian_id_from_conn_key(iter->first) == cantian_inst_id) {
