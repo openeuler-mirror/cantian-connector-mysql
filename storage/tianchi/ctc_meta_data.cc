@@ -123,26 +123,7 @@ static void release_tse_mdl_thd_by_key(uint64_t mdl_thd_key) {
   g_tse_mdl_thd_map.erase(mdl_thd_key);
 }
 
-static void ctc_reload_acl_caches() {
-  THD *reload_acl_thd = new (std::nothrow) THD;
-  my_thread_init();
-  reload_acl_thd->set_new_thread_id();
-  reload_acl_thd->thread_stack = (char *)&reload_acl_thd;
-  reload_acl_thd->store_globals();
-  reload_acl_thd->set_query("tse_mdl_thd_notify", 18);
-
-  reload_acl_caches(reload_acl_thd, false);
-  tse_log_system("[TSE_RELOAD_ACL]:reload acl caches thd_id:%u", reload_acl_thd->thread_id());
-
-  reload_acl_thd->release_resources();
-  delete reload_acl_thd;
-
-  my_thread_end();
-}
-
 static void release_tse_mdl_thd_by_cantian_id(uint16_t cantian_inst_id) {
-  ctc_reload_acl_caches();
-
   lock_guard<mutex> lock(m_tse_mdl_thd_mutex);
   for (auto iter = g_tse_mdl_thd_map.begin(); iter != g_tse_mdl_thd_map.end(); ) {
     if (tse_get_cantian_id_from_conn_key(iter->first) == cantian_inst_id) {
@@ -176,8 +157,7 @@ static void release_tse_mdl_thd_by_inst_id(uint32_t mysql_inst_id) {
 
 static void ctc_init_thd(THD **thd, uint64_t thd_key) {
   lock_guard<mutex> lock(m_tse_mdl_thd_mutex);
-  uint64_t bypass_key = tse_get_conn_key((uint32)0xFFFFFFFF - 1, (uint32)0xFFFFFFFF - 1, true);
-  if (g_tse_mdl_thd_map.find(thd_key) != g_tse_mdl_thd_map.end() && thd_key != bypass_key) {
+  if (g_tse_mdl_thd_map.find(thd_key) != g_tse_mdl_thd_map.end()) {
     (*thd) = g_tse_mdl_thd_map[thd_key];
     my_thread_init();
     (*thd)->store_globals();
@@ -401,27 +381,6 @@ typename std::enable_if<!CHECK_HAS_MEMBER_FUNC(T, invalidates), bool>::type
   return false;
 }
 
-int tse_update_mysql_dd_cache(char *sql_str) {
-  // 判断一下是不是slave—cluster，并且是归一。
-  if ((!IS_METADATA_NORMALIZATION())) {
-    tse_log_error("Do not try to invalidate all local dd cache in metadata_normalization mode or primary_cluster.");
-    return -1;
-  }
-  // 获取一个thd
-  THD *thd = nullptr;
-  uint64_t thd_key = tse_get_conn_key((uint32)0xFFFFFFFF - 1, (uint32)0xFFFFFFFF - 1, true);
-  ctc_init_thd(&thd, thd_key);
-
-  //清空dcl的cache
-  reload_acl_caches(thd, false);
-
-  // 拿到Client dd cache, 清空
-  // 拿到Shared dd cache，清空
-  int ret = dd::execute_query(thd, dd::String_type((const char*)sql_str));
-  tse_log_system("Tse update mysql dd cache, the sql: %s, ret:%d", sql_str, ret);
-  return false;
-}
-
 template <typename T>
 static typename std::enable_if<CHECK_HAS_MEMBER_FUNC(T, invalidates), int>::type
   tse_invalidate_mysql_dd_cache_impl(tianchi_handler_t *tch, tse_invalidate_broadcast_request *broadcast_req, int *err_code) {
@@ -497,20 +456,6 @@ static typename std::enable_if<!CHECK_HAS_MEMBER_FUNC(T, invalidates), int>::typ
   tse_invalidate_mysql_dd_cache_impl(tianchi_handler_t *tch MY_ATTRIBUTE((unused)),
                                      tse_invalidate_broadcast_request *broadcast_req MY_ATTRIBUTE((unused)),
                                      int *err_code MY_ATTRIBUTE((unused))) {
-  return 0;
-}
-
-int tse_invalidate_all_dd_cache() {
-  THD *thd = nullptr;
-  uint64_t thd_key = tse_get_conn_key((uint32)0xFFFFFFFF - 1, (uint32)0xFFFFFFFF - 1, true);
-  ctc_init_thd(&thd, thd_key);
-
-#ifdef METADATA_NORMALIZED
-  dd::cache::Shared_dictionary_cache::instance()->reset(true);
-  int not_used;
-  handle_reload_request(thd, (REFRESH_TABLES | REFRESH_FAST | REFRESH_THREADS), nullptr, &not_used);
-  tse_log_system("[zzh debug] handle_reload_request finished.");
-#endif
   return 0;
 }
 
