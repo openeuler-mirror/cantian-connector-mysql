@@ -36,7 +36,6 @@ static unordered_set<string> mysql_system_db{"information_schema", "mysql", "per
 
 #define TSE_GET_THD_DB_NAME(thd) (thd->db().str == NULL) ? nullptr : const_cast<char *>(thd->db().str)
 
-bool tse_command_type_read(enum_sql_command cmd);
 void tse_split_normalized_name(const char *file_name, char db[], size_t db_buf_len,
                                char name[], size_t name_buf_len, bool *is_tmp_table);
 void tse_copy_name(char to_name[], const char from_name[], size_t to_buf_len);

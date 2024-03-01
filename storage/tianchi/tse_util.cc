@@ -708,33 +708,3 @@ int tse_check_unlock_instance(MYSQL_THD thd) {
   tse_log_system("[TSE_UNLOCK_INSTANCE]: SUCCESS. tse_inst:%u, conn_id:%u", tch.inst_id, tch.thd_id);
   return 0;
 }
-
-bool tse_command_type_read(enum_sql_command cmd) {
-  switch (cmd) {
-    case SQLCOM_SELECT:
-    case SQLCOM_CHECK:
-    case SQLCOM_SHOW_DATABASES:
-    case SQLCOM_SHOW_TABLES:
-    case SQLCOM_SHOW_FIELDS:
-    case SQLCOM_SHOW_KEYS:
-    case SQLCOM_SHOW_VARIABLES:
-    case SQLCOM_SHOW_STATUS:
-    case SQLCOM_SHOW_CREATE:
-    case SQLCOM_SHOW_CHARSETS:
-    case SQLCOM_SHOW_COLLATIONS:
-    case SQLCOM_SHOW_CREATE_DB:
-    case SQLCOM_SHOW_TABLE_STATUS:
-    case SQLCOM_SHOW_TRIGGERS:
-    case SQLCOM_SHOW_CREATE_PROC:
-    case SQLCOM_SHOW_CREATE_FUNC:
-    case SQLCOM_SHOW_STATUS_PROC:
-    case SQLCOM_SHOW_STATUS_FUNC:
-    case SQLCOM_SHOW_CREATE_EVENT:
-    case SQLCOM_SHOW_EVENTS:
-    case SQLCOM_SHOW_CREATE_TRIGGER:
-    case SQLCOM_SHOW_CREATE_USER:
-      return CT_TRUE;
-    default:
-      return CT_FALSE;
-  }
-}

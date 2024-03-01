@@ -70,7 +70,7 @@ int tse_open_table(tianchi_handler_t *tch, const char *table_name, const char *u
   return result;
 }
 
-int tse_close_session(tianchi_handler_t *tch, uint64_t *cursors, int32_t csize) {
+int tse_close_session(tianchi_handler_t *tch) {
   tse_log_note("close session");
   void *shm_inst = get_one_shm_inst(tch);
   close_session_request *req = (close_session_request*)alloc_share_mem(shm_inst, sizeof(close_session_request));
@@ -79,8 +79,7 @@ int tse_close_session(tianchi_handler_t *tch, uint64_t *cursors, int32_t csize) 
     return ERR_ALLOC_MEMORY;
   }
   req->tch = *tch;
-  req->csize = csize;
-  req->cursors = cursors;
+
   int result = ERR_CONNECTION_FAILED;
   int ret = tse_mq_deal_func(shm_inst, TSE_FUNC_TYPE_CLOSE_SESSION, req, tch->msg_buf);
   *tch = req->tch;
