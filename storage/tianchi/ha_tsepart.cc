@@ -1031,12 +1031,8 @@ void ha_tsepart::free_cbo_stats() {
       return;
   }
 
-  uint32_t part_num = m_is_sub_partitioned ? table->part_info->num_parts * table->part_info->num_subparts : 
-                      table->part_info->num_parts;
-    for (uint i = 0; i < part_num; i++) {
-    my_free(m_part_share->cbo_stats->tse_cbo_stats_part_table[i].columns);
-    m_part_share->cbo_stats->tse_cbo_stats_part_table[i].columns = nullptr;
-  }
+  my_free(m_part_share->cbo_stats->tse_cbo_stats_part_table[0].columns);
+  m_part_share->cbo_stats->tse_cbo_stats_part_table[0].columns = nullptr;
   my_free(m_part_share->cbo_stats->tse_cbo_stats_part_table);
   m_part_share->cbo_stats->tse_cbo_stats_part_table = nullptr;
   my_free(m_part_share->cbo_stats);
