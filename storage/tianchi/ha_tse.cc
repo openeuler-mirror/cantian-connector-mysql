@@ -5272,7 +5272,6 @@ void ha_tse::free_cbo_stats()
           sum of boolean terms which could not be pushed. A nullptr
           is returned if entire condition was supported.
 */
-
 const Item *ha_tse::cond_push(const Item *cond, bool other_tbls_ok MY_ATTRIBUTE((unused)))
 {
   assert(pushed_cond == nullptr);
