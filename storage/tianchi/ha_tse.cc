@@ -1621,7 +1621,7 @@ static int tse_commit(handlerton *hton, THD *thd, bool commit_trx) {
   thd_sess_ctx_s *sess_ctx = (thd_sess_ctx_s *)thd_get_ha_data(thd, hton);
   assert(sess_ctx != nullptr);
 
-  if (will_commit && (sess_ctx->is_tse_trx_begin || is_ddl_sql_cmd(thd->lex->sql_command))) {
+  if (will_commit) {
     commit_preprocess(thd, &tch);
     attachable_trx_update_pre_addr(tse_hton, thd, &tch, true);
 
@@ -1691,7 +1691,7 @@ static int tse_rollback(handlerton *hton, THD *thd, bool rollback_trx) {
   thd_sess_ctx_s *sess_ctx = (thd_sess_ctx_s *)thd_get_ha_data(thd, hton);
   assert(sess_ctx != nullptr);
 
-  if (will_rollback && (sess_ctx->is_tse_trx_begin || is_ddl_sql_cmd(thd->lex->sql_command))) {
+  if (will_rollback) {
     int32_t total_csize = sess_ctx->cursors_map->size();
     if (sess_ctx->invalid_cursors != nullptr) {
       total_csize += sess_ctx->invalid_cursors->size();
@@ -1748,16 +1748,7 @@ static int tse_close_connect(handlerton *hton, THD *thd) {
   local_tch.thd_id = tch.thd_id;
   local_tch.is_broadcast = tch.is_broadcast;
 
-  assert(sess_ctx != nullptr);
-  int32 total_csize = sess_ctx->cursors_map->size();
-  if (sess_ctx->invalid_cursors != nullptr) {
-    total_csize += sess_ctx->invalid_cursors->size();
-  }
-  uint64_t *cursors = (uint64_t *)tse_alloc_buf(&tch, sizeof(uint64_t) * total_csize);
-  assert((total_csize == 0) ^ (cursors != nullptr));
-  ctc_copy_cursors_to_free(sess_ctx, cursors, 0);
-  int ret = tse_close_session(&local_tch, cursors, total_csize);
-  tse_free_buf(&tch, (uint8_t *)cursors);
+  int ret = tse_close_session(&local_tch);
   release_sess_ctx(sess_ctx, hton, thd);
   return convert_tse_error_code_to_mysql((ct_errno_t)ret);
 }
@@ -4125,21 +4116,25 @@ int ha_tse::start_stmt(THD *thd, thr_lock_type) {
     return 0;
   }
 
+  uint32_t lock_wait_timeout = THDVAR(thd, lock_wait_timeout);
   uint32_t autocommit = !thd->in_multi_stmt_transaction_mode();
-  if (!(m_select_lock != lock_mode::EXCLUSIVE_LOCK && tse_command_type_read(thd->query_plan.get_command()))) {
-    uint32_t lock_wait_timeout = THDVAR(thd, lock_wait_timeout);
-    int isolation_level = isolation_level_to_cantian(thd_get_trx_isolation(thd));
-    tianchi_trx_context_t trx_context = {isolation_level, autocommit, lock_wait_timeout, m_select_lock == lock_mode::EXCLUSIVE_LOCK};
-    bool is_mysql_local = user_var_set(thd, "ctc_ddl_local_enabled");
-    ct_errno_t ret = (ct_errno_t)tse_trx_begin(&m_tch, trx_context, is_mysql_local);
-    check_error_code_to_mysql(ha_thd(), &ret);
-    update_sess_ctx_by_tch(m_tch, tse_hton, thd);
-    if (ret != CT_SUCCESS) {
-      tse_log_error("start trx failed with error code: %d", ret);
-      return convert_tse_error_code_to_mysql(ret);
-    }
-    sess_ctx->is_tse_trx_begin = 1;
+  int isolation_level = isolation_level_to_cantian(thd_get_trx_isolation(thd));
+  
+  tianchi_trx_context_t trx_context = {isolation_level, autocommit, lock_wait_timeout, m_select_lock == lock_mode::EXCLUSIVE_LOCK};
+  
+  bool is_mysql_local = user_var_set(thd, "ctc_ddl_local_enabled");
+  ct_errno_t ret = (ct_errno_t)tse_trx_begin(&m_tch, trx_context, is_mysql_local);
+  
+  check_error_code_to_mysql(ha_thd(), &ret);
+
+  update_sess_ctx_by_tch(m_tch, tse_hton, thd);
+  
+  if (ret != CT_SUCCESS) {
+    tse_log_error("start trx failed with error code: %d", ret);
+    return convert_tse_error_code_to_mysql(ret);
   }
+  
+  sess_ctx->is_tse_trx_begin = 1;
   if (!autocommit) {
     trans_register_ha(thd, true, ht, nullptr);
   }
