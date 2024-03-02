@@ -70,7 +70,7 @@ int tse_open_table(tianchi_handler_t *tch, const char *table_name, const char *u
   return result;
 }
 
-int tse_close_session(tianchi_handler_t *tch, uint64_t *cursors, int32_t csize) {
+int tse_close_session(tianchi_handler_t *tch) {
   tse_log_note("close session");
   void *shm_inst = get_one_shm_inst(tch);
   close_session_request *req = (close_session_request*)alloc_share_mem(shm_inst, sizeof(close_session_request));
@@ -79,8 +79,7 @@ int tse_close_session(tianchi_handler_t *tch, uint64_t *cursors, int32_t csize) 
     return ERR_ALLOC_MEMORY;
   }
   req->tch = *tch;
-  req->csize = csize;
-  req->cursors = cursors;
+
   int result = ERR_CONNECTION_FAILED;
   int ret = tse_mq_deal_func(shm_inst, TSE_FUNC_TYPE_CLOSE_SESSION, req, tch->msg_buf);
   *tch = req->tch;
@@ -741,38 +740,62 @@ int tse_analyze_table(tianchi_handler_t *tch, const char *db_name, const char *t
 }
 
 int tse_get_cbo_stats(tianchi_handler_t *tch, tianchi_cbo_stats_t *stats) {
-  void *shm_inst = get_one_shm_inst(tch);
-  get_cbo_stats_request *req = (get_cbo_stats_request*)alloc_share_mem(shm_inst, sizeof(get_cbo_stats_request));
+  void *shm_inst_4_req = get_one_shm_inst(tch);
+  get_cbo_stats_request *req = (get_cbo_stats_request*)alloc_share_mem(shm_inst_4_req, sizeof(get_cbo_stats_request));
 
   if (req == NULL) {
-    tse_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, sizeof(get_cbo_stats_request));
+    tse_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst_4_req, sizeof(get_cbo_stats_request));
     return ERR_ALLOC_MEMORY;
   }
-
-  req->stats = (tianchi_cbo_stats_t *)alloc_share_mem(shm_inst, sizeof(tianchi_cbo_stats_t));
+  void *shm_inst_4_stats = get_one_shm_inst(tch);
+  req->stats = (tianchi_cbo_stats_t *)alloc_share_mem(shm_inst_4_stats, sizeof(tianchi_cbo_stats_t));
   if (req->stats == NULL) {
-    tse_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, sizeof(get_cbo_stats_request));
+    tse_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst_4_stats, sizeof(tianchi_cbo_stats_t));
+    free_share_mem(shm_inst_4_req, req);
     return ERR_ALLOC_MEMORY;
   }
 
   bool is_part_table = stats->tse_cbo_stats_part_table != nullptr ? true : false;
   req->stats->msg_len = stats->msg_len;
+  req->stats->part_cnt = stats->part_cnt;
+  void *shm_inst_4_columns = get_one_shm_inst(tch);
+  void *shm_inst_4_part_table = get_one_shm_inst(tch);
+  tse_cbo_stats_column_t* part_columns;
   if (!is_part_table) {
-    req->stats->tse_cbo_stats_table.columns = (tse_cbo_stats_column_t*)alloc_share_mem(shm_inst, req->stats->msg_len);
+    req->stats->tse_cbo_stats_table.columns = (tse_cbo_stats_column_t*)alloc_share_mem(shm_inst_4_columns, req->stats->msg_len);
+    if (req->stats->tse_cbo_stats_table.columns == NULL) {
+      tse_log_error("alloc shm mem error, shm_inst(%p), size(%u)", shm_inst_4_columns, req->stats->msg_len);
+      free_share_mem(shm_inst_4_stats, req->stats);
+      free_share_mem(shm_inst_4_req, req);
+      return ERR_ALLOC_MEMORY;
+    }
   } else {
     req->stats->first_partid = stats->first_partid;
     req->stats->num_part_fetch = stats->num_part_fetch;
     req->stats->tse_cbo_stats_part_table = 
-        (tse_cbo_stats_table_t*)alloc_share_mem(shm_inst, stats->num_part_fetch * sizeof(tse_cbo_stats_table_t));  
+        (tse_cbo_stats_table_t*)alloc_share_mem(shm_inst_4_part_table, stats->num_part_fetch * sizeof(tse_cbo_stats_table_t));
+    if (req->stats->tse_cbo_stats_part_table == NULL) {
+      tse_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst_4_part_table, stats->num_part_fetch * sizeof(tse_cbo_stats_table_t));
+      free_share_mem(shm_inst_4_stats, req->stats);
+      free_share_mem(shm_inst_4_req, req);
+      return ERR_ALLOC_MEMORY;
+    }
+    part_columns = (tse_cbo_stats_column_t*)alloc_share_mem(shm_inst_4_columns, stats->msg_len * stats->num_part_fetch);
+    if (part_columns == NULL) {
+      tse_log_error("alloc shm mem error, shm_inst(%p), size(%u)", shm_inst_4_columns, stats->msg_len * stats->num_part_fetch);
+      free_share_mem(shm_inst_4_part_table, req->stats->tse_cbo_stats_part_table);
+      free_share_mem(shm_inst_4_stats, req->stats);
+      free_share_mem(shm_inst_4_req, req);
+      return ERR_ALLOC_MEMORY;
+    }
     for (uint i = 0; i < stats->num_part_fetch; i++) {
-        req->stats->tse_cbo_stats_part_table[i].columns =
-            (tse_cbo_stats_column_t*)alloc_share_mem(shm_inst, stats->msg_len);
+      req->stats->tse_cbo_stats_part_table[i].columns = part_columns + i;
     }
   }
 
   req->tch = *tch;
   int result = ERR_CONNECTION_FAILED;
-  int ret = tse_mq_deal_func(shm_inst, TSE_FUNC_TYPE_GET_CBO_STATS, req, tch->msg_buf);
+  int ret = tse_mq_deal_func(shm_inst_4_req, TSE_FUNC_TYPE_GET_CBO_STATS, req, tch->msg_buf);
   if (ret == CT_SUCCESS) {
     if (req->result == CT_SUCCESS) {
         if (!is_part_table) {
@@ -791,15 +814,13 @@ int tse_get_cbo_stats(tianchi_handler_t *tch, tianchi_cbo_stats_t *stats) {
     result = req->result;
   }
   if (!is_part_table) {
-    free_share_mem(shm_inst, req->stats->tse_cbo_stats_table.columns);
+    free_share_mem(shm_inst_4_columns, req->stats->tse_cbo_stats_table.columns);
   } else {
-    for (uint i = 0; i < stats->num_part_fetch; i++) {
-      free_share_mem(shm_inst, req->stats->tse_cbo_stats_part_table[i].columns);
-    }
-    free_share_mem(shm_inst, req->stats->tse_cbo_stats_part_table);
+    free_share_mem(shm_inst_4_columns, part_columns);
+    free_share_mem(shm_inst_4_part_table, req->stats->tse_cbo_stats_part_table);
   }
-  free_share_mem(shm_inst, req->stats);
-  free_share_mem(shm_inst, req);
+  free_share_mem(shm_inst_4_stats, req->stats);
+  free_share_mem(shm_inst_4_req, req);
   return result;
 }
 
