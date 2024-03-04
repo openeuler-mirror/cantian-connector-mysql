@@ -612,9 +612,7 @@ int tse_check_db_table_exists(const char *db, const char *name, bool *is_exists)
 int tse_search_metadata_status(bool *cantian_metadata_switch, bool *cantian_cluster_ready);
 
 int tse_invalidate_mysql_dd_cache(tianchi_handler_t *tch, tse_invalidate_broadcast_request *broadcast_req, int *err_code);
-int tse_invalidate_all_dd_cache();
 int tse_broadcast_mysql_dd_invalidate(tianchi_handler_t *tch, tse_invalidate_broadcast_request *broadcast_req);
-int tse_update_mysql_dd_cache(char *sql_str);
 
 /* Disaster Recovery Related Interface*/
 int tse_set_cluster_role_by_cantian(bool is_slave);
