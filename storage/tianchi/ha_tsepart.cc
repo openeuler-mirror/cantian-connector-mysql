@@ -1003,19 +1003,19 @@ int ha_tsepart::get_cbo_stats_4share()
     uint32_t part_per_cnt = MAX_MESSAGE_SIZE / (table->s->fields * sizeof(tse_cbo_stats_column_t) + CBO_PART_MEM_RESIDUAL);
     uint32_t part_cnt = m_part_share->cbo_stats->part_cnt;
     uint32_t fetch_times = part_cnt / part_per_cnt;
-    m_part_share->cbo_stats->first_partid = 0;
-    m_part_share->cbo_stats->num_part_fetch = part_per_cnt;
+    uint32_t first_partid = 0;
+    uint32_t num_part_fetch = part_per_cnt;
 
     for (uint32_t i = 0; i<fetch_times; i++) {
-      ret = tse_get_cbo_stats(&m_tch, m_part_share->cbo_stats);
+      ret = tse_get_cbo_stats(&m_tch, m_part_share->cbo_stats, first_partid, num_part_fetch);
       if (ret != CT_SUCCESS) {
         return ret;
       }
-      m_part_share->cbo_stats->first_partid += part_per_cnt;
+      first_partid += part_per_cnt;
     }
 
-    m_part_share->cbo_stats->num_part_fetch = part_cnt - m_part_share->cbo_stats->first_partid;
-    ret = tse_get_cbo_stats(&m_tch, m_part_share->cbo_stats);
+    num_part_fetch = part_cnt - first_partid;
+    ret = tse_get_cbo_stats(&m_tch, m_part_share->cbo_stats, first_partid, num_part_fetch);
     update_sess_ctx_by_tch(m_tch, get_tse_hton(), thd);
     if (ret == CT_SUCCESS && m_part_share->cbo_stats->is_updated) {
       m_part_share->need_fetch_cbo = false;
