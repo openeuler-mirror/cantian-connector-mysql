@@ -207,7 +207,7 @@ typename std::enable_if<CHECK_HAS_MEMBER_FUNC(T, invalidates), bool>::type
     MDL_REQUEST_INIT_BY_KEY(&mdl_request, &mdl_key, MDL_EXCLUSIVE, MDL_EXPLICIT);
     if (thd->mdl_context.acquire_lock(&mdl_request, CTC_MDL_TIMEOUT)) {
       assert(thd->killed || thd->is_error());
-      tse_log_error("[INVALIDATE_ROUTINE]: fail to acquire routine/procedure mdl . schema_name:%s, routine_name:%s", schema_name, routine_name);
+      tse_log_error("[INVALIDATE_ROUTINE]: Failed to acquire routine/procedure mdl of schema_name:%s and routine_name:%s", schema_name, routine_name);
       return true;
     }
     routine_ticket = mdl_request.ticket;
@@ -265,7 +265,7 @@ typename std::enable_if<CHECK_HAS_MEMBER_FUNC(T, invalidates), bool>::type
                 MDL_INTENTION_EXCLUSIVE, MDL_EXPLICIT);
     if (thd->mdl_context.acquire_lock(&mdl_request, CTC_MDL_TIMEOUT)) {
       assert(thd->killed || thd->is_error());
-      tse_log_error("[INVALIDATE_TABLE]: fail to acquire schema mdl lock . schema:%s, table:%s ", schema_name, table_name);
+      tse_log_error("[INVALIDATE_TABLE]: Failed to acquire schema mdl lock of schema:%s and table:%s ", schema_name, table_name);
       return true;
     }
     schema_ticket = mdl_request.ticket;
@@ -278,7 +278,7 @@ typename std::enable_if<CHECK_HAS_MEMBER_FUNC(T, invalidates), bool>::type
                 MDL_EXCLUSIVE, MDL_EXPLICIT);
     if (thd->mdl_context.acquire_lock(&mdl_request, CTC_MDL_TIMEOUT)) {
       assert(thd->killed || thd->is_error());
-      tse_log_error("[INVALIDATE_TABLE]: fail to acquire table mdl lock . schema:%s, table:%s ", schema_name, table_name);
+      tse_log_error("[INVALIDATE_TABLE]: Failed to acquire table mdl lock of schema:%s and table:%s ", schema_name, table_name);
       return true;
     }
     table_ticket = mdl_request.ticket;
@@ -316,7 +316,7 @@ typename std::enable_if<CHECK_HAS_MEMBER_FUNC(T, invalidates), bool>::type
  
   if (thd->mdl_context.acquire_lock(&mdl_request, CTC_MDL_TIMEOUT)) {
     assert(thd->killed || thd->is_error());
-    tse_log_error("[INVALIDATE_SCHEMA]: fail to acquire schema(%s) mdl lock .", schema_name);
+    tse_log_error("[INVALIDATE_SCHEMA]: Failed to acquire schema(%s) mdl lock .", schema_name);
     return true;
   }
   schema_ticket = mdl_request.ticket;
@@ -354,7 +354,7 @@ typename std::enable_if<CHECK_HAS_MEMBER_FUNC(T, invalidates), bool>::type
  
   if (thd->mdl_context.acquire_lock(&mdl_request, CTC_MDL_TIMEOUT)) {
     assert(thd->killed || thd->is_error());
-    tse_log_error("[INVALIDATE_TABLESPACE]: fail to acquire tablespace mdl lock . tablespace_name:%s", tablespace_name);
+    tse_log_error("[INVALIDATE_TABLESPACE]: Failed to acquire tablespace mdl lock of tablespace_name:%s", tablespace_name);
     return true;
   }
   tablespace_ticket = mdl_request.ticket;
@@ -514,7 +514,7 @@ int tse_mdl_lock_thd(tianchi_handler_t *tch, tse_lock_table_info *lock_info, int
  
   if (thd->mdl_context.acquire_lock(&tse_mdl_request, 10)) {
     *err_code = ER_LOCK_WAIT_TIMEOUT;
-    tse_log_error("[TSE_MDL_LOCK]:fail to get mdl lock . namespace:%d, db_name:%s, table_name:%s",
+    tse_log_error("[TSE_MDL_LOCK]:Failed to get mdl lock of namespace:%d , db_name:%s and table_name:%s",
                   lock_info->mdl_namespace, lock_info->db_name, lock_info->table_name);
     return true;
   }
