@@ -5233,7 +5233,7 @@ int ha_tse::get_cbo_stats_4share()
       }
     }
     update_member_tch(m_tch, tse_hton, thd);
-    ret = tse_get_cbo_stats(&m_tch, m_share->cbo_stats);
+    ret = tse_get_cbo_stats(&m_tch, m_share->cbo_stats, 0, 0);
     update_sess_ctx_by_tch(m_tch, tse_hton, thd);
     if (ret == CT_SUCCESS && m_share->cbo_stats->is_updated) {
       m_share->need_fetch_cbo = false;
