@@ -1242,7 +1242,7 @@ thd_sess_ctx_s *get_or_init_sess_ctx(handlerton *hton, THD *thd) {
   This tianchi handler will be only use for one time and initialized with session context.
   Handlerton functions need it since they don't have m_tch member.
 */
-int get_tch_in_handler_data(handlerton *hton, THD *thd, tianchi_handler_t &tch, bool alloc_msg_buf) {
+int get_tch_in_handler_data(handlerton *hton, THD *thd, tianchi_handler_t &tch, bool alloc_msg_buf MY_ATTRIBUTE((unused))) {
   memset(&tch, 0, sizeof(tch));
   thd_sess_ctx_s *sess_ctx = get_or_init_sess_ctx(hton, thd);
   if (sess_ctx == nullptr) {
@@ -1355,7 +1355,7 @@ void update_sess_ctx_by_tch(tianchi_handler_t &tch, handlerton *hton, THD *thd) 
   2. Call this method if the following tse interface may be the
      first call of a dml sql (may use sql_stat_start).
 */
-void update_member_tch(tianchi_handler_t &tch, handlerton *hton, THD *thd, bool alloc_msg_buf) {
+void update_member_tch(tianchi_handler_t &tch, handlerton *hton, THD *thd, bool alloc_msg_buf MY_ATTRIBUTE((unused))) {
   thd_sess_ctx_s *sess_ctx = (thd_sess_ctx_s *)thd_get_ha_data(thd, hton);
   if (sess_ctx == nullptr || sess_ctx->thd_id != thd->thread_id()) {
     tch.thd_id = thd->thread_id();
