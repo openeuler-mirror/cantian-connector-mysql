@@ -77,55 +77,73 @@ static std::unordered_map<ct_errno_t, int> err_code_lookup_map = {
   {ERR_PAGE_CORRUPTED, HA_ERR_TABLE_CORRUPT},
 };
 
-bool convert_cantian_err_to_mysql(ct_errno_t error) {
+int convert_cantian_err_to_mysql(ct_errno_t error) {
+  int err_code = 0;
   switch (error) {
     case ERR_CAPABILITY_NOT_SUPPORT:
       my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0), "Cantian capability not support.");
+      err_code = ER_DISALLOWED_OPERATION;
+      break;
+    case ERR_WRITE_OPT_IN_READONLY:
+      my_printf_error(ER_OPEN_AS_READONLY, "%s", MYF(0), "Cantian does not support this operation under readonly mode.");
+      err_code = ER_OPEN_AS_READONLY;
       break;
     case ERR_DATABASE_ROLE:
       my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0), "Cantian database role not support this operation.");
+      err_code = ER_DISALLOWED_OPERATION;
       break;
     case ERR_COLUMNS_MISMATCH:
       my_error(ER_WRONG_VALUE_COUNT, MYF(0));
+      err_code = ER_WRONG_VALUE_COUNT;
       break;
     case ERR_ROW_LOCKED_NOWAIT:
       my_error(ER_LOCK_NOWAIT, MYF(0));
+      err_code = ER_LOCK_NOWAIT;
       break;
     case ERR_ROW_SELF_UPDATED:
       my_printf_error(ER_MULTI_UPDATE_KEY_CONFLICT,
         "Primary key/partition key update is not allowed since the table is updated both.", MYF(0));
+        err_code = ER_MULTI_UPDATE_KEY_CONFLICT;
       break;
     case ERR_COLUMN_HAS_NULL:
       my_error(ER_INVALID_USE_OF_NULL, MYF(0));
+      err_code = ER_INVALID_USE_OF_NULL;
       break;
     case ERR_TOO_MANY_CONNECTIONS:
       my_error(ER_CON_COUNT_ERROR, MYF(0));
+      err_code = ER_CON_COUNT_ERROR;
       break;
     case ERR_NAME_TOO_LONG:
       my_printf_error(ER_TOO_LONG_IDENT, "Identifier name is too long", MYF(0));
+      err_code = ER_TOO_LONG_IDENT;
       break;
     case ERR_CHILD_DUPLICATE_KEY:
       my_printf_error(ER_FOREIGN_DUPLICATE_KEY_WITH_CHILD_INFO,
         "Foreign key constraint would lead to a duplicate entry in child table", MYF(0));
+      err_code = ER_FOREIGN_DUPLICATE_KEY_WITH_CHILD_INFO;
       break;
     case ERR_FK_NO_INDEX_PAREN_4MYSQL:
       my_error(ER_CANNOT_ADD_FOREIGN, MYF(0));
+      err_code = ER_CANNOT_ADD_FOREIGN;
       break;
     case ERR_EXCEED_MAX_CASCADE_DEPTH:
       my_printf_error(ER_FK_DEPTH_EXCEEDED, "Foreign key cascade delete/update exceeds max depth of 15", MYF(0));
+      err_code = ER_FK_DEPTH_EXCEEDED;
       break;
     case ERR_SNAPSHOT_TOO_OLD:
       my_printf_error(HA_ERR_TOO_MANY_CONCURRENT_TRXS,
                       "snapshot too old, it is advised to modify the parameters _undo_active_segments in Cantian", MYF(0));
+      err_code = HA_ERR_TOO_MANY_CONCURRENT_TRXS;
       break;
     case ERR_CHILD_ROW_CANNOT_ADD_OR_UPDATE:
       my_printf_error(ER_NO_REFERENCED_ROW_2,
                       "Cannot add or update a child row: a foreign key constraint fails", MYF(0));
+      err_code = ER_NO_REFERENCED_ROW_2;
       break;
     default:
-      return false;
+      return err_code;
   }
-  return true;
+  return err_code;
 }
 
 void tse_alter_table_handle_fault(ct_errno_t error) {
@@ -146,8 +164,18 @@ int convert_tse_error_code_to_mysql_impl(ct_errno_t error, const char* funcName,
     return 0;
   }
 
-  if (convert_cantian_err_to_mysql(error)) {
-    return HA_ERR_WRONG_COMMAND;
+  int err_code = convert_cantian_err_to_mysql(error);
+  if (err_code != 0) {
+    int err_code_for_mysql = HA_ERR_WRONG_COMMAND;
+    switch (err_code) {
+      case ER_OPEN_AS_READONLY:
+        err_code_for_mysql = HA_ERR_READ_ONLY_TRANSACTION;
+        break;
+      default:
+        err_code_for_mysql = HA_ERR_WRONG_COMMAND;
+        break;
+    }
+    return err_code_for_mysql;
   }
 
   int ret = HA_ERR_GENERIC;
