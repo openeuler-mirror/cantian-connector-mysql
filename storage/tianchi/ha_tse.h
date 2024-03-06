@@ -132,7 +132,7 @@ again. */
 #define TSE_INTERNAL_TMP_TABLE 2
 #define TSE_TABLE_CONTAINS_VIRCOL 4
 
-#define CTC_ANALYZE_TIME_SEC 60
+#define CTC_ANALYZE_TIME_SEC 100
 
 
 /* cond pushdown */
