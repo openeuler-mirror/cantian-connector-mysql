@@ -3052,10 +3052,12 @@ int ha_tse::rnd_init(bool) {
 int ha_tse::rnd_next(uchar *buf) {
   DBUG_TRACE;
 
-  THD *thd = ha_thd();
-  if (engine_ddl_passthru(thd) && (is_alter_table_copy(thd) || is_create_table_check(thd) ||
-      is_alter_table_scan(m_error_if_not_empty))) {
-    return HA_ERR_END_OF_FILE;
+  if (unlikely(!m_rec_buf || m_rec_buf->records() == 0)) {
+    THD *thd = ha_thd();
+    if (engine_ddl_passthru(thd) && (is_alter_table_copy(thd) || is_create_table_check(thd) ||
+        is_alter_table_scan(m_error_if_not_empty))) {
+      return HA_ERR_END_OF_FILE;
+    }
   }
 
   ha_statistic_increment(&System_status_var::ha_read_rnd_next_count);
