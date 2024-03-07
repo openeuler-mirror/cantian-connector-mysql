@@ -789,7 +789,7 @@ int tse_get_cbo_stats(tianchi_handler_t *tch, tianchi_cbo_stats_t *stats, uint32
       return ERR_ALLOC_MEMORY;
     }
     for (uint i = 0; i < num_part_fetch; i++) {
-      req->stats->tse_cbo_stats_part_table[i].columns = part_columns + i;
+      req->stats->tse_cbo_stats_part_table[i].columns = part_columns + i * (stats->msg_len / sizeof(tse_cbo_stats_column_t));
     }
   }
 
