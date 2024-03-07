@@ -3950,6 +3950,25 @@ int ha_tse::records_from_index(ha_rows *num_rows, uint inx)
   return ret;
 }
 
+int32_t tse_get_cluster_role() {
+  if (cluster_role != (int32_t)dis_cluster_role::DEFAULT) {
+    return cluster_role;
+  }
+  // todo: add mutex for cluster_role.
+  bool is_slave = false;
+  bool cantian_cluster_ready = false;
+  int ret = tse_query_cluster_role(&is_slave, &cantian_cluster_ready);
+  if (ret != CT_SUCCESS || !cantian_cluster_ready) {
+    cluster_role = (int32_t)dis_cluster_role::CLUSTER_NOT_READY;
+    tse_log_error("[Disaster Rocovery] tse_query_cluster_role failed with error code: %d, is_slave:%d, cantian_cluster_ready: %d", ret, is_slave, cantian_cluster_ready);
+    return cluster_role;
+  }
+  tse_log_system("[Disaster Recovery] is_slave:%d, cantian_cluster_ready:%d", is_slave, cantian_cluster_ready);
+  tse_set_cluster_role_by_cantian(is_slave);
+ 
+  return cluster_role;
+}
+
 /**
   @brief
   The idea with handler::store_lock() is: The statement decides which locks
@@ -4000,32 +4019,14 @@ THR_LOCK_DATA **ha_tse::store_lock(THD *, THR_LOCK_DATA **to,
   DBUG_TRACE;
 
   // SELECT FOR SHARE / SELECT FOR UPDATE use exclusive lock
-  if (lock_type == TL_READ_WITH_SHARED_LOCKS || (lock_type >= TL_WRITE_ALLOW_WRITE && lock_type <= TL_WRITE_ONLY)) {
+  if ((lock_type == TL_READ_WITH_SHARED_LOCKS && tse_get_cluster_role() == (int32_t)dis_cluster_role::PRIMARY) || 
+      (lock_type >= TL_WRITE_ALLOW_WRITE && lock_type <= TL_WRITE_ONLY)) {
     m_select_lock = lock_mode::EXCLUSIVE_LOCK;
   } else {
     m_select_lock = lock_mode::SHARED_LOCK;
   }
 
   return to;
-}
- 
-int32_t tse_get_cluster_role() {
-  if (cluster_role != (int32_t)dis_cluster_role::DEFAULT) {
-    return cluster_role;
-  }
-  // todo: add mutex for cluster_role.
-  bool is_slave = false;
-  bool cantian_cluster_ready = false;
-  int ret = tse_query_cluster_role(&is_slave, &cantian_cluster_ready);
-  if (ret != CT_SUCCESS || !cantian_cluster_ready) {
-    cluster_role = (int32_t)dis_cluster_role::CLUSTER_NOT_READY;
-    tse_log_error("[Disaster Rocovery] tse_query_cluster_role failed with error code: %d, is_slave:%d, cantian_cluster_ready: %d", ret, is_slave, cantian_cluster_ready);
-    return cluster_role;
-  }
-  tse_log_system("[Disaster Recovery] is_slave:%d, cantian_cluster_ready:%d", is_slave, cantian_cluster_ready);
-  tse_set_cluster_role_by_cantian(is_slave);
- 
-  return cluster_role;
 }
 
 /**
