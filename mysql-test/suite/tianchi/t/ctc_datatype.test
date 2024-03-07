@@ -137,8 +137,8 @@ select length(IDB) from t1;
 drop table t1;
 
 --disable_query_log
-call mtr.add_suppression("tse_ddl_fill_column_by_field");
-call mtr.add_suppression("TSE_RETURN_IF_ERROR return");
+#call mtr.add_suppression("tse_ddl_fill_column_by_field");
+#call mtr.add_suppression("TSE_RETURN_IF_ERROR return");
 --enable_query_log
 
 create table t1 (IDA varchar(2001)) ENGINE=CTC DEFAULT CHARSET=utf8mb4;
