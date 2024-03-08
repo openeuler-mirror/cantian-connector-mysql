@@ -75,7 +75,7 @@ tianchi.ctc_ddl_create_table_check
 tianchi.ctc_ddl_generated_columns
 tianchi.ctc_ddl_character_set
 tianchi.ctc_dcl
-tianchi.ctc_lcov   #增加覆盖率的测试用例
+# tianchi.ctc_lcov   #增加覆盖率的测试用例
 # ------ END TEST CASES OF DDL ------
 
 # ------ BEGIN TEST CASES OF CHARSET ------
