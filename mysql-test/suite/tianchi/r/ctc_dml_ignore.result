@@ -1,0 +1,434 @@
+drop table if exists t1,t2;
+CREATE TABLE t1 (
+`colA` int(10) unsigned NOT NULL auto_increment,
+`colB` int(11) NOT NULL default '0',
+PRIMARY KEY (`colA`)
+);
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+INSERT INTO t1 VALUES (4433,5424);
+CREATE TABLE t2 (
+`colC` int(10) unsigned NOT NULL default '0',
+`colA` int(10) unsigned NOT NULL default '0',
+`colD` int(10) unsigned NOT NULL default '0',
+`colE` int(10) unsigned NOT NULL default '0',
+`colF` int(10) unsigned NOT NULL default '0',
+PRIMARY KEY (`colC`,`colA`,`colD`,`colE`)
+);
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+INSERT INTO t2 VALUES (3,4433,10005,495,500);
+INSERT INTO t2 VALUES (3,4433,10005,496,500);
+INSERT INTO t2 VALUES (3,4433,10009,494,500);
+INSERT INTO t2 VALUES (3,4433,10011,494,500);
+INSERT INTO t2 VALUES (3,4433,10005,497,500);
+INSERT INTO t2 VALUES (3,4433,10013,489,500);
+INSERT INTO t2 VALUES (3,4433,10005,494,500);
+INSERT INTO t2 VALUES (3,4433,10005,493,500);
+INSERT INTO t2 VALUES (3,4433,10005,492,500);
+select * from t2;
+colC	colA	colD	colE	colF
+3	4433	10005	495	500
+3	4433	10005	496	500
+3	4433	10009	494	500
+3	4433	10011	494	500
+3	4433	10005	497	500
+3	4433	10013	489	500
+3	4433	10005	494	500
+3	4433	10005	493	500
+3	4433	10005	492	500
+UPDATE IGNORE t2 set colE = colE + 1, colF = 0 where colE = 494;
+Warnings:
+Warning	1062	Duplicate entry '3-4433-10005-495' for key 't2.PRIMARY'
+select * from t2;
+colC	colA	colD	colE	colF
+3	4433	10005	495	500
+3	4433	10005	496	500
+3	4433	10009	495	0
+3	4433	10011	495	0
+3	4433	10005	497	500
+3	4433	10013	489	500
+3	4433	10005	494	500
+3	4433	10005	493	500
+3	4433	10005	492	500
+UPDATE IGNORE t2 set colE = colE - 1, colF = 500 where colF = 0;
+select * from t2;
+colC	colA	colD	colE	colF
+3	4433	10005	495	500
+3	4433	10005	496	500
+3	4433	10009	494	500
+3	4433	10011	494	500
+3	4433	10005	497	500
+3	4433	10013	489	500
+3	4433	10005	494	500
+3	4433	10005	493	500
+3	4433	10005	492	500
+UPDATE IGNORE t2,t1 set t2.colE = t2.colE + 1,colF = 0 WHERE t1.colA = t2.colA AND (t1.colB & 4096) > 0 AND (colE + 1) < colF;
+Warnings:
+Warning	1062	Duplicate entry '3-4433-10005-496' for key 't2.PRIMARY'
+Warning	1062	Duplicate entry '3-4433-10005-497' for key 't2.PRIMARY'
+Warning	1062	Duplicate entry '3-4433-10005-495' for key 't2.PRIMARY'
+Warning	1062	Duplicate entry '3-4433-10005-494' for key 't2.PRIMARY'
+Warning	1062	Duplicate entry '3-4433-10005-493' for key 't2.PRIMARY'
+select * from t2;
+colC	colA	colD	colE	colF
+3	4433	10005	495	500
+3	4433	10005	496	500
+3	4433	10009	495	0
+3	4433	10011	495	0
+3	4433	10005	498	0
+3	4433	10013	490	0
+3	4433	10005	494	500
+3	4433	10005	493	500
+3	4433	10005	492	500
+UPDATE IGNORE t2 set colE = colE - 1, colF = 500 where colF = 0;
+select * from t2;
+colC	colA	colD	colE	colF
+3	4433	10005	495	500
+3	4433	10005	496	500
+3	4433	10009	494	500
+3	4433	10011	494	500
+3	4433	10005	497	500
+3	4433	10013	489	500
+3	4433	10005	494	500
+3	4433	10005	493	500
+3	4433	10005	492	500
+UPDATE IGNORE t2,t1 set t2.colE = t2.colE - 1,colF = 0 WHERE t1.colA = t2.colA AND (t1.colB & 4096) > 0 AND (colE + 1) < colF;
+Warnings:
+Warning	1062	Duplicate entry '3-4433-10005-494' for key 't2.PRIMARY'
+Warning	1062	Duplicate entry '3-4433-10005-495' for key 't2.PRIMARY'
+Warning	1062	Duplicate entry '3-4433-10005-496' for key 't2.PRIMARY'
+Warning	1062	Duplicate entry '3-4433-10005-493' for key 't2.PRIMARY'
+Warning	1062	Duplicate entry '3-4433-10005-492' for key 't2.PRIMARY'
+select * from t2;
+colC	colA	colD	colE	colF
+3	4433	10005	495	500
+3	4433	10005	496	500
+3	4433	10009	493	0
+3	4433	10011	493	0
+3	4433	10005	497	500
+3	4433	10013	488	0
+3	4433	10005	494	500
+3	4433	10005	493	500
+3	4433	10005	491	0
+UPDATE IGNORE t2 set colE = colE + 1, colF = 500 where colF = 0;
+select * from t2;
+colC	colA	colD	colE	colF
+3	4433	10005	495	500
+3	4433	10005	496	500
+3	4433	10009	494	500
+3	4433	10011	494	500
+3	4433	10005	497	500
+3	4433	10013	489	500
+3	4433	10005	494	500
+3	4433	10005	493	500
+3	4433	10005	492	500
+drop table t1,t2;
+create table parent (a int primary key, b int);
+create table child (a int, b int, foreign key (a) references parent(a));
+insert into parent values (1,1),(2,2),(3,3),(4,4),(8,8),(9,9),(10,10);
+insert IGNORE into child values (1,1),(2,2),(3,3),(4,4),(5,5),(6,6),(7,7);
+Warnings:
+Warning	1452	Cannot add or update a child row: a foreign key constraint fails (Referenced key value not found in parent tables(test.parent))
+Warning	1452	Cannot add or update a child row: a foreign key constraint fails (Referenced key value not found in parent tables(test.parent))
+Warning	1452	Cannot add or update a child row: a foreign key constraint fails (Referenced key value not found in parent tables(test.parent))
+select * from child;
+a	b
+1	1
+2	2
+3	3
+4	4
+delete IGNORE from parent where b < 4;
+Warnings:
+Warning	1451	Cannot delete or update a parent row: a foreign key constraint fails (Record is referenced by child tables(test.child))
+Warning	1451	Cannot delete or update a parent row: a foreign key constraint fails (Record is referenced by child tables(test.child))
+Warning	1451	Cannot delete or update a parent row: a foreign key constraint fails (Record is referenced by child tables(test.child))
+delete IGNORE from parent where b = 2;
+Warnings:
+Warning	1451	Cannot delete or update a parent row: a foreign key constraint fails (Record is referenced by child tables(test.child))
+select * from parent;
+a	b
+1	1
+2	2
+3	3
+4	4
+8	8
+9	9
+10	10
+delete IGNORE from parent where b <= 10;
+Warnings:
+Warning	1451	Cannot delete or update a parent row: a foreign key constraint fails (Record is referenced by child tables(test.child))
+Warning	1451	Cannot delete or update a parent row: a foreign key constraint fails (Record is referenced by child tables(test.child))
+Warning	1451	Cannot delete or update a parent row: a foreign key constraint fails (Record is referenced by child tables(test.child))
+Warning	1451	Cannot delete or update a parent row: a foreign key constraint fails (Record is referenced by child tables(test.child))
+select * from parent;
+a	b
+1	1
+2	2
+3	3
+4	4
+drop table child;
+drop table parent;
+create table parent (a int primary key, b int);
+create table child (a int, b int, foreign key (a) references parent(a));
+insert into parent values (1,1),(2,2),(3,3),(4,4),(8,8),(9,9),(10,10);
+insert IGNORE into child values (1,1),(2,2),(3,3),(4,4),(5,5),(6,6),(7,7);
+Warnings:
+Warning	1452	Cannot add or update a child row: a foreign key constraint fails (Referenced key value not found in parent tables(test.parent))
+Warning	1452	Cannot add or update a child row: a foreign key constraint fails (Referenced key value not found in parent tables(test.parent))
+Warning	1452	Cannot add or update a child row: a foreign key constraint fails (Referenced key value not found in parent tables(test.parent))
+select * from child;
+a	b
+1	1
+2	2
+3	3
+4	4
+update IGNORE parent set a = 11 where a = 2;
+Warnings:
+Warning	1451	Cannot delete or update a parent row: a foreign key constraint fails (Record is referenced by child tables(test.child))
+select * from parent;
+a	b
+1	1
+2	2
+3	3
+4	4
+8	8
+9	9
+10	10
+update IGNORE parent set a = 12 where a = 10;
+select * from parent;
+a	b
+1	1
+2	2
+3	3
+4	4
+8	8
+9	9
+12	10
+update IGNORE parent set a = 13 where a = 3;
+Warnings:
+Warning	1451	Cannot delete or update a parent row: a foreign key constraint fails (Record is referenced by child tables(test.child))
+select * from parent;
+a	b
+1	1
+2	2
+3	3
+4	4
+8	8
+9	9
+12	10
+update IGNORE parent set a = a + 1;
+Warnings:
+Warning	1451	Cannot delete or update a parent row: a foreign key constraint fails (Record is referenced by child tables(test.child))
+Warning	1451	Cannot delete or update a parent row: a foreign key constraint fails (Record is referenced by child tables(test.child))
+Warning	1451	Cannot delete or update a parent row: a foreign key constraint fails (Record is referenced by child tables(test.child))
+Warning	1451	Cannot delete or update a parent row: a foreign key constraint fails (Record is referenced by child tables(test.child))
+Warning	1062	Duplicate entry '9' for key 'parent.PRIMARY'
+select * from parent;
+a	b
+1	1
+2	2
+3	3
+4	4
+8	8
+10	9
+13	10
+update IGNORE parent set a = a + 1;
+Warnings:
+Warning	1451	Cannot delete or update a parent row: a foreign key constraint fails (Record is referenced by child tables(test.child))
+Warning	1451	Cannot delete or update a parent row: a foreign key constraint fails (Record is referenced by child tables(test.child))
+Warning	1451	Cannot delete or update a parent row: a foreign key constraint fails (Record is referenced by child tables(test.child))
+Warning	1451	Cannot delete or update a parent row: a foreign key constraint fails (Record is referenced by child tables(test.child))
+select * from parent;
+a	b
+1	1
+2	2
+3	3
+4	4
+9	8
+11	9
+14	10
+drop table child;
+drop table parent;
+create table parent (a int primary key, b int);
+create table child (a int, b int, foreign key (a) references parent(a));
+insert into parent values (1,1),(2,2),(3,3),(4,4),(8,8),(9,9),(10,10);
+insert IGNORE into child values (1,1),(2,2),(3,3),(4,4),(5,5),(6,6),(7,7);
+Warnings:
+Warning	1452	Cannot add or update a child row: a foreign key constraint fails (Referenced key value not found in parent tables(test.parent))
+Warning	1452	Cannot add or update a child row: a foreign key constraint fails (Referenced key value not found in parent tables(test.parent))
+Warning	1452	Cannot add or update a child row: a foreign key constraint fails (Referenced key value not found in parent tables(test.parent))
+select * from child;
+a	b
+1	1
+2	2
+3	3
+4	4
+update IGNORE child set a = 11 where a = 2;
+Warnings:
+Warning	1452	Cannot add or update a child row: a foreign key constraint fails (Referenced key value not found in parent tables(test.parent))
+select * from child;
+a	b
+1	1
+2	2
+3	3
+4	4
+update IGNORE child set a = 12 where a = 3;
+Warnings:
+Warning	1452	Cannot add or update a child row: a foreign key constraint fails (Referenced key value not found in parent tables(test.parent))
+select * from child;
+a	b
+1	1
+2	2
+3	3
+4	4
+update IGNORE child set a = 8 where a = 3;
+select * from child;
+a	b
+1	1
+2	2
+8	3
+4	4
+update IGNORE child set a = a + 1;
+Warnings:
+Warning	1452	Cannot add or update a child row: a foreign key constraint fails (Referenced key value not found in parent tables(test.parent))
+select * from child;
+a	b
+2	1
+3	2
+9	3
+4	4
+update IGNORE child set a = a + 1;
+Warnings:
+Warning	1452	Cannot add or update a child row: a foreign key constraint fails (Referenced key value not found in parent tables(test.parent))
+select * from child;
+a	b
+3	1
+4	2
+10	3
+4	4
+drop table child;
+drop table parent;
+create table class(id int primary key auto_increment,c_name varchar(20) not null,room varchar(20));
+create table my_foreign1(id int primary key auto_increment,
+name varchar(20) not null comment '学生姓名',
+c_id int comment '班级表ID',
+CONSTRAINT fk_id foreign key(c_id) references class(id)	
+);
+insert into class values(1,'abc','aaa');
+insert into class values(2,'abc2','bbb');
+insert into class values(3,'abc3','ccc');
+insert into class values(4,'4','4');
+select * from class;
+id	c_name	room
+1	abc	aaa
+2	abc2	bbb
+3	abc3	ccc
+4	4	4
+insert into my_foreign1 values(null,'Charies1','6');
+ERROR 23000: Cannot add or update a child row: a foreign key constraint fails (Referenced key value not found in parent tables(test.class))
+insert into my_foreign1 values(null,'Charies2','7');
+ERROR 23000: Cannot add or update a child row: a foreign key constraint fails (Referenced key value not found in parent tables(test.class))
+insert into my_foreign1 values(null,'Charies3','8');
+ERROR 23000: Cannot add or update a child row: a foreign key constraint fails (Referenced key value not found in parent tables(test.class))
+SET FOREIGN_KEY_CHECKS = 0;
+insert into my_foreign1 values(null,'Charies','6');
+insert into my_foreign1 values(null,'Charies2','7');
+insert into my_foreign1 values(null,'Charies3','8');
+select * from my_foreign1;
+id	name	c_id
+4	Charies	6
+5	Charies2	7
+6	Charies3	8
+SET FOREIGN_KEY_CHECKS = 1;
+insert into my_foreign1 values(null,'Charies','1');
+insert into my_foreign1 values(null,'Bob','2');
+insert into my_foreign1 values(null,'Bob1','3');
+select * from my_foreign1;
+id	name	c_id
+4	Charies	6
+5	Charies2	7
+6	Charies3	8
+7	Charies	1
+8	Bob	2
+9	Bob1	3
+delete from class where id = 2;
+ERROR 23000: Cannot delete or update a parent row: a foreign key constraint fails (Record is referenced by child tables(test.my_foreign1))
+delete from class where id = 3;
+ERROR 23000: Cannot delete or update a parent row: a foreign key constraint fails (Record is referenced by child tables(test.my_foreign1))
+SET FOREIGN_KEY_CHECKS = 0;
+delete from class where id = 2;
+select * from class;
+id	c_name	room
+1	abc	aaa
+3	abc3	ccc
+4	4	4
+delete from class where id = 3;
+select * from class;
+id	c_name	room
+1	abc	aaa
+4	4	4
+SET FOREIGN_KEY_CHECKS = 1;
+insert into class values(2,'abc2','bbb');
+insert into class values(3,'abc3','ccc');
+update class set id = 100 where id = 2;
+ERROR 23000: Cannot delete or update a parent row: a foreign key constraint fails (Record is referenced by child tables(test.my_foreign1))
+SET FOREIGN_KEY_CHECKS = 0;
+update class set id = 100 where id = 2;
+select * from class;
+id	c_name	room
+1	abc	aaa
+3	abc3	ccc
+100	abc2	bbb
+4	4	4
+SET FOREIGN_KEY_CHECKS = 1;
+update class set id = 101 where id = 4;
+delete from class where id = 100;
+drop table my_foreign1;
+drop table class;
+create table t1 (id int primary key auto_increment, operation varchar(255));
+create table t1_op_log(operation varchar(255));
+create view v1 as select * from t1;
+create trigger trg_bug28502_bi before insert on t1
+for each row
+insert into t1_op_log (operation)
+values (concat("Before INSERT, new=", new.operation));
+create trigger trg_bug28502_ai after insert on t1
+for each row
+insert into t1_op_log (operation)
+values (concat("After INSERT, new=", new.operation));
+create trigger trg_bug28502_bu before update on t1
+for each row
+insert into t1_op_log (operation)
+values (concat("Before UPDATE, new=", new.operation,
+", old=", old.operation));
+create trigger trg_bug28502_au after update on t1
+for each row
+insert into t1_op_log (operation)
+values (concat("After UPDATE, new=", new.operation,
+", old=", old.operation));
+create trigger trg_bug28502_bd before delete on t1
+for each row
+insert into t1_op_log (operation)
+values (concat("Before DELETE, old=", old.operation));
+create trigger trg_bug28502_ad after delete on t1
+for each row
+insert into t1_op_log (operation)
+values (concat("After DELETE, old=", old.operation));
+insert into t1 (operation) values ("INSERT");
+set @id=last_insert_id();
+replace into v1
+select @id, "CREATE TABLE ... REPLACE SELECT, deleting a duplicate key";
+drop trigger if exists trg_bug28502_bi;
+drop trigger if exists trg_bug28502_ai;
+drop trigger if exists trg_bug28502_bu;
+drop trigger if exists trg_bug28502_au;
+drop trigger if exists trg_bug28502_bd;
+drop trigger if exists trg_bug28502_ad;
+drop table t1, t1_op_log;
+drop view v1;

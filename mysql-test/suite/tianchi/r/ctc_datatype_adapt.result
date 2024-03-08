@@ -1,0 +1,199 @@
+drop table if exists t1;
+# test with YEAR data type
+create table t1 (y year,y4 year(4));
+Warnings:
+Warning	1287	'YEAR(4)' is deprecated and will be removed in a future release. Please use YEAR instead
+insert into t1 values (1999,1999),(2000,2000),(2001,2001),(70,70),(69,69),(null,null);
+select * from t1;
+y	y4
+1999	1999
+2000	2000
+2001	2001
+1970	1970
+2069	2069
+NULL	NULL
+drop table t1;
+create table t1(c1 YEAR);
+insert into t1 values (1901),(2155);
+select * from t1;
+c1
+1901
+2155
+drop table t1;
+# test with TIME data type
+SET sql_mode = 'NO_ENGINE_SUBSTITUTION';
+create table t1 (t time);
+insert into t1 values("10:22:33"),("12:34:56.78"),(10),(1234),(123456.78),("1"),("1:23"),("1:23:45"), ("10.22"),("1999-02-03 20:33:34");
+Warnings:
+Note	1265	Data truncated for column 't' at row 10
+insert t1 values (30),(1230),("1230"),("12:30"),("12:30:35");
+insert t1 values (NULL);
+select * from t1;
+t
+10:22:33
+12:34:57
+00:00:10
+00:12:34
+12:34:57
+00:00:01
+01:23:00
+01:23:45
+00:00:10
+20:33:34
+00:00:30
+00:12:30
+00:12:30
+12:30:00
+12:30:35
+NULL
+drop table t1;
+create table t1(c1 time, c2 time(2), c3 time(4), c4 time(6));
+insert into t1 values ("10:22:33.567865","10:22:33.567865","10:22:33.567865","10:22:33.567865");
+select * from t1;
+c1	c2	c3	c4
+10:22:34	10:22:33.57	10:22:33.5679	10:22:33.567865
+drop table t1;
+SET sql_mode = default;
+# test with MEDIUMINT data type
+create table t1 (c1 MEDIUMINT);
+insert into t1 values (-8388608),(0),(100),(8388607),(null);
+select * from t1;
+c1
+-8388608
+0
+100
+8388607
+NULL
+drop table t1;
+create table t1 (c1 MEDIUMINT UNSIGNED);
+insert into t1 values (0),(100),(65535),(16777215),(null);
+select * from t1;
+c1
+0
+100
+65535
+16777215
+NULL
+drop table t1;
+# test with Json data type
+create table t1 (c1 json);
+insert into t1 values ('{ "a": 1, "b": [2, 3]}');
+select * from t1;
+c1
+{"a": 1, "b": [2, 3]}
+update t1 set c1 = json_set(c1, '$.a', 10, '$.c', '[true, false]');
+select * from t1;
+c1
+{"a": 10, "b": [2, 3], "c": "[true, false]"}
+drop table t1;
+create table t1 (c1 json);
+insert into t1 values ('{ "a": 1, "b": [2, 3]}');
+update t1 set c1 = json_insert(c1, '$.a', 10, '$.c', '[true, false]');
+select * from t1;
+c1
+{"a": 1, "b": [2, 3], "c": "[true, false]"}
+drop table t1;
+create table t1 (c1 json);
+insert into t1 values ('{ "a": 1, "b": [2, 3]}');
+update t1 set c1 = json_replace(c1, '$.a', 10, '$.c', '[true, false]');
+select * from t1;
+c1
+{"a": 10, "b": [2, 3]}
+drop table t1;
+SET @j = '["a", ["b", "c"], "d"]';
+create table t1 (c1 json);
+insert into t1 values (@j);
+update t1 set c1 = JSON_ARRAY_APPEND(c1, '$[1]', 1);
+select * from t1;
+c1
+["a", ["b", "c", 1], "d"]
+drop table t1;
+SET @j = '["a", {"b": [1, 2]}, [3, 4]]';
+create table t1 (c1 json);
+insert into t1 values (@j);
+update t1 set c1 = JSON_ARRAY_INSERT(c1, '$[1]', 'x');
+select * from t1;
+c1
+["a", "x", {"b": [1, 2]}, [3, 4]]
+drop table t1;
+create table t1 (c1 json);
+insert into t1 values (JSON_MERGE_PATCH('{"name": "x"}', '{"id": 47}', '{"id": 87}'));
+select * from t1;
+c1
+{"id": 87, "name": "x"}
+drop table t1;
+create table t1 (c1 json);
+insert into t1 values (JSON_MERGE_PRESERVE('{"name": "x"}', '{"id": 47}', '{"id": 87}'));
+select * from t1;
+c1
+{"id": [47, 87], "name": "x"}
+drop table t1;
+SET @j = '["a", ["b", "c"], "d"]';
+create table t1 (c1 json);
+insert into t1 values (JSON_REMOVE(@j, '$[1]'));
+select * from t1;
+c1
+["a", "d"]
+drop table t1;
+SET @j = '["a", ["b", "c"], "d"]';
+create table t1 (c1 json);
+insert into t1 values (JSON_REMOVE(@j, '$[1]'));
+select * from t1;
+c1
+["a", "d"]
+drop table t1;
+create table t1 (c1 json);
+insert into t1 values (JSON_UNQUOTE('"\\t\\u0032"'));
+select * from t1;
+c1
+2
+drop table t1;
+CREATE TABLE t1(id INT PRIMARY KEY, j JSON);
+INSERT INTO t1 VALUES (1, '[1]') AS n ON DUPLICATE KEY UPDATE j = JSON_OBJECT("a", n.j);
+SELECT * FROM t1;
+id	j
+1	[1]
+INSERT INTO t1 VALUES (1, '[1,2]') AS n ON DUPLICATE KEY UPDATE j = JSON_OBJECT("ab", n.j);
+SELECT * FROM t1;
+id	j
+1	{"ab": [1, 2]}
+INSERT INTO t1 VALUES (1, '[1,2,3]') AS n ON DUPLICATE KEY UPDATE j = JSON_OBJECT("abc", n.j);
+SELECT * FROM t1;
+id	j
+1	{"abc": [1, 2, 3]}
+drop table t1;
+CREATE TABLE t1 (i INT, j JSON) CHARSET utf8mb4;
+INSERT INTO t1 VALUES (16, CAST(CAST('2015-01-15 23:24:25' AS DATETIME) AS JSON));
+INSERT INTO t1 VALUES (17, CAST(CAST('23:24:25' AS TIME) AS JSON));
+INSERT INTO t1 VALUES (18, CAST(CAST('2015-01-15' AS DATE) AS JSON));
+INSERT INTO t1 VALUES (19, CAST(TIMESTAMP'2015-01-15 23:24:25' AS JSON));
+INSERT INTO t1 VALUES (20, CAST(ST_GeomFromText('POINT(1 1)') AS JSON));
+INSERT INTO t1 VALUES (21, CAST('1988' AS CHAR CHARACTER SET 'ascii'));
+INSERT INTO t1 VALUES (22, CAST(x'07C4' AS JSON));
+INSERT INTO t1 VALUES (23, CAST(x'07C407C4' AS JSON));
+SELECT i, CAST(j AS YEAR), CAST(j AS SIGNED) FROM t1 ORDER BY i;
+i	CAST(j AS YEAR)	CAST(j AS SIGNED)
+16	0	0
+17	0	0
+18	0	0
+19	0	0
+20	0	0
+21	1988	1988
+22	0	0
+23	0	0
+Warnings:
+Warning	3156	Invalid JSON value for CAST to INTEGER from column j at row 1
+Warning	3156	Invalid JSON value for CAST to INTEGER from column j at row 1
+Warning	3156	Invalid JSON value for CAST to INTEGER from column j at row 2
+Warning	3156	Invalid JSON value for CAST to INTEGER from column j at row 2
+Warning	3156	Invalid JSON value for CAST to INTEGER from column j at row 3
+Warning	3156	Invalid JSON value for CAST to INTEGER from column j at row 3
+Warning	3156	Invalid JSON value for CAST to INTEGER from column j at row 4
+Warning	3156	Invalid JSON value for CAST to INTEGER from column j at row 4
+Warning	3156	Invalid JSON value for CAST to INTEGER from column j at row 5
+Warning	3156	Invalid JSON value for CAST to INTEGER from column j at row 5
+Warning	3156	Invalid JSON value for CAST to INTEGER from column j at row 7
+Warning	3156	Invalid JSON value for CAST to INTEGER from column j at row 7
+Warning	3156	Invalid JSON value for CAST to INTEGER from column j at row 8
+Warning	3156	Invalid JSON value for CAST to INTEGER from column j at row 8
+drop table t1;

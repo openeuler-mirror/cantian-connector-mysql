@@ -1,0 +1,732 @@
+drop table if exists t1;
+set @@session.auto_increment_offset=1;
+set @@session.auto_increment_increment=10;
+SHOW VARIABLES LIKE 'auto_inc%';
+Variable_name	Value
+auto_increment_increment	10
+auto_increment_offset	1
+CREATE TABLE t1 (col INT NOT NULL AUTO_INCREMENT PRIMARY KEY);
+INSERT INTO t1 VALUES (NULL), (NULL), (NULL), (NULL);
+SELECT col FROM t1;
+col
+1
+11
+21
+31
+set @@session.auto_increment_offset=5;
+INSERT INTO t1 VALUES (NULL), (NULL), (NULL), (NULL);
+select col from t1;
+col
+1
+11
+21
+31
+45
+55
+65
+75
+drop table t1;
+set @@session.auto_increment_offset=1;
+set @@session.auto_increment_increment=1;
+SHOW VARIABLES LIKE 'auto_inc%';
+Variable_name	Value
+auto_increment_increment	1
+auto_increment_offset	1
+CREATE TABLE t1 (col INT NOT NULL AUTO_INCREMENT PRIMARY KEY);
+INSERT INTO t1 VALUES (NULL), (NULL);
+SELECT col FROM t1;
+col
+1
+2
+set @@session.auto_increment_increment=10;
+INSERT INTO t1 VALUES (NULL), (NULL);
+select col from t1;
+col
+1
+2
+21
+31
+drop table t1;
+set @@session.auto_increment_offset=1;
+set @@session.auto_increment_increment=2;
+SHOW VARIABLES LIKE 'auto_inc%';
+Variable_name	Value
+auto_increment_increment	2
+auto_increment_offset	1
+CREATE TABLE t1 (
+id int NOT NULL AUTO_INCREMENT,
+name varchar(30),
+PRIMARY KEY (id)
+) AUTO_INCREMENT=2;
+INSERT into t1(name) values('3');
+INSERT into t1(name) values('5');
+INSERT into t1(name) values('7');
+select * from t1;
+id	name
+3	3
+5	5
+7	7
+drop table t1;
+set @@session.auto_increment_offset=1;
+set @@session.auto_increment_increment=1;
+CREATE TABLE t1(c1 TINYINT AUTO_INCREMENT NOT NULL KEY);
+ALTER TABLE t1 AUTO_INCREMENT=10;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` tinyint NOT NULL AUTO_INCREMENT,
+  PRIMARY KEY (`c1`)
+) ENGINE=CTC AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+INSERT INTO t1 VALUES (NULL), (NULL);
+select * from t1;
+c1
+10
+11
+drop table t1;
+set @@session.auto_increment_offset=1;
+set @@session.auto_increment_increment=1;
+CREATE TABLE t1(c1 TINYINT AUTO_INCREMENT NOT NULL KEY);
+INSERT INTO t1 VALUES (NULL), (NULL);
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` tinyint NOT NULL AUTO_INCREMENT,
+  PRIMARY KEY (`c1`)
+) ENGINE=CTC AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+ALTER TABLE t1 AUTO_INCREMENT=10;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` tinyint NOT NULL AUTO_INCREMENT,
+  PRIMARY KEY (`c1`)
+) ENGINE=CTC AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+INSERT INTO t1 VALUES (NULL), (NULL);
+select * from t1;
+c1
+1
+2
+10
+11
+drop table t1;
+set @@session.auto_increment_offset=1;
+set @@session.auto_increment_increment=1;
+CREATE TABLE t3(a SMALLINT AUTO_INCREMENT KEY);
+ALTER TABLE t3 AUTO_INCREMENT = 100;
+INSERT INTO t3 VALUES(0), (0);
+select * from t3;
+a
+100
+101
+truncate table t3;
+ALTER TABLE t3 AUTO_INCREMENT = 100;
+INSERT INTO t3 VALUES(0), (0);
+select * from t3;
+a
+100
+101
+drop table t3;
+set @@session.auto_increment_offset=1;
+set @@session.auto_increment_increment=1;
+create table t3(id int,c1 int,index(id));
+alter table t3 MODIFY COLUMN id int auto_increment,auto_increment=100;
+insert into t3 values(null,1);
+truncate table t3;
+alter table t3 MODIFY COLUMN id int auto_increment,auto_increment=100;
+show create table t3;
+Table	Create Table
+t3	CREATE TABLE `t3` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `c1` int DEFAULT NULL,
+  KEY `id` (`id`)
+) ENGINE=CTC AUTO_INCREMENT=100 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table t3;
+create table t3(id int,c1 int,index(id));
+alter table t3 MODIFY COLUMN id int auto_increment,auto_increment=100;
+truncate table t3;
+alter table t3 MODIFY COLUMN id int auto_increment,auto_increment=100;
+show create table t3;
+Table	Create Table
+t3	CREATE TABLE `t3` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `c1` int DEFAULT NULL,
+  KEY `id` (`id`)
+) ENGINE=CTC AUTO_INCREMENT=100 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table t3;
+set @@session.auto_increment_offset=1;
+set @@session.auto_increment_increment=1;
+SHOW VARIABLES LIKE 'auto_inc%';
+Variable_name	Value
+auto_increment_increment	1
+auto_increment_offset	1
+CREATE TABLE DEMO (a DOUBLE AUTO_INCREMENT KEY);
+Warnings:
+Warning	3856	AUTO_INCREMENT support for FLOAT/DOUBLE columns is deprecated and will be removed in a future release. Consider removing AUTO_INCREMENT from column 'a'.
+insert into DEMO values (-1.7976931348623157E+308);
+ERROR 22007: Truncated incorrect INTEGER value: '-1.7976931348623157e308'
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `a` double NOT NULL AUTO_INCREMENT,
+  PRIMARY KEY (`a`)
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+insert into DEMO values (1.7976931348623157E+308);
+ERROR 22007: Truncated incorrect INTEGER value: '1.7976931348623157e308'
+insert into DEMO values (null);
+select * from DEMO;
+a
+1
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `a` double NOT NULL AUTO_INCREMENT,
+  PRIMARY KEY (`a`)
+) ENGINE=CTC AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table DEMO;
+CREATE TABLE DEMO (a FLOAT AUTO_INCREMENT KEY);
+Warnings:
+Warning	3856	AUTO_INCREMENT support for FLOAT/DOUBLE columns is deprecated and will be removed in a future release. Consider removing AUTO_INCREMENT from column 'a'.
+insert into DEMO values(-3.402823466E+38);
+select * from DEMO;
+a
+-3.40282e38
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `a` float NOT NULL AUTO_INCREMENT,
+  PRIMARY KEY (`a`)
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+insert into DEMO values(-1.175494351E-38);
+select * from DEMO;
+a
+-3.40282e38
+1
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `a` float NOT NULL AUTO_INCREMENT,
+  PRIMARY KEY (`a`)
+) ENGINE=CTC AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+insert into DEMO values(3.402823466E+38);
+select * from DEMO;
+a
+-3.40282e38
+1
+3.40282e38
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `a` float NOT NULL AUTO_INCREMENT,
+  PRIMARY KEY (`a`)
+) ENGINE=CTC AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+insert into DEMO values(16777215);
+select * from DEMO;
+a
+-3.40282e38
+1
+16777200
+3.40282e38
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `a` float NOT NULL AUTO_INCREMENT,
+  PRIMARY KEY (`a`)
+) ENGINE=CTC AUTO_INCREMENT=16777216 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+insert into DEMO values(16777216);
+select * from DEMO;
+a
+-3.40282e38
+1
+16777200
+16777200
+3.40282e38
+show create table DEMO;
+Table	Create Table
+DEMO	CREATE TABLE `DEMO` (
+  `a` float NOT NULL AUTO_INCREMENT,
+  PRIMARY KEY (`a`)
+) ENGINE=CTC AUTO_INCREMENT=16777216 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+insert into DEMO values(16777217);
+ERROR 23000: Duplicate entry '16777200' for key 'DEMO.PRIMARY'
+insert into DEMO values (9223372036854775807);
+drop table DEMO;
+CREATE TABLE t1 (a INT AUTO_INCREMENT PRIMARY KEY);
+SET insert_id = 2;
+INSERT INTO t1 VALUES (NULL);
+SELECT LAST_INSERT_ID();
+LAST_INSERT_ID()
+2
+SELECT a FROM t1 WHERE a IS NULL;
+a
+SELECT /*+ SET_VAR(sql_auto_is_null=1) */ a FROM t1 WHERE a IS NULL;
+a
+2
+INSERT INTO t1 VALUES (1);
+SELECT LAST_INSERT_ID();
+LAST_INSERT_ID()
+2
+SELECT /*+ SET_VAR(sql_auto_is_null=1) */ a FROM t1 WHERE a IS NULL;
+a
+2
+INSERT INTO t1 VALUES ();
+SELECT LAST_INSERT_ID();
+LAST_INSERT_ID()
+3
+SELECT /*+ SET_VAR(sql_auto_is_null=1) */ a FROM t1 WHERE a IS NULL;
+a
+3
+INSERT INTO t1 VALUES (0);
+SELECT LAST_INSERT_ID();
+LAST_INSERT_ID()
+4
+SELECT /*+ SET_VAR(sql_auto_is_null=1) */ a FROM t1 WHERE a IS NULL;
+a
+4
+INSERT INTO t1 VALUES (NULL);
+SELECT LAST_INSERT_ID();
+LAST_INSERT_ID()
+5
+SELECT /*+ SET_VAR(sql_auto_is_null=1) */ a FROM t1 WHERE a IS NULL;
+a
+5
+SET insert_id = 0;
+INSERT INTO t1 VALUES (NULL);
+SELECT LAST_INSERT_ID();
+LAST_INSERT_ID()
+5
+SELECT /*+ SET_VAR(sql_auto_is_null=1) */ a FROM t1 WHERE a IS NULL;
+a
+5
+SELECT * FROM t1;
+a
+0
+1
+2
+3
+4
+5
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL AUTO_INCREMENT,
+  PRIMARY KEY (`a`)
+) ENGINE=CTC AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+DROP TABLE t1;
+create table t1 (a INT AUTO_INCREMENT KEY, b varchar(30));
+insert into t1 values(1000, '1');
+insert into t1(b) values('1001');
+select * from t1;
+a	b
+1000	1
+1001	1001
+replace into t1 values(0, '1002'),(1000, '2');
+select * from t1;
+a	b
+1000	2
+1001	1001
+1002	1002
+DROP TABLE t1;
+create table t1 (a INT AUTO_INCREMENT, index(a));
+insert into t1 values(null),(null);
+select * from t1;
+a
+1
+2
+alter table t1 ALTER COLUMN a set default 10;
+insert into t1 values();
+insert into t1 values();
+select * from t1;
+a
+1
+2
+10
+10
+insert into t1 values(null);
+select * from t1;
+a
+1
+2
+10
+10
+11
+drop table t1;
+create table t1 (a INT AUTO_INCREMENT KEY);
+insert into t1 values(null),(null);
+select * from t1;
+a
+1
+2
+alter table t1 ALTER COLUMN a set default 10;
+insert into t1 values();
+select * from t1;
+a
+1
+2
+10
+insert into t1 values();
+ERROR 23000: Duplicate entry '10' for key 't1.PRIMARY'
+insert into t1 values(null);
+select * from t1;
+a
+1
+2
+10
+11
+drop table t1;
+create table t1 (a INT AUTO_INCREMENT KEY);
+insert into t1 values(null);
+select * from t1;
+a
+1
+alter table t1 ALTER COLUMN a set default 10;
+insert into t1 values(null);
+select * from t1;
+a
+1
+2
+insert into t1 values();
+select * from t1;
+a
+1
+2
+10
+insert into t1 values(null);
+select * from t1;
+a
+1
+2
+10
+11
+drop table t1;
+create table t1 (a INT AUTO_INCREMENT KEY);
+insert into t1 values(0);
+select * from t1;
+a
+1
+alter table t1 ALTER COLUMN a set default 10;
+insert into t1 values(0);
+select * from t1;
+a
+1
+2
+insert into t1 values();
+select * from t1;
+a
+1
+2
+10
+insert into t1 values(0);
+select * from t1;
+a
+1
+2
+10
+11
+drop table t1;
+create table t1(a int AUTO_INCREMENT PRIMARY KEY);
+insert into t1 values ();
+select * from t1;
+a
+1
+alter table t1 ALTER COLUMN a set default 10;
+insert into t1 values ();
+select * from t1;
+a
+1
+10
+alter table t1 ALTER COLUMN a drop default;
+insert into t1 values ();
+ERROR HY000: Field 'a' doesn't have a default value
+insert into t1 values (0);
+insert into t1 values (null);
+select * from t1;
+a
+1
+10
+11
+12
+drop table t1;
+SET FOREIGN_KEY_CHECKS= 0;
+create table t(id int primary key);
+create table t11(id int primary key auto_increment, foreign key(id) references t(id));
+INSERT INTO t11 VALUES ();
+select * from t11;
+id
+1
+update IGNORE t11 SET id = 20 where id=1;
+select * from t11;
+id
+20
+show create table t11;
+Table	Create Table
+t11	CREATE TABLE `t11` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `t11_fk_1` FOREIGN KEY (`id`) REFERENCES `t` (`id`)
+) ENGINE=CTC AUTO_INCREMENT=21 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table t,t11;
+SET FOREIGN_KEY_CHECKS= default;
+SET FOREIGN_KEY_CHECKS= 1;
+create table t(id int primary key);
+create table t11(id int primary key auto_increment, foreign key(id) references t(id));
+INSERT INTO t VALUES (1);
+INSERT INTO t11 VALUES ();
+select * from t11;
+id
+1
+update IGNORE t11 SET id = 20 where id=1;
+Warnings:
+Warning	1452	Cannot add or update a child row: a foreign key constraint fails (Referenced key value not found in parent tables(test.t))
+select * from t11;
+id
+1
+show create table t11;
+Table	Create Table
+t11	CREATE TABLE `t11` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `t11_fk_1` FOREIGN KEY (`id`) REFERENCES `t` (`id`)
+) ENGINE=CTC AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table t,t11;
+SET FOREIGN_KEY_CHECKS= default;
+SET FOREIGN_KEY_CHECKS= 1;
+create table t(id int primary key);
+create table t11(id int primary key auto_increment, foreign key(id) references t(id));
+INSERT INTO t VALUES (1);
+INSERT INTO t11 VALUES ();
+select * from t11;
+id
+1
+update t11 SET id = 20 where id=1;
+ERROR 23000: Cannot add or update a child row: a foreign key constraint fails (Referenced key value not found in parent tables(test.t))
+select * from t11;
+id
+1
+show create table t11;
+Table	Create Table
+t11	CREATE TABLE `t11` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `t11_fk_1` FOREIGN KEY (`id`) REFERENCES `t` (`id`)
+) ENGINE=CTC AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table t,t11;
+SET FOREIGN_KEY_CHECKS= default;
+SET FOREIGN_KEY_CHECKS= 0;
+create table t(id int primary key);
+create table t11(id int primary key auto_increment, foreign key(id) references t(id));
+INSERT INTO t11 VALUES ();
+update t11 SET id = 20 where id=1;
+select * from t11;
+id
+20
+show create table t11;
+Table	Create Table
+t11	CREATE TABLE `t11` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `t11_fk_1` FOREIGN KEY (`id`) REFERENCES `t` (`id`)
+) ENGINE=CTC AUTO_INCREMENT=21 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table t,t11;
+SET FOREIGN_KEY_CHECKS= default;
+SET FOREIGN_KEY_CHECKS=0;
+set global ctc_autoinc_lock_mode=0;
+create table t(id int primary key);
+create table t11(id int primary key auto_increment, foreign key(id) references t(id));
+INSERT IGNORE INTO t11 VALUES ();
+select * from t11;
+id
+1
+show create table t11;
+Table	Create Table
+t11	CREATE TABLE `t11` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `t11_fk_1` FOREIGN KEY (`id`) REFERENCES `t` (`id`)
+) ENGINE=CTC AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+INSERT IGNORE INTO t11 VALUES ();
+select * from t11;
+id
+1
+2
+show create table t11;
+Table	Create Table
+t11	CREATE TABLE `t11` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `t11_fk_1` FOREIGN KEY (`id`) REFERENCES `t` (`id`)
+) ENGINE=CTC AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table t,t11;
+SET FOREIGN_KEY_CHECKS=default;
+SET FOREIGN_KEY_CHECKS= 1;
+create table t(id int primary key);
+create table t11(id int primary key auto_increment, foreign key(id) references t(id));
+INSERT INTO t VALUES (1);
+INSERT IGNORE INTO t11 VALUES ();
+select * from t11;
+id
+1
+show create table t11;
+Table	Create Table
+t11	CREATE TABLE `t11` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `t11_fk_1` FOREIGN KEY (`id`) REFERENCES `t` (`id`)
+) ENGINE=CTC AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+INSERT IGNORE INTO t11 VALUES ();
+Warnings:
+Warning	1452	Cannot add or update a child row: a foreign key constraint fails (Referenced key value not found in parent tables(test.t))
+select * from t11;
+id
+1
+show create table t11;
+Table	Create Table
+t11	CREATE TABLE `t11` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `t11_fk_1` FOREIGN KEY (`id`) REFERENCES `t` (`id`)
+) ENGINE=CTC AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table t,t11;
+SET FOREIGN_KEY_CHECKS= default;
+SET FOREIGN_KEY_CHECKS=0;
+create table t(id int primary key);
+create table t11(id int primary key auto_increment, foreign key(id) references t(id));
+INSERT INTO t11 VALUES ();
+INSERT INTO t11 VALUES ();
+select * from t11;
+id
+1
+2
+show create table t11;
+Table	Create Table
+t11	CREATE TABLE `t11` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `t11_fk_1` FOREIGN KEY (`id`) REFERENCES `t` (`id`)
+) ENGINE=CTC AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table t,t11;
+SET FOREIGN_KEY_CHECKS= default;
+SET FOREIGN_KEY_CHECKS=1;
+create table t(id int primary key);
+create table t11(id int primary key auto_increment, foreign key(id) references t(id));
+INSERT INTO t VALUES (1);
+INSERT INTO t11 VALUES ();
+INSERT INTO t11 VALUES ();
+ERROR 23000: Cannot add or update a child row: a foreign key constraint fails (Referenced key value not found in parent tables(test.t))
+select * from t11;
+id
+1
+show create table t11;
+Table	Create Table
+t11	CREATE TABLE `t11` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `t11_fk_1` FOREIGN KEY (`id`) REFERENCES `t` (`id`)
+) ENGINE=CTC AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table t,t11;
+SET FOREIGN_KEY_CHECKS= default;
+set global ctc_autoinc_lock_mode=default;
+SET FOREIGN_KEY_CHECKS= 0;
+create table t(id int primary key);
+create table t11(id int primary key auto_increment, foreign key(id) references t(id));
+INSERT IGNORE INTO t11 VALUES ();
+select * from t11;
+id
+1
+show create table t11;
+Table	Create Table
+t11	CREATE TABLE `t11` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `t11_fk_1` FOREIGN KEY (`id`) REFERENCES `t` (`id`)
+) ENGINE=CTC AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+INSERT IGNORE INTO t11 VALUES ();
+select * from t11;
+id
+1
+2
+show create table t11;
+Table	Create Table
+t11	CREATE TABLE `t11` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `t11_fk_1` FOREIGN KEY (`id`) REFERENCES `t` (`id`)
+) ENGINE=CTC AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table t,t11;
+SET FOREIGN_KEY_CHECKS=default;
+SET FOREIGN_KEY_CHECKS= 1;
+create table t(id int primary key);
+create table t11(id int primary key auto_increment, foreign key(id) references t(id));
+INSERT INTO t VALUES (1);
+INSERT IGNORE INTO t11 VALUES ();
+select * from t11;
+id
+1
+show create table t11;
+Table	Create Table
+t11	CREATE TABLE `t11` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `t11_fk_1` FOREIGN KEY (`id`) REFERENCES `t` (`id`)
+) ENGINE=CTC AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+INSERT IGNORE INTO t11 VALUES ();
+Warnings:
+Warning	1452	Cannot add or update a child row: a foreign key constraint fails (Referenced key value not found in parent tables(test.t))
+select * from t11;
+id
+1
+show create table t11;
+Table	Create Table
+t11	CREATE TABLE `t11` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `t11_fk_1` FOREIGN KEY (`id`) REFERENCES `t` (`id`)
+) ENGINE=CTC AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table t,t11;
+SET FOREIGN_KEY_CHECKS= default;
+SET FOREIGN_KEY_CHECKS= 0;
+create table t(id int primary key);
+create table t11(id int primary key auto_increment, foreign key(id) references t(id));
+INSERT INTO t11 VALUES ();
+INSERT INTO t11 VALUES ();
+select * from t11;
+id
+1
+2
+show create table t11;
+Table	Create Table
+t11	CREATE TABLE `t11` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `t11_fk_1` FOREIGN KEY (`id`) REFERENCES `t` (`id`)
+) ENGINE=CTC AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table t,t11;
+SET FOREIGN_KEY_CHECKS= default;
+SET FOREIGN_KEY_CHECKS= 1;
+create table t(id int primary key);
+create table t11(id int primary key auto_increment, foreign key(id) references t(id));
+INSERT INTO t VALUES (1);
+INSERT INTO t11 VALUES ();
+select * from t11;
+id
+1
+show create table t11;
+Table	Create Table
+t11	CREATE TABLE `t11` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `t11_fk_1` FOREIGN KEY (`id`) REFERENCES `t` (`id`)
+) ENGINE=CTC AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+INSERT INTO t11 VALUES ();
+ERROR 23000: Cannot add or update a child row: a foreign key constraint fails (Referenced key value not found in parent tables(test.t))
+select * from t11;
+id
+1
+show create table t11;
+Table	Create Table
+t11	CREATE TABLE `t11` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `t11_fk_1` FOREIGN KEY (`id`) REFERENCES `t` (`id`)
+) ENGINE=CTC AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table t,t11;
+SET FOREIGN_KEY_CHECKS= default;
+End of tests

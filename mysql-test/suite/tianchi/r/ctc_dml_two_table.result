@@ -1,0 +1,103 @@
+INSERT INTO PERSONS VALUES (1,'Gates', 'Bill', 'Xuanwumen 10', 'Beijing');
+INSERT INTO PERSONS VALUES (2,'Adams', 'John', 'Oxford Street', 'London');
+INSERT INTO PERSONS VALUES (3,'Bush', 'George', 'Fifth Avenue', 'New York');
+INSERT INTO PERSONS VALUES (4,'Carter', 'Thomas', 'Changan Street', 'Beijing');
+INSERT INTO ORDERS VALUES (1,77895,3);
+INSERT INTO ORDERS VALUES (2,44678,3);
+INSERT INTO ORDERS VALUES (3,22456,1);
+INSERT INTO ORDERS VALUES (4,24562,1);
+INSERT INTO ORDERS VALUES (5,34764,65);
+SELECT * FROM PERSONS;
+ID	LastName	FirstName	Address	City
+1	Gates	Bill	Xuanwumen 10	Beijing
+2	Adams	John	Oxford Street	London
+3	Bush	George	Fifth Avenue	New York
+4	Carter	Thomas	Changan Street	Beijing
+SELECT * FROM ORDERS;
+ID	OrderNo	ID_P
+1	77895	3
+2	44678	3
+3	22456	1
+4	24562	1
+5	34764	65
+SELECT PERSONS.LastName, PERSONS.FirstName, ORDERS.OrderNo FROM PERSONS, ORDERS WHERE PERSONS.ID = ORDERS.ID_P;
+LastName	FirstName	OrderNo
+Bush	George	77895
+Bush	George	44678
+Gates	Bill	22456
+Gates	Bill	24562
+SELECT * FROM PERSONS, ORDERS WHERE PERSONS.ID = ORDERS.ID_P;
+ID	LastName	FirstName	Address	City	ID	OrderNo	ID_P
+3	Bush	George	Fifth Avenue	New York	1	77895	3
+3	Bush	George	Fifth Avenue	New York	2	44678	3
+1	Gates	Bill	Xuanwumen 10	Beijing	3	22456	1
+1	Gates	Bill	Xuanwumen 10	Beijing	4	24562	1
+SELECT PERSONS.LastName, ORDERS.OrderNo FROM PERSONS, ORDERS WHERE PERSONS.ID >= 3 AND ORDERS.ID <= 1;
+LastName	OrderNo
+Carter	77895
+Bush	77895
+SELECT PERSONS.LastName, ORDERS.OrderNo FROM PERSONS, ORDERS WHERE PERSONS.ID < 3 AND ORDERS.ID > 1;
+LastName	OrderNo
+Adams	44678
+Gates	44678
+Adams	22456
+Gates	22456
+Adams	24562
+Gates	24562
+Adams	34764
+Gates	34764
+SELECT PERSONS.LastName, ORDERS.OrderNo FROM PERSONS, ORDERS WHERE PERSONS.FirstName = 'John' OR ORDERS.OrderNo < 30000;
+LastName	OrderNo
+Adams	77895
+Adams	44678
+Carter	22456
+Bush	22456
+Adams	22456
+Gates	22456
+Carter	24562
+Bush	24562
+Adams	24562
+Gates	24562
+Adams	34764
+SELECT PERSONS.LastName, ORDERS.OrderNo FROM PERSONS, ORDERS WHERE (PERSONS.LastName Like '%s' AND ORDERS.OrderNo < 30000) OR PERSONS.FirstName IN ('Bill','Thomas');
+LastName	OrderNo
+Carter	77895
+Gates	77895
+Carter	44678
+Gates	44678
+Carter	22456
+Adams	22456
+Gates	22456
+Carter	24562
+Adams	24562
+Gates	24562
+Carter	34764
+Gates	34764
+UPDATE PERSONS SET LastName="OMG", FirstName="GMO" where ID=3;
+UPDATE ORDERS SET OrderNo=99 where ID=3;
+DELETE FROM ORDERS where ID=1;
+SELECT PERSONS.LastName, PERSONS.FirstName, ORDERS.OrderNo FROM PERSONS, ORDERS WHERE PERSONS.ID = ORDERS.ID_P;
+LastName	FirstName	OrderNo
+OMG	GMO	44678
+Gates	Bill	99
+Gates	Bill	24562
+SELECT PERSONS.LastName, PERSONS.FirstName, ORDERS.OrderNo FROM PERSONS INNER JOIN ORDERS ON PERSONS.ID=ORDERS.ID_P ORDER BY PERSONS.LastName;
+LastName	FirstName	OrderNo
+Gates	Bill	99
+Gates	Bill	24562
+OMG	GMO	44678
+SELECT PERSONS.LastName, PERSONS.FirstName, ORDERS.OrderNo FROM PERSONS LEFT JOIN ORDERS ON PERSONS.ID=ORDERS.ID_P ORDER BY PERSONS.LastName;
+LastName	FirstName	OrderNo
+Adams	John	NULL
+Carter	Thomas	NULL
+Gates	Bill	24562
+Gates	Bill	99
+OMG	GMO	44678
+SELECT PERSONS.LastName, PERSONS.FirstName, ORDERS.OrderNo FROM PERSONS RIGHT JOIN ORDERS ON PERSONS.ID=ORDERS.ID_P ORDER BY PERSONS.LastName;
+LastName	FirstName	OrderNo
+NULL	NULL	34764
+Gates	Bill	99
+Gates	Bill	24562
+OMG	GMO	44678
+DROP TABLE PERSONS;
+DROP TABLE ORDERS;

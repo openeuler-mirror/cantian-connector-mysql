@@ -1,0 +1,54 @@
+drop table if exists Dept;
+create table Dept (ID integer not null, NAME varchar(19), AGE integer);
+create function rand_string(n int) returns varchar(255)
+begin
+declare chars_str varchar(100) default 'abcdefghijklmnopqrstuvwxyzABCDEFGHIGKLMNOPQRSTUVWXYZ';
+declare return_str varchar(255) default '';
+declare i int default 0;
+while i<n do
+set return_str =concat(return_str,substring(chars_str,floor(1+rand()*52),1));
+set i=i+1;
+end while;
+return return_str;
+end|
+create function rand_num_age() returns int(5)
+begin
+declare i int default 0;
+set i = floor(rand()*100);
+return i;
+end|
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+create procedure insert_dept(in max_num int(10))
+begin
+declare i int default 0;
+set autocommit = 0;
+repeat 
+set i=i+1;
+insert into Dept (ID, NAME, AGE) values(i,rand_string(8),rand_num_age());
+until i = max_num
+end repeat;
+commit;
+end|
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+call insert_dept(100);
+select count(*) from Dept;
+count(*)
+100
+select max(ID) from Dept;
+max(ID)
+100
+select min(ID) from Dept;
+min(ID)
+1
+SELECT * FROM Dept WHERE AGE is NULL;
+ID	NAME	AGE
+SELECT * FROM Dept WHERE AGE > 100;
+ID	NAME	AGE
+SELECT * FROM Dept WHERE NAME is NULL;
+ID	NAME	AGE
+drop table Dept;
+drop PROCEDURE insert_dept;
+drop FUNCTION rand_num_age;
+drop FUNCTION rand_string;

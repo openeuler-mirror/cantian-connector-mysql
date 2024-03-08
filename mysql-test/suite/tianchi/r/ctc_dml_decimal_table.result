@@ -1,0 +1,324 @@
+drop database if exists test;
+CREATE database test;
+use test;
+drop table if exists t1,t2,t3;
+CREATE TABLE t1(c1 NUMERIC, c2 NUMERIC, c3 NUMERIC);
+alter table t1 add index idx(c1, c2, c3);
+insert into t1(c1, c2, c3) values(10, 1, 10);
+insert into t1(c1, c2, c3) values(10, 1, 11);
+insert into t1(c1, c2, c3) values(8, 1, 11);
+SELECT * FROM t1;
+c1	c2	c3
+8	1	11
+10	1	10
+10	1	11
+SELECT * FROM t1 where c1 =10;
+c1	c2	c3
+10	1	10
+10	1	11
+SELECT * FROM t1 where c1 =10 and c2 =1;
+c1	c2	c3
+10	1	10
+10	1	11
+SELECT * FROM t1 where c1 =10 and c2 =1 and c3 = 10;
+c1	c2	c3
+10	1	10
+SELECT * FROM t1 where c1 >= 10;
+c1	c2	c3
+10	1	10
+10	1	11
+SELECT * FROM t1 where c1 <= 10;
+c1	c2	c3
+8	1	11
+10	1	10
+10	1	11
+SELECT * FROM t1 where c2 = 1;
+c1	c2	c3
+8	1	11
+10	1	10
+10	1	11
+DROP table t1;
+CREATE TABLE t2(c1 DECIMAL, c2 DECIMAL, c3 DECIMAL);
+alter table t2 add index idx(c1, c2, c3);
+insert into t2(c1, c2, c3) values(10, 1, 10);
+insert into t2(c1, c2, c3) values(10, 1, 11);
+SELECT * FROM t2;
+c1	c2	c3
+10	1	10
+10	1	11
+SELECT * FROM t2 where c1 = 10;
+c1	c2	c3
+10	1	10
+10	1	11
+SELECT * FROM t2 where c1 = 10 and c2 = 1;
+c1	c2	c3
+10	1	10
+10	1	11
+SELECT * FROM t2 where c1 = 10 and c2 = 1 and c3 = 10;
+c1	c2	c3
+10	1	10
+SELECT * FROM t2 where c2 = 1;
+c1	c2	c3
+10	1	10
+10	1	11
+SELECT * FROM t2 where c3 = 10;
+c1	c2	c3
+10	1	10
+DROP table t2;
+CREATE TABLE t2(c1 DECIMAL, c2 int, c3 NUMERIC);
+alter table t2 add index idx(c1, c2, c3);
+insert into t2(c1, c2, c3) values(10, 1, 10);
+insert into t2(c1, c2, c3) values(10, 1, 11);
+SELECT * FROM t2;
+c1	c2	c3
+10	1	10
+10	1	11
+SELECT * FROM t2 where c1 = 10;
+c1	c2	c3
+10	1	10
+10	1	11
+SELECT * FROM t2 where c1 = 10 and c2 = 1;
+c1	c2	c3
+10	1	10
+10	1	11
+SELECT * FROM t2 where c1 = 10 and c2 = 1 and c3 = 10;
+c1	c2	c3
+10	1	10
+DROP table t2;
+CREATE TABLE t1(c1  NUMERIC key);
+insert into t1(c1) values(10);
+insert into t1(c1) values(1);
+insert into t1(c1) values(5);
+SELECT * FROM t1;
+c1
+1
+5
+10
+SELECT * FROM t1 where c1 = 10;
+c1
+10
+DROP TABLE t1;
+CREATE TABLE t1(c1 DECIMAL key);
+insert into t1(c1) values(10);
+insert into t1(c1) values(1);
+insert into t1(c1) values(5);
+SELECT * FROM t1;
+c1
+1
+5
+10
+SELECT * FROM t1 where c1 = 10;
+c1
+10
+DROP TABLE t1;
+CREATE TABLE t1(c1 NUMERIC, c2 NUMERIC, c3 NUMERIC);
+alter table t1 add index idx(c1);
+insert into t1(c1, c2, c3) values(10, 1, 10);
+insert into t1(c1, c2, c3) values(10, 1, 11);
+insert into t1(c1, c2, c3) values(8, 1, 11);
+SELECT * FROM t1;
+c1	c2	c3
+10	1	10
+10	1	11
+8	1	11
+SELECT c1 FROM t1 where c1 = 10;
+c1
+10
+10
+SELECT c1 FROM t1 where c1 >= 10;
+c1
+10
+10
+DROP table t1;
+CREATE TABLE t2(c1 DECIMAL, c2 int, c3 NUMERIC, c4 int, c5 int, c6 DECIMAL, c7 int, 
+c8 int, c9 int, c10 int, c11 int, c12 int, c13 int, c14 int, c15 int, c16 int, c17 int);
+alter table t2 add index idx(c1, c2, c3, c4, c5, c6, c7, c8, c9,
+c10, c11, c12, c13, c14);
+insert into t2(c1, c2, c3, c4, c5, c6, c7, c8, c9,
+c10, c11, c12, c13, c14, c15, c16, c17) values(1, 2, 3, null, 5, 6, 7, 8, 9, 10, 11, null, 13, 14, 15, 16, 17);
+insert into t2(c1, c2, c3, c4, c5, c6, c7, c8, c9,
+c10, c11, c12, c13, c14, c15, c16, c17) values(2, null, null, 4, 5, 6, 7, 8, 9, 10, 11, null, 13, 14, 15, 16, 17);
+insert into t2(c1, c2, c3, c4, c5, c6, c7, c8, c9,
+c10, c11, c12, c13, c14, c15, c16, c17) values(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
+SELECT * FROM t2;
+c1	c2	c3	c4	c5	c6	c7	c8	c9	c10	c11	c12	c13	c14	c15	c16	c17
+1	2	3	NULL	5	6	7	8	9	10	11	NULL	13	14	15	16	17
+2	NULL	NULL	4	5	6	7	8	9	10	11	NULL	13	14	15	16	17
+1	2	3	4	5	6	7	8	9	10	11	12	13	14	15	16	17
+SELECT c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14 FROM t2 where c1 = 1;
+c1	c2	c3	c4	c5	c6	c7	c8	c9	c10	c11	c12	c13	c14
+1	2	3	NULL	5	6	7	8	9	10	11	NULL	13	14
+1	2	3	4	5	6	7	8	9	10	11	12	13	14
+SELECT c1, c2 , c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14 FROM t2 where c1 >= 1;
+c1	c2	c3	c4	c5	c6	c7	c8	c9	c10	c11	c12	c13	c14
+1	2	3	NULL	5	6	7	8	9	10	11	NULL	13	14
+1	2	3	4	5	6	7	8	9	10	11	12	13	14
+2	NULL	NULL	4	5	6	7	8	9	10	11	NULL	13	14
+SELECT * FROM t2 where c1 = 1;
+c1	c2	c3	c4	c5	c6	c7	c8	c9	c10	c11	c12	c13	c14	c15	c16	c17
+1	2	3	NULL	5	6	7	8	9	10	11	NULL	13	14	15	16	17
+1	2	3	4	5	6	7	8	9	10	11	12	13	14	15	16	17
+DROP table t2;
+CREATE TABLE t2(c1 DECIMAL, c2 int, c3 NUMERIC, c4 int, c5 int, c6 DECIMAL, c7 int, 
+c8 int, c9 int, c10 int, c11 int, c12 int, c13 int, c14 int, c15 int, c16 int, c17 int);
+alter table t2 add index idx(c1, c2, c3, c4, c5, c6, c7, c8, c9,
+c10, c11, c12);
+insert into t2(c1, c2, c3, c4, c5, c6, c7, c8, c9,
+c10, c11, c12, c13, c14, c15, c16, c17) values(1, 2, 3, null, 5, 6, 7, 8, 9, 10, 11, null, 13, 14, 15, 16, 17);
+insert into t2(c1, c2, c3, c4, c5, c6, c7, c8, c9,
+c10, c11, c12, c13, c14, c15, c16, c17) values(2, null, null, 4, 5, 6, 7, 8, 9, 10, 11, null, 13, 14, 15, 16, 17);
+insert into t2(c1, c2, c3, c4, c5, c6, c7, c8, c9,
+c10, c11, c12, c13, c14, c15, c16, c17) values(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
+SELECT * FROM t2;
+c1	c2	c3	c4	c5	c6	c7	c8	c9	c10	c11	c12	c13	c14	c15	c16	c17
+1	2	3	NULL	5	6	7	8	9	10	11	NULL	13	14	15	16	17
+2	NULL	NULL	4	5	6	7	8	9	10	11	NULL	13	14	15	16	17
+1	2	3	4	5	6	7	8	9	10	11	12	13	14	15	16	17
+SELECT c1, c2 , c3, c4, c5, c6, c7, c8, c9, c10, c11, c12 FROM t2 where c1 = 1;
+c1	c2	c3	c4	c5	c6	c7	c8	c9	c10	c11	c12
+1	2	3	NULL	5	6	7	8	9	10	11	NULL
+1	2	3	4	5	6	7	8	9	10	11	12
+SELECT c1, c2 , c3, c4, c5, c6, c7, c8, c9, c10, c11, c12 FROM t2 where c1 >= 1;
+c1	c2	c3	c4	c5	c6	c7	c8	c9	c10	c11	c12
+1	2	3	NULL	5	6	7	8	9	10	11	NULL
+1	2	3	4	5	6	7	8	9	10	11	12
+2	NULL	NULL	4	5	6	7	8	9	10	11	NULL
+SELECT c1, c2 , c3, c4, c5, c6, c7, c8, c9, c10, c11, c12 FROM t2 where c1 <= 2;
+c1	c2	c3	c4	c5	c6	c7	c8	c9	c10	c11	c12
+1	2	3	NULL	5	6	7	8	9	10	11	NULL
+1	2	3	4	5	6	7	8	9	10	11	12
+2	NULL	NULL	4	5	6	7	8	9	10	11	NULL
+SELECT * FROM t2 where c1 = 1;
+c1	c2	c3	c4	c5	c6	c7	c8	c9	c10	c11	c12	c13	c14	c15	c16	c17
+1	2	3	NULL	5	6	7	8	9	10	11	NULL	13	14	15	16	17
+1	2	3	4	5	6	7	8	9	10	11	12	13	14	15	16	17
+DROP table t2;
+CREATE TABLE t2(c1 DECIMAL, c2 int, c3 NUMERIC, c4 int, c5 int, c6 DECIMAL, c7 int, 
+c8 int, c9 int, c10 int, c11 int, c12 int, c13 int, c14 int, c15 int, c16 int, c17 int);
+alter table t2 add index idx(c1, c2, c3, c4, c5, c6, c7, c8, c9,
+c10, c11);
+insert into t2(c1, c2, c3, c4, c5, c6, c7, c8, c9,
+c10, c11, c12, c13, c14, c15, c16, c17) values(1, 2, 3, null, 5, 6, 7, 8, 9, 10, 11, null, 13, 14, 15, 16, 17);
+insert into t2(c1, c2, c3, c4, c5, c6, c7, c8, c9,
+c10, c11, c12, c13, c14, c15, c16, c17) values(2, null, null, 4, 5, 6, 7, 8, 9, 10, 11, null, 13, 14, 15, 16, 17);
+insert into t2(c1, c2, c3, c4, c5, c6, c7, c8, c9,
+c10, c11, c12, c13, c14, c15, c16, c17) values(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
+SELECT * FROM t2;
+c1	c2	c3	c4	c5	c6	c7	c8	c9	c10	c11	c12	c13	c14	c15	c16	c17
+1	2	3	NULL	5	6	7	8	9	10	11	NULL	13	14	15	16	17
+2	NULL	NULL	4	5	6	7	8	9	10	11	NULL	13	14	15	16	17
+1	2	3	4	5	6	7	8	9	10	11	12	13	14	15	16	17
+SELECT c1, c2 , c3, c4, c5, c6, c7, c8, c9, c10, c11 FROM t2 where c1 = 1;
+c1	c2	c3	c4	c5	c6	c7	c8	c9	c10	c11
+1	2	3	NULL	5	6	7	8	9	10	11
+1	2	3	4	5	6	7	8	9	10	11
+SELECT c1, c2 , c3, c4, c5, c6, c7, c8, c9, c10, c11 FROM t2 where c1 >= 1;
+c1	c2	c3	c4	c5	c6	c7	c8	c9	c10	c11
+1	2	3	NULL	5	6	7	8	9	10	11
+1	2	3	4	5	6	7	8	9	10	11
+2	NULL	NULL	4	5	6	7	8	9	10	11
+SELECT c1, c2 , c3, c4, c5, c6, c7, c8, c9, c10, c11 FROM t2 where c1 <= 2;
+c1	c2	c3	c4	c5	c6	c7	c8	c9	c10	c11
+1	2	3	NULL	5	6	7	8	9	10	11
+1	2	3	4	5	6	7	8	9	10	11
+2	NULL	NULL	4	5	6	7	8	9	10	11
+SELECT * FROM t2 where c1 = 1;
+c1	c2	c3	c4	c5	c6	c7	c8	c9	c10	c11	c12	c13	c14	c15	c16	c17
+1	2	3	NULL	5	6	7	8	9	10	11	NULL	13	14	15	16	17
+1	2	3	4	5	6	7	8	9	10	11	12	13	14	15	16	17
+DROP table t2;
+CREATE TABLE t1(c1 int key);
+insert into t1(c1) values(10);
+insert into t1(c1) values(1);
+insert into t1(c1) values(5);
+SELECT * FROM t1;
+c1
+1
+5
+10
+SELECT * FROM t1 where c1 = 10;
+c1
+10
+DROP TABLE t1;
+CREATE TABLE t3(c1 NUMERIC, c2 int, c3 NUMERIC);
+alter table t3 add index idx(c1);
+insert into t3(c1, c2, c3) values(10, 1, 10);
+insert into t3(c1, c2, c3) values(10, 1, 11);
+SELECT * FROM t3;
+c1	c2	c3
+10	1	10
+10	1	11
+SELECT * FROM t3 where c1 =10;
+c1	c2	c3
+10	1	10
+10	1	11
+DROP table t3;
+CREATE TABLE t1(c1 DECIMAL(10,5) UNSIGNED NOT NULL, c2 DECIMAL(10,5) SIGNED NULL, c3 DECIMAL, c4 INT, UNIQUE INDEX idx(c1,c2));
+Warnings:
+Warning	1681	UNSIGNED for decimal and floating point data types is deprecated and support for it will be removed in a future release.
+INSERT INTO t1 VALUES ('11111.11111','-11111.11111','1111111111',1);
+INSERT INTO t1 VALUES ('22222.22222','-22222.22222','2222222222',2);
+INSERT INTO t1 VALUES ('33333.33333','-33333.33333','3333333333',3);
+INSERT INTO t1 VALUES ('44444.44444','-44444.44444','4444444444',4);
+INSERT INTO t1 VALUES ('55555.55555','-55555.55555','5555555555',5);
+INSERT INTO t1 VALUES ('66666.66666','-66666.66666','6666666666',6);
+INSERT INTO t1 VALUES ('77777.77777','-77777.77777','7777777777',7);
+INSERT INTO t1 VALUES ('88888.88888','-88888.88888','8888888888',8);
+INSERT INTO t1 VALUES ('99999.99999','-99999.99999','9999999999',9);
+SELECT c1,c2 FROM t1;
+c1	c2
+11111.11111	-11111.11111
+22222.22222	-22222.22222
+33333.33333	-33333.33333
+44444.44444	-44444.44444
+55555.55555	-55555.55555
+66666.66666	-66666.66666
+77777.77777	-77777.77777
+88888.88888	-88888.88888
+99999.99999	-99999.99999
+DROP table t1;
+CREATE TABLE t1(c1 INT, c2 VARCHAR(20), c3 DECIMAL(10,5) UNSIGNED NOT NULL, c4 DECIMAL(10,5) SIGNED NULL, UNIQUE INDEX idx(c2,c3));
+Warnings:
+Warning	1681	UNSIGNED for decimal and floating point data types is deprecated and support for it will be removed in a future release.
+INSERT INTO t1 VALUES (1,'yy','11111.11111','-11111.11111');
+INSERT INTO t1 VALUES (2,'yy','22222.22222','-22222.22222');
+INSERT INTO t1 VALUES (3,'yy','33333.33333','-33333.33333');
+INSERT INTO t1 VALUES (4,'yy','44444.44444','-44444.44444');
+INSERT INTO t1 VALUES (5,'yy','55555.55555','-55555.55555');
+INSERT INTO t1 VALUES (6,'yy','66666.66666','-66666.66666');
+INSERT INTO t1 VALUES (7,'yy','77777.77777','-77777.77777');
+INSERT INTO t1 VALUES (8,'yy','88888.88888','-88888.88888');
+INSERT INTO t1 VALUES (9,'yy','99999.99999','-99999.99999');
+SELECT c2,c3 FROM t1;
+c2	c3
+yy	11111.11111
+yy	22222.22222
+yy	33333.33333
+yy	44444.44444
+yy	55555.55555
+yy	66666.66666
+yy	77777.77777
+yy	88888.88888
+yy	99999.99999
+DROP table t1;
+set sql_mode = '';
+CREATE TABLE t1 SELECT 12345678901234567890123456789012345678901234567890123456789012345.1 AS c1;
+Warnings:
+Warning	1264	Out of range value for column 'c1' at row 1
+select * from t1;
+c1
+9999999999999999999999999999999999999999999999999999999999999999.9
+drop table t1;
+CREATE TABLE t2 SELECT 123456789012345678901234567890123456789012345678901234567890123456.1 AS c1;
+Warnings:
+Warning	1264	Out of range value for column 'c1' at row 1
+select * from t2;
+c1
+9999999999999999999999999999999999999999999999999999999999999999.9
+drop table t2;
+CREATE TABLE t3 SELECT 1234567890123456789012345678901234567890123456789012345678901234.1 AS c1;
+select * from t3;
+ AS c1
+1234567890123456789012345678901234567890123456789012345678901234.1
+drop table t3;
+set sql_mode = default;
