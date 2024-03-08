@@ -1,0 +1,162 @@
+CREATE EVENT e_totals ON SCHEDULE AT '2006-02-10 23:59:00' DO INSERT INTO test.totals VALUES (NOW());
+ERROR HY000: Cantian doesn't support current operation
+ALTER EVENT no_such_event ON SCHEDULE  EVERY '2:3' DAY_HOUR;
+ERROR HY000: Cantian doesn't support current operation
+DROP EVENT e_totals;
+ERROR HY000: Cantian doesn't support current operation
+CREATE RESOURCE GROUP rg1 TYPE = USER VCPU = 0 THREAD_PRIORITY = 19;
+ERROR HY000: Cantian doesn't support current operation
+ALTER RESOURCE GROUP rg2 THREAD_PRIORITY = 5;
+ERROR HY000: Cantian doesn't support current operation
+SET RESOURCE GROUP rg1;
+ERROR HY000: Cantian doesn't support current operation
+DROP RESOURCE GROUP rg1;
+ERROR HY000: Cantian doesn't support current operation
+CREATE SPATIAL REFERENCE SYSTEM 13001003 NAME 'TEST13001003 Radian WGS 84' DEFINITION 'GEOGCS["Radian WGS 84",DATUM["World Geodetic System 1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["radian",1.0,AUTHORITY["EPSG","9101"]],AXIS["Lat",NORTH],AXIS["Lon",EAST],AUTHORITY["EPSG","4326"]]';
+ERROR HY000: Cantian doesn't support current operation
+DROP SPATIAL REFERENCE SYSTEM 13001000;
+ERROR HY000: Cantian doesn't support current operation
+CREATE SERVER s FOREIGN DATA WRAPPER mysql OPTIONS (USER 'Remote', HOST '198.51.100.106', DATABASE 'test');
+ERROR HY000: Cantian doesn't support current operation
+ALTER SERVER s OPTIONS (USER 'sally');
+ERROR HY000: Cantian doesn't support current operation
+DROP SERVER s;
+ERROR HY000: Cantian doesn't support current operation
+ALTER INSTANCE RELOAD KEYRING;
+ERROR HY000: Cantian doesn't support current operation
+ALTER INSTANCE ROTATE BINLOG MASTER KEY;
+ERROR HY000: Cantian doesn't support current operation
+create tablespace ts01 add datafile 'ts_01.ibd' autoextend_size=1M;
+alter tablespace ts01 add datafile 'ts_02.ibd' autoextend_size=4M;
+ERROR 42000: The storage engine for the table doesn't support ALTER TABLESPACE ... ADD DATAFILE
+alter tablespace ts01 drop datafile 'ts_01.ibd';
+ERROR 42000: The storage engine for the table doesn't support ALTER TABLESPACE ... DROP DATAFILE
+drop tablespace ts01;
+CREATE TABLESPACE s1 ADD DATAFILE 's1.ibd' ENGINE InnoDB;
+ERROR HY000: Once the CTC is loaded, it must be used as the default engine. To specify other engine for table, uninstall the CTC first.
+create tablespace test1 add datafile "/cytest.ibd";
+ERROR HY000: The DATAFILE location must be in a known directory.
+create tablespace test1 add datafile "  cytest.ibd";
+ERROR HY000: The DATAFILE location must be in a known directory.
+create tablespace test1 add datafile "cytest.ib";
+ERROR HY000: The ADD DATAFILE filepath must end with '.ibd'.
+create table t1 (col1 INT, col2 INT, col3 INT);
+alter table t1 force;
+drop table t1;
+create table t1 (a int, b int);
+alter table t1 add column c1 int first;
+alter table t1 add column c2 int after a;
+alter table t1 modify a int after b;
+alter table t1 modify b int first;
+alter table t1 change a a int after b;
+alter table t1 change b b int first;
+drop table t1;
+SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+Warnings:
+Warning	3655	CTC: The Function of REPEATABLE READ transaction isolation is in progress.
+SET transaction_isolation='repeatable-read';
+Warnings:
+Warning	3655	CTC: The Function of REPEATABLE READ transaction isolation is in progress.
+create table t1 (a char(10));
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` char(10) DEFAULT NULL
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+alter table t1 change a a char(10) character set ascii;
+alter table t1 modify a char(10) character set ascii;
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` char(10) CHARACTER SET ascii COLLATE ascii_general_ci DEFAULT NULL
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table t1;
+SET @@global.default_storage_engine = DEFAULT;
+SET @@global.default_storage_engine = CTC;
+SET @@global.default_storage_engine = Innodb;
+ERROR HY000: Once the CTC is loaded, it must be set as the default engine. To modify the setting, uninstall the CTC first.
+SET @@global.default_storage_engine = @global_engine;
+ERROR HY000: [CTC]:Please make sure global_engine has value in it.
+SET @global_engine = 'Innodb';
+SET @@global.default_storage_engine = @global_engine;
+ERROR HY000: Once the CTC is loaded, it must be set as the default engine. To modify the setting, uninstall the CTC first.
+SET @global_engine = 'DEFAULT';
+SET @@global.default_storage_engine = @global_engine;
+SET @global_engine = 'CTC';
+SET @@global.default_storage_engine = @global_engine;
+SET @tmpvar = "DEFAULT";
+SET GLOBAL default_storage_engine = @tmpvar;
+SET @tmpvar = "CTC";
+SET GLOBAL default_storage_engine = @tmpvar;
+SET @tmpvar = "Innodb";
+SET GLOBAL default_storage_engine = @tmpvar;
+ERROR HY000: Once the CTC is loaded, it must be set as the default engine. To modify the setting, uninstall the CTC first.
+SET @@global.transaction_isolation = @global_start_value;
+ERROR HY000: [CTC]:Please make sure global_start_value has value in it.
+SET @global_start_value = @@global.transaction_isolation;
+SET @@global.transaction_isolation = @global_start_value;
+Warnings:
+Warning	3655	CTC: The Function of REPEATABLE READ transaction isolation is in progress.
+SET @global_start_value = 'repeatable-read';
+SET @@global.transaction_isolation = @global_start_value;
+Warnings:
+Warning	3655	CTC: The Function of REPEATABLE READ transaction isolation is in progress.
+SET @global_start_value = 1;
+SET @@global.transaction_isolation = @global_start_value;
+SET @global_start_value = 'repeatable-read';
+SET @@global.transaction_isolation = @global_start_value;
+Warnings:
+Warning	3655	CTC: The Function of REPEATABLE READ transaction isolation is in progress.
+SET @global_start_value = 'read-uncommitted';
+SET @@global.transaction_isolation = @global_start_value;
+ERROR HY000: CTC STORAGE ENGINE ONLY SUPPORT READ_COMMITTED TRANSACTION ISOLATION LEVEL.
+SET @global_start_value = 'serializable';
+SET @@global.transaction_isolation = @global_start_value;
+ERROR HY000: CTC STORAGE ENGINE ONLY SUPPORT READ_COMMITTED TRANSACTION ISOLATION LEVEL.
+SET @global_start_value = 'read-committed';
+SET @@global.transaction_isolation = @global_start_value;
+SET @@global.transaction_isolation = 'repeatable-read';
+Warnings:
+Warning	3655	CTC: The Function of REPEATABLE READ transaction isolation is in progress.
+SET @@global.transaction_isolation = DEFAULT;
+SET @@global.max_connections = 5000;
+ERROR HY000: Current SE can only provide 1365 connections for one mysql-server
+SET @@global.max_connections = 0;
+ERROR HY000: Current SE cannot provide less than one connection.
+SET @@global.max_connections = DEFAULT;
+SET @tmp_max_connections = 5000;
+SET @@global.max_connections = @tmp_max_connections;
+ERROR HY000: Current SE can only provide 1365 connections for one mysql-server
+create table t1 (a int, b int generated always as (a+1) key);
+ERROR HY000: 'Defining a virtual generated column as primary key' is not supported for generated columns.
+CREATE TABLE t (a INT, b INT, c INT GENERATED ALWAYS AS(a+b), d INT GENERATED ALWAYS AS(a+b+b), KEY idxa (a),KEY vidxcd (c, d));
+ERROR HY000: Cantian does not support index on virtual generated column.
+CREATE TABLE tb(id INT PRIMARY KEY, t1 LONGBLOB, t2 LONGBLOB, v1 CHAR(2) AS (SUBSTR(t1,2,2)) VIRTUAL, INDEX(id,v1));
+ERROR HY000: Cantian does not support index on virtual generated column.
+CREATE TABLE t5 (a int, b int GENERATED ALWAYS AS (a) VIRTUAL NOT NULL);
+ALTER TABLE t5 ADD UNIQUE INDEX (b);
+ERROR HY000: Cantian does not support index on virtual generated column.
+DROP TABLE t5;
+SET GLOBAL protocol_compression_algorithms = @@global.protocol_compression_algorithms;
+SET GLOBAL transaction_isolation = @@global.transaction_isolation;
+SET GLOBAL max_connections = @@global.max_connections;
+SET admin_tls_version = @@SESSION.admin_tls_version;
+ERROR HY000: Variable 'admin_tls_version' is a GLOBAL variable and should be set with SET GLOBAL
+SET @@global.sql_log_bin = 0;
+ERROR HY000: Variable 'sql_log_bin' is a SESSION variable and can't be used with SET GLOBAL
+SET @@global.timestamp = "1000";
+ERROR HY000: Variable 'timestamp' is a SESSION variable and can't be used with SET GLOBAL
+SET admin_ssl_crl = @@SESSION.admin_ssl_crl;
+ERROR HY000: Variable 'admin_ssl_crl' is a GLOBAL variable and should be set with SET GLOBAL
+SET admin_ssl_crlpath = @@SESSION.admin_ssl_crlpath;
+ERROR HY000: Variable 'admin_ssl_crlpath' is a GLOBAL variable and should be set with SET GLOBAL
+SET admin_ssl_ca = @@SESSION.admin_ssl_ca;
+ERROR HY000: Variable 'admin_ssl_ca' is a GLOBAL variable and should be set with SET GLOBAL
+SET admin_tls_ciphersuites = @@SESSION.admin_tls_ciphersuites;
+ERROR HY000: Variable 'admin_tls_ciphersuites' is a GLOBAL variable and should be set with SET GLOBAL
+SET admin_ssl_capath = @@SESSION.admin_ssl_capath;
+ERROR HY000: Variable 'admin_ssl_capath' is a GLOBAL variable and should be set with SET GLOBAL
+SET admin_ssl_cert = @@SESSION.admin_ssl_cert;
+ERROR HY000: Variable 'admin_ssl_cert' is a GLOBAL variable and should be set with SET GLOBAL
+SET admin_ssl_key = @@SESSION.admin_ssl_key;
+ERROR HY000: Variable 'admin_ssl_key' is a GLOBAL variable and should be set with SET GLOBAL

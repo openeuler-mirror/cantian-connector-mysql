@@ -1,0 +1,417 @@
+drop table if exists t,t1,t2,t3,t4;
+create table t(id int primary key);
+create table t1(
+a int DEFAULT NULL,
+b blob,
+c float,
+`col2` int, `col3` int, gcol1 INTEGER GENERATED ALWAYS AS (col2 + col3) VIRTUAL,
+c1 TEXT character set armscii8 collate armscii8_general_ci,
+id int primary key auto_increment,name varchar(8) not null,id_crd bigint zerofill,
+foreign key(id) references t(id));
+Warnings:
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+CREATE TABLE t2(a int primary key,c1 float AUTO_INCREMENT,index(c1))
+PARTITION BY RANGE(a) subpartition by hash(a)
+subpartitions 4(
+partition p0 values less than(10),
+partition p1 values less than(99),
+partition p2 values less than(999),
+partition p3 values less than(1000),
+partition p4 values less than(2001),
+partition p5 values less than(3000));
+Warnings:
+Warning	3856	AUTO_INCREMENT support for FLOAT/DOUBLE columns is deprecated and will be removed in a future release. Consider removing AUTO_INCREMENT from column 'c1'.
+create table t3(a varchar(100), b int, c int, index(b))
+partition by list columns(a) (
+partition p1 values in ('p1'),
+partition p2 values in ('p2'),
+partition p3 values in ('p3'),
+partition p4 values in ('p4'));
+create table t4(
+a int DEFAULT NULL,
+b blob,
+c float,
+`col2` int, `col3` int, gcol1 INTEGER GENERATED ALWAYS AS (col2 + col3) VIRTUAL,
+c1 TEXT character set armscii8 collate armscii8_general_ci,
+id int primary key auto_increment,name varchar(8) not null,id_crd bigint zerofill);
+Warnings:
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+show create table t;
+Table	Create Table
+t	CREATE TABLE `t` (
+  `id` int NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int DEFAULT NULL,
+  `b` blob,
+  `c` float DEFAULT NULL,
+  `col2` int DEFAULT NULL,
+  `col3` int DEFAULT NULL,
+  `gcol1` int GENERATED ALWAYS AS ((`col2` + `col3`)) VIRTUAL,
+  `c1` text CHARACTER SET armscii8 COLLATE armscii8_general_ci,
+  `id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(8) NOT NULL,
+  `id_crd` bigint(20) unsigned zerofill DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `t1_fk_1` FOREIGN KEY (`id`) REFERENCES `t` (`id`)
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+show create table t2;
+Table	Create Table
+t2	CREATE TABLE `t2` (
+  `a` int NOT NULL,
+  `c1` float NOT NULL AUTO_INCREMENT,
+  PRIMARY KEY (`a`),
+  KEY `c1` (`c1`)
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+/*!50100 PARTITION BY RANGE (`a`)
+SUBPARTITION BY HASH (`a`)
+SUBPARTITIONS 4
+(PARTITION p0 VALUES LESS THAN (10) ENGINE = CTC,
+ PARTITION p1 VALUES LESS THAN (99) ENGINE = CTC,
+ PARTITION p2 VALUES LESS THAN (999) ENGINE = CTC,
+ PARTITION p3 VALUES LESS THAN (1000) ENGINE = CTC,
+ PARTITION p4 VALUES LESS THAN (2001) ENGINE = CTC,
+ PARTITION p5 VALUES LESS THAN (3000) ENGINE = CTC) */
+show create table t3;
+Table	Create Table
+t3	CREATE TABLE `t3` (
+  `a` varchar(100) DEFAULT NULL,
+  `b` int DEFAULT NULL,
+  `c` int DEFAULT NULL,
+  KEY `b` (`b`)
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+/*!50500 PARTITION BY LIST  COLUMNS(a)
+(PARTITION p1 VALUES IN ('p1') ENGINE = CTC,
+ PARTITION p2 VALUES IN ('p2') ENGINE = CTC,
+ PARTITION p3 VALUES IN ('p3') ENGINE = CTC,
+ PARTITION p4 VALUES IN ('p4') ENGINE = CTC) */
+show create table t4;
+Table	Create Table
+t4	CREATE TABLE `t4` (
+  `a` int DEFAULT NULL,
+  `b` blob,
+  `c` float DEFAULT NULL,
+  `col2` int DEFAULT NULL,
+  `col3` int DEFAULT NULL,
+  `gcol1` int GENERATED ALWAYS AS ((`col2` + `col3`)) VIRTUAL,
+  `c1` text CHARACTER SET armscii8 COLLATE armscii8_general_ci,
+  `id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(8) NOT NULL,
+  `id_crd` bigint(20) unsigned zerofill DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+INSERT INTO t (id) VALUES (1);
+INSERT INTO t (id) VALUES (2);
+INSERT INTO t1 (a, b, c, `col2`, `col3`, c1, id, name, id_crd) VALUES (1, repeat('g', 16), 3.1415, 1, 2, 'abc', 1, concat('name',1), 10000000000+1);
+INSERT INTO t2 VALUES(5, null);
+INSERT INTO t2 VALUES(99, null);
+INSERT INTO t2 VALUES(2100, null);
+INSERT INTO t3 VALUES('p1',10,20);
+INSERT INTO t3 VALUES('p2',100,200);
+INSERT INTO t4 (a, b, c, `col2`, `col3`, c1, id, name, id_crd) VALUES (1, repeat('g', 16), 3.1415, 1, 2, 'abc', 1, concat('name',1), 10000000000+1);
+SELECT * FROM t;
+id
+1
+2
+SELECT * FROM t1;
+a	b	c	col2	col3	gcol1	c1	id	name	id_crd
+1	gggggggggggggggg	3.1415	1	2	3	abc	1	name1	00000000010000000001
+SELECT * FROM t2;
+a	c1
+5	1
+99	2
+2100	3
+SELECT * FROM t3;
+a	b	c
+p1	10	20
+p2	100	200
+SELECT * FROM t4;
+a	b	c	col2	col3	gcol1	c1	id	name	id_crd
+1	gggggggggggggggg	3.1415	1	2	3	abc	1	name1	00000000010000000001
+rename table t to t00,t1 to t2;
+ERROR 42S01: Table 't2' already exists
+rename table t1 to t11,t2 to t3;
+ERROR 42S01: Table 't3' already exists
+rename table t2 to t22,t3 to t4;
+ERROR 42S01: Table 't4' already exists
+rename table t3 to t33,t4 to t;
+ERROR 42S01: Table 't' already exists
+rename table t4 to t44,t to t1;
+ERROR 42S01: Table 't1' already exists
+rename table t to t00,t to t55;
+ERROR 42S02: Table 'test.t' doesn't exist
+rename table t1 to t11,t1 to t55;
+ERROR 42S02: Table 'test.t1' doesn't exist
+rename table t2 to t22,t2 to t55;
+ERROR 42S02: Table 'test.t2' doesn't exist
+rename table t3 to t33,t3 to t55;
+ERROR 42S02: Table 'test.t3' doesn't exist
+rename table t4 to t44,t4 to t55;
+ERROR 42S02: Table 'test.t4' doesn't exist
+rename table t to t00,t to t00;
+ERROR 42S01: Table 't00' already exists
+rename table t1 to t11,t1 to t11;
+ERROR 42S01: Table 't11' already exists
+rename table t2 to t22,t2 to t22;
+ERROR 42S01: Table 't22' already exists
+rename table t3 to t33,t3 to t33;
+ERROR 42S01: Table 't33' already exists
+rename table t4 to t44,t4 to t44;
+ERROR 42S01: Table 't44' already exists
+show tables;
+Tables_in_test
+t
+t1
+t2
+t3
+t4
+show create table t;
+Table	Create Table
+t	CREATE TABLE `t` (
+  `id` int NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int DEFAULT NULL,
+  `b` blob,
+  `c` float DEFAULT NULL,
+  `col2` int DEFAULT NULL,
+  `col3` int DEFAULT NULL,
+  `gcol1` int GENERATED ALWAYS AS ((`col2` + `col3`)) VIRTUAL,
+  `c1` text CHARACTER SET armscii8 COLLATE armscii8_general_ci,
+  `id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(8) NOT NULL,
+  `id_crd` bigint(20) unsigned zerofill DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `t1_fk_1` FOREIGN KEY (`id`) REFERENCES `t` (`id`)
+) ENGINE=CTC AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+show create table t2;
+Table	Create Table
+t2	CREATE TABLE `t2` (
+  `a` int NOT NULL,
+  `c1` float NOT NULL AUTO_INCREMENT,
+  PRIMARY KEY (`a`),
+  KEY `c1` (`c1`)
+) ENGINE=CTC AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+/*!50100 PARTITION BY RANGE (`a`)
+SUBPARTITION BY HASH (`a`)
+SUBPARTITIONS 4
+(PARTITION p0 VALUES LESS THAN (10) ENGINE = CTC,
+ PARTITION p1 VALUES LESS THAN (99) ENGINE = CTC,
+ PARTITION p2 VALUES LESS THAN (999) ENGINE = CTC,
+ PARTITION p3 VALUES LESS THAN (1000) ENGINE = CTC,
+ PARTITION p4 VALUES LESS THAN (2001) ENGINE = CTC,
+ PARTITION p5 VALUES LESS THAN (3000) ENGINE = CTC) */
+show create table t3;
+Table	Create Table
+t3	CREATE TABLE `t3` (
+  `a` varchar(100) DEFAULT NULL,
+  `b` int DEFAULT NULL,
+  `c` int DEFAULT NULL,
+  KEY `b` (`b`)
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+/*!50500 PARTITION BY LIST  COLUMNS(a)
+(PARTITION p1 VALUES IN ('p1') ENGINE = CTC,
+ PARTITION p2 VALUES IN ('p2') ENGINE = CTC,
+ PARTITION p3 VALUES IN ('p3') ENGINE = CTC,
+ PARTITION p4 VALUES IN ('p4') ENGINE = CTC) */
+show create table t4;
+Table	Create Table
+t4	CREATE TABLE `t4` (
+  `a` int DEFAULT NULL,
+  `b` blob,
+  `c` float DEFAULT NULL,
+  `col2` int DEFAULT NULL,
+  `col3` int DEFAULT NULL,
+  `gcol1` int GENERATED ALWAYS AS ((`col2` + `col3`)) VIRTUAL,
+  `c1` text CHARACTER SET armscii8 COLLATE armscii8_general_ci,
+  `id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(8) NOT NULL,
+  `id_crd` bigint(20) unsigned zerofill DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=CTC AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+show create table t00;
+ERROR 42S02: Table 'test.t00' doesn't exist
+show create table t11;
+ERROR 42S02: Table 'test.t11' doesn't exist
+show create table t22;
+ERROR 42S02: Table 'test.t22' doesn't exist
+show create table t33;
+ERROR 42S02: Table 'test.t33' doesn't exist
+show create table t44;
+ERROR 42S02: Table 'test.t44' doesn't exist
+show create table t55;
+ERROR 42S02: Table 'test.t55' doesn't exist
+rename table t1 to t11, t to t1;
+rename table t2 to t22, t11 to t2;
+rename table t3 to t33, t22 to t3;
+rename table t4 to t44, t33 to t4;
+show tables;
+Tables_in_test
+t1
+t2
+t3
+t4
+t44
+show create table t;
+ERROR 42S02: Table 'test.t' doesn't exist
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `id` int NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+show create table t2;
+Table	Create Table
+t2	CREATE TABLE `t2` (
+  `a` int DEFAULT NULL,
+  `b` blob,
+  `c` float DEFAULT NULL,
+  `col2` int DEFAULT NULL,
+  `col3` int DEFAULT NULL,
+  `gcol1` int GENERATED ALWAYS AS ((`col2` + `col3`)) VIRTUAL,
+  `c1` text CHARACTER SET armscii8 COLLATE armscii8_general_ci,
+  `id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(8) NOT NULL,
+  `id_crd` bigint(20) unsigned zerofill DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `t2_fk_1` FOREIGN KEY (`id`) REFERENCES `t1` (`id`)
+) ENGINE=CTC AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+show create table t3;
+Table	Create Table
+t3	CREATE TABLE `t3` (
+  `a` int NOT NULL,
+  `c1` float NOT NULL AUTO_INCREMENT,
+  PRIMARY KEY (`a`),
+  KEY `c1` (`c1`)
+) ENGINE=CTC AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+/*!50100 PARTITION BY RANGE (`a`)
+SUBPARTITION BY HASH (`a`)
+SUBPARTITIONS 4
+(PARTITION p0 VALUES LESS THAN (10) ENGINE = CTC,
+ PARTITION p1 VALUES LESS THAN (99) ENGINE = CTC,
+ PARTITION p2 VALUES LESS THAN (999) ENGINE = CTC,
+ PARTITION p3 VALUES LESS THAN (1000) ENGINE = CTC,
+ PARTITION p4 VALUES LESS THAN (2001) ENGINE = CTC,
+ PARTITION p5 VALUES LESS THAN (3000) ENGINE = CTC) */
+show create table t4;
+Table	Create Table
+t4	CREATE TABLE `t4` (
+  `a` varchar(100) DEFAULT NULL,
+  `b` int DEFAULT NULL,
+  `c` int DEFAULT NULL,
+  KEY `b` (`b`)
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+/*!50500 PARTITION BY LIST  COLUMNS(a)
+(PARTITION p1 VALUES IN ('p1') ENGINE = CTC,
+ PARTITION p2 VALUES IN ('p2') ENGINE = CTC,
+ PARTITION p3 VALUES IN ('p3') ENGINE = CTC,
+ PARTITION p4 VALUES IN ('p4') ENGINE = CTC) */
+show create table t44;
+Table	Create Table
+t44	CREATE TABLE `t44` (
+  `a` int DEFAULT NULL,
+  `b` blob,
+  `c` float DEFAULT NULL,
+  `col2` int DEFAULT NULL,
+  `col3` int DEFAULT NULL,
+  `gcol1` int GENERATED ALWAYS AS ((`col2` + `col3`)) VIRTUAL,
+  `c1` text CHARACTER SET armscii8 COLLATE armscii8_general_ci,
+  `id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(8) NOT NULL,
+  `id_crd` bigint(20) unsigned zerofill DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=CTC AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+rename table t1 to t, t2 to t1, t3 to t2, t4 to t3, t44 to t4;
+rename table t to t00, t00 to t;
+rename table t1 to t11, t11 to t1;
+rename table t2 to t22, t22 to t2;
+rename table t3 to t33, t33 to t3;
+rename table t4 to t44, t44 to t4;
+rename table t1 to t11, t11 to t111, t111 to t1111;
+rename table t to t00, t00 to t000, t000 to t0000;
+rename table t2 to t22, t22 to t222, t222 to t2222;
+rename table t3 to t33, t33 to t333, t333 to t3333;
+rename table t4 to t44, t44 to t444, t444 to t4444;
+show tables;
+Tables_in_test
+t0000
+t1111
+t2222
+t3333
+t4444
+drop table t0000,t1111,t2222,t3333,t4444;
+create table t0 SELECT 1,"table 1";
+create table t2 SELECT 2,"table 2";
+create table t3 SELECT 3,"table 3";
+rename table t0 to t1;
+rename table t3 to t4, t2 to t3, t1 to t2, t4 to t1;
+select * from t1;
+3	table 3
+3	table 3
+rename table t3 to t4, t2 to t3, t1 to t2, t4 to t1;
+rename table t3 to t4, t2 to t3, t1 to t2, t4 to t1;
+select * from t1;
+1	table 1
+1	table 1
+rename table t1 to t2;
+ERROR 42S01: Table 't2' already exists
+rename table t1 to t1;
+ERROR 42S01: Table 't1' already exists
+rename table t3 to t4, t2 to t3, t1 to t2, t4 to t2;
+ERROR 42S01: Table 't2' already exists
+show tables like "t_";
+Tables_in_test (t_)
+t1
+t2
+t3
+rename table t3 to t1, t2 to t3, t1 to t2, t4 to t1;
+ERROR 42S01: Table 't1' already exists
+rename table t3 to t4, t5 to t3, t1 to t2, t4 to t1;
+ERROR 42S02: Table 'test.t5' doesn't exist
+drop table t1;
+drop table t2,t3;
+CREATE TABLE t(c1 INT CONSTRAINT t2_chk_1 CHECK (c1 > 10));
+CREATE TABLE t1(c1 INT CHECK (c1 > 10), CONSTRAINT ck CHECK(c1 > 10));
+CREATE TABLE t2(c1 INT, CONSTRAINT ck CHECK(c1 > 10));
+ERROR HY000: Duplicate check constraint name 'ck'.
+ALTER TABLE t1 ADD CONSTRAINT ck CHECK(c1 > 10);
+ERROR HY000: Duplicate check constraint name 'ck'.
+ALTER TABLE t1 RENAME TO t2;
+ERROR HY000: Duplicate check constraint name 't2_chk_1'.
+ALTER TABLE t1 ADD c2 INT, RENAME TO t2;
+ERROR HY000: Duplicate check constraint name 't2_chk_1'.
+DROP TABLE t;
+DROP TABLE t1;
+CREATE TABLE t0(a INT, b INT);
+INSERT INTO t0 VALUES (1,1), (1,2), (2,2);
+CREATE TABLE t1(a INT PRIMARY KEY,b INT) SELECT a,b FROM t0 ORDER BY a,b;
+ERROR 23000: Duplicate entry '1' for key 't1.PRIMARY'
+drop table t0;
+CREATE TABLE parent(pk INTEGER PRIMARY KEY, j INTEGER,
+UNIQUE KEY parent_key(j));
+CREATE TABLE child(pk INTEGER PRIMARY KEY, k INTEGER, fk INTEGER,
+FOREIGN KEY (fk) REFERENCES parent(j), UNIQUE KEY child_key(k));
+CREATE TABLE grandchild(pk INTEGER PRIMARY KEY, fk INTEGER,
+FOREIGN KEY (fk) REFERENCES child(k));
+SET @@foreign_key_checks= 0;
+CREATE TABLE orphan_grandchild(pk INTEGER PRIMARY KEY, fk INTEGER,
+FOREIGN KEY (fk) REFERENCES siebling(k));
+SET @@foreign_key_checks= 1;
+CREATE TABLE non_atomic_t1(pk INTEGER) ENGINE= CTC;
+CREATE TABLE non_atomic_t2(pk INTEGER) ENGINE= CTC;
+RENAME TABLE child TO siebling,
+non_atomic_t1 TO non_atomic_t3,
+non_atomic_t3 TO non_atomic_t2;
+ERROR 42S01: Table 'non_atomic_t2' already exists
+DROP TABLE grandchild;
+DROP TABLE orphan_grandchild;
+DROP TABLE child;
+DROP TABLE parent;
+DROP TABLE non_atomic_t1;
+DROP TABLE non_atomic_t2;

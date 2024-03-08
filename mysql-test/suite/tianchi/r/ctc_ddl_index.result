@@ -1,0 +1,387 @@
+drop table if exists DEMO;
+create table DEMO (ID integer not null, NAME varchar(19), AGE integer, GRADE real);
+insert into DEMO values (1, 'LIOR', 35, 6.9);
+insert into DEMO values (4, 'MIKE', 55, 99.92);
+insert into DEMO values (8, 'ROMAN', 40, 94.1);
+insert into DEMO values (16, 'DAN', 60, 1234567890);
+insert into DEMO values (32, 'ZVI', 35, 777.666);
+insert into DEMO values (1, 'Eitan', NULL, 4.9);
+insert into DEMO values (888888, 'zhangdi', NULL, 10000.8);
+insert into DEMO values (1131, 'Hisses', 1, NULL);
+SELECT * FROM DEMO;
+ID	NAME	AGE	GRADE
+1	LIOR	35	6.9
+4	MIKE	55	99.92
+8	ROMAN	40	94.1
+16	DAN	60	1234567890
+32	ZVI	35	777.666
+1	Eitan	NULL	4.9
+888888	zhangdi	NULL	10000.8
+1131	Hisses	1	NULL
+create index idx_id ON DEMO (ID);
+ALTER TABLE DEMO RENAME INDEX idx_id TO idx_id1;
+DROP INDEX idx_id1 ON DEMO;
+create index idx_id1 ON DEMO (ID);
+select * from DEMO where ID = 1;
+ID	NAME	AGE	GRADE
+1	LIOR	35	6.9
+1	Eitan	NULL	4.9
+select * from DEMO where ID <= 16;
+ID	NAME	AGE	GRADE
+1	LIOR	35	6.9
+1	Eitan	NULL	4.9
+4	MIKE	55	99.92
+8	ROMAN	40	94.1
+16	DAN	60	1234567890
+select * from DEMO where ID < 16;
+ID	NAME	AGE	GRADE
+1	LIOR	35	6.9
+1	Eitan	NULL	4.9
+4	MIKE	55	99.92
+8	ROMAN	40	94.1
+select * from DEMO where ID between 4 and 32;
+ID	NAME	AGE	GRADE
+4	MIKE	55	99.92
+8	ROMAN	40	94.1
+16	DAN	60	1234567890
+32	ZVI	35	777.666
+select * from DEMO where ID >= 32;
+ID	NAME	AGE	GRADE
+32	ZVI	35	777.666
+1131	Hisses	1	NULL
+888888	zhangdi	NULL	10000.8
+select * from DEMO where ID > 32;
+ID	NAME	AGE	GRADE
+1131	Hisses	1	NULL
+888888	zhangdi	NULL	10000.8
+select * from DEMO where ID in (16,32);
+ID	NAME	AGE	GRADE
+16	DAN	60	1234567890
+32	ZVI	35	777.666
+select * from DEMO where ID like '1%';
+ID	NAME	AGE	GRADE
+1	LIOR	35	6.9
+16	DAN	60	1234567890
+1	Eitan	NULL	4.9
+1131	Hisses	1	NULL
+select * from DEMO where ID = 1 order by ID;
+ID	NAME	AGE	GRADE
+1	LIOR	35	6.9
+1	Eitan	NULL	4.9
+select * from DEMO where ID = 1 order by ID desc;
+ID	NAME	AGE	GRADE
+1	LIOR	35	6.9
+1	Eitan	NULL	4.9
+select * from DEMO where ID <= 16 order by ID;
+ID	NAME	AGE	GRADE
+1	LIOR	35	6.9
+1	Eitan	NULL	4.9
+4	MIKE	55	99.92
+8	ROMAN	40	94.1
+16	DAN	60	1234567890
+select * from DEMO where ID < 16 order by ID desc;
+ID	NAME	AGE	GRADE
+8	ROMAN	40	94.1
+4	MIKE	55	99.92
+1	Eitan	NULL	4.9
+1	LIOR	35	6.9
+select * from DEMO where ID between 4 and 32 order by ID;
+ID	NAME	AGE	GRADE
+4	MIKE	55	99.92
+8	ROMAN	40	94.1
+16	DAN	60	1234567890
+32	ZVI	35	777.666
+select * from DEMO where ID between 4 and 32 order by ID desc;
+ID	NAME	AGE	GRADE
+32	ZVI	35	777.666
+16	DAN	60	1234567890
+8	ROMAN	40	94.1
+4	MIKE	55	99.92
+select * from DEMO where ID >= 32 order by ID;
+ID	NAME	AGE	GRADE
+32	ZVI	35	777.666
+1131	Hisses	1	NULL
+888888	zhangdi	NULL	10000.8
+select * from DEMO where ID > 32  order by ID desc;
+ID	NAME	AGE	GRADE
+888888	zhangdi	NULL	10000.8
+1131	Hisses	1	NULL
+select * from DEMO where ID in (16,32) order by ID;
+ID	NAME	AGE	GRADE
+16	DAN	60	1234567890
+32	ZVI	35	777.666
+select * from DEMO where ID in (16,32) order by ID desc;
+ID	NAME	AGE	GRADE
+32	ZVI	35	777.666
+16	DAN	60	1234567890
+select * from DEMO where ID like '1%' order by ID;
+ID	NAME	AGE	GRADE
+1	LIOR	35	6.9
+1	Eitan	NULL	4.9
+16	DAN	60	1234567890
+1131	Hisses	1	NULL
+select * from DEMO where ID like '1%' order by ID desc;
+ID	NAME	AGE	GRADE
+1131	Hisses	1	NULL
+16	DAN	60	1234567890
+1	LIOR	35	6.9
+1	Eitan	NULL	4.9
+ALTER TABLE DEMO ADD INDEX idx_age (AGE);
+select * from DEMO where AGE = 35;
+ID	NAME	AGE	GRADE
+1	LIOR	35	6.9
+32	ZVI	35	777.666
+select * from DEMO where ID <= 100;
+ID	NAME	AGE	GRADE
+1	LIOR	35	6.9
+1	Eitan	NULL	4.9
+4	MIKE	55	99.92
+8	ROMAN	40	94.1
+16	DAN	60	1234567890
+32	ZVI	35	777.666
+select * from DEMO where ID < 100;
+ID	NAME	AGE	GRADE
+1	LIOR	35	6.9
+1	Eitan	NULL	4.9
+4	MIKE	55	99.92
+8	ROMAN	40	94.1
+16	DAN	60	1234567890
+32	ZVI	35	777.666
+select * from DEMO where ID between 35 and 50;
+ID	NAME	AGE	GRADE
+DROP INDEX idx_id1 ON DEMO;
+select * from DEMO where ID = 1;
+ID	NAME	AGE	GRADE
+1	LIOR	35	6.9
+1	Eitan	NULL	4.9
+select * from DEMO where ID <= 16;
+ID	NAME	AGE	GRADE
+1	LIOR	35	6.9
+4	MIKE	55	99.92
+8	ROMAN	40	94.1
+16	DAN	60	1234567890
+1	Eitan	NULL	4.9
+select * from DEMO where ID < 16;
+ID	NAME	AGE	GRADE
+1	LIOR	35	6.9
+4	MIKE	55	99.92
+8	ROMAN	40	94.1
+1	Eitan	NULL	4.9
+select * from DEMO where ID between 4 and 32;
+ID	NAME	AGE	GRADE
+4	MIKE	55	99.92
+8	ROMAN	40	94.1
+16	DAN	60	1234567890
+32	ZVI	35	777.666
+select * from DEMO where ID >= 32;
+ID	NAME	AGE	GRADE
+32	ZVI	35	777.666
+888888	zhangdi	NULL	10000.8
+1131	Hisses	1	NULL
+select * from DEMO where ID > 32;
+ID	NAME	AGE	GRADE
+888888	zhangdi	NULL	10000.8
+1131	Hisses	1	NULL
+select * from DEMO where ID in (16,32);
+ID	NAME	AGE	GRADE
+16	DAN	60	1234567890
+32	ZVI	35	777.666
+select * from DEMO where ID like '1%';
+ID	NAME	AGE	GRADE
+1	LIOR	35	6.9
+16	DAN	60	1234567890
+1	Eitan	NULL	4.9
+1131	Hisses	1	NULL
+select * from DEMO where ID = 1 order by ID;
+ID	NAME	AGE	GRADE
+1	LIOR	35	6.9
+1	Eitan	NULL	4.9
+select * from DEMO where ID = 1 order by ID desc;
+ID	NAME	AGE	GRADE
+1	LIOR	35	6.9
+1	Eitan	NULL	4.9
+select * from DEMO where ID <= 16 order by ID;
+ID	NAME	AGE	GRADE
+1	LIOR	35	6.9
+1	Eitan	NULL	4.9
+4	MIKE	55	99.92
+8	ROMAN	40	94.1
+16	DAN	60	1234567890
+select * from DEMO where ID < 16 order by ID desc;
+ID	NAME	AGE	GRADE
+8	ROMAN	40	94.1
+4	MIKE	55	99.92
+1	LIOR	35	6.9
+1	Eitan	NULL	4.9
+select * from DEMO where ID between 4 and 32 order by ID;
+ID	NAME	AGE	GRADE
+4	MIKE	55	99.92
+8	ROMAN	40	94.1
+16	DAN	60	1234567890
+32	ZVI	35	777.666
+select * from DEMO where ID between 4 and 32 order by ID desc;
+ID	NAME	AGE	GRADE
+32	ZVI	35	777.666
+16	DAN	60	1234567890
+8	ROMAN	40	94.1
+4	MIKE	55	99.92
+select * from DEMO where ID >= 32 order by ID;
+ID	NAME	AGE	GRADE
+32	ZVI	35	777.666
+1131	Hisses	1	NULL
+888888	zhangdi	NULL	10000.8
+select * from DEMO where ID > 32  order by ID desc;
+ID	NAME	AGE	GRADE
+888888	zhangdi	NULL	10000.8
+1131	Hisses	1	NULL
+select * from DEMO where ID in (16,32) order by ID;
+ID	NAME	AGE	GRADE
+16	DAN	60	1234567890
+32	ZVI	35	777.666
+select * from DEMO where ID in (16,32) order by ID desc;
+ID	NAME	AGE	GRADE
+32	ZVI	35	777.666
+16	DAN	60	1234567890
+select * from DEMO where ID like '1%' order by ID;
+ID	NAME	AGE	GRADE
+1	LIOR	35	6.9
+1	Eitan	NULL	4.9
+16	DAN	60	1234567890
+1131	Hisses	1	NULL
+select * from DEMO where ID like '1%' order by ID desc;
+ID	NAME	AGE	GRADE
+1131	Hisses	1	NULL
+16	DAN	60	1234567890
+1	LIOR	35	6.9
+1	Eitan	NULL	4.9
+DROP INDEX idx_age ON DEMO;
+desc DEMO;
+Field	Type	Null	Key	Default	Extra
+ID	int	NO		NULL	
+NAME	varchar(19)	YES		NULL	
+AGE	int	YES		NULL	
+GRADE	double	YES		NULL	
+select * from DEMO where AGE = 35;
+ID	NAME	AGE	GRADE
+1	LIOR	35	6.9
+32	ZVI	35	777.666
+select * from DEMO where ID <= 100;
+ID	NAME	AGE	GRADE
+1	LIOR	35	6.9
+4	MIKE	55	99.92
+8	ROMAN	40	94.1
+16	DAN	60	1234567890
+32	ZVI	35	777.666
+1	Eitan	NULL	4.9
+select * from DEMO where ID < 100;
+ID	NAME	AGE	GRADE
+1	LIOR	35	6.9
+4	MIKE	55	99.92
+8	ROMAN	40	94.1
+16	DAN	60	1234567890
+32	ZVI	35	777.666
+1	Eitan	NULL	4.9
+select * from DEMO where ID between 35 and 50;
+ID	NAME	AGE	GRADE
+drop table DEMO;
+CREATE TABLE t1 (
+f1 int(11) DEFAULT '0' NOT NULL,
+f2 varchar(16) DEFAULT '' NOT NULL,
+f5 text,
+KEY index_name (f1,f2,f5(16))
+);
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `f1` int NOT NULL DEFAULT '0',
+  `f2` varchar(16) NOT NULL DEFAULT '',
+  `f5` text,
+  KEY `index_name` (`f1`,`f2`,`f5`(16))
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+INSERT INTO t1 VALUES (0,'traktor','1111111111111');
+INSERT INTO t1 VALUES (1,'traktor','1111111111111111111111111');
+INSERT INTO t1 VALUES (3,'traktor',repeat('a',8000));
+select count(*) from t1 where f2='traktor';
+count(*)
+3
+select length(f5) from t1 where f2='traktor';
+length(f5)
+13
+25
+8000
+drop table t1;
+CREATE TABLE t1 (
+f1 int(11) DEFAULT '0' NOT NULL,
+f2 varchar(16) DEFAULT '' NOT NULL,
+f5 blob,
+KEY index_name (f1,f2,f5(16))
+);
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `f1` int NOT NULL DEFAULT '0',
+  `f2` varchar(16) NOT NULL DEFAULT '',
+  `f5` blob,
+  KEY `index_name` (`f1`,`f2`,`f5`(16))
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+INSERT INTO t1 VALUES (0,'traktor','1111111111111');
+INSERT INTO t1 VALUES (1,'traktor','1111111111111111111111111');
+INSERT INTO t1 VALUES (3,'traktor',repeat('a',8000));
+select count(*) from t1 where f2='traktor';
+count(*)
+3
+select length(f5) from t1 where f2='traktor';
+length(f5)
+13
+25
+8000
+drop table t1;
+CREATE TABLE t1 (
+f1 int(11) DEFAULT '0' NOT NULL,
+f2 varchar(16) DEFAULT '' NOT NULL,
+f5 varchar(9000),
+KEY index_name (f1,f2,f5(16))
+);
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `f1` int NOT NULL DEFAULT '0',
+  `f2` varchar(16) NOT NULL DEFAULT '',
+  `f5` varchar(9000) DEFAULT NULL,
+  KEY `index_name` (`f1`,`f2`,`f5`(16))
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+INSERT INTO t1 VALUES (0,'traktor','1111111111111');
+INSERT INTO t1 VALUES (1,'traktor','1111111111111111111111111');
+INSERT INTO t1 VALUES (3,'traktor',repeat('a',8000));
+select count(*) from t1 where f2='traktor';
+count(*)
+3
+select length(f5) from t1 where f2='traktor';
+length(f5)
+13
+25
+8000
+drop table t1;
+create table t1 (t blob, key(t(10)));
+insert into t1 values('a');
+select count(*) from t1 where t like 'a%';
+count(*)
+1
+drop table t1;
+create table t1 (f1 binary(5)) engine=CTC;
+insert into t1 values ('w'), ('w');
+create unique index index_t1 on t1(f1(4));
+ERROR 23000: Duplicate entry for key 't1.index_t1'
+drop table t1;
+create table t1 (v varchar(10), t varchar(50), key(t(5)));
+insert into t1 values('a','a');
+select count(*) from t1 where t like 'a%';
+count(*)
+1
+drop table t1;

@@ -1,0 +1,56 @@
+drop table if exists handler_table;
+create table handler_table(id int, name varchar(10));
+insert into handler_table values(3, '张三');
+insert into handler_table values(4, '李四');
+insert into handler_table values(5, '王五');
+insert into handler_table values(1, '刘一');
+insert into handler_table values(2, '陈二');
+select *from handler_table;
+id	name
+3	张三
+4	李四
+5	王五
+1	刘一
+2	陈二
+handler handler_table open;
+handler handler_table read first;
+id	name
+3	张三
+handler handler_table read next;
+id	name
+4	李四
+handler handler_table close;
+create index handler_index on handler_table(id);
+handler handler_table open;
+handler handler_table open as p;
+handler p read handler_index first;
+id	name
+1	刘一
+handler p read handler_index next;
+id	name
+2	陈二
+handler p read handler_index prev;
+id	name
+3	张三
+handler p read handler_index last;
+id	name
+5	王五
+handler p close;
+handler handler_table open as p;
+handler p read handler_index = (2);
+id	name
+2	陈二
+handler p read handler_index first;
+id	name
+1	刘一
+handler p read handler_index next;
+id	name
+2	陈二
+handler p read handler_index prev;
+id	name
+3	张三
+handler p read handler_index last;
+id	name
+5	王五
+handler p close;
+drop table handler_table;

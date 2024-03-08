@@ -1,0 +1,105 @@
+drop database if exists `db-1`;
+drop database if exists `db-2`;
+create database `db-1`;
+show databases;
+Database
+db-1
+information_schema
+mtr
+mysql
+performance_schema
+sys
+test
+create table `db-1`.`t-1`(c1 int, c2 varchar(10));
+create table `db-1`.`t-2`(c1 int, c2 varchar(10));
+insert into `db-1`.`t-1` values (1,'db1_t1_aa');
+insert into `db-1`.`t-1` values (2,'db1_t1_bb');
+select * from `db-1`.`t-1`;
+c1	c2
+1	db1_t1_aa
+2	db1_t1_bb
+alter table `db-1`.`t-2` add constraint fk_db1_t2 primary key (c1);
+insert into `db-1`.`t-2` values (1,'db1_t2_abc');
+insert into `db-1`.`t-2` values (1,'db1_t2_cde');
+ERROR 23000: Duplicate entry '1' for key 't-2.PRIMARY'
+insert into `db-1`.`t-2` values (2,'db1_t2_cde');
+select * from `db-1`.`t-2`;
+c1	c2
+1	db1_t2_abc
+2	db1_t2_cde
+drop table `db-1`.`t-1`;
+show tables;
+Tables_in_test
+drop database `db-1`;
+show databases;
+Database
+information_schema
+mtr
+mysql
+performance_schema
+sys
+test
+create database `db-2`;
+show databases;
+Database
+db-2
+information_schema
+mtr
+mysql
+performance_schema
+sys
+test
+use `db-2`;
+create table `t-1`(c1 int, c2 varchar(10));
+create table `t-2`(c1 int, c2 varchar(10));
+show tables;
+Tables_in_db-2
+t-1
+t-2
+insert into `t-1` values (1,'db2_t1_aa');
+insert into `t-1` values (2,'db2_t1_bb');
+select * from `t-1`;
+c1	c2
+1	db2_t1_aa
+2	db2_t1_bb
+alter table `t-2` add constraint fk_db2_t2 primary key (c1);
+insert into `t-2` values (1,'db2_t2_abc');
+insert into `t-2` values (1,'db2_t2_cde');
+ERROR 23000: Duplicate entry '1' for key 't-2.PRIMARY'
+insert into `t-2` values (2,'db2_t2_cde');
+select * from `t-2`;
+c1	c2
+1	db2_t2_abc
+2	db2_t2_cde
+drop table `t-1`;
+show tables;
+Tables_in_db-2
+t-2
+drop database `db-2`;
+show databases;
+Database
+information_schema
+mtr
+mysql
+performance_schema
+sys
+test
+create database `db-3`;
+create database `db-3`;
+ERROR HY000: Can't create database 'db-3'; database exists
+drop database `db-3`;
+drop database `db-3`;
+ERROR HY000: Can't drop database 'db-3'; database doesn't exist
+create database aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa;
+create database aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa;
+ERROR 42000: Identifier name 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' is too long
+drop database aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa;
+create database public;
+use public;
+create table t(c1 int);
+create table T(c1 int);
+show tables;
+Tables_in_public
+T
+t
+drop database public;

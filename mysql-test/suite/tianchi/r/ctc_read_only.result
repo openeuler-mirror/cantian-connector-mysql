@@ -1,0 +1,347 @@
+DROP TABLE IF EXISTS table_11733 ;
+set @orig_sql_mode= @@sql_mode;
+create user test@localhost;
+grant CREATE, INSERT, SELECT, DROP on *.* to test@localhost;
+set global read_only=0;
+Warnings:
+Warning	3655	CTC: This parameter will not be broadcast to other nodes.
+create table table_11733 (a int);
+BEGIN;
+insert into table_11733 values(11733);
+set global read_only=1;
+Warnings:
+Warning	3655	CTC: This parameter will not be broadcast to other nodes.
+select @@global.read_only;
+@@global.read_only
+1
+select * from table_11733 ;
+a
+11733
+COMMIT;
+ERROR HY000: The MySQL server is running with the --read-only option so it cannot execute this statement
+set global read_only=0;
+Warnings:
+Warning	3655	CTC: This parameter will not be broadcast to other nodes.
+COMMIT;
+drop table table_11733 ;
+drop user test@localhost;
+CREATE USER test@localhost;
+GRANT CREATE, SELECT, DROP ON *.* TO test@localhost;
+CREATE TABLE t1(a INT);
+INSERT INTO t1 VALUES (0), (1);
+SET GLOBAL read_only=1;
+Warnings:
+Warning	3655	CTC: This parameter will not be broadcast to other nodes.
+SELECT * FROM t1;
+a
+0
+1
+BEGIN;
+SELECT * FROM t1;
+a
+0
+1
+COMMIT;
+SET GLOBAL read_only=0;
+Warnings:
+Warning	3655	CTC: This parameter will not be broadcast to other nodes.
+FLUSH TABLES WITH READ LOCK;
+SELECT * FROM t1;
+a
+0
+1
+BEGIN;
+SELECT * FROM t1;
+a
+0
+1
+COMMIT;
+UNLOCK TABLES;
+DROP TABLE t1;
+DROP USER test@localhost;
+DROP DATABASE IF EXISTS db1;
+# Setup user and tables
+CREATE USER bug33669@localhost;
+CREATE DATABASE db1;
+CREATE TABLE db1.t1 (a INT);
+CREATE TABLE db1.t2 (a INT);
+INSERT INTO db1.t1 VALUES (1);
+INSERT INTO db1.t2 VALUES (2);
+GRANT CREATE TEMPORARY TABLES, DROP, INSERT, DELETE, UPDATE,
+SELECT, LOCK TABLES ON db1.* TO bug33669@localhost;
+SET GLOBAL READ_ONLY = ON;
+Warnings:
+Warning	3655	CTC: This parameter will not be broadcast to other nodes.
+CREATE TEMPORARY TABLE temp (a INT);
+INSERT INTO temp VALUES (1);
+DROP TABLE temp;
+CREATE TEMPORARY TABLE temp (a INT);
+LOCK TABLES t1 READ, t2 READ;
+SELECT * FROM t1;
+a
+1
+INSERT INTO temp values (1);
+SELECT * FROM t2;
+a
+2
+UNLOCK TABLES;
+DROP TABLE temp;
+BEGIN;
+SELECT * FROM t1;
+a
+1
+CREATE TEMPORARY TABLE temp (a INT);
+INSERT INTO t1 VALUES (1);
+ERROR HY000: The MySQL server is running with the --read-only option so it cannot execute this statement
+INSERT INTO temp VALUES (1);
+SELECT * FROM t2;
+a
+2
+ROLLBACK;
+Warnings:
+Warning	1751	The creation of some temporary tables could not be rolled back.
+SELECT * FROM temp;
+a
+DROP TABLE temp;
+CREATE TEMPORARY TABLE temp (a INT);
+LOCK TABLES t1 READ, temp WRITE;
+SELECT * FROM t1;
+a
+1
+SELECT * FROM temp;
+a
+INSERT INTO t1 VALUES (1);
+ERROR HY000: The MySQL server is running with the --read-only option so it cannot execute this statement
+INSERT INTO temp VALUES (1);
+DROP TABLE temp;
+UNLOCK TABLES;
+CREATE TEMPORARY TABLE t1 (a INT);
+LOCK TABLES t1 WRITE;
+DROP TABLE t1;
+SELECT * FROM t1;
+ERROR HY000: Table 't1' was not locked with LOCK TABLES
+CREATE TEMPORARY TABLE temp1 (a INT);
+CREATE TEMPORARY TABLE temp2 LIKE temp1;
+BEGIN;
+INSERT INTO temp1 VALUES (10);
+INSERT INTO temp2 VALUES (10);
+INSERT INTO temp1 SELECT * FROM t1;
+INSERT INTO temp2 SELECT * FROM t2;
+SELECT * FROM temp1 ORDER BY a;
+a
+1
+10
+SELECT * FROM temp2 ORDER BY a;
+a
+2
+10
+ROLLBACK;
+SELECT * FROM temp1,temp2;
+a	a
+LOCK TABLES t1 READ, t2 READ;
+INSERT INTO temp1 VALUES (10);
+INSERT INTO temp2 VALUES (10);
+INSERT INTO temp1 SELECT * FROM t1;
+INSERT INTO temp2 SELECT * FROM t2;
+SELECT * FROM temp1 ORDER BY a;
+a
+1
+10
+SELECT * FROM temp2 ORDER BY a;
+a
+2
+10
+UNLOCK TABLES;
+DELETE temp1, temp2 FROM temp1, temp2;
+INSERT INTO temp1 VALUES (10);
+INSERT INTO temp2 VALUES (10);
+INSERT INTO temp1 SELECT * FROM t1;
+INSERT INTO temp2 SELECT * FROM t2;
+SELECT * FROM temp1 ORDER BY a;
+a
+1
+10
+SELECT * FROM temp2 ORDER BY a;
+a
+2
+10
+DROP TABLE temp1, temp2;
+CREATE TEMPORARY TABLE temp1 (a INT);
+CREATE TEMPORARY TABLE temp2 LIKE temp1;
+INSERT INTO temp1 (a) VALUES ((SELECT MAX(a) FROM t1));
+LOCK TABLES t2 READ;
+INSERT INTO temp2 (a) VALUES ((SELECT MAX(a) FROM t2));
+UNLOCK TABLES;
+LOCK TABLES t1 READ, t2 READ;
+INSERT INTO temp1 SELECT * FROM t1 WHERE a < (SELECT MAX(a) FROM t2);
+INSERT INTO temp2 SELECT * FROM t2 WHERE a > (SELECT MAX(a) FROM t1);
+UNLOCK TABLES;
+INSERT INTO temp1 SELECT * FROM t1 WHERE a < (SELECT MAX(a) FROM t2);
+INSERT INTO temp2 SELECT * FROM t2 WHERE a > (SELECT MAX(a) FROM t1);
+SELECT * FROM temp1 ORDER BY a;
+a
+1
+1
+1
+SELECT * FROM temp2 ORDER BY a;
+a
+2
+2
+2
+DROP TABLE temp1, temp2;
+CREATE TEMPORARY TABLE temp1 (a INT);
+CREATE TEMPORARY TABLE temp2 LIKE temp1;
+INSERT INTO temp1 VALUES (1),(2);
+INSERT INTO temp2 VALUES (3),(4);
+UPDATE temp1,temp2 SET temp1.a = 5, temp2.a = 10;
+SELECT * FROM temp1, temp2;
+a	a
+5	10
+5	10
+5	10
+5	10
+DROP TABLE temp1, temp2;
+SET GLOBAL READ_ONLY = OFF;
+Warnings:
+Warning	3655	CTC: This parameter will not be broadcast to other nodes.
+DROP USER bug33669@localhost;
+DROP DATABASE db1;
+SET @start_read_only = @@global.read_only;
+SET @start_super_read_only = @@global.super_read_only;
+SELECT @start_read_only, @start_super_read_only;
+@start_read_only	@start_super_read_only
+0	0
+SET @@global.super_read_only = 1;
+Warnings:
+Warning	3655	CTC: This parameter will not be broadcast to other nodes.
+SET @@global.super_read_only = DEFAULT;
+Warnings:
+Warning	3655	CTC: This parameter will not be broadcast to other nodes.
+SELECT @@global.super_read_only;
+@@global.super_read_only
+0
+SET @@global.super_read_only = @start_super_read_only;
+Warnings:
+Warning	3655	CTC: This parameter will not be broadcast to other nodes.
+SELECT @@global.super_read_only = 0;
+@@global.super_read_only = 0
+1
+SET @@global.super_read_only = 0;
+Warnings:
+Warning	3655	CTC: This parameter will not be broadcast to other nodes.
+SELECT @@global.super_read_only;
+@@global.super_read_only
+0
+SET @@global.super_read_only = 1;
+Warnings:
+Warning	3655	CTC: This parameter will not be broadcast to other nodes.
+SELECT @@global.super_read_only;
+@@global.super_read_only
+1
+SET @@global.super_read_only = TRUE;
+Warnings:
+Warning	3655	CTC: This parameter will not be broadcast to other nodes.
+SELECT @@global.super_read_only;
+@@global.super_read_only
+1
+SET @@global.super_read_only = FALSE;
+Warnings:
+Warning	3655	CTC: This parameter will not be broadcast to other nodes.
+SELECT @@global.super_read_only;
+@@global.super_read_only
+0
+SET @@global.super_read_only = ON;
+Warnings:
+Warning	3655	CTC: This parameter will not be broadcast to other nodes.
+SELECT @@global.super_read_only;
+@@global.super_read_only
+1
+SET @@global.super_read_only = OFF;
+Warnings:
+Warning	3655	CTC: This parameter will not be broadcast to other nodes.
+SELECT @@global.super_read_only;
+@@global.super_read_only
+0
+SET @@global.super_read_only = -1;
+ERROR 42000: Variable 'super_read_only' can't be set to the value of '-1'
+SELECT @@global.super_read_only;
+@@global.super_read_only
+0
+SET @@global.super_read_only = 4294967296;
+ERROR 42000: Variable 'super_read_only' can't be set to the value of '4294967296'
+SELECT @@global.super_read_only;
+@@global.super_read_only
+0
+SET @@global.super_read_only = 10240022115;
+ERROR 42000: Variable 'super_read_only' can't be set to the value of '10240022115'
+SELECT @@global.super_read_only;
+@@global.super_read_only
+0
+SET @@global.super_read_only = 10000.01;
+ERROR 42000: Incorrect argument type to variable 'super_read_only'
+SELECT @@global.super_read_only;
+@@global.super_read_only
+0
+SET @@global.super_read_only = -1024;
+ERROR 42000: Variable 'super_read_only' can't be set to the value of '-1024'
+SELECT @@global.super_read_only;
+@@global.super_read_only
+0
+SET @@global.super_read_only = 42949672950;
+ERROR 42000: Variable 'super_read_only' can't be set to the value of '42949672950'
+SELECT @@global.super_read_only;
+@@global.super_read_only
+0
+SET @@global.super_read_only = 'test';
+ERROR 42000: Variable 'super_read_only' can't be set to the value of 'test'
+SELECT @@global.super_read_only;
+@@global.super_read_only
+0
+SET @@session.super_read_only = 0;
+ERROR HY000: Variable 'super_read_only' is a GLOBAL variable and should be set with SET GLOBAL
+SELECT @@super_read_only;
+@@super_read_only
+0
+SELECT IF(@@global.super_read_only, "ON", "OFF") = VARIABLE_VALUE 
+FROM performance_schema.global_variables 
+WHERE VARIABLE_NAME='super_read_only';
+IF(@@global.super_read_only, "ON", "OFF") = VARIABLE_VALUE
+1
+SELECT IF(@@read_only, "ON", "OFF") = VARIABLE_VALUE 
+FROM performance_schema.session_variables 
+WHERE VARIABLE_NAME='super_read_only';
+IF(@@read_only, "ON", "OFF") = VARIABLE_VALUE
+0
+SET @@global.super_read_only = 1;
+Warnings:
+Warning	3655	CTC: This parameter will not be broadcast to other nodes.
+SELECT @@super_read_only = @@global.super_read_only;
+@@super_read_only = @@global.super_read_only
+1
+SET super_read_only = 1;
+ERROR HY000: Variable 'super_read_only' is a GLOBAL variable and should be set with SET GLOBAL
+SELECT @@super_read_only;
+@@super_read_only
+1
+SET local.super_read_only = 1;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'local.super_read_only = 1' at line 1
+SELECT local.super_read_only;
+ERROR 42S02: Unknown table 'local' in field list
+SET global.super_read_only = 1;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'global.super_read_only = 1' at line 1
+SELECT global.super_read_only;
+ERROR 42S02: Unknown table 'global' in field list
+SELECT super_read_only = @@session.super_read_only;
+ERROR 42S22: Unknown column 'super_read_only' in 'field list'
+SET @@global.read_only = @start_read_only;
+Warnings:
+Warning	3655	CTC: This parameter will not be broadcast to other nodes.
+SET @@global.super_read_only = @start_super_read_only;
+Warnings:
+Warning	3655	CTC: This parameter will not be broadcast to other nodes.
+SELECT @@global.super_read_only;
+@@global.super_read_only
+0
+SELECT @@global.read_only;
+@@global.read_only
+0
