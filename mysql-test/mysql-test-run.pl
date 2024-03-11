@@ -33,7 +33,7 @@
 #  https://dev.mysql.com/doc/dev/mysql-server/latest/PAGE_MYSQL_TEST_RUN.html
 #
 ##############################################################################
-$ENV{MTR_BINDIR} = '/usr/local/mysql';
+$ENV{MTR_BINDIR} = '/home/jenkins/agent/workspace/multiarch/openeuler/aarch64/cantian/mysql';
 use strict;
 use warnings;
 
