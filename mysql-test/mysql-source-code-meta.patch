@@ -77,16 +77,16 @@ diff --git a/sql/dd/cache/dictionary_client.h b/sql/dd/cache/dictionary_client.h
 index dbd6c18..4666753 100644
 --- a/sql/dd/cache/dictionary_client.h
 +++ b/sql/dd/cache/dictionary_client.h
-@@ -472,6 +472,9 @@ class Dictionary_client {
+@@ -471,6 +471,9 @@ class Dictionary_client {
+   template <typename T>
    void remove_uncommitted_objects(bool commit_to_shared_cache);
  
-   template <typename T>
++  template <typename T>
 +  void add_modified_objects();
 +
-+  template <typename T>
+   template <typename T>
    using Const_ptr_vec = std::vector<const T *>;
  
-   /**
 @@ -1180,6 +1183,13 @@ class Dictionary_client {
      @retval true    There was an error.
    */
@@ -110,26 +110,14 @@ index dbd6c18..4666753 100644
    /**
      Remove table statistics entries from mysql.table_stats and
 diff --git a/sql/dd/dd_resource_group.cc b/sql/dd/dd_resource_group.cc
-index ab99cee..933b86d 100644
+index ab99cee..8a842d4 100644
 --- a/sql/dd/dd_resource_group.cc
 +++ b/sql/dd/dd_resource_group.cc
-@@ -32,6 +32,7 @@
- #include "sql/sql_class.h"                      // THD
- #include "sql/thd_raii.h"
- #include "sql/transaction.h"  // trans_commit
-+#include "sql/mysqld.h"
- 
- namespace dd {
- 
-@@ -112,6 +113,11 @@ bool create_resource_group(THD *thd,
+@@ -112,6 +112,7 @@ bool create_resource_group(THD *thd,
  
  bool update_resource_group(THD *thd, const String_type &resource_grp_name,
                             const resourcegroups::Resource_group &res_grp_ref) {
-+  int cluster_role = tse_hton->get_cluster_role();
-+  if (cluster_role == 1) {
-+    // Do not update resrouce_group table when starting on slave cluster.
-+    return false;
-+  }
++  return false;
    DBUG_TRACE;
  
    dd::cache::Dictionary_client::Auto_releaser releaser(thd->dd_client());
@@ -180,18 +168,10 @@ index 7f9b9df..1d5575d 100644
      LogErr(WARNING_LEVEL, ER_SKIP_UPDATING_METADATA_IN_SE_RO_MODE,
             schema_name_abbrev);
 diff --git a/sql/dd/impl/bootstrap/bootstrapper.cc b/sql/dd/impl/bootstrap/bootstrapper.cc
-index d08718a..6f0d3ca 100644
+index d08718a..e7d00b2 100644
 --- a/sql/dd/impl/bootstrap/bootstrapper.cc
 +++ b/sql/dd/impl/bootstrap/bootstrapper.cc
-@@ -71,6 +71,7 @@
- #include "sql/mysqld.h"
- #include "sql/sd_notify.h"  // sysd::notify
- #include "sql/thd_raii.h"
-+#include "sql/mysqld.h"
- 
- using namespace dd;
- 
-@@ -81,7 +82,7 @@ namespace {
+@@ -81,7 +81,7 @@ namespace {
  // Initialize recovery in the DDSE.
  bool DDSE_dict_recover(THD *thd, dict_recovery_mode_t dict_recovery_mode,
                         uint version) {
@@ -200,7 +180,7 @@ index d08718a..6f0d3ca 100644
    if (ddse->dict_recover == nullptr) return true;
  
    bool error = ddse->dict_recover(dict_recovery_mode, version);
-@@ -266,6 +267,9 @@ bool acquire_exclusive_mdl(THD *thd) {
+@@ -266,6 +266,9 @@ bool acquire_exclusive_mdl(THD *thd) {
    reset ID, store persistently, and update the storage adapter.
  */
  bool flush_meta_data(THD *thd) {
@@ -210,7 +190,7 @@ index d08718a..6f0d3ca 100644
    // Acquire exclusive meta data locks for the relevant DD objects.
    if (acquire_exclusive_mdl(thd)) return true;
  
-@@ -573,6 +577,9 @@ bool flush_meta_data(THD *thd) {
+@@ -573,6 +576,9 @@ bool flush_meta_data(THD *thd) {
      if (persisted_dd_table != nullptr) delete persisted_dd_table;
    }
  
@@ -220,7 +200,7 @@ index d08718a..6f0d3ca 100644
    bootstrap::DD_bootstrap_ctx::instance().set_stage(bootstrap::Stage::SYNCED);
  
    return dd::end_transaction(thd, false);
-@@ -580,6 +587,8 @@ bool flush_meta_data(THD *thd) {
+@@ -580,6 +586,8 @@ bool flush_meta_data(THD *thd) {
  
  // Insert additional data into the DD tables.
  bool populate_tables(THD *thd) {
@@ -229,7 +209,7 @@ index d08718a..6f0d3ca 100644
    // Iterate over DD tables, populate tables.
    for (System_tables::Const_iterator it = System_tables::instance()->begin();
         it != System_tables::instance()->end(); ++it) {
-@@ -610,6 +619,9 @@ bool populate_tables(THD *thd) {
+@@ -610,6 +618,9 @@ bool populate_tables(THD *thd) {
    bootstrap::DD_bootstrap_ctx::instance().set_stage(
        bootstrap::Stage::POPULATED);
  
@@ -239,21 +219,17 @@ index d08718a..6f0d3ca 100644
    return false;
  }
  
-@@ -621,7 +633,12 @@ bool repopulate_charsets_and_collations(THD *thd) {
+@@ -621,7 +632,8 @@ bool repopulate_charsets_and_collations(THD *thd) {
      to retrieve the handlerton for the DDSE should be replaced by a more
      generic mechanism.
    */
 -  handlerton *ddse = ha_resolve_by_legacy_type(thd, DB_TYPE_INNODB);
-+  int cluster_role = tse_hton->get_cluster_role();
-+  if (cluster_role == 1) {
-+    // Do not update the charset table in slave cluster.
-+    return false;
-+  }
++  return false;
 +  handlerton *ddse = ha_resolve_by_legacy_type(thd, DB_TYPE_CTC);
    if (ddse->is_dict_readonly && ddse->is_dict_readonly()) {
      LogErr(WARNING_LEVEL, ER_DD_NO_WRITES_NO_REPOPULATION, "InnoDB", " ");
      return false;
-@@ -724,7 +741,7 @@ namespace bootstrap {
+@@ -724,7 +736,7 @@ namespace bootstrap {
    predefined tables and tablespaces.
  */
  bool DDSE_dict_init(THD *thd, dict_init_mode_t dict_init_mode, uint version) {
@@ -262,7 +238,7 @@ index d08718a..6f0d3ca 100644
  
    /*
      The lists with element wrappers are mem root allocated. The wrapped
-@@ -908,6 +925,10 @@ bool initialize(THD *thd) {
+@@ -908,6 +920,10 @@ bool initialize(THD *thd) {
  
  // Normal server restart.
  bool restart(THD *thd) {
@@ -273,7 +249,7 @@ index d08718a..6f0d3ca 100644
    bootstrap::DD_bootstrap_ctx::instance().set_stage(bootstrap::Stage::STARTED);
  
    /*
-@@ -946,7 +967,9 @@ bool restart(THD *thd) {
+@@ -946,7 +962,9 @@ bool restart(THD *thd) {
            dd::execute_query(thd, "DROP SCHEMA schema_read_only") ||
            dd::execute_query(thd, "CREATE TABLE IF NOT EXISTS S.restart(i INT)"))
            assert(false););
@@ -284,7 +260,7 @@ index d08718a..6f0d3ca 100644
    bootstrap::DD_bootstrap_ctx::instance().set_stage(bootstrap::Stage::FINISHED);
    LogErr(INFORMATION_LEVEL, ER_DD_VERSION_FOUND, d->get_actual_dd_version(thd));
  
-@@ -1502,7 +1525,7 @@ bool sync_meta_data(THD *thd) {
+@@ -1502,7 +1520,7 @@ bool sync_meta_data(THD *thd) {
      return true;
  
    // Reset the DDSE local dictionary cache.
@@ -293,7 +269,7 @@ index d08718a..6f0d3ca 100644
    if (ddse->dict_cache_reset == nullptr) return true;
  
    for (System_tables::Const_iterator it = System_tables::instance()->begin();
-@@ -1797,7 +1820,7 @@ bool update_versions(THD *thd, bool is_dd_upgrade_57) {
+@@ -1797,7 +1815,7 @@ bool update_versions(THD *thd, bool is_dd_upgrade_57) {
      back in case of an abort, so this better be the last step we
      do before committing.
    */
