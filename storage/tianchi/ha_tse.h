@@ -986,6 +986,7 @@ bool is_initialize();
 bool is_starting();
 
 bool tse_is_temporary(const dd::Table *table_def);
+int32_t tse_get_cluster_role();
 
 #pragma GCC visibility pop
 #endif

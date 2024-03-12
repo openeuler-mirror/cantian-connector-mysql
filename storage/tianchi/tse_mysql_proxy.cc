@@ -28,6 +28,7 @@
 #include "tse_log.h"
 #include "tse_srv.h"
 #include "tse_util.h"
+#include "ha_tse.h"
 #include "ctc_meta_data.h"
 #include "tse_proxy_util.h"
 #include "sql/sql_table.h"
@@ -334,6 +335,10 @@ __attribute__((visibility("default"))) int tse_execute_rewrite_open_conn(uint32_
   }
 
   bool use_proxy = !is_backup_lock_op(broadcast_req->sql_command);
+  if (tse_get_cluster_role() == (int32_t)dis_cluster_role::STANDBY) {
+    tse_log_system("[Disaster Recovery] Do not use proxy in slave mysql.");
+    use_proxy = false;
+  }
   uint64_t conn_map_key = tse_get_conn_key(broadcast_req->mysql_inst_id, thd_id, use_proxy);
 
   MYSQL *curr_conn = NULL;
