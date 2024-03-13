@@ -1997,6 +1997,11 @@ static bool tse_notify_exclusive_mdl(THD *thd, const MDL_key *mdl_key,
   return false;
 }
 
+static bool tse_notify_alter_table(THD *thd, const MDL_key *mdl_key,
+                                   ha_notification_type notification_type) {
+  return tse_notify_exclusive_mdl(thd, mdl_key, notification_type, nullptr);
+}
+
 static const unsigned int MAX_SAVEPOINT_NAME_LEN = 64;
 static const int BASE36 = 36;  // 0~9 and a~z, total 36 encoded character
 
@@ -4628,6 +4633,7 @@ static int tse_init_func(void *p) {
   tse_hton->close_connection = tse_close_connect;
   tse_hton->kill_connection = tse_kill_connection;
   tse_hton->notify_exclusive_mdl = tse_notify_exclusive_mdl;
+  tse_hton->notify_alter_table = tse_notify_alter_table;
   tse_hton->start_consistent_snapshot = tse_start_trx_and_assign_scn;
   tse_hton->partition_flags = tse_partition_flags;
   tse_hton->flags = HTON_SUPPORTS_FOREIGN_KEYS | HTON_CAN_RECREATE | HTON_SUPPORTS_ATOMIC_DDL;
