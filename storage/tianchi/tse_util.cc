@@ -218,6 +218,21 @@ int tse_fill_cond_field_data_num(tianchi_handler_t m_tch, Item *items, Field *my
   return ret;
 }
 
+void refill_cond_type_date(MYSQL_TIME ltime, tse_conds *cond) {
+  if (!ltime.hour || !ltime.minute || !ltime.second || !ltime.second_part) {
+    switch (cond->func_type) {
+      case TSE_LT_FUNC:
+        cond->func_type = TSE_LE_FUNC;
+        break;
+      case TSE_NE_FUNC:
+        cond->func_type = TSE_ISNOTNULL_FUNC;
+        break;
+      default:
+        break;
+    }
+  }
+}
+
 int tse_fill_cond_field_data_date(tianchi_handler_t m_tch, const field_cnvrt_aux_t *mysql_info,
                                   MYSQL_TIME ltime, date_detail_t *date_detail, tse_conds *cond) {
   int ret = CT_SUCCESS;
@@ -246,6 +261,7 @@ int tse_fill_cond_field_data_date(tianchi_handler_t m_tch, const field_cnvrt_aux
     case MYSQL_TYPE_DATE:
       my_date_to_binary(&ltime, my_ptr);
       memcpy(cond->field_info.field_value, my_ptr, cond->field_info.field_size);
+      refill_cond_type_date(ltime, cond);
       return ret;
 
     case MYSQL_TYPE_TIMESTAMP: {
