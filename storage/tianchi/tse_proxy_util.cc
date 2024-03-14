@@ -21,6 +21,11 @@
 #include "sql/sql_connect.h"
 #include "sql/conn_handler/connection_handler_manager.h"  // Connection_handler_manager
 #include "compression.h"
+#include "ha_tse.h"
+#include "sql/sql_class.h"
+#include "ctc_meta_data.h"
+// static map<uint64_t, THD*> g_tse_proxy_thd_map;
+// static mutex m_tse_mdl_thd_mutex;
 
 #define TSE_CONN_MAX_RETRY_TIMES 10
 #define TSE_PASSWORD_BUFFER_SIZE (uint32)512
@@ -195,6 +200,24 @@ int tse_init_agent_client(MYSQL *&curr_conn) {
   return 0;
 }
 
+// static void tse_proxy_init_thd(THD **thd, uint64_t thd_key) {
+//   lock_guard<mutex> lock(m_tse_mdl_thd_mutex);
+//   if (g_tse_proxy_thd_map.find(thd_key) != g_tse_proxy_thd_map.end()) {
+//     (*thd) = g_tse_proxy_thd_map[thd_key];
+//     my_thread_init();
+//     (*thd)->store_globals();
+//   } else {
+//     THD* new_thd = new (std::nothrow) THD;
+//     my_thread_init();
+//     new_thd->set_new_thread_id();
+//     new_thd->thread_stack = (char *)&new_thd;
+//     new_thd->store_globals();
+//     new_thd->set_query("tse_mdl_thd_notify", 18);
+//     g_tse_proxy_thd_map[thd_key] = new_thd;
+//     (*thd) = new_thd;
+//   }
+// }
+
 int tse_mysql_query(MYSQL *mysql, const char *query) {
   reset_mqh(nullptr, nullptr, 0);
 
@@ -210,9 +233,29 @@ int tse_mysql_query(MYSQL *mysql, const char *query) {
      CR_SERVER_LOST:          2013 
      CR_UNKNOWN_ERROR:        2000
   */
+
+  THD *thd = nullptr;
+  uint64_t thd_key = tse_get_conn_key((uint32)0xFFFFFFFF - 1, (uint32)0xFFFFFFFF - 1, true);
+  ctc_init_thd(&thd, thd_key);
+  // tse_proxy_init_thd(&thd, thd_key);
+  // my_thread_init();
+  // thd->set_new_thread_id();
+  // thd->thread_stack = (char *)&thd;
+  // thd->store_globals();
+  // thd->set_query("tse_mdl_thd_notify", 18);
+
+
+  if (tse_get_cluster_role() == (int32_t)dis_cluster_role::STANDBY) {
+    thd->set_skip_readonly_check();
+    // ((THD *)mysql->thd)->set_skip_readonly_check();
+  }
   ret = mysql_query(mysql, query);
+  if (tse_get_cluster_role() == (int32_t)dis_cluster_role::STANDBY) {
+    thd->reset_skip_readonly_check();
+    // ((THD *)mysql->thd)->reset_skip_readonly_check();
+  }
   if (ret != 0) {
-    tse_log_error("[TSE_MYSQL_QUERY]:ret:%d, err_code=%d, err_msg=%s.", ret, mysql_errno(mysql), mysql_error(mysql));
+    tse_log_error("[TSE_MYSQL_QUERY]:ret:%d, err_code=%d, err_msg=%s, query_str:%s.", ret, mysql_errno(mysql), mysql_error(mysql), query);
   }
 
   return ret;  // success: 0, fail: other

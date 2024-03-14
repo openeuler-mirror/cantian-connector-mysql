@@ -19,6 +19,7 @@
 #define __CTC_META_DATA_H__
 
 #include <mysql.h>
+#include "sql/sql_class.h"
 #include "tse_srv.h"
 
 #pragma GCC visibility push(default)
@@ -29,6 +30,7 @@ int close_tse_mdl_thd(uint32_t thd_id, uint32_t mysql_inst_id);
 int tse_mdl_lock_thd(tianchi_handler_t *tch, tse_lock_table_info *lock_info, int *err_code);
 void tse_mdl_unlock_thd(tianchi_handler_t *tch, tse_lock_table_info *lock_info);
 int ctc_set_sys_var(tse_ddl_broadcast_request *broadcast_req);
+void ctc_init_thd(THD **thd, uint64_t thd_key);
 
 #pragma GCC visibility pop
 
