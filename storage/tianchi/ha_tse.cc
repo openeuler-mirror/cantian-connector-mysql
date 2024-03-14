@@ -315,7 +315,7 @@ static inline bool is_create_table_check(MYSQL_THD thd) {
   return false;
 }
 
-static bool user_var_set(MYSQL_THD thd, string target_str) {
+bool user_var_set(MYSQL_THD thd, string target_str) {
   user_var_entry *var_entry;
   var_entry = find_or_nullptr(thd->user_vars, target_str);
   if (var_entry != nullptr && var_entry->ptr() != nullptr) {
@@ -372,7 +372,10 @@ bool is_meta_version_initialize() {
   }
   return false;
 }
-
+//计算申请cbo_stats结构所需内存
+uint64_t calculate_size_of_cbo_stats(TABLE *table){
+    return table->s->fields * sizeof(tse_cbo_stats_column_t) + sizeof(tianchi_cbo_stats_t);
+}
 // 是否为--upgrade=FORCE
 bool is_meta_version_upgrading_force() {
   bool is_meta_normalization = CHECK_HAS_MEMBER(handlerton, get_metadata_switch);
@@ -5225,7 +5228,10 @@ int ha_tse::initialize_cbo_stats()
 
   m_share->cbo_stats->tse_cbo_stats_table.columns =
     (tse_cbo_stats_column_t*)my_malloc(PSI_NOT_INSTRUMENTED, table->s->fields * sizeof(tse_cbo_stats_column_t), MYF(MY_WME));
-
+  THD* thd = ha_thd();
+  if (user_var_set(thd, "ctc_show_alloc_cbo_stats_mem")) {
+    tse_log_system("[alloc memory]normal table : %s alloc size :%lu", table->alias, calculate_size_of_cbo_stats(table));
+  }
   m_share->cbo_stats->msg_len = table->s->fields * sizeof(tse_cbo_stats_column_t);
   return CT_SUCCESS;
 }
@@ -5264,7 +5270,10 @@ void ha_tse::free_cbo_stats()
   if (!m_share || m_share->cbo_stats == nullptr) {
     return;
   }
-
+  THD* thd = ha_thd();
+  if (user_var_set(thd, "ctc_show_alloc_cbo_stats_mem")) {
+    tse_log_system("[free memory]normal table : %s alloc size :%lu", table->alias, calculate_size_of_cbo_stats(table));
+  }
   my_free((m_share->cbo_stats->tse_cbo_stats_table.columns));
   m_share->cbo_stats->tse_cbo_stats_table.columns = nullptr;
   my_free((uchar *)(m_share->cbo_stats));
