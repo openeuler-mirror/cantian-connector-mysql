@@ -3516,6 +3516,13 @@ EXTER_ATTACK int ha_tse::index_read(uchar *buf, const uchar *key, uint key_len, 
   update_member_tch(m_tch, tse_hton, ha_thd());
   record_info_t record_info = {tse_buf, 0};
 
+  index_key_info.index_skip_scan = false;
+
+  if ((table->pos_in_table_list->opt_hints_qb) &&
+      (hint_table_state(ha_thd(), table->pos_in_table_list, SKIP_SCAN_HINT_ENUM, OPTIMIZER_SKIP_SCAN))) {
+    index_key_info.index_skip_scan = true;
+  }
+
   attachable_trx_update_pre_addr(tse_hton, ha_thd(), &m_tch, true);
   ct_errno_t ct_ret = (ct_errno_t)tse_index_read(&m_tch, &record_info, &index_key_info,
                                                  get_select_mode(), m_cond, m_is_replace || m_is_insert_dup);
