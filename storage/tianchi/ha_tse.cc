@@ -3493,16 +3493,13 @@ EXTER_ATTACK int ha_tse::index_read(uchar *buf, const uchar *key, uint key_len, 
   int len = strlen(table->key_info[active_index].name);
   memcpy(index_key_info.index_name, table->key_info[active_index].name, len + 1);
 
-  int ret = tse_fill_index_key_info(table, key, key_len, end_range, &index_key_info);
+  int ret = tse_fill_index_key_info(table, key, key_len, end_range, &index_key_info, m_is_reading_range);
   if (ret != CT_SUCCESS) {
       tse_log_error("ha_tse::index_read: fill index key info failed, ret(%d).", ret);
       return ret;
   }
 
-  bool has_right_key = false;
-  if (end_range != nullptr && end_range->length != 0) {
-    has_right_key = true;
-  }
+  bool has_right_key = m_is_reading_range && end_range != nullptr && end_range->length != 0;
 
   dec4_t d4[MAX_KEY_COLUMNS * 2];
   ret = tse_convert_index_datatype(table, &index_key_info, has_right_key, d4);
@@ -3542,6 +3539,21 @@ EXTER_ATTACK int ha_tse::index_read(uchar *buf, const uchar *key, uint key_len, 
 
 EXTER_ATTACK int ha_tse::index_read_last(uchar *buf, const uchar *key_ptr, uint key_len) {
   return index_read(buf, key_ptr, key_len, HA_READ_PREFIX_LAST);
+}
+
+int ha_tse::read_range_first(const key_range * start_key, const key_range * end_key,
+                             bool eq_range_arg, bool sorted) {
+  m_is_reading_range = true;
+  int res = handler::read_range_first(start_key, end_key, eq_range_arg, sorted);
+  m_is_reading_range = false;
+  return res;
+}
+
+int ha_tse::read_range_next() {
+  m_is_reading_range = true;
+  int res = handler::read_range_next();
+  m_is_reading_range = false;
+  return res;
 }
 
 int ha_tse::index_fetch(uchar *buf) {
