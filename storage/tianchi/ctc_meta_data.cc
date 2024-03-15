@@ -32,6 +32,7 @@
 #include "my_dir.h"
 #include "sql/sql_handler.h"
 #include "sql/sql_base.h"
+#include "sql/sql_class.h"
 #include "sql/dd/cache/dictionary_client.h"
 #include "sql/mysqld_thd_manager.h"
 #include "sql/dd/types/procedure.h"
@@ -154,7 +155,7 @@ static void release_tse_mdl_thd_by_inst_id(uint32_t mysql_inst_id) {
   }
 }
 
-void ctc_init_thd(THD **thd, uint64_t thd_key) {
+static void ctc_init_thd(THD **thd, uint64_t thd_key) {
   lock_guard<mutex> lock(m_tse_mdl_thd_mutex);
   if (g_tse_mdl_thd_map.find(thd_key) != g_tse_mdl_thd_map.end()) {
     (*thd) = g_tse_mdl_thd_map[thd_key];

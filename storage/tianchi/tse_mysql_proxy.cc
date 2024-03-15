@@ -329,8 +329,8 @@ static inline bool is_backup_lock_op(uint8_t sql_command) {
 
 static inline bool tse_use_proxy(uint8_t sql_command) {
   bool is_slave = tse_get_cluster_role() == (int32_t)dis_cluster_role::STANDBY;
-  tse_log_system("[zzh debug] use_proxy:%d", (is_slave || !is_backup_lock_op(sql_command)));
-  return is_slave || !is_backup_lock_op(sql_command);
+  tse_log_system("[Disaster Recovery] is_slave: %d, sql_command=%d, use_proxy:%d", is_slave, sql_command, (!is_slave && !is_backup_lock_op(sql_command)));
+  return !is_slave && !is_backup_lock_op(sql_command);
 }
 
 extern uint32_t tse_instance_id;
@@ -340,12 +340,7 @@ __attribute__((visibility("default"))) int tse_execute_rewrite_open_conn(uint32_
     return 0;
   }
 
-  // bool use_proxy = !is_backup_lock_op(broadcast_req->sql_command);
   bool use_proxy = tse_use_proxy(broadcast_req->sql_command);
-  if (tse_get_cluster_role() == (int32_t)dis_cluster_role::STANDBY) {
-    tse_log_system("[Disaster Recovery] Do not use proxy in slave mysql.");
-    use_proxy = false;
-  }
   uint64_t conn_map_key = tse_get_conn_key(broadcast_req->mysql_inst_id, thd_id, use_proxy);
 
   MYSQL *curr_conn = NULL;
@@ -382,7 +377,6 @@ __attribute__((visibility("default"))) int tse_ddl_execute_update(uint32_t thd_i
     return 0;
   }
 
-  // bool use_proxy = !is_backup_lock_op(broadcast_req->sql_command);
   bool use_proxy = tse_use_proxy(broadcast_req->sql_command);
   uint64_t conn_map_key = tse_get_conn_key(broadcast_req->mysql_inst_id, thd_id, use_proxy);
 
