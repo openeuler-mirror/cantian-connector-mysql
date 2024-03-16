@@ -979,7 +979,7 @@ int ha_tsepart::initialize_cbo_stats() {
 
     m_part_share->cbo_stats->tse_cbo_stats_part_table = 
         (tse_cbo_stats_table_t*)my_malloc(PSI_NOT_INSTRUMENTED, part_num * sizeof(tse_cbo_stats_table_t), MYF(MY_WME));
-
+    
   for (uint i = 0; i < part_num; i++) {
     m_part_share->cbo_stats->tse_cbo_stats_part_table[i].columns =
       (tse_cbo_stats_column_t*)my_malloc(PSI_NOT_INSTRUMENTED, table->s->fields * sizeof(tse_cbo_stats_column_t), MYF(MY_WME));
