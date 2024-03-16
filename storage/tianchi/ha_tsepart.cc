@@ -987,7 +987,7 @@ int ha_tsepart::initialize_cbo_stats() {
   m_part_share->cbo_stats->msg_len = table->s->fields * sizeof(tse_cbo_stats_column_t);
   THD* thd = ha_thd();
   if (user_var_set(thd, "ctc_show_alloc_cbo_stats_mem")) {
-    tse_log_system("[alloc memory]part table first_partid: %s alloc size :%lu", table->alias, calculate_size_of_cbo_part_stats(table,m_part_share->cbo_stats->part_cnt));
+    tse_log_system("[alloc memory]part table first_partid: %s alloc size :%lu", table->alias, calculate_size_of_cbo_part_stats(table,part_num));
   }
   return CT_SUCCESS;
 }
@@ -1042,9 +1042,11 @@ void ha_tsepart::free_cbo_stats() {
   if (m_part_share->cbo_stats == nullptr) {
       return;
   }
+  uint32_t part_num = m_is_sub_partitioned ? table->part_info->num_parts * table->part_info->num_subparts : 
+                      table->part_info->num_parts;
   THD* thd = ha_thd();
   if(user_var_set(thd, "ctc_show_alloc_cbo_stats_mem")){
-    tse_log_system("[free memory]normal table : %s alloc size :%lu", table->alias, calculate_size_of_cbo_part_stats(table,m_part_share->cbo_stats->part_cnt));
+    tse_log_system("[free memory]normal table : %s alloc size :%lu", table->alias, calculate_size_of_cbo_part_stats(table,part_num));
   }
   my_free(m_part_share->cbo_stats->tse_cbo_stats_part_table[0].columns);
   m_part_share->cbo_stats->tse_cbo_stats_part_table[0].columns = nullptr;
