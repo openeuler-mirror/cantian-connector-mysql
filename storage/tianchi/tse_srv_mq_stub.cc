@@ -486,6 +486,7 @@ static void copy_index_info_to_req(const index_key_info_t *index_info, index_rea
   req->action = index_info->action;
   req->sorted = index_info->sorted;
   req->key_num = index_info->key_num;
+  req->index_skip_scan = index_info->index_skip_scan;
   memcpy(req->index_name, index_info->index_name, strlen(index_info->index_name) + 1);
 
   return;
