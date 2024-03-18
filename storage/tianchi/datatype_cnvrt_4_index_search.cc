@@ -94,7 +94,7 @@ static void tse_index_make_up_key_length(int *key, uint8_t **origin_key, uint32_
 }
 
 int tse_fill_index_key_info(TABLE *table, const uchar *key, uint key_len, const key_range *end_range, 
-                            index_key_info_t *index_key_info) {
+                            index_key_info_t *index_key_info, bool is_reading_range) {
   const uchar *my_key = nullptr;
   const uchar *end_key = key + key_len;
   if (end_range != nullptr) {
@@ -116,7 +116,7 @@ int tse_fill_index_key_info(TABLE *table, const uchar *key, uint key_len, const 
                                      &index_key_info->key_info[index_key_info->key_num].left_key_len,
                                      &index_key_info->key_info[index_key_info->key_num].is_key_null);
 
-    if (end_range != nullptr && my_key < end_range->key + end_range->length) {
+    if (is_reading_range && end_range != nullptr && my_key < end_range->key + end_range->length) {
       tse_convert_mysql_key_to_cantian(key_part, my_key, end_range->length, &data_field_len,
                                        &index_key_info->key_info[index_key_info->key_num].right_key,
                                        &index_key_info->key_info[index_key_info->key_num].right_key_len,
