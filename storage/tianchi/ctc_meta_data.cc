@@ -623,6 +623,11 @@ static void ctc_get_set_var_item(THD* new_thd, sys_var* sysvar, Item** res MY_AT
     case SHOW_LONG:
     case SHOW_LONGLONG:
     case SHOW_HA_ROWS:
+      if (var_value.c_str()[0] != '-') {
+        *res = new (new_thd->mem_root)
+          Item_uint(var_value.c_str(), (uint)var_value.length());
+        break;
+      }
     case SHOW_SIGNED_INT:
     case SHOW_SIGNED_LONG:
     case SHOW_SIGNED_LONGLONG:
