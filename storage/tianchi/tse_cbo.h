@@ -73,4 +73,5 @@ typedef struct {
 double calc_density_one_table(uint16_t idx_id, tse_range_key *key,
                               tse_cbo_stats_table_t cbo_stats, const TABLE &table);
 
+void tse_index_stats_update(TABLE *table, tianchi_cbo_stats_t *cbo_stats);
 #endif
