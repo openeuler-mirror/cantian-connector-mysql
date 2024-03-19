@@ -973,7 +973,7 @@ int ha_tsepart::initialize_cbo_stats() {
       tse_log_error("alloc shm mem failed, m_part_share->cbo_stats size(%lu)", sizeof(tianchi_cbo_stats_t));
       return ERR_ALLOC_MEMORY;
     }
-    *m_part_share->cbo_stats = {0, 0, 0, 0, 0, 0, nullptr, nullptr};
+    *m_part_share->cbo_stats = {0, 0, 0, 0, 0, 0, 0, nullptr, nullptr, nullptr};
 
     m_part_share->cbo_stats->part_cnt = part_num;
 
@@ -983,8 +983,12 @@ int ha_tsepart::initialize_cbo_stats() {
   for (uint i = 0; i < part_num; i++) {
     m_part_share->cbo_stats->tse_cbo_stats_part_table[i].columns =
       (tse_cbo_stats_column_t*)my_malloc(PSI_NOT_INSTRUMENTED, table->s->fields * sizeof(tse_cbo_stats_column_t), MYF(MY_WME));
+    m_part_share->cbo_stats->tse_cbo_stats_part_table[i].ndv_keys =
+      (uint32_t*)my_malloc(PSI_NOT_INSTRUMENTED, table->s->keys * sizeof(uint32_t), MYF(MY_WME));
   }
   m_part_share->cbo_stats->msg_len = table->s->fields * sizeof(tse_cbo_stats_column_t);
+  m_part_share->cbo_stats->key_len = table->s->keys * sizeof(uint32_t);
+
   THD* thd = ha_thd();
   if (user_var_set(thd, "ctc_show_alloc_cbo_stats_mem")) {
     tse_log_system("[alloc memory]part table first_partid: %s alloc size :%lu", table->alias, calculate_size_of_cbo_part_stats(table,part_num));
@@ -1031,6 +1035,7 @@ int ha_tsepart::get_cbo_stats_4share()
     update_sess_ctx_by_tch(m_tch, get_tse_hton(), thd);
     if (ret == CT_SUCCESS && m_part_share->cbo_stats->is_updated) {
       m_part_share->need_fetch_cbo = false;
+      tse_index_stats_update(table, m_part_share->cbo_stats);
     }
     m_part_share->get_cbo_time = now;
   }
@@ -1050,6 +1055,8 @@ void ha_tsepart::free_cbo_stats() {
   }
   my_free(m_part_share->cbo_stats->tse_cbo_stats_part_table[0].columns);
   m_part_share->cbo_stats->tse_cbo_stats_part_table[0].columns = nullptr;
+  my_free(m_part_share->cbo_stats->tse_cbo_stats_part_table[0].ndv_keys);
+  m_part_share->cbo_stats->tse_cbo_stats_part_table[0].ndv_keys = nullptr;
   my_free(m_part_share->cbo_stats->tse_cbo_stats_part_table);
   m_part_share->cbo_stats->tse_cbo_stats_part_table = nullptr;
   my_free(m_part_share->cbo_stats);

@@ -760,12 +760,22 @@ int tse_get_cbo_stats(tianchi_handler_t *tch, tianchi_cbo_stats_t *stats, uint32
   req->stats->msg_len = stats->msg_len;
   req->stats->part_cnt = stats->part_cnt;
   void *shm_inst_4_columns = get_one_shm_inst(tch);
+  void *shm_inst_4_keys = get_one_shm_inst(tch);
   void *shm_inst_4_part_table = get_one_shm_inst(tch);
   tse_cbo_stats_column_t* part_columns;
+  uint32_t *part_ndv_keys;
   if (!is_part_table) {
     req->stats->tse_cbo_stats_table.columns = (tse_cbo_stats_column_t*)alloc_share_mem(shm_inst_4_columns, req->stats->msg_len);
     if (req->stats->tse_cbo_stats_table.columns == NULL) {
       tse_log_error("alloc shm mem error, shm_inst(%p), size(%u)", shm_inst_4_columns, req->stats->msg_len);
+      free_share_mem(shm_inst_4_stats, req->stats);
+      free_share_mem(shm_inst_4_req, req);
+      return ERR_ALLOC_MEMORY;
+    }
+    req->stats->tse_cbo_stats_table.ndv_keys = (uint32_t*)alloc_share_mem(shm_inst_4_keys, stats->key_len);
+    if (req->stats->tse_cbo_stats_table.ndv_keys == NULL) {
+      tse_log_error("alloc shm mem error, shm_inst(%p), size(%u)", shm_inst_4_keys, stats->key_len);
+      free_share_mem(shm_inst_4_columns, req->stats->tse_cbo_stats_table.columns);
       free_share_mem(shm_inst_4_stats, req->stats);
       free_share_mem(shm_inst_4_req, req);
       return ERR_ALLOC_MEMORY;
@@ -789,8 +799,18 @@ int tse_get_cbo_stats(tianchi_handler_t *tch, tianchi_cbo_stats_t *stats, uint32
       free_share_mem(shm_inst_4_req, req);
       return ERR_ALLOC_MEMORY;
     }
+    part_ndv_keys = (uint32_t*)alloc_share_mem(shm_inst_4_keys, stats->key_len * num_part_fetch);
+    if (part_ndv_keys == NULL) {
+      tse_log_error("alloc shm mem error, shm_inst(%p), size(%u)", shm_inst_4_keys, stats->key_len * num_part_fetch);
+      free_share_mem(shm_inst_4_columns, part_columns);
+      free_share_mem(shm_inst_4_part_table, req->stats->tse_cbo_stats_part_table);
+      free_share_mem(shm_inst_4_stats, req->stats);
+      free_share_mem(shm_inst_4_req, req);
+      return ERR_ALLOC_MEMORY;
+    }
     for (uint i = 0; i < num_part_fetch; i++) {
       req->stats->tse_cbo_stats_part_table[i].columns = part_columns + i * (stats->msg_len / sizeof(tse_cbo_stats_column_t));
+      req->stats->tse_cbo_stats_part_table[i].ndv_keys = part_ndv_keys + i * (stats->key_len / sizeof(uint32_t));
     }
   }
 
@@ -802,6 +822,7 @@ int tse_get_cbo_stats(tianchi_handler_t *tch, tianchi_cbo_stats_t *stats, uint32
         if (!is_part_table) {
             *tch = req->tch;
             memcpy(stats->tse_cbo_stats_table.columns, req->stats->tse_cbo_stats_table.columns, stats->msg_len);
+            memcpy(stats->tse_cbo_stats_table.ndv_keys, req->stats->tse_cbo_stats_table.ndv_keys, stats->key_len);
             stats->is_updated = req->stats->is_updated;
             stats->tse_cbo_stats_table.estimate_rows = req->stats->tse_cbo_stats_table.estimate_rows;
         } else {
@@ -809,6 +830,7 @@ int tse_get_cbo_stats(tianchi_handler_t *tch, tianchi_cbo_stats_t *stats, uint32
           for (uint i = 0; i < num_part_fetch; i++) {
             stats->tse_cbo_stats_part_table[i+first_partid].estimate_rows = req->stats->tse_cbo_stats_part_table[i].estimate_rows;
             memcpy(stats->tse_cbo_stats_part_table[i+first_partid].columns, req->stats->tse_cbo_stats_part_table[i].columns, stats->msg_len);
+            memcpy(stats->tse_cbo_stats_part_table[i+first_partid].ndv_keys, req->stats->tse_cbo_stats_part_table[i].ndv_keys, stats->key_len);
           }
         }
     }
@@ -816,8 +838,10 @@ int tse_get_cbo_stats(tianchi_handler_t *tch, tianchi_cbo_stats_t *stats, uint32
   }
   if (!is_part_table) {
     free_share_mem(shm_inst_4_columns, req->stats->tse_cbo_stats_table.columns);
+    free_share_mem(shm_inst_4_keys, req->stats->tse_cbo_stats_table.ndv_keys);
   } else {
     free_share_mem(shm_inst_4_columns, part_columns);
+    free_share_mem(shm_inst_4_keys, part_ndv_keys);
     free_share_mem(shm_inst_4_part_table, req->stats->tse_cbo_stats_part_table);
   }
   free_share_mem(shm_inst_4_stats, req->stats);

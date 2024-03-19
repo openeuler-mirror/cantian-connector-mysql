@@ -403,3 +403,39 @@ double calc_density_one_table(uint16_t idx_id, tse_range_key *key,
   return density;
 }
 
+void tse_index_stats_update(TABLE *table, tianchi_cbo_stats_t *cbo_stats)
+{
+  rec_per_key_t rec_per_key;
+  bool is_part_table = (cbo_stats->tse_cbo_stats_part_table != nullptr);
+  uint32_t estimate_rows = 0;
+
+  KEY sk;
+  uint32_t *n_diff;
+  if (is_part_table) {
+    // set to the biggest part
+    assert(cbo_stats->part_cnt);
+    for (uint32 part_id = 0; part_id<cbo_stats->part_cnt; part_id++) {
+      if (estimate_rows < cbo_stats->tse_cbo_stats_part_table[part_id].estimate_rows) {
+        estimate_rows = cbo_stats->tse_cbo_stats_part_table[part_id].estimate_rows;
+        n_diff = cbo_stats->tse_cbo_stats_part_table[part_id].ndv_keys;
+      }
+    }
+  } else {
+    n_diff = cbo_stats->tse_cbo_stats_table.ndv_keys;
+    estimate_rows = cbo_stats->tse_cbo_stats_table.estimate_rows;
+  }
+  for (uint32 i = 0; i < table->s->keys; i++){
+    sk = table->key_info[i];
+    if (*(n_diff+i) == 0) {
+      rec_per_key = static_cast<rec_per_key_t>(estimate_rows);
+    } else {
+      rec_per_key = static_cast<rec_per_key_t>(estimate_rows / *(n_diff+i));
+    }
+    if (rec_per_key < 1.0) {
+      rec_per_key = 1.0;
+    }
+    for (uint32 j=0;j<sk.actual_key_parts;j++) {
+      sk.set_records_per_key(j, rec_per_key);
+    }
+  }
+}
