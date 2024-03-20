@@ -4281,41 +4281,19 @@ static bool ctc_show_status(handlerton *, THD *thd, stat_print_fn *stat_print, e
 }
 
 void tse_set_mysql_read_only() {
-  if(is_starting() || is_initialize()) {
-    tse_log_system("[Disaster Recovecy] starting or initializing");
-    super_read_only = true;
-    read_only = true;
-    opt_readonly = true;
-    tse_log_system("[Disaster Recovery] set super_read_only = true.");
-  } else {
-    tse_ddl_broadcast_request local_req {{0}, {0}, {0}, {0}, 0, 0, 0, 0, {0}};
-    memcpy(local_req.user_name, "super_read_only", strlen("super_read_only"));
-    memcpy(local_req.user_ip, "on", strlen("on"));
-    ctc_set_sys_var(&local_req);
-    tse_log_system("[Disaster Recovery] ctc_set_sys_var: super_read_only: %s", local_req.user_ip);
-  }
+  tse_log_system("[Disaster Recovecy] starting or initializing");
+  super_read_only = true;
+  read_only = true;
+  opt_readonly = true;
+  tse_log_system("[Disaster Recovery] set super_read_only = true.");
 }
 
 void tse_reset_mysql_read_only() { 
-  if(is_starting() || is_initialize()) {
-    tse_log_system("[Disaster Recovecy] starting or initializing");
-    super_read_only = false;
-    read_only = false;
-    opt_readonly = false;
-    tse_log_system("[Disaster Recovery] set super_read_only = false.");
-  } else {
-    tse_ddl_broadcast_request local_req_sro {{0}, {0}, {0}, {0}, 0, 0, 0, 0, {0}};
-    memcpy(local_req_sro.user_name, "super_read_only", strlen("super_read_only"));
-    memcpy(local_req_sro.user_ip, "off", strlen("off"));
-    ctc_set_sys_var(&local_req_sro);
-    tse_log_system("[Disaster Recovery] ctc_set_sys_var: super_read_only: %s", local_req_sro.user_ip);
-
-    tse_ddl_broadcast_request local_req_ro {{0}, {0}, {0}, {0}, 0, 0, 0, 0, {0}};
-    memcpy(local_req_ro.user_name, "read_only", strlen("read_only"));
-    memcpy(local_req_ro.user_ip, "off", strlen("off"));
-    ctc_set_sys_var(&local_req_ro);
-    tse_log_system("[Disaster Recovery] ctc_set_sys_var: super_read_only: %s", local_req_ro.user_ip);
-  }
+  tse_log_system("[Disaster Recovecy] starting or initializing");
+  super_read_only = false;
+  read_only = false;
+  opt_readonly = false;
+  tse_log_system("[Disaster Recovery] set super_read_only = false.");
 }
 
 int tse_set_cluster_role_by_cantian(bool is_slave) {
