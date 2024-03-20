@@ -997,6 +997,9 @@ bool is_initialize();
 bool is_starting();
 
 bool tse_is_temporary(const dd::Table *table_def);
+int32_t tse_get_cluster_role();
+void tse_set_mysql_read_only();
+void tse_reset_mysql_read_only();
 
 #pragma GCC visibility pop
 #endif
