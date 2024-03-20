@@ -1053,10 +1053,12 @@ void ha_tsepart::free_cbo_stats() {
   if(user_var_set(thd, "ctc_show_alloc_cbo_stats_mem")){
     tse_log_system("[free memory]normal table : %s alloc size :%lu", table->alias, calculate_size_of_cbo_part_stats(table,part_num));
   }
-  my_free(m_part_share->cbo_stats->tse_cbo_stats_part_table[0].columns);
-  m_part_share->cbo_stats->tse_cbo_stats_part_table[0].columns = nullptr;
-  my_free(m_part_share->cbo_stats->tse_cbo_stats_part_table[0].ndv_keys);
-  m_part_share->cbo_stats->tse_cbo_stats_part_table[0].ndv_keys = nullptr;
+  for (uint i = 0; i < part_num; i++) {
+    my_free(m_part_share->cbo_stats->tse_cbo_stats_part_table[i].columns);
+    m_part_share->cbo_stats->tse_cbo_stats_part_table[i].columns = nullptr;
+    my_free(m_part_share->cbo_stats->tse_cbo_stats_part_table[i].ndv_keys);
+    m_part_share->cbo_stats->tse_cbo_stats_part_table[i].ndv_keys = nullptr;
+  }
   my_free(m_part_share->cbo_stats->tse_cbo_stats_part_table);
   m_part_share->cbo_stats->tse_cbo_stats_part_table = nullptr;
   my_free(m_part_share->cbo_stats);
