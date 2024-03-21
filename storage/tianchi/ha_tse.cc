@@ -124,6 +124,8 @@
 #include "sql/sql_backup_lock.h"
 #include "ctc_meta_data.h"
 #include "sql/mysqld.h"
+#include "sql/opt_range.h" // QUICK_SELECT_I
+#include "sql/sql_executor.h" // class QEP_TAB
 
 //------------------------------------------------------------------------------//
 //                        SYSTEM VARIABLES //
@@ -160,8 +162,8 @@ int32_t ctc_metadata_normalization = (int32_t)metadata_switchs::DEFAULT;
 static MYSQL_SYSVAR_INT(metadata_normalization, ctc_metadata_normalization, PLUGIN_VAR_READONLY,
                         "Option for Mysql-Cantian metadata normalization.", nullptr, nullptr, -1, -1, 3, 0);
 
-int32_t cluster_role = (int32_t)dis_cluster_role::DEFAULT;
-static MYSQL_SYSVAR_INT(disaster_cluster_role, cluster_role, PLUGIN_VAR_READONLY,
+int32_t ctc_cluster_role = (int32_t)dis_cluster_role::DEFAULT;
+static MYSQL_SYSVAR_INT(cluster_role, ctc_cluster_role, PLUGIN_VAR_READONLY,
                         "flag for Disaster Recovery Cluster Role.", nullptr, nullptr, -1, -1, 2, 0);
 
 int32_t ctc_max_cursors_no_autocommit = 128;
@@ -229,7 +231,7 @@ static SYS_VAR *tse_system_variables[] = {
   MYSQL_SYSVAR(version),
   MYSQL_SYSVAR(stats_enabled),
   MYSQL_SYSVAR(autoinc_lock_mode),
-  MYSQL_SYSVAR(disaster_cluster_role),
+  MYSQL_SYSVAR(cluster_role),
   MYSQL_SYSVAR(update_analyze_time),
   nullptr
 };
@@ -3496,13 +3498,19 @@ EXTER_ATTACK int ha_tse::index_read(uchar *buf, const uchar *key, uint key_len, 
   int len = strlen(table->key_info[active_index].name);
   memcpy(index_key_info.index_name, table->key_info[active_index].name, len + 1);
 
-  int ret = tse_fill_index_key_info(table, key, key_len, end_range, &index_key_info, m_is_reading_range);
+  index_key_info.index_skip_scan = false;
+  if (table->reginfo.qep_tab && table->reginfo.qep_tab->quick_optim() &&
+      table->reginfo.qep_tab->quick_optim()->get_type() == QUICK_SELECT_I::QS_TYPE_SKIP_SCAN) {
+    index_key_info.index_skip_scan = true;
+  }
+
+  int ret = tse_fill_index_key_info(table, key, key_len, end_range, &index_key_info, index_key_info.index_skip_scan);
   if (ret != CT_SUCCESS) {
       tse_log_error("ha_tse::index_read: fill index key info failed, ret(%d).", ret);
       return ret;
   }
 
-  bool has_right_key = m_is_reading_range && end_range != nullptr && end_range->length != 0;
+  bool has_right_key = !index_key_info.index_skip_scan && end_range != nullptr && end_range->length != 0;
 
   dec4_t d4[MAX_KEY_COLUMNS * 2];
   ret = tse_convert_index_datatype(table, &index_key_info, has_right_key, d4);
@@ -3519,12 +3527,6 @@ EXTER_ATTACK int ha_tse::index_read(uchar *buf, const uchar *key, uint key_len, 
   update_member_tch(m_tch, tse_hton, ha_thd());
   record_info_t record_info = {tse_buf, 0};
 
-  index_key_info.index_skip_scan = false;
-
-  if ((table->pos_in_table_list->opt_hints_qb) &&
-      (hint_table_state(ha_thd(), table->pos_in_table_list, SKIP_SCAN_HINT_ENUM, OPTIMIZER_SKIP_SCAN))) {
-    index_key_info.index_skip_scan = true;
-  }
 
   attachable_trx_update_pre_addr(tse_hton, ha_thd(), &m_tch, true);
   ct_errno_t ct_ret = (ct_errno_t)tse_index_read(&m_tch, &record_info, &index_key_info,
@@ -3549,21 +3551,6 @@ EXTER_ATTACK int ha_tse::index_read(uchar *buf, const uchar *key, uint key_len, 
 
 EXTER_ATTACK int ha_tse::index_read_last(uchar *buf, const uchar *key_ptr, uint key_len) {
   return index_read(buf, key_ptr, key_len, HA_READ_PREFIX_LAST);
-}
-
-int ha_tse::read_range_first(const key_range * start_key, const key_range * end_key,
-                             bool eq_range_arg, bool sorted) {
-  m_is_reading_range = true;
-  int res = handler::read_range_first(start_key, end_key, eq_range_arg, sorted);
-  m_is_reading_range = false;
-  return res;
-}
-
-int ha_tse::read_range_next() {
-  m_is_reading_range = true;
-  int res = handler::read_range_next();
-  m_is_reading_range = false;
-  return res;
 }
 
 int ha_tse::index_fetch(uchar *buf) {
@@ -3980,22 +3967,22 @@ int ha_tse::records_from_index(ha_rows *num_rows, uint inx)
 }
 
 int32_t tse_get_cluster_role() {
-  if (cluster_role != (int32_t)dis_cluster_role::DEFAULT) {
-    return cluster_role;
+  if (ctc_cluster_role != (int32_t)dis_cluster_role::DEFAULT) {
+    return ctc_cluster_role;
   }
-  // todo: add mutex for cluster_role.
+  // todo: add mutex for ctc_cluster_role.
   bool is_slave = false;
   bool cantian_cluster_ready = false;
   int ret = tse_query_cluster_role(&is_slave, &cantian_cluster_ready);
   if (ret != CT_SUCCESS || !cantian_cluster_ready) {
-    cluster_role = (int32_t)dis_cluster_role::CLUSTER_NOT_READY;
+    ctc_cluster_role = (int32_t)dis_cluster_role::CLUSTER_NOT_READY;
     tse_log_error("[Disaster Rocovery] tse_query_cluster_role failed with error code: %d, is_slave:%d, cantian_cluster_ready: %d", ret, is_slave, cantian_cluster_ready);
-    return cluster_role;
+    return ctc_cluster_role;
   }
   tse_log_system("[Disaster Recovery] is_slave:%d, cantian_cluster_ready:%d", is_slave, cantian_cluster_ready);
   tse_set_cluster_role_by_cantian(is_slave);
  
-  return cluster_role;
+  return ctc_cluster_role;
 }
 
 /**
@@ -4326,12 +4313,12 @@ void tse_reset_mysql_read_only() {
 }
 
 int tse_set_cluster_role_by_cantian(bool is_slave) {
-  // todo: add mutex for cluster_role
+  // todo: add mutex for ctc_cluster_role
   if (is_slave) {
-    cluster_role = (int32_t)dis_cluster_role::STANDBY;
+    ctc_cluster_role = (int32_t)dis_cluster_role::STANDBY;
     tse_set_mysql_read_only();
   } else {
-    cluster_role = (int32_t)dis_cluster_role::PRIMARY;
+    ctc_cluster_role = (int32_t)dis_cluster_role::PRIMARY;
     tse_reset_mysql_read_only();
   }
   return 0;
@@ -4696,7 +4683,6 @@ static int tse_init_func(void *p) {
     tse_log_error("[CTC_INIT]:ctc_check_tx_isolation failed:%d", ret);
     return HA_ERR_INITIALIZATION;
   }
-
   tse_log_system("[CTC_INIT]:SUCCESS!");
   return 0;
 }

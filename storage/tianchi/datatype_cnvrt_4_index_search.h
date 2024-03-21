@@ -20,6 +20,6 @@
 #include "decimal_convert.h"
 
 int tse_fill_index_key_info(TABLE *table, const uchar *key, uint key_len, const key_range *end_range, 
-                            index_key_info_t *index_key_info, bool is_reading_range);
+                            index_key_info_t *index_key_info, bool index_skip_scan);
 
 int tse_convert_index_datatype(TABLE *table, index_key_info_t *index_key_info, bool has_right_key, dec4_t *data);
