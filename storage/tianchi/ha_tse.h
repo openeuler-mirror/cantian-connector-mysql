@@ -498,11 +498,6 @@ public:
 
   int index_fetch(uchar *buf);
 
-  int read_range_first(const key_range *start_key, const key_range *end_key,
-                       bool eq_range_arg, bool sorted) override;
-
-  int read_range_next() override;
-
   /**
     @brief
     Positions an index cursor to the index specified in the handle. Fetches the
@@ -931,9 +926,6 @@ public:
   tse_conds *m_cond = nullptr;
   Item *m_pushed_conds = nullptr;
   Item *m_remainder_conds = nullptr;
-
-  /** Set to true if we are inside read_range_first() or read_range_next() **/
-  bool m_is_reading_range = false;
 
 private:
   int process_cantian_record(uchar *buf, record_info_t *record_info, ct_errno_t ct_ret, int rc_ret);
