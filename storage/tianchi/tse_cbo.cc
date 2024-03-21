@@ -414,8 +414,8 @@ void tse_index_stats_update(TABLE *table, tianchi_cbo_stats_t *cbo_stats)
   if (is_part_table) {
     // set to the biggest part
     assert(cbo_stats->part_cnt);
-    for (uint32 part_id = 0; part_id<cbo_stats->part_cnt; part_id++) {
-      if (estimate_rows < cbo_stats->tse_cbo_stats_part_table[part_id].estimate_rows) {
+    for (uint32 part_id = 0; part_id < cbo_stats->part_cnt; part_id++) {
+      if (estimate_rows <= cbo_stats->tse_cbo_stats_part_table[part_id].estimate_rows) {
         estimate_rows = cbo_stats->tse_cbo_stats_part_table[part_id].estimate_rows;
         n_diff = cbo_stats->tse_cbo_stats_part_table[part_id].ndv_keys;
       }
