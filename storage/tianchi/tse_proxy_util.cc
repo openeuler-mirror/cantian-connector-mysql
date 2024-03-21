@@ -225,6 +225,10 @@ int tse_mysql_query(MYSQL *mysql, const char *query) {
     tse_log_error("[TSE_MYSQL_QUERY]:ret:%d, err_code=%d, err_msg=%s, query_str:%s.", ret, mysql_errno(mysql), mysql_error(mysql), query);
   }
 
+  do {
+    mysql_free_result(mysql_use_result(mysql));
+  } while (!mysql_next_result(mysql));
+
   return ret;  // success: 0, fail: other
 }
 
