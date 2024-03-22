@@ -217,6 +217,11 @@ int tse_mysql_query(MYSQL *mysql, const char *query) {
   if (tse_get_cluster_role() == (int32_t)dis_cluster_role::STANDBY) {
     tse_reset_mysql_read_only();
   }
+
+  do {
+    mysql_free_result(mysql_use_result(mysql));
+  } while (!mysql_next_result(mysql));
+
   ret = mysql_query(mysql, query);
   if (tse_get_cluster_role() == (int32_t)dis_cluster_role::STANDBY) {
     tse_set_mysql_read_only();
@@ -224,10 +229,6 @@ int tse_mysql_query(MYSQL *mysql, const char *query) {
   if (ret != 0) {
     tse_log_error("[TSE_MYSQL_QUERY]:ret:%d, err_code=%d, err_msg=%s, query_str:%s.", ret, mysql_errno(mysql), mysql_error(mysql), query);
   }
-
-  do {
-    mysql_free_result(mysql_use_result(mysql));
-  } while (!mysql_next_result(mysql));
 
   return ret;  // success: 0, fail: other
 }
