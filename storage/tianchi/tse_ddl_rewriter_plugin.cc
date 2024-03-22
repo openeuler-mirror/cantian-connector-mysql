@@ -267,7 +267,7 @@ static int allow_sqlcmd(MYSQL_THD thd, string session_var_name) {
 }
 
 static int tse_check_dcl(string &, MYSQL_THD thd, bool &need_forward) {
-  if (check_readonly(thd, true) ||
+  if (check_readonly(thd, false) ||
       (thd->lex->query_tables != nullptr &&
        check_schema_readonly(thd, thd->lex->query_tables->table_name))) {
     need_forward = false;
