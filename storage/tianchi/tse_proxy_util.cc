@@ -217,6 +217,11 @@ int tse_mysql_query(MYSQL *mysql, const char *query) {
   if (tse_get_cluster_role() == (int32_t)dis_cluster_role::STANDBY) {
     tse_reset_mysql_read_only();
   }
+
+  do {
+    mysql_free_result(mysql_use_result(mysql));
+  } while (!mysql_next_result(mysql));
+
   ret = mysql_query(mysql, query);
   if (tse_get_cluster_role() == (int32_t)dis_cluster_role::STANDBY) {
     tse_set_mysql_read_only();

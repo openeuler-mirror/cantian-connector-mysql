@@ -162,6 +162,7 @@ int32_t ctc_metadata_normalization = (int32_t)metadata_switchs::DEFAULT;
 static MYSQL_SYSVAR_INT(metadata_normalization, ctc_metadata_normalization, PLUGIN_VAR_READONLY,
                         "Option for Mysql-Cantian metadata normalization.", nullptr, nullptr, -1, -1, 3, 0);
 
+static mutex m_tse_cluster_role_mutex;
 int32_t ctc_cluster_role = (int32_t)dis_cluster_role::DEFAULT;
 static MYSQL_SYSVAR_INT(cluster_role, ctc_cluster_role, PLUGIN_VAR_READONLY,
                         "flag for Disaster Recovery Cluster Role.", nullptr, nullptr, -1, -1, 2, 0);
@@ -3970,7 +3971,7 @@ int32_t tse_get_cluster_role() {
   if (ctc_cluster_role != (int32_t)dis_cluster_role::DEFAULT) {
     return ctc_cluster_role;
   }
-  // todo: add mutex for ctc_cluster_role.
+  lock_guard<mutex> lock(m_tse_cluster_role_mutex);
   bool is_slave = false;
   bool cantian_cluster_ready = false;
   int ret = tse_query_cluster_role(&is_slave, &cantian_cluster_ready);
@@ -3980,7 +3981,12 @@ int32_t tse_get_cluster_role() {
     return ctc_cluster_role;
   }
   tse_log_system("[Disaster Recovery] is_slave:%d, cantian_cluster_ready:%d", is_slave, cantian_cluster_ready);
-  tse_set_cluster_role_by_cantian(is_slave);
+  if (is_slave) {
+    tse_set_mysql_read_only();
+  } else {
+    tse_reset_mysql_read_only();
+  }
+  ctc_cluster_role = is_slave ? (int32_t)dis_cluster_role::STANDBY : (int32_t)dis_cluster_role::PRIMARY;
  
   return ctc_cluster_role;
 }
@@ -4313,7 +4319,7 @@ void tse_reset_mysql_read_only() {
 }
 
 int tse_set_cluster_role_by_cantian(bool is_slave) {
-  // todo: add mutex for ctc_cluster_role
+  lock_guard<mutex> lock(m_tse_cluster_role_mutex);
   if (is_slave) {
     ctc_cluster_role = (int32_t)dis_cluster_role::STANDBY;
     tse_set_mysql_read_only();
@@ -4683,6 +4689,7 @@ static int tse_init_func(void *p) {
     tse_log_error("[CTC_INIT]:ctc_check_tx_isolation failed:%d", ret);
     return HA_ERR_INITIALIZATION;
   }
+  tse_get_cluster_role();
   tse_log_system("[CTC_INIT]:SUCCESS!");
   return 0;
 }
