@@ -235,24 +235,26 @@ static double calc_hist_between_frequency(tse_cbo_stats_table_t cbo_stats, field
 
 }
 
-double percent_in_bucket(cache_variant_t *max_val, cache_variant_t *val, cache_variant_t *min_val, enum_field_types field_type)
+double percent_in_bucket(tse_cbo_stats_column_t *col_stat, uint32 high,
+                         cache_variant_t *key, enum_field_types field_type)
 {
-  if (compare(max_val, min_val, field_type) == EQUAL) {
-    return 1;
-  }
-  double percent = 0;
+  double percent = 0.0D;
+  tse_cbo_column_hist_t *hist_infos = col_stat->column_hist;
+  cache_variant_t *ep_high = high >= col_stat->hist_count ? &col_stat->high_value : &hist_infos[high].ep_value;
+  cache_variant_t *ep_low = high < 1 ? &col_stat->low_value : &hist_infos[high - 1].ep_value;
+
   switch(field_type) {
     case MYSQL_TYPE_TINY:
     case MYSQL_TYPE_SHORT:
     case MYSQL_TYPE_LONG:
-      percent = (double)(val->v_int - min_val->v_int) / (max_val->v_int - min_val->v_int);
+      percent = (double)(ep_high->v_int - key->v_int) / (ep_high->v_int - ep_low->v_int);
       break;
     case MYSQL_TYPE_FLOAT:
     case MYSQL_TYPE_DOUBLE:
-      percent = (double)(val->v_real - min_val->v_real) / (max_val->v_real - min_val->v_real);
+      percent = (double)(ep_high->v_real - key->v_real) / (ep_high->v_real - ep_low->v_real);
       break;
     case MYSQL_TYPE_LONGLONG:
-      percent = (double)(val->v_bigint - min_val->v_bigint) / (max_val->v_bigint - min_val->v_bigint);
+      percent = (double)(ep_high->v_bigint - key->v_bigint) / (ep_high->v_bigint - ep_low->v_bigint);
       break;
     default:
       return DEFAULT_RANGE_DENSITY;
@@ -262,7 +264,7 @@ double percent_in_bucket(cache_variant_t *max_val, cache_variant_t *val, cache_v
 }
 
 static int calc_hist_range_boundary(field_stats_val stats_val, enum_field_types field_type, tse_cbo_stats_column_t *col_stat,
-  double *percent, cache_variant_t *low_val)
+                                    double *percent)
 {
   en_tse_compare_type cmp_result;
   uint32 i, lo_pos, hi_pos;
@@ -273,25 +275,25 @@ static int calc_hist_range_boundary(field_stats_val stats_val, enum_field_types 
 
   for (i = 0; i < hist_count; i++) {
     cmp_result = compare(&hist_infos[i].ep_value, stats_val.min_key_val, field_type);
-
     if (cmp_result == GREAT) {
       lo_pos = i;
-      *percent -= percent_in_bucket(&hist_infos[i].ep_value, stats_val.min_key_val, low_val, field_type);
       break;
     }
-    low_val = &hist_infos[i].ep_value;
   }
+
+  // calc the part of value below lo_pos
+  *percent += percent_in_bucket(col_stat, i, stats_val.min_key_val, field_type);
 
   for (i = lo_pos; i < hist_count; i++) {
     cmp_result = compare(&hist_infos[i].ep_value, stats_val.max_key_val, field_type);
-
     if (cmp_result == GREAT || cmp_result == EQUAL) {
       hi_pos = i;
-      *percent += percent_in_bucket(&hist_infos[i].ep_value, stats_val.max_key_val, low_val, field_type);
       break;
     }
-    low_val = &hist_infos[i].ep_value;
   }
+
+  // calc the part of value below hi_pos
+  *percent -= percent_in_bucket(col_stat, i, stats_val.max_key_val, field_type);
 
   if (col_stat->num_buckets > 0) {
     *percent = *percent / col_stat->num_buckets;
@@ -305,6 +307,7 @@ static int calc_hist_range_boundary(field_stats_val stats_val, enum_field_types 
     *percent += calc_balance_hist_equal_density(col_stat, stats_val.max_key_val, field_type);
   }
 
+  // return complete bucket number
   return hi_pos - lo_pos;
 }
 
@@ -318,7 +321,7 @@ static double calc_hist_between_balance(tse_cbo_stats_table_t cbo_stats, field_s
   }
   double percent = 0;
 
-  int bucket_range = calc_hist_range_boundary(stats_val, field_type, col_stat, &percent, &cbo_stats.columns[col_id].low_value);
+  int bucket_range = calc_hist_range_boundary(stats_val, field_type, col_stat, &percent);
 
   density = (double)bucket_range / col_stat->num_buckets + percent;
   return density;
