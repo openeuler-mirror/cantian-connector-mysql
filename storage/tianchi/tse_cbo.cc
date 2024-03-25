@@ -460,6 +460,9 @@ void tse_index_stats_update(TABLE *table, tianchi_cbo_stats_t *cbo_stats)
     n_diff = cbo_stats->tse_cbo_stats_table.ndv_keys;
     estimate_rows = cbo_stats->tse_cbo_stats_table.estimate_rows;
   }
+  if (estimate_rows == 0) {
+    return;
+  }
   for (uint32 i = 0; i < table->s->keys; i++){
     sk = table->key_info[i];
     if (*(n_diff+i) == 0) {
