@@ -3981,9 +3981,12 @@ int32_t tse_get_cluster_role() {
     return ctc_cluster_role;
   }
   tse_log_system("[Disaster Recovery] is_slave:%d, cantian_cluster_ready:%d", is_slave, cantian_cluster_ready);
+  // ctc_cluster_role: The character the node was before change
+  // is_slave: The character the node is now
+  // Only reset 'read_only's to false when the node turns from slave to master
   if (is_slave) {
     tse_set_mysql_read_only();
-  } else {
+  } else if (ctc_cluster_role == (int32_t)dis_cluster_role::STANDBY) {
     tse_reset_mysql_read_only();
   }
   ctc_cluster_role = is_slave ? (int32_t)dis_cluster_role::STANDBY : (int32_t)dis_cluster_role::PRIMARY;
