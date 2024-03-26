@@ -587,9 +587,11 @@ static int tse_check_set_opt(string &sql_str, MYSQL_THD thd, bool &need_forward)
         } else {
           ret = tse_get_variables_value_string(thd, sql_str, setvar, val_str, is_null_value, need_forward);
         }
-
         ret |= tse_check_set_opt_rule(setvar, name_str, val_str, need_forward);
       }
+    } else {
+      // There's no need to broadcast non-set_var SET_OPTION cmds.
+      need_forward = false;
     }
 
     if (need_forward && allow_sqlcmd(thd, "ctc_setopt_disabled") != 0) {
