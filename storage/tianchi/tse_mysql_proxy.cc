@@ -369,7 +369,7 @@ __attribute__((visibility("default"))) int tse_ddl_execute_update(uint32_t thd_i
   }
 
   bool is_meta_normalization = IS_METADATA_NORMALIZATION();
-  if (is_meta_normalization && broadcast_req->sql_command != SQLCOM_SET_OPTION) {
+  if (is_meta_normalization && g_rewrite_sqls.find(broadcast_req->sql_command) == g_rewrite_sqls.end()) {
     return 0;
   } else if (is_meta_normalization && broadcast_req->sql_command == SQLCOM_SET_OPTION 
               && (broadcast_req->options & TSE_SET_VARIABLE_WITH_SUBSELECT) == 0){
