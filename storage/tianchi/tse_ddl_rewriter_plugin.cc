@@ -706,13 +706,6 @@ static int tse_read_only_ddl(string &, MYSQL_THD thd, bool &need_forward) {
   return 0;
 }
 
-static int tse_check_lock_unlock_replay(string &, MYSQL_THD thd, bool &need_forward) {
-  if (user_var_set(thd, "ctc_ddl_local_enabled") && user_var_set(thd, "ctc_replay_ddl")) {
-    need_forward = false;
-  }
-  return 0;
-}
-
 typedef struct ddl_broadcast_cmd_s
 {
   bool need_select_db;  // 需要指定数据库
@@ -760,8 +753,8 @@ static unordered_map<enum enum_sql_command, ddl_broadcast_cmd>
     {SQLCOM_SET_OPTION, {true, tse_check_set_opt}},
 
     // Locking, broadcast
-    {SQLCOM_LOCK_TABLES, {true, tse_check_lock_unlock_replay}},
-    {SQLCOM_UNLOCK_TABLES, {true, tse_check_lock_unlock_replay}},
+    {SQLCOM_LOCK_TABLES, {true, NULL}},
+    {SQLCOM_UNLOCK_TABLES, {true, NULL}},
     {SQLCOM_LOCK_INSTANCE, {false, NULL}},
     {SQLCOM_UNLOCK_INSTANCE, {false, NULL}},
 
