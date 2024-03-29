@@ -22,7 +22,6 @@
 #include <string>
 #include <regex>
 #include <unordered_set>
-#include <set>
 #include "sql/table.h"
 #include "datatype_cnvrtr.h"
 #include "sql/item_timefunc.h"
@@ -32,7 +31,6 @@
 using namespace std;
 
 static unordered_set<string> mysql_system_db{"information_schema", "mysql", "performance_schema", "sys"};
-static set<uint64_t> g_rewrite_sqls {SQLCOM_SET_OPTION, SQLCOM_LOCK_TABLES, SQLCOM_UNLOCK_TABLES}; 
 
 #define CM_IS_EMPTY_STR(str)     (((str) == NULL) || ((str)[0] == 0))
 
