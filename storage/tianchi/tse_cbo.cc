@@ -22,7 +22,6 @@
 
 void r_key2variant(tse_key *rKey, KEY_PART_INFO *cur_index_part, cache_variant_t *ret_val, cache_variant_t * value, uint32_t key_offset)
 {
-  ret_val->is_null = 0;
   if (rKey->cmp_type == CMP_TYPE_NULL) {
     *ret_val = *value;
     rKey->cmp_type = CMP_TYPE_CLOSE_INTERNAL;
@@ -30,7 +29,6 @@ void r_key2variant(tse_key *rKey, KEY_PART_INFO *cur_index_part, cache_variant_t
   }
 
   enum_field_types field_type = cur_index_part->field->real_type();
-  ret_val->type = field_type;
   uint32_t offset = 0;
   if (cur_index_part->field->is_nullable()) {
     /* The first byte in the field tells if this is an SQL NULL value */
@@ -59,7 +57,6 @@ void r_key2variant(tse_key *rKey, KEY_PART_INFO *cur_index_part, cache_variant_t
       ret_val->v_bigint = *(int64_t *)const_cast<uchar *>(key);
       break;
     default:
-      ret_val->is_null = 1;
       break;
   }
 }
