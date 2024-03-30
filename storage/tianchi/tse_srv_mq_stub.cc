@@ -756,7 +756,7 @@ int tse_get_cbo_stats(tianchi_handler_t *tch, tianchi_cbo_stats_t *stats, tse_cb
     return ERR_ALLOC_MEMORY;
   }
 
-  bool is_part_table = stats->tse_cbo_stats_part_table != nullptr ? true : false;
+  bool is_part_table = stats->part_cnt ? true : false;
   req->stats->msg_len = stats->msg_len;
   req->stats->part_cnt = stats->part_cnt;
   req->first_partid = first_partid;
@@ -765,21 +765,20 @@ int tse_get_cbo_stats(tianchi_handler_t *tch, tianchi_cbo_stats_t *stats, tse_cb
   void *shm_inst_4_keys = get_one_shm_inst(tch);
   void *shm_inst_4_table = get_one_shm_inst(tch);
   tse_cbo_stats_column_t* part_columns;
-  uint32_t *part_ndv_keys;
+  req->stats->ndv_keys = (uint32_t*)alloc_share_mem(shm_inst_4_keys, stats->key_len);
+  if (req->stats->ndv_keys == NULL) {
+    tse_log_error("alloc shm mem error, shm_inst(%p), size(%u)", shm_inst_4_keys, stats->key_len);
+    free_share_mem(shm_inst_4_stats, req->stats);
+    free_share_mem(shm_inst_4_req, req);
+    return ERR_ALLOC_MEMORY;
+  }
   if (!is_part_table) {
     req->tse_cbo_stats_table = 
         (tse_cbo_stats_table_t*)alloc_share_mem(shm_inst_4_table, sizeof(tse_cbo_stats_table_t));
     req->tse_cbo_stats_table->columns = (tse_cbo_stats_column_t*)alloc_share_mem(shm_inst_4_columns, req->stats->msg_len);
     if (req->tse_cbo_stats_table->columns == NULL) {
       tse_log_error("alloc shm mem error, shm_inst(%p), size(%u)", shm_inst_4_columns, req->stats->msg_len);
-      free_share_mem(shm_inst_4_stats, req->stats);
-      free_share_mem(shm_inst_4_req, req);
-      return ERR_ALLOC_MEMORY;
-    }
-    req->tse_cbo_stats_table->ndv_keys = (uint32_t*)alloc_share_mem(shm_inst_4_keys, stats->key_len);
-    if (req->tse_cbo_stats_table->ndv_keys == NULL) {
-      tse_log_error("alloc shm mem error, shm_inst(%p), size(%u)", shm_inst_4_keys, stats->key_len);
-      free_share_mem(shm_inst_4_columns, req->tse_cbo_stats_table->columns);
+      free_share_mem(shm_inst_4_keys, req->stats->ndv_keys);
       free_share_mem(shm_inst_4_stats, req->stats);
       free_share_mem(shm_inst_4_req, req);
       return ERR_ALLOC_MEMORY;
@@ -789,6 +788,7 @@ int tse_get_cbo_stats(tianchi_handler_t *tch, tianchi_cbo_stats_t *stats, tse_cb
         (tse_cbo_stats_table_t*)alloc_share_mem(shm_inst_4_table, num_part_fetch * sizeof(tse_cbo_stats_table_t));
     if (req->tse_cbo_stats_table == NULL) {
       tse_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst_4_table, num_part_fetch * sizeof(tse_cbo_stats_table_t));
+      free_share_mem(shm_inst_4_keys, req->stats->ndv_keys);
       free_share_mem(shm_inst_4_stats, req->stats);
       free_share_mem(shm_inst_4_req, req);
       return ERR_ALLOC_MEMORY;
@@ -796,23 +796,13 @@ int tse_get_cbo_stats(tianchi_handler_t *tch, tianchi_cbo_stats_t *stats, tse_cb
     part_columns = (tse_cbo_stats_column_t*)alloc_share_mem(shm_inst_4_columns, stats->msg_len * num_part_fetch);
     if (part_columns == NULL) {
       tse_log_error("alloc shm mem error, shm_inst(%p), size(%u)", shm_inst_4_columns, stats->msg_len * num_part_fetch);
-      free_share_mem(shm_inst_4_table, req->tse_cbo_stats_table);
-      free_share_mem(shm_inst_4_stats, req->stats);
-      free_share_mem(shm_inst_4_req, req);
-      return ERR_ALLOC_MEMORY;
-    }
-    part_ndv_keys = (uint32_t*)alloc_share_mem(shm_inst_4_keys, stats->key_len * num_part_fetch);
-    if (part_ndv_keys == NULL) {
-      tse_log_error("alloc shm mem error, shm_inst(%p), size(%u)", shm_inst_4_keys, stats->key_len * num_part_fetch);
-      free_share_mem(shm_inst_4_columns, part_columns);
-      free_share_mem(shm_inst_4_table, req->tse_cbo_stats_table);
+      free_share_mem(shm_inst_4_keys, req->stats->ndv_keys);
       free_share_mem(shm_inst_4_stats, req->stats);
       free_share_mem(shm_inst_4_req, req);
       return ERR_ALLOC_MEMORY;
     }
     for (uint i = 0; i < num_part_fetch; i++) {
       req->tse_cbo_stats_table[i].columns = part_columns + i * (stats->msg_len / sizeof(tse_cbo_stats_column_t));
-      req->tse_cbo_stats_table[i].ndv_keys = part_ndv_keys + i * (stats->key_len / sizeof(uint32_t));
     }
   }
 
@@ -822,29 +812,26 @@ int tse_get_cbo_stats(tianchi_handler_t *tch, tianchi_cbo_stats_t *stats, tse_cb
   if (ret == CT_SUCCESS) {
     if (req->result == CT_SUCCESS) {
       stats->is_updated = req->stats->is_updated;
-        if (!is_part_table) {
-            *tch = req->tch;
-            memcpy(tse_cbo_stats_table->columns, req->tse_cbo_stats_table->columns, stats->msg_len);
-            memcpy(tse_cbo_stats_table->ndv_keys, req->tse_cbo_stats_table->ndv_keys, stats->key_len);
-            
-            tse_cbo_stats_table->estimate_rows = req->tse_cbo_stats_table->estimate_rows;
-        } else {
-          for (uint i = 0; i < num_part_fetch; i++) {
-            tse_cbo_stats_table[i].estimate_rows = req->tse_cbo_stats_table[i].estimate_rows;
-            memcpy(tse_cbo_stats_table[i].columns, req->tse_cbo_stats_table[i].columns, stats->msg_len);
-            memcpy(tse_cbo_stats_table[i].ndv_keys, req->tse_cbo_stats_table[i].ndv_keys, stats->key_len);
-          }
+      memcpy(stats->ndv_keys, req->stats->ndv_keys, stats->key_len);
+      if (!is_part_table) {
+          *tch = req->tch;
+          memcpy(tse_cbo_stats_table->columns, req->tse_cbo_stats_table->columns, stats->msg_len);
+          tse_cbo_stats_table->estimate_rows = req->tse_cbo_stats_table->estimate_rows;
+      } else {
+        for (uint i = 0; i < num_part_fetch; i++) {
+          tse_cbo_stats_table[i].estimate_rows = req->tse_cbo_stats_table[i].estimate_rows;
+          memcpy(tse_cbo_stats_table[i].columns, req->tse_cbo_stats_table[i].columns, stats->msg_len);
         }
+      }
     }
     result = req->result;
   }
   if (!is_part_table) {
     free_share_mem(shm_inst_4_columns, req->tse_cbo_stats_table->columns);
-    free_share_mem(shm_inst_4_keys, req->tse_cbo_stats_table->ndv_keys);
   } else {
     free_share_mem(shm_inst_4_columns, part_columns);
-    free_share_mem(shm_inst_4_keys, part_ndv_keys);
   }
+  free_share_mem(shm_inst_4_keys, req->stats->ndv_keys);
   free_share_mem(shm_inst_4_table, req->tse_cbo_stats_table);
   free_share_mem(shm_inst_4_stats, req->stats);
   free_share_mem(shm_inst_4_req, req);
