@@ -1219,7 +1219,7 @@ static int tse_ddl_rewrite(MYSQL_THD thd, mysql_event_class_t event_class,
   // for non-metadata-normalization's gate test
   DBUG_EXECUTE_IF("non_metadata_normalization", { check_metadata_switch_result = 1; });
   // broadcast SET_OPTION query with subselect item
-  if (check_metadata_switch_result != 1 && !(need_forward && g_rewrite_sqls.find(sql_cmd) != g_rewrite_sqls.end())) {
+  if (check_metadata_switch_result != 1 && !(need_forward && sql_cmd == SQLCOM_SET_OPTION)) {
     return check_metadata_switch_result;
   }
   
