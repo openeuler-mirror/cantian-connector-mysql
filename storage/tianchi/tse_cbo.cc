@@ -151,7 +151,7 @@ static double calc_balance_hist_equal_density(tse_cbo_stats_column_t *col_stat, 
       break;
     }
   }
-  if (popular_count > 1) {
+  if (popular_count > 1 && col_stat->num_buckets > 0) {
     return (double)popular_count / col_stat->num_buckets;
   }
   return col_stat->density;
@@ -160,7 +160,10 @@ static double calc_balance_hist_equal_density(tse_cbo_stats_column_t *col_stat, 
 static double calc_equal_null_density(tse_cbo_stats_table_t cbo_stats, uint32 col_id, bool is_null)
 {
   tse_cbo_stats_column_t *col_stat = &cbo_stats.columns[col_id];
-  double density = (double)col_stat->num_null / cbo_stats.estimate_rows;
+  double density = DEFAULT_RANGE_DENSITY;
+  if (cbo_stats.estimate_rows > 0) {
+    density = (double)col_stat->num_null / cbo_stats.estimate_rows;
+  }
   return is_null ? density : (double)1 - density;
 }
 
@@ -244,14 +247,20 @@ double percent_in_bucket(tse_cbo_stats_column_t *col_stat, uint32 high,
     case MYSQL_TYPE_TINY:
     case MYSQL_TYPE_SHORT:
     case MYSQL_TYPE_LONG:
-      percent = (double)(ep_high->v_int - key->v_int) / (ep_high->v_int - ep_low->v_int);
+      if (ep_high->v_int - ep_low->v_int > 0) {
+        percent = (double)(ep_high->v_int - key->v_int) / (ep_high->v_int - ep_low->v_int);
+      }
       break;
     case MYSQL_TYPE_FLOAT:
     case MYSQL_TYPE_DOUBLE:
-      percent = (double)(ep_high->v_real - key->v_real) / (ep_high->v_real - ep_low->v_real);
+      if (ep_high->v_real - ep_low->v_real > 0) {
+        percent = (double)(ep_high->v_real - key->v_real) / (ep_high->v_real - ep_low->v_real);
+      }
       break;
     case MYSQL_TYPE_LONGLONG:
-      percent = (double)(ep_high->v_bigint - key->v_bigint) / (ep_high->v_bigint - ep_low->v_bigint);
+      if (ep_high->v_bigint - ep_low->v_bigint > 0) {
+        percent = (double)(ep_high->v_bigint - key->v_bigint) / (ep_high->v_bigint - ep_low->v_bigint);
+      }
       break;
     default:
       return DEFAULT_RANGE_DENSITY;
@@ -320,7 +329,11 @@ static double calc_hist_between_balance(tse_cbo_stats_table_t cbo_stats, field_s
 
   int bucket_range = calc_hist_range_boundary(stats_val, field_type, col_stat, &percent);
 
-  density = (double)bucket_range / col_stat->num_buckets + percent;
+  if (col_stat->num_buckets > 0) {
+    density = (double)bucket_range / col_stat->num_buckets + percent;
+  } else {
+    density = percent;
+  }
   return density;
 }
 
