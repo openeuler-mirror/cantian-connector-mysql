@@ -403,6 +403,9 @@ double calc_density_by_cond(tse_cbo_stats_table_t cbo_stats, KEY_PART_INFO cur_i
 double calc_density_one_table(uint16_t idx_id, tse_range_key *key,
                               tse_cbo_stats_table_t cbo_stats, const TABLE &table)
 {
+  if (cbo_stats.estimate_rows == 0) { // no stats or empty table
+    return 0;
+  }
   double density = 1.0;
   uint32 col_id;
   uint32_t key_offset = 0;//列在索引中的偏移量

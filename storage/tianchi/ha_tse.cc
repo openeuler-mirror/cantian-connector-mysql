@@ -3911,7 +3911,7 @@ ha_rows ha_tse::records_in_range(uint inx, key_range *min_key,
   if (m_share) {
     if (!m_share->cbo_stats->is_updated) {
         tse_log_debug("table %s has not been analyzed", table->alias);
-        density = DEFAULT_RANGE_DENSITY;
+        return 1;
     }
     density = calc_density_one_table(inx, &key, m_share->cbo_stats->tse_cbo_stats_table, *table);
     /*
