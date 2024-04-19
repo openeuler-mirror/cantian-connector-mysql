@@ -5225,7 +5225,7 @@ int ha_tse::initialize_cbo_stats()
     tse_log_error("alloc shm mem failed, m_share->cbo_stats size(%lu)", sizeof(tianchi_cbo_stats_t));
     return ERR_ALLOC_MEMORY;
   }
-  *m_share->cbo_stats = {0, 0, 0, 0, 0, 0, 0, nullptr, nullptr, nullptr};
+  *m_share->cbo_stats = {0, 0, 0, 0, 0, nullptr, nullptr, nullptr};
 
   m_share->cbo_stats->tse_cbo_stats_table.columns =
     (tse_cbo_stats_column_t*)my_malloc(PSI_NOT_INSTRUMENTED, table->s->fields * sizeof(tse_cbo_stats_column_t), MYF(MY_WME));
@@ -5260,7 +5260,7 @@ int ha_tse::get_cbo_stats_4share()
       }
     }
     update_member_tch(m_tch, tse_hton, thd);
-    ret = tse_get_cbo_stats(&m_tch, m_share->cbo_stats, 0, 0);
+    ret = tse_get_cbo_stats(&m_tch, m_share->cbo_stats, &m_share->cbo_stats->tse_cbo_stats_table, 0, 0);
     update_sess_ctx_by_tch(m_tch, tse_hton, thd);
     if (ret == CT_SUCCESS && m_share->cbo_stats->is_updated) {
       m_share->need_fetch_cbo = false;
