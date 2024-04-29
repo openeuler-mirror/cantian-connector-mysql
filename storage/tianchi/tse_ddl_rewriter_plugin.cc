@@ -706,6 +706,89 @@ static int tse_read_only_ddl(string &, MYSQL_THD thd, bool &need_forward) {
   return 0;
 }
 
+int tse_lock_table_pre(THD* thd, vector<MDL_ticket*>& ticket_list);
+void tse_lock_table_post(THD* thd, vector<MDL_ticket*>& ticket_list);
+
+static int tse_lock_tables_ddl(string &, MYSQL_THD thd, bool &) {
+  TABLE_LIST *tables = thd->lex->query_tables;
+  int ret = 0;
+
+  vector<MDL_ticket*> ticket_list;
+  int pre_lock_ret = tse_lock_table_pre(thd, ticket_list);
+  if (pre_lock_ret != 0) {
+    tse_lock_table_post(thd, ticket_list);
+    my_printf_error(ER_LOCK_WAIT_TIMEOUT, "[TSE_DDL_REWRITE]: LOCK TABLE FAILED", MYF(0));
+    return ER_LOCK_WAIT_TIMEOUT;
+  }
+
+  for (TABLE_LIST *table = tables; table != NULL; table = table->next_global) {
+    tianchi_handler_t tch;
+    tch.inst_id = tse_instance_id;
+    handlerton* hton = get_tse_hton();
+
+    TSE_RETURN_IF_NOT_ZERO(get_tch_in_handler_data(hton, thd, tch));
+    int32_t mdl_type = 0;
+    auto desc_type = table->lock_descriptor().type;
+    if (desc_type >= TL_READ_DEFAULT && desc_type <= TL_READ_NO_INSERT) {
+      mdl_type = (int32_t)MDL_SHARED_READ_ONLY;
+    } else if (desc_type >= TL_WRITE_ALLOW_WRITE && desc_type <= TL_WRITE_ONLY) {
+      mdl_type = (int32_t)MDL_SHARED_NO_READ_WRITE;
+    } else {
+      continue;
+    }
+    tse_lock_table_info lock_info = {{0}, {0}, {0}, {0}, SQLCOM_LOCK_TABLES,
+                                     mdl_type};
+    FILL_USER_INFO_WITH_THD(lock_info, thd);
+    strncpy(lock_info.db_name, table->db, SMALL_RECORD_SIZE);
+    strncpy(lock_info.table_name, table->table_name, SMALL_RECORD_SIZE);
+    int err_code = 0;
+    ret = tse_lock_table(&tch, lock_info.db_name, &lock_info, &err_code);
+    if (ret != 0) {
+      break;
+    }
+  }
+
+  tse_lock_table_post(thd, ticket_list);
+
+  if (ret != 0) {
+    for (TABLE_LIST *table = tables; table != NULL; table = table->next_global) {
+      tianchi_handler_t tch;
+      tch.inst_id = tse_instance_id;
+      handlerton* hton = get_tse_hton();
+
+      TSE_RETURN_IF_NOT_ZERO(get_tch_in_handler_data(hton, thd, tch));
+      tse_lock_table_info lock_info = {{0}, {0}, {0}, {0}, SQLCOM_LOCK_TABLES,
+                                      (int32_t)TL_UNLOCK};
+      FILL_USER_INFO_WITH_THD(lock_info, thd);
+      strncpy(lock_info.db_name, table->db, SMALL_RECORD_SIZE);
+      strncpy(lock_info.table_name, table->table_name, SMALL_RECORD_SIZE);
+      ret = tse_unlock_table(&tch, tse_instance_id, &lock_info);
+      if (ret != 0) {
+        tse_log_error("[TSE_DDL_REWRITE]:unlock table failed, table:%s.%s", lock_info.db_name, lock_info.table_name);
+      }
+    }
+  }
+  return ret;
+}
+
+static int tse_unlock_tables_ddl(string &, MYSQL_THD thd, bool &) {
+  int ret = 0;
+
+  tianchi_handler_t tch;
+  tch.inst_id = tse_instance_id;
+  handlerton* hton = get_tse_hton();
+
+  TSE_RETURN_IF_NOT_ZERO(get_tch_in_handler_data(hton, thd, tch));
+
+  tse_lock_table_info lock_info = {{0}, {0}, {0}, {0}, SQLCOM_UNLOCK_TABLES, 0};
+
+  FILL_USER_INFO_WITH_THD(lock_info, thd);
+
+  ret = tse_unlock_table(&tch, tse_instance_id, &lock_info);
+
+  return ret;
+}
+
 typedef struct ddl_broadcast_cmd_s
 {
   bool need_select_db;  // 需要指定数据库
@@ -753,8 +836,8 @@ static unordered_map<enum enum_sql_command, ddl_broadcast_cmd>
     {SQLCOM_SET_OPTION, {true, tse_check_set_opt}},
 
     // Locking, broadcast
-    {SQLCOM_LOCK_TABLES, {true, NULL}},
-    {SQLCOM_UNLOCK_TABLES, {true, NULL}},
+    {SQLCOM_LOCK_TABLES, {true, tse_lock_tables_ddl}},
+    {SQLCOM_UNLOCK_TABLES, {true, tse_unlock_tables_ddl}},
     {SQLCOM_LOCK_INSTANCE, {false, NULL}},
     {SQLCOM_UNLOCK_INSTANCE, {false, NULL}},
 

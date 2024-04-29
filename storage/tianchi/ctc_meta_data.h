@@ -29,6 +29,8 @@ int close_tse_mdl_thd(uint32_t thd_id, uint32_t mysql_inst_id);
 int tse_mdl_lock_thd(tianchi_handler_t *tch, tse_lock_table_info *lock_info, int *err_code);
 void tse_mdl_unlock_thd(tianchi_handler_t *tch, tse_lock_table_info *lock_info);
 int ctc_set_sys_var(tse_ddl_broadcast_request *broadcast_req);
+int tse_ddl_execute_lock_tables_by_req(tianchi_handler_t *tch, tse_lock_table_info *lock_info, int *err_code);
+void tse_mdl_unlock_tables_thd(tianchi_handler_t *tch);
 
 #pragma GCC visibility pop
 

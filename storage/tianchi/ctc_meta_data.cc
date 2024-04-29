@@ -55,6 +55,8 @@
 #include "sql/sql_reload.h"
 #include "mysql_com.h"
 
+#include "sql/transaction.h"
+
 using namespace std;
 
 extern uint32_t tse_instance_id;
@@ -70,7 +72,9 @@ class Release_all_ctc_explicit_locks : public MDL_release_locks_visitor {
     const MDL_key *mdl_key = ticket->get_key();
     tse_log_system("[TSE_MDL_THD]: Release ticket info, db_name:%s, name:%s, namespace:%d, ticket_type:%d",
       mdl_key->db_name(), mdl_key->name(), mdl_key->mdl_namespace(), ticket->get_type());
-    return ticket->get_type() == MDL_EXCLUSIVE;
+    return ticket->get_type() == MDL_EXCLUSIVE ||
+           ((ticket->get_type() == MDL_SHARED_READ_ONLY || ticket->get_type() == MDL_SHARED_NO_READ_WRITE) &&
+           mdl_key->mdl_namespace() == MDL_key::TABLE);
   }
 };
  
@@ -497,6 +501,15 @@ static void tse_init_mdl_request(tse_lock_table_info *lock_info, MDL_request *md
   }
   return;
 }
+
+static void tse_init_mdl_request(tse_lock_table_info *lock_info, MDL_request *mdl_request, MDL_key::enum_mdl_namespace tse_mdl_namespace) {
+  MDL_key mdl_key;
+  dd::String_type schema_name = dd::String_type(lock_info->db_name);
+  dd::String_type name = dd::String_type(lock_info->table_name);
+  MDL_REQUEST_INIT(mdl_request, tse_mdl_namespace, lock_info->db_name, lock_info->table_name,
+                   (enum_mdl_type)lock_info->mdl_namespace, MDL_EXPLICIT);
+  return;
+}
  
 int tse_mdl_lock_thd(tianchi_handler_t *tch, tse_lock_table_info *lock_info, int *err_code) {
   bool is_same_node = (tch->inst_id == tse_instance_id);
@@ -566,6 +579,57 @@ void ctc_mdl_unlock_thd_by_ticket(THD* thd, MDL_request *tse_release_request) {
     delete tse_mdl_ticket_map;
     g_tse_mdl_ticket_maps.erase(thd);
   }
+}
+
+void tse_mdl_unlock_tables_thd(tianchi_handler_t *tch) {
+  bool is_same_node = (tch->inst_id == tse_instance_id);
+  uint64_t mdl_thd_key = tse_get_conn_key(tch->inst_id, tch->thd_id, true);
+
+  if (is_same_node) {
+    return;
+  }
+
+  auto iter = g_tse_mdl_thd_map.find(mdl_thd_key);
+  if (iter == g_tse_mdl_thd_map.end()) {
+    return;
+  }
+  THD* thd = iter->second;
+  assert(thd);
+
+  my_thread_init();
+  thd->store_globals();
+
+  lock_guard<mutex> lock(m_tse_mdl_ticket_mutex);
+  auto ticket_map_iter = g_tse_mdl_ticket_maps.find(thd);
+  if (ticket_map_iter == g_tse_mdl_ticket_maps.end()) {
+    return;
+  }
+
+  map<string, MDL_ticket *> *tse_mdl_ticket_map = ticket_map_iter->second;
+  if (tse_mdl_ticket_map == nullptr) {
+    g_tse_mdl_ticket_maps.erase(thd);
+    return;
+  }
+
+  for (auto iter = tse_mdl_ticket_map->begin(); iter != tse_mdl_ticket_map->end();) {
+    MDL_ticket *ticket = iter->second;
+    if (ticket->get_type() == MDL_SHARED_READ_ONLY || ticket->get_type() == MDL_SHARED_NO_READ_WRITE) {
+      thd->mdl_context.release_lock(ticket);
+      tse_mdl_ticket_map->erase(iter++);
+    } else {
+      iter++;
+    }
+  }
+
+  if (tse_mdl_ticket_map->empty()) {
+    delete tse_mdl_ticket_map;
+    g_tse_mdl_ticket_maps.erase(thd);
+  }
+
+  thd->restore_globals();
+  my_thread_end();
+
+  return;
 }
 
 void tse_mdl_unlock_thd(tianchi_handler_t *tch, tse_lock_table_info *lock_info) {
@@ -762,4 +826,45 @@ int ctc_set_sys_var(tse_ddl_broadcast_request *broadcast_req) {
   my_thread_end();
   
   return ret;
+}
+
+int tse_ddl_execute_lock_tables_by_req(tianchi_handler_t *tch, tse_lock_table_info *lock_info, int *err_code) {
+  bool is_same_node = (tch->inst_id == tse_instance_id);
+  uint64_t mdl_thd_key = tse_get_conn_key(tch->inst_id, tch->thd_id, true);
+ 
+  if (is_same_node) {
+    return false;
+  }
+ 
+  THD *thd = nullptr;
+  ctc_init_thd(&thd, mdl_thd_key);
+ 
+  MDL_request tse_mdl_request;
+  tse_init_mdl_request(lock_info, &tse_mdl_request, MDL_key::TABLE);
+ 
+  if (thd->mdl_context.acquire_lock(&tse_mdl_request, 10)) {
+    *err_code = ER_LOCK_WAIT_TIMEOUT;
+    tse_log_error("[TSE_MDL_LOCK]:Get mdl lock fail. namespace:%d, db_name:%s, table_name:%s",
+                  lock_info->mdl_namespace, lock_info->db_name, lock_info->table_name);
+    return true;
+  }
+
+  lock_guard<mutex> lock(m_tse_mdl_ticket_mutex);
+  auto iter = g_tse_mdl_ticket_maps.find(thd);
+  map<string, MDL_ticket *> *tse_mdl_ticket_map = nullptr;
+  if (iter == g_tse_mdl_ticket_maps.end()) {
+    tse_mdl_ticket_map = new map<string, MDL_ticket *>;
+    g_tse_mdl_ticket_maps[thd] = tse_mdl_ticket_map;
+  } else {
+    tse_mdl_ticket_map = g_tse_mdl_ticket_maps[thd];
+  }
+  string mdl_ticket_key;
+  mdl_ticket_key.assign(((const char*)(tse_mdl_request.key.ptr())), tse_mdl_request.key.length());
+  assert(mdl_ticket_key.length() > 0);
+  tse_mdl_ticket_map->insert(map<string, MDL_ticket *>::value_type(mdl_ticket_key, tse_mdl_request.ticket));
+
+  thd->restore_globals();
+  my_thread_end();
+
+  return false;
 }

@@ -508,7 +508,11 @@ int32_t tse_check_table_exist(MYSQL *curr_conn_proxy, const char *db_name, const
 __attribute__((visibility("default"))) int tse_ddl_execute_lock_tables(tianchi_handler_t *tch, char *db_name, tse_lock_table_info *lock_info, int *err_code) {
 
   if (IS_METADATA_NORMALIZATION()) {
-    if (tse_mdl_lock_thd(tch, lock_info, err_code)) {
+    if (lock_info->sql_type == SQLCOM_LOCK_TABLES) {
+      if (tse_ddl_execute_lock_tables_by_req(tch, lock_info, err_code)) {
+        return *err_code;
+      }
+    } else if (tse_mdl_lock_thd(tch, lock_info, err_code)) {
       return *err_code;
     }
     return 0;
@@ -599,6 +603,9 @@ __attribute__((visibility("default"))) int tse_ddl_execute_unlock_tables(tianchi
  {
   if (IS_METADATA_NORMALIZATION()) {
     UNUSED_PARAM(mysql_inst_id);
+    if (lock_info->sql_type == SQLCOM_UNLOCK_TABLES) {
+      tse_mdl_unlock_tables_thd(tch);
+    }
     tse_mdl_unlock_thd(tch, lock_info);
     return 0;
   }
