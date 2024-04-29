@@ -290,7 +290,7 @@ static const Alter_inplace_info::HA_ALTER_FLAGS COLUMN_TYPE_OPERATIONS =
 constexpr int max_prefetch_num = MAX_PREFETCH_REC_NUM;
 
 // ref MAX_RECORD_BUFFER_SIZE, used for private record buffer assigned for each handler
-constexpr int MAX_RECORD_BUFFER_SIZE_TSE = (3 * TSE_BUF_LEN);
+constexpr int MAX_RECORD_BUFFER_SIZE_TSE = (1 * TSE_BUF_LEN);
 constexpr uint64 INVALID_VALUE64 = 0xFFFFFFFFFFFFFFFFULL;
 
 bool is_log_table = false;
@@ -2111,6 +2111,15 @@ int ha_tse::prefetch_and_fill_record_buffer(uchar *buf, tse_prefetch_fn prefetch
   uint32_t fetched_num;
   assert(m_rec_buf != nullptr);
 
+  // alloc prefetch memory
+  if (m_prefetch_buf == nullptr) {
+    m_prefetch_buf = (uchar *)my_malloc(PSI_NOT_INSTRUMENTED, MAX_RECORD_SIZE, MYF(MY_WME));
+  }
+  if (m_prefetch_buf == nullptr) {
+    tse_log_error("alloc mem failed, m_prefetch_buf size(%u)", MAX_RECORD_SIZE);
+    return HA_ERR_OUT_OF_MEM;
+  }
+
   ct_errno_t ret = (ct_errno_t)prefetch(&m_tch, m_prefetch_buf, m_record_lens,
                                         &fetched_num, m_rowids, m_cantian_rec_len);
   check_error_code_to_mysql(ha_thd(), &ret);
@@ -2273,20 +2282,6 @@ int ha_tse::initialize() {
   if (m_tse_buf == nullptr) {
     tse_log_warning("alloc shm mem failed, m_tse_buf size(%u)", BIG_RECORD_SIZE);
   }
-
-  m_rec_buf_data = (uchar *)my_malloc(PSI_NOT_INSTRUMENTED, MAX_RECORD_BUFFER_SIZE_TSE, MYF(MY_WME));
-  if (m_rec_buf_data == nullptr) {
-    tse_log_error("alloc mem failed, m_rec_buf_data size(%u)", MAX_RECORD_BUFFER_SIZE_TSE);
-    return HA_ERR_OUT_OF_MEM;
-  }
-
-  // size is limited by struct defined in shared mem
-  m_prefetch_buf = (uchar *)my_malloc(PSI_NOT_INSTRUMENTED, MAX_RECORD_SIZE, MYF(MY_WME));
-  if (m_prefetch_buf == nullptr) {
-    tse_log_error("alloc mem failed, m_prefetch_buf size(%u)", MAX_RECORD_SIZE);
-    return HA_ERR_OUT_OF_MEM;
-  }
-
   return CT_SUCCESS;
 }
 
@@ -2642,10 +2637,14 @@ void ha_tse::start_bulk_insert(ha_rows rows) {
     return;
   }
 
+  if (m_rec_buf_data == nullptr) {
+    m_rec_buf_data = (uchar *)my_malloc(PSI_NOT_INSTRUMENTED, MAX_RECORD_BUFFER_SIZE_TSE, MYF(MY_WME));
+  }
+
   if (rows == 1 || m_is_insert_dup || m_is_replace || m_ignore_dup || table->s->blob_fields > 0 || 
       table->next_number_field || m_rec_buf_data == nullptr) {
-     m_rec_buf_4_writing = nullptr;
-     return;
+    m_rec_buf_4_writing = nullptr;
+    return;
   }
   m_rec_buf_4_writing = new Record_buffer{m_max_batch_num, (size_t)m_cantian_rec_len, m_rec_buf_data};
 }
@@ -2838,13 +2837,13 @@ bool ha_tse::is_record_buffer_wanted(ha_rows *const max_rows) const {
 }
 
 // @ref set_record_buffer
-void ha_tse::set_prefetch_buffer() {
+int ha_tse::set_prefetch_buffer() {
   if (m_rec_buf) {
     delete m_rec_buf;
     m_rec_buf = nullptr;
   }
   if (!can_prefetch_records()) {
-    return;
+    return CT_SUCCESS;
   }
 
   // calculate how many rows to fetch
@@ -2857,9 +2856,18 @@ void ha_tse::set_prefetch_buffer() {
   // max rows that limited by array in shared mem intf
   max_rows = (max_rows > max_prefetch_num - 1) ? max_prefetch_num - 1 : max_rows;
 
+  // alloc m_rec_buf_data
+  if (m_rec_buf_data == nullptr) {
+    m_rec_buf_data = (uchar *)my_malloc(PSI_NOT_INSTRUMENTED, MAX_RECORD_BUFFER_SIZE_TSE, MYF(MY_WME));
+  }
+  if (m_rec_buf_data == nullptr) {
+    tse_log_error("alloc mem failed, m_rec_buf_data size(%u)", MAX_RECORD_BUFFER_SIZE_TSE);
+    return ERR_ALLOC_MEMORY;
+  }
+
   m_rec_buf = new Record_buffer{max_rows, mysql_rec_length, m_rec_buf_data};
   tse_log_note("prefetch record %llu", max_rows);
-  return;
+  return CT_SUCCESS;
 }
 
 /*
@@ -3019,7 +3027,10 @@ int ha_tse::rnd_init(bool) {
     return 0;
   }
 
-  set_prefetch_buffer();
+  ct_errno_t ret = (ct_errno_t)set_prefetch_buffer();
+  if (ret != CT_SUCCESS) {
+    return ret;
+  }
   expected_cursor_action_t action = EXP_CURSOR_ACTION_SELECT;
   if (m_select_lock == lock_mode::EXCLUSIVE_LOCK) {
     enum_sql_command sql_command = (enum_sql_command)thd_sql_command(ha_thd());
@@ -3031,7 +3042,7 @@ int ha_tse::rnd_init(bool) {
   }
   update_member_tch(m_tch, tse_hton, ha_thd());
   m_tch.cursor_valid = false;
-  ct_errno_t ret = (ct_errno_t)tse_rnd_init(&m_tch, action, get_select_mode(), m_cond);
+  ret = (ct_errno_t)tse_rnd_init(&m_tch, action, get_select_mode(), m_cond);
   update_sess_ctx_by_tch(m_tch, tse_hton, ha_thd());
 
   if (!(table_share->tmp_table != NO_TMP_TABLE && table_share->tmp_table != TRANSACTIONAL_TMP_TABLE)
@@ -3413,7 +3424,10 @@ int ha_tse::rnd_end() {
 
 int ha_tse::index_init(uint index, bool sorted) {
   DBUG_TRACE;
-  set_prefetch_buffer();
+  ct_errno_t ret = (ct_errno_t)set_prefetch_buffer();
+  if (ret != CT_SUCCESS) {
+    return ret;
+  }
   update_member_tch(m_tch, tse_hton, ha_thd(), false);
   m_index_sorted = sorted;
   active_index = index;
@@ -3424,7 +3438,7 @@ int ha_tse::index_init(uint index, bool sorted) {
   }
   m_tch.cursor_ref++;
   m_tch.cursor_valid = false;
-  return 0;
+  return CT_SUCCESS;
 }
 
 int ha_tse::index_end() {
