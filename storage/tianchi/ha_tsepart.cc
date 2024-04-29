@@ -973,7 +973,7 @@ int ha_tsepart::initialize_cbo_stats() {
       tse_log_error("alloc shm mem failed, m_part_share->cbo_stats size(%lu)", sizeof(tianchi_cbo_stats_t));
       return ERR_ALLOC_MEMORY;
     }
-    *m_part_share->cbo_stats = {0, 0, 0, 0, 0, 0, 0, nullptr, nullptr, nullptr};
+    *m_part_share->cbo_stats = {0, 0, 0, 0, 0, nullptr, nullptr, nullptr};
 
     m_part_share->cbo_stats->part_cnt = part_num;
 
@@ -1013,7 +1013,6 @@ int ha_tsepart::get_cbo_stats_4share()
         return ret;
       }
     }
-    update_member_tch(m_tch, get_tse_hton(), thd);
 
     uint32_t data_size = m_part_share->cbo_stats->msg_len;
     uint32_t part_cnt = m_part_share->cbo_stats->part_cnt;
@@ -1021,9 +1020,10 @@ int ha_tsepart::get_cbo_stats_4share()
     uint32_t fetch_times = part_cnt / num_part_fetch;
     uint32_t first_partid = 0;
 
-
     for (uint32_t i = 0; i<fetch_times; i++) {
-      ret = tse_get_cbo_stats(&m_tch, m_part_share->cbo_stats, first_partid, num_part_fetch);
+      update_member_tch(m_tch, get_tse_hton(), thd);
+      ret = tse_get_cbo_stats(&m_tch, m_part_share->cbo_stats, &m_part_share->cbo_stats->tse_cbo_stats_part_table[first_partid], first_partid, num_part_fetch);
+      update_sess_ctx_by_tch(m_tch, get_tse_hton(), thd);
       if (ret != CT_SUCCESS) {
         return ret;
       }
@@ -1031,8 +1031,12 @@ int ha_tsepart::get_cbo_stats_4share()
     }
 
     num_part_fetch = part_cnt - first_partid;
-    ret = tse_get_cbo_stats(&m_tch, m_part_share->cbo_stats, first_partid, num_part_fetch);
-    update_sess_ctx_by_tch(m_tch, get_tse_hton(), thd);
+    if (num_part_fetch > 0) {
+      update_member_tch(m_tch, get_tse_hton(), thd);
+      ret = tse_get_cbo_stats(&m_tch, m_part_share->cbo_stats, &m_part_share->cbo_stats->tse_cbo_stats_part_table[first_partid], first_partid, num_part_fetch);
+      update_sess_ctx_by_tch(m_tch, get_tse_hton(), thd);
+    }
+    
     if (ret == CT_SUCCESS && m_part_share->cbo_stats->is_updated) {
       m_part_share->need_fetch_cbo = false;
       tse_index_stats_update(table, m_part_share->cbo_stats);
