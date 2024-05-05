@@ -70,3 +70,44 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a1` AS `a1` from `test`.`t1` where (`test`.`t1`.`a1` = 1)
 drop table t1;
 drop table DEMO;
+create table t1(
+c30 BIGINT
+)partition by range(c30)
+subpartition by hash(c30) subpartitions 2(
+partition p0 values less than (1000000),
+partition p1 values less than (2000000),
+partition p2 values less than (6000000)
+);
+alter table t1 analyze Partition p1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+drop table if exists t1;
+create table t1(
+a int not null,
+b varchar(500) default null,
+primary Key(a)
+)
+PARTITION by range(`a`)
+SUBPARTITION by HASH(`a`)
+(PARTITION p0 values less than(100)
+(SUBPARTITION sp0,
+SUBPARTITION sp1),
+PARTITION p1 values less than MAXVALUE
+(SUBPARTITION sp2,
+SUBPARTITION sp3));
+alter table t1 analyze partition sp3;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+drop table if exists t1;
+create table t1(
+a int not null,
+b varchar(500) default null,
+primary Key(a)
+)
+PARTITION by range(`a`)
+(PARTITION p0 values less than(100),
+PARTITION p1 values less than MAXVALUE);
+alter table t1 analyze partition p0;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+drop table t1;

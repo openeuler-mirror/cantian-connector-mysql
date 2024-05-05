@@ -72,18 +72,45 @@ static uint32_t get_ct_part_no(uint num_subparts, uint part_id) {
   return (uint32_t)part_no;
 }
 
-static void get_used_partitions(partition_info *part_info, uint32_t **part_ids, uint32_t *used_parts) {
+static bool get_used_partitions(partition_info *part_info,
+                                uint32_t **part_ids,uint32_t **subpart_ids, uint32_t *used_parts) {
   *used_parts = part_info->num_partitions_used();
-  *part_ids = (uint32_t *)my_malloc(PSI_NOT_INSTRUMENTED, (*used_parts) * sizeof(uint32_t), MYF(MY_WME));
-  
-  uint32_t part_id = part_info->get_first_used_partition();
-  **part_ids = part_id;
-  for (uint32_t i = 1; i < *used_parts; i++) {
-    part_id = part_info->get_next_used_partition(part_id);
-    *(*part_ids + i) = part_id;
+  if (*used_parts > 0) {
+    *part_ids = (uint32_t *)my_malloc(PSI_NOT_INSTRUMENTED, (*used_parts) * sizeof(uint32_t), MYF(MY_WME));
+     if (*part_ids == NULL) {
+      tse_log_system("Failed to allocate memory for part_ids.");
+      return false;
+    }
+    *subpart_ids = (uint32_t *)my_malloc(PSI_NOT_INSTRUMENTED, (*used_parts) * sizeof(uint32_t), MYF(MY_WME));
+    if (*subpart_ids == NULL) {
+      tse_log_system("Failed to allocate memory for subpart_ids. Freeing previously allocated memory...");
+      my_free(*part_ids);
+      return false;
+    }
+    uint32_t part_id = part_info->get_first_used_partition(); 
+    if(part_id == MY_BIT_NONE){
+      return true;
+    }
+    if(part_info->num_subparts > 0){
+      // subpartition
+      for (uint32_t i = 0; i < *used_parts; i++) {
+        *(*part_ids + i) = part_id / part_info->num_subparts;
+        *(*subpart_ids + i) = part_id % part_info->num_subparts;
+        part_id = part_info->get_next_used_partition(part_id);
+      }
+    }else{
+      // partition
+      for (uint32_t i = 0; i < *used_parts; i++) {
+        *(*part_ids + i) = part_id;
+        *(*subpart_ids + i) = 0;
+        part_id = part_info->get_next_used_partition(part_id);
+      }
+    }
+  }else{
+    tse_log_system("invalid used_parts :%u", *used_parts);
   }
+  return true;
 }
-//计算申请cbo_stats结构所需内存
 uint64_t calculate_size_of_cbo_part_stats(TABLE *table,uint32_t part_num){
   uint64_t size_mem = 0;
   for (uint i = 0; i < part_num; i++) {
@@ -916,9 +943,15 @@ int ha_tsepart::analyze(THD *thd, HA_CHECK_OPT *opt) {
   }
   int ret;
   uint32_t used_parts;
-  uint32_t *part_ids = NULL;
+  uint32_t *part_ids = nullptr;
+  uint32_t *subpart_ids = nullptr;
+  bool memory_allocated = false;
   if (!m_part_info->set_read_partitions(&alter_info->partition_names)) {
-    get_used_partitions(m_part_info, &part_ids, &used_parts);
+    memory_allocated = get_used_partitions(m_part_info, &part_ids, &subpart_ids, &used_parts);
+    if(!memory_allocated){
+      tse_log_error("Failed to allocate memory !");
+      return HA_ERR_OUT_OF_MEM;
+    }
   } else {
     tse_log_error("no partition alter !");
     return HA_ERR_GENERIC;
@@ -926,20 +959,25 @@ int ha_tsepart::analyze(THD *thd, HA_CHECK_OPT *opt) {
   if (m_part_info->num_parts == used_parts) {
     m_tch.part_id = INVALID_PART_ID;
     my_free(part_ids);
+    my_free(subpart_ids);
     m_part_share->need_fetch_cbo = true;
     return ha_tse::analyze(thd, opt);
   }
   for (uint i = 0; i < used_parts; i++) {
     uint32_t part_id = part_ids[i];
+    uint32_t subpart_id = subpart_ids[i];
     m_tch.part_id = part_id;
+    m_tch.subpart_id = subpart_id;
     m_part_share->need_fetch_cbo = true;
     ret = ha_tse::analyze(thd, opt);
     if (ret != 0) {
       tse_log_error("analyze partition error!");
+      my_free(subpart_ids);
       my_free(part_ids);
       return ret;
     }
   }
+  my_free(subpart_ids);
   my_free(part_ids);
   return ret;
 }
