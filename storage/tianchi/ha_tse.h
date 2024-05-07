@@ -59,7 +59,7 @@ using namespace std;
 
 #define CT_NULL_VALUE_LEN   (uint16)0xFFFF
 #define INVALID_MAX_UINT32 (uint32_t)0xFFFFFFFF
-#define TSE_BUF_LEN (64 * 1024) // Set to max size of cursor defined by (sizeof(knl_cursor_t) + page_size * 2 + inst->attr.max_column_count * sizeof(uint16) * 2);
+#define TSE_BUF_LEN (70 * 1024)
 #define MAX_BATCH_FETCH_NUM 100
 #define DEFAULT_RANGE_DENSITY 0.5
 #define PREFER_RANGE_DENSITY 0.8
@@ -840,7 +840,7 @@ public:
 
   bool get_error_message(int error, String *buf) override;
 
-  void set_prefetch_buffer();
+  int set_prefetch_buffer();
 
   void update_blob_addrs(uchar *record);
 
@@ -894,7 +894,7 @@ public:
   /**
    * Store tmp cantian format record when calling batch read intfs.
    */
-  uchar *m_prefetch_buf;
+  uchar *m_prefetch_buf = nullptr;
 
   /* cached record lens of prefetched row */
   uint16_t m_record_lens[MAX_BATCH_FETCH_NUM];
@@ -909,7 +909,7 @@ public:
   uint64_t m_max_batch_num;
 
   /* private record buffer */
-  uchar *m_rec_buf_data;
+  uchar *m_rec_buf_data = nullptr;
 
   Record_buffer *m_rec_buf;
 
