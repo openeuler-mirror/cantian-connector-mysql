@@ -1226,6 +1226,10 @@ static bool tse_ddl_create_table_fill_add_key(TcDb__TseDDLCreateTableDef *req, T
     for (uint i = 0; i < req->n_key_list; i++) {
       TcDb__TseDDLTableKey *req_key_def = req->key_list[i];
       const KEY *key = form->key_info + i;
+      if (key->key_length == 0) {
+        my_error(ER_WRONG_KEY_COLUMN, MYF(0), key->key_part->field->field_name);
+        return ER_WRONG_KEY_COLUMN;
+      }
       req_key_def->user = user;
       req_key_def->table = req->name;
       TSE_RETURN_IF_NOT_ZERO(check_tse_identifier_name(key->name));
@@ -1510,6 +1514,10 @@ static int tse_ddl_init_index_form(TcDb__TseDDLCreateTableDef *req, TABLE *form,
     }
     for (uint i = 0; i < req->n_key_list; i++) {
       const KEY *key = form->key_info + i;
+      if (key->key_length == 0) {
+        my_error(ER_WRONG_KEY_COLUMN, MYF(0), key->key_part->field->field_name);
+        return ER_WRONG_KEY_COLUMN;
+      }
       req->key_list[i] = (TcDb__TseDDLTableKey *)tse_ddl_alloc_mem(
           mem_start, mem_end, sizeof(TcDb__TseDDLTableKey));
       if (req->key_list[i] == NULL) {

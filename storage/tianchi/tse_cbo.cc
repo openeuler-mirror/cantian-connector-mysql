@@ -481,7 +481,7 @@ void tse_index_stats_update(TABLE *table, tianchi_cbo_stats_t *cbo_stats)
     if (*(n_diff+i) == 0) {
       rec_per_key = static_cast<rec_per_key_t>(estimate_rows);
     } else {
-      rec_per_key = static_cast<rec_per_key_t>(estimate_rows / *(n_diff+i));
+      rec_per_key = static_cast<rec_per_key_t>(estimate_rows) / static_cast<rec_per_key_t>(*(n_diff+i));
     }
     if (rec_per_key < 1.0) {
       rec_per_key = 1.0;
