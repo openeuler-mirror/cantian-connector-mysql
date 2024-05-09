@@ -59,12 +59,11 @@ using namespace std;
 
 #define CT_NULL_VALUE_LEN   (uint16)0xFFFF
 #define INVALID_MAX_UINT32 (uint32_t)0xFFFFFFFF
-#define TSE_BUF_LEN (70 * 1024)
+#define TSE_BUF_LEN (64 * 1024)
 #define MAX_BATCH_FETCH_NUM 100
 #define DEFAULT_RANGE_DENSITY 0.5
 #define PREFER_RANGE_DENSITY 0.8
 #define CT_MAX_RECORD_LENGTH 64000
-#define BIG_RECORD_SIZE_DYNAMIC (BIG_RECORD_SIZE + 8)  // ha_tse构造函数中若没有申请到读写buf共享内存，就在使用时从40968内存池子中动态申请和释放
 
 /* update if restraints changed in Cantian */
 #define TSE_MAX_KEY_PART_LENGTH 4095  // CT_MAX_KEY_SIZE
@@ -872,7 +871,7 @@ public:
   tianchi_handler_t m_tch;
 
   /* cantian record buffer */
-  uchar *m_tse_buf;
+  uchar *m_tse_buf = nullptr;
 
   /* select lock mode */
   lock_mode m_select_lock = lock_mode::NO_LOCK;
