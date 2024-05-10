@@ -3225,7 +3225,7 @@ EXTER_ATTACK int ha_tse::rnd_pos(uchar *buf, uchar *pos) {
 
 void ha_tse::info_low() {
   if (m_share && m_share->cbo_stats != nullptr) {
-    stats.records = m_share->cbo_stats->tse_cbo_stats_table.estimate_rows;
+    stats.records = m_share->cbo_stats->tse_cbo_stats_table->estimate_rows;
   }
 }
 
@@ -3910,7 +3910,7 @@ ha_rows ha_tse::records_in_range(uint inx, key_range *min_key,
     * we need this to make sure that our optimizer continue to work even when we
     * miscalculated the density, and it's still prefer index read
     */
-    n_rows += m_share->cbo_stats->tse_cbo_stats_table.estimate_rows * density;
+    n_rows += m_share->cbo_stats->tse_cbo_stats_table->estimate_rows * density;
   }
 
   /*
@@ -5216,16 +5216,17 @@ int ha_tse::initialize_cbo_stats()
     tse_log_error("alloc shm mem failed, m_share->cbo_stats size(%lu)", sizeof(tianchi_cbo_stats_t));
     return ERR_ALLOC_MEMORY;
   }
-  *m_share->cbo_stats = {0, 0, 0, 0, 0, nullptr, nullptr, nullptr};
-
-  m_share->cbo_stats->tse_cbo_stats_table.columns =
+  *m_share->cbo_stats = {0, 0, 0, 0, 0, nullptr, nullptr};
+  m_share->cbo_stats->tse_cbo_stats_table = 
+        (tse_cbo_stats_table_t*)my_malloc(PSI_NOT_INSTRUMENTED, sizeof(tse_cbo_stats_table_t), MYF(MY_WME));
+  m_share->cbo_stats->tse_cbo_stats_table->columns =
     (tse_cbo_stats_column_t*)my_malloc(PSI_NOT_INSTRUMENTED, table->s->fields * sizeof(tse_cbo_stats_column_t), MYF(MY_WME));
   THD* thd = ha_thd();
   if (user_var_set(thd, "ctc_show_alloc_cbo_stats_mem")) {
     tse_log_system("[alloc memory]normal table : %s alloc size :%lu", table->alias, calculate_size_of_cbo_stats(table));
   }
   
-  m_share->cbo_stats->tse_cbo_stats_table.ndv_keys =
+  m_share->cbo_stats->ndv_keys =
     (uint32_t*)my_malloc(PSI_NOT_INSTRUMENTED, table->s->keys * sizeof(uint32_t), MYF(MY_WME));
   
   m_share->cbo_stats->msg_len = table->s->fields * sizeof(tse_cbo_stats_column_t);
@@ -5251,7 +5252,7 @@ int ha_tse::get_cbo_stats_4share()
       }
     }
     update_member_tch(m_tch, tse_hton, thd);
-    ret = tse_get_cbo_stats(&m_tch, m_share->cbo_stats, &m_share->cbo_stats->tse_cbo_stats_table, 0, 0);
+    ret = tse_get_cbo_stats(&m_tch, m_share->cbo_stats, m_share->cbo_stats->tse_cbo_stats_table, 0, 0);
     update_sess_ctx_by_tch(m_tch, tse_hton, thd);
     if (ret == CT_SUCCESS && m_share->cbo_stats->is_updated) {
       m_share->need_fetch_cbo = false;
@@ -5272,10 +5273,12 @@ void ha_tse::free_cbo_stats()
   if (user_var_set(thd, "ctc_show_alloc_cbo_stats_mem")) {
     tse_log_system("[free memory]normal table : %s alloc size :%lu", table->alias, calculate_size_of_cbo_stats(table));
   }
-  my_free((m_share->cbo_stats->tse_cbo_stats_table.ndv_keys));
-  m_share->cbo_stats->tse_cbo_stats_table.ndv_keys = nullptr;
-  my_free((m_share->cbo_stats->tse_cbo_stats_table.columns));
-  m_share->cbo_stats->tse_cbo_stats_table.columns = nullptr;
+  my_free((m_share->cbo_stats->ndv_keys));
+  m_share->cbo_stats->ndv_keys = nullptr;
+  my_free((m_share->cbo_stats->tse_cbo_stats_table->columns));
+  m_share->cbo_stats->tse_cbo_stats_table->columns = nullptr;
+  my_free(m_share->cbo_stats->tse_cbo_stats_table);
+  m_share->cbo_stats->tse_cbo_stats_table = nullptr;
   my_free((uchar *)(m_share->cbo_stats));
   m_share->cbo_stats = nullptr;
 

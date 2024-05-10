@@ -157,20 +157,20 @@ static double calc_balance_hist_equal_density(tse_cbo_stats_column_t *col_stat, 
   return col_stat->density;
 }
 
-static double calc_equal_null_density(tse_cbo_stats_table_t cbo_stats, uint32 col_id, bool is_null)
+static double calc_equal_null_density(tse_cbo_stats_table_t *cbo_stats, uint32 col_id, bool is_null)
 {
-  tse_cbo_stats_column_t *col_stat = &cbo_stats.columns[col_id];
+  tse_cbo_stats_column_t *col_stat = &cbo_stats->columns[col_id];
   double density = DEFAULT_RANGE_DENSITY;
-  if (cbo_stats.estimate_rows > 0) {
-    density = (double)col_stat->num_null / cbo_stats.estimate_rows;
+  if (cbo_stats->estimate_rows > 0) {
+    density = (double)col_stat->num_null / cbo_stats->estimate_rows;
   }
   return is_null ? density : (double)1 - density;
 }
 
-double calc_hist_equal_density(tse_cbo_stats_table_t cbo_stats, cache_variant_t *val,
+double calc_hist_equal_density(tse_cbo_stats_table_t *cbo_stats, cache_variant_t *val,
                                uint32 col_id, enum_field_types field_type)
 {
-  tse_cbo_stats_column_t *col_stat = &cbo_stats.columns[col_id];
+  tse_cbo_stats_column_t *col_stat = &cbo_stats->columns[col_id];
   double density = col_stat->density;
   uint32 hist_count = col_stat->hist_count;
   if (hist_count == 0) {
@@ -186,9 +186,9 @@ double calc_hist_equal_density(tse_cbo_stats_table_t cbo_stats, cache_variant_t 
   return density;
 }
 
-static double calc_hist_between_frequency(tse_cbo_stats_table_t cbo_stats, field_stats_val stats_val, enum_field_types field_type, uint32 col_id)
+static double calc_hist_between_frequency(tse_cbo_stats_table_t *cbo_stats, field_stats_val stats_val, enum_field_types field_type, uint32 col_id)
 {
-  tse_cbo_stats_column_t *col_stat = &cbo_stats.columns[col_id];
+  tse_cbo_stats_column_t *col_stat = &cbo_stats->columns[col_id];
   double density = col_stat->density;
   uint32 hist_count = col_stat->hist_count;
   if (hist_count == 0) {
@@ -317,9 +317,9 @@ static int calc_hist_range_boundary(field_stats_val stats_val, enum_field_types 
   return hi_pos - lo_pos;
 }
 
-static double calc_hist_between_balance(tse_cbo_stats_table_t cbo_stats, field_stats_val stats_val, enum_field_types field_type, uint32 col_id)
+static double calc_hist_between_balance(tse_cbo_stats_table_t *cbo_stats, field_stats_val stats_val, enum_field_types field_type, uint32 col_id)
 {
-  tse_cbo_stats_column_t *col_stat = &cbo_stats.columns[col_id];
+  tse_cbo_stats_column_t *col_stat = &cbo_stats->columns[col_id];
   double density = col_stat->density;
   uint32 hist_count = col_stat->hist_count;
   if (hist_count == 0) {
@@ -337,11 +337,11 @@ static double calc_hist_between_balance(tse_cbo_stats_table_t cbo_stats, field_s
   return density;
 }
 
-static double calc_hist_between_density(tse_cbo_stats_table_t cbo_stats,
+static double calc_hist_between_density(tse_cbo_stats_table_t *cbo_stats,
                                         uint32 col_id, enum_field_types field_type, field_stats_val stats_val)
 {
   double density;
-  tse_cbo_stats_column_t *col_stat = &cbo_stats.columns[col_id];
+  tse_cbo_stats_column_t *col_stat = &cbo_stats->columns[col_id];
   if (col_stat->hist_type == FREQUENCY_HIST) {
     // HISTOGRAM_FREQUENCY
     density = calc_hist_between_frequency(cbo_stats, stats_val, field_type, col_id);
@@ -352,7 +352,7 @@ static double calc_hist_between_density(tse_cbo_stats_table_t cbo_stats,
   return density;
 }
 
-double calc_density_by_cond(tse_cbo_stats_table_t cbo_stats, KEY_PART_INFO cur_index_part, tse_range_key *key,
+double calc_density_by_cond(tse_cbo_stats_table_t *cbo_stats, KEY_PART_INFO cur_index_part, tse_range_key *key,
                             uint32_t key_offset)
 {
   double density = DEFAULT_RANGE_DENSITY;
@@ -373,8 +373,8 @@ double calc_density_by_cond(tse_cbo_stats_table_t cbo_stats, KEY_PART_INFO cur_i
   cache_variant_t *low_val;
   cache_variant_t *high_val;
 
-  low_val = &cbo_stats.columns[col_id].low_value;
-  high_val = &cbo_stats.columns[col_id].high_value;
+  low_val = &cbo_stats->columns[col_id].low_value;
+  high_val = &cbo_stats->columns[col_id].high_value;
 
   cache_variant_t min_key_val;
   cache_variant_t max_key_val;
@@ -401,9 +401,9 @@ double calc_density_by_cond(tse_cbo_stats_table_t cbo_stats, KEY_PART_INFO cur_i
 }
 
 double calc_density_one_table(uint16_t idx_id, tse_range_key *key,
-                              tse_cbo_stats_table_t cbo_stats, const TABLE &table)
+                              tse_cbo_stats_table_t *cbo_stats, const TABLE &table)
 {
-  if (cbo_stats.estimate_rows == 0) { // no stats or empty table
+  if (cbo_stats->estimate_rows == 0) { // no stats or empty table
     return 0;
   }
   double density = 1.0;
@@ -424,7 +424,7 @@ double calc_density_one_table(uint16_t idx_id, tse_range_key *key,
       col_id = cur_index_part.field->field_index();
       uint32_t offset = cur_index_part.field->is_nullable() ? 1 : 0;//null值标记位
 
-      if (cbo_stats.columns[col_id].total_rows == 0) { //空表
+      if (cbo_stats->columns[col_id].total_rows == 0) { //空表
         col_product = 0;
       } else if (key_offset + offset + cur_index_part.field->key_length() == key_len) {//
         col_product = calc_density_by_cond(cbo_stats, cur_index_part, key, key_offset);
@@ -455,33 +455,18 @@ double calc_density_one_table(uint16_t idx_id, tse_range_key *key,
 void tse_index_stats_update(TABLE *table, tianchi_cbo_stats_t *cbo_stats)
 {
   rec_per_key_t rec_per_key;
-  bool is_part_table = (cbo_stats->tse_cbo_stats_part_table != nullptr);
-  uint32_t estimate_rows = 0;
-
   KEY sk;
-  uint32_t *n_diff;
-  if (is_part_table) {
-    // set to the biggest part
-    assert(cbo_stats->part_cnt);
-    for (uint32 part_id = 0; part_id < cbo_stats->part_cnt; part_id++) {
-      if (estimate_rows <= cbo_stats->tse_cbo_stats_part_table[part_id].estimate_rows) {
-        estimate_rows = cbo_stats->tse_cbo_stats_part_table[part_id].estimate_rows;
-        n_diff = cbo_stats->tse_cbo_stats_part_table[part_id].ndv_keys;
-      }
-    }
-  } else {
-    n_diff = cbo_stats->tse_cbo_stats_table.ndv_keys;
-    estimate_rows = cbo_stats->tse_cbo_stats_table.estimate_rows;
-  }
-  if (estimate_rows == 0) {
+  uint32_t *n_diff = cbo_stats->ndv_keys;
+  uint32_t  records = cbo_stats->records;
+  if (records == 0) {
     return;
   }
   for (uint32 i = 0; i < table->s->keys; i++){
     sk = table->key_info[i];
     if (*(n_diff+i) == 0) {
-      rec_per_key = static_cast<rec_per_key_t>(estimate_rows);
+      rec_per_key = static_cast<rec_per_key_t>(records);
     } else {
-      rec_per_key = static_cast<rec_per_key_t>(estimate_rows) / static_cast<rec_per_key_t>(*(n_diff+i));
+      rec_per_key = static_cast<rec_per_key_t>(records) / static_cast<rec_per_key_t>(*(n_diff+i));
     }
     if (rec_per_key < 1.0) {
       rec_per_key = 1.0;

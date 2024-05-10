@@ -1171,7 +1171,7 @@ static void tse_fill_prefix_func_key_part(TcDb__TseDDLTableKeyPart *req_key_part
   return;
 }
 
-static uint32_t tse_fill_func_key_part(THD *thd, TcDb__TseDDLTableKeyPart *req_key_part, Value_generator *gcol_info)
+static uint32_t tse_fill_func_key_part(TABLE *form, THD *thd, TcDb__TseDDLTableKeyPart *req_key_part, Value_generator *gcol_info)
 {
   uint32_t arg_count = ((Item_func *)gcol_info->expr_item)->arg_count;
   if (arg_count == 0) {
@@ -1184,7 +1184,14 @@ static uint32_t tse_fill_func_key_part(THD *thd, TcDb__TseDDLTableKeyPart *req_k
   req_key_part->func_name = const_cast<char *>(((Item_func *)gcol_info->expr_item)->func_name());
   Item **args = ((Item_func *)gcol_info->expr_item)->arguments();
   uint32_t col_item_count = 0;
+  Field *field = nullptr;
   for (uint32_t i = 0; i < arg_count; i++) {
+    field = tse_get_field_by_name(form, const_cast<char *>(args[i]->item_name.ptr()));
+    if (field && field->is_gcol()) {
+      my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
+        "Cantian does not support index on generated column.");
+      return CT_ERROR;
+    }
     if (args[i]->type() == Item::FIELD_ITEM) {
       if (col_item_count >= 1) {
         my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
@@ -1252,7 +1259,7 @@ static bool tse_ddl_create_table_fill_add_key(TcDb__TseDDLCreateTableDef *req, T
         assert(fld != nullptr);
         if (fld->is_field_for_functional_index()) {
           req_key_def->is_func = true;
-          TSE_RETURN_IF_ERROR(tse_fill_func_key_part(thd, req_key_part, fld->gcol_info) == CT_SUCCESS, false);
+          TSE_RETURN_IF_ERROR(tse_fill_func_key_part(form, thd, req_key_part, fld->gcol_info) == CT_SUCCESS, false);
         } else {
           if (fld->is_virtual_gcol()) {
             my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
@@ -1305,7 +1312,7 @@ static bool tse_ddl_create_table_fill_add_key(TcDb__TseDDLCreateTableDef *req, T
 
       if (fld->is_field_for_functional_index()) {
         req_key_def->is_func = true;
-        TSE_RETURN_IF_ERROR(tse_fill_func_key_part(thd, req_key_part, fld->gcol_info) == CT_SUCCESS, false);
+        TSE_RETURN_IF_ERROR(tse_fill_func_key_part(form, thd, req_key_part, fld->gcol_info) == CT_SUCCESS, false);
       } else {
         if (fld->is_virtual_gcol()) {
           my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
@@ -2160,7 +2167,7 @@ static uint32_t tse_fill_key_part(THD *thd,
 
   if (field->is_field_for_functional_index()) {
     req_key_def->is_func = true;
-    TSE_RETURN_IF_ERROR(tse_fill_func_key_part(thd, req_key_part, create_field->gcol_info) == CT_SUCCESS, CT_ERROR);
+    TSE_RETURN_IF_ERROR(tse_fill_func_key_part(form, thd, req_key_part, create_field->gcol_info) == CT_SUCCESS, CT_ERROR);
   } else {
     if (field->is_virtual_gcol()) {
       my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
