@@ -12,6 +12,7 @@ tianchi.ctc_link_and_migr_row
 tianchi.ctc_read_only
 subselect.test
 #test_services
+ctc_datetime_analyze
 # ------ END TEST CASES OF DML ------
 
 # ------ TEST CASES FROM suite/engines/funcs ------

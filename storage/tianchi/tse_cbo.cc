@@ -19,6 +19,7 @@
 #include "tse_log.h"
 #include "sql/field.h"
 #include "tse_srv_mq_module.h"
+#include "datatype_cnvrtr.h"
 
 void r_key2variant(tse_key *rKey, KEY_PART_INFO *cur_index_part, cache_variant_t *ret_val, cache_variant_t * value, uint32_t key_offset)
 {
@@ -28,7 +29,7 @@ void r_key2variant(tse_key *rKey, KEY_PART_INFO *cur_index_part, cache_variant_t
     return;
   }
 
-  enum_field_types field_type = cur_index_part->field->real_type();
+  Field *field = cur_index_part->field;
   uint32_t offset = 0;
   if (cur_index_part->field->is_nullable()) {
     /* The first byte in the field tells if this is an SQL NULL value */
@@ -40,8 +41,9 @@ void r_key2variant(tse_key *rKey, KEY_PART_INFO *cur_index_part, cache_variant_t
     offset = 1;
   }
   const uchar *key = rKey->key + key_offset + offset;
-
-  switch(field_type) {
+  uchar tmp_ptr[TSE_BYTE_8] = {0};
+  const field_cnvrt_aux_t *mysql_info = get_auxiliary_for_field_convert(field, field->type());
+  switch(field->real_type()) {
     case MYSQL_TYPE_TINY:
     case MYSQL_TYPE_SHORT:
     case MYSQL_TYPE_LONG:
@@ -56,9 +58,46 @@ void r_key2variant(tse_key *rKey, KEY_PART_INFO *cur_index_part, cache_variant_t
     case MYSQL_TYPE_LONGLONG:
       ret_val->v_bigint = *(int64_t *)const_cast<uchar *>(key);
       break;
+    case MYSQL_TYPE_TIMESTAMP2:
+    case MYSQL_TYPE_YEAR:
+      convert_datetime_to_cantian(mysql_info, tmp_ptr, const_cast<uchar *>(key), field);
+      ret_val->v_date = *(date_t *)tmp_ptr;
+      break;
+    case MYSQL_TYPE_NEWDATE:
+      ret_val->v_date = *(date_t *)const_cast<uchar *>(key);
+      break;
+    case MYSQL_TYPE_DATETIME2:
+      cnvrt_datetime_decimal(const_cast<uchar *>(key), cur_index_part->field->decimals(), tmp_ptr, DATETIME_MAX_DECIMALS, TSE_BYTE_8);
+      ret_val->v_date = *(date_t *)tmp_ptr;
+      break;
+    case MYSQL_TYPE_TIME2:
+      cnvrt_time_decimal(const_cast<uchar *>(key), cur_index_part->field->decimals(), tmp_ptr, DATETIME_MAX_DECIMALS, TSE_BYTE_8);
+      ret_val->v_date = *(date_t *)tmp_ptr;
+      break;
     default:
       break;
   }
+}
+
+double date_compare(const uchar *date1, const uchar *date2)
+{
+  int date1_int = *date1 + (((int)*(date1 + 1)) << 8) + (((int)*(date1 + 2)) << 16);
+  int date2_int = *date2 + (((int)*(date2 + 1)) << 8) + (((int)*(date2 + 2)) << 16);
+  return date1_int - date2_int;
+}
+
+double time_compare(const uchar *time1, const uchar *time2)
+{
+  longlong time1_int = my_time_packed_from_binary(time1, DATETIME_MAX_DECIMALS);
+  longlong time2_int = my_time_packed_from_binary(time2, DATETIME_MAX_DECIMALS);
+  return time1_int - time2_int;
+}
+
+double datetime_compare(const uchar *datetime1, const uchar *datetime2)
+{
+  longlong datetime1_int = my_datetime_packed_from_binary(datetime1, DATETIME_MAX_DECIMALS);
+  longlong datetime2_int = my_datetime_packed_from_binary(datetime2, DATETIME_MAX_DECIMALS);
+  return datetime1_int - datetime2_int;
 }
 
 en_tse_compare_type compare(cache_variant_t *right, cache_variant_t *left, enum_field_types field_type)
@@ -76,6 +115,19 @@ en_tse_compare_type compare(cache_variant_t *right, cache_variant_t *left, enum_
       break;
     case MYSQL_TYPE_LONGLONG:
       compare_value =  (right->v_bigint - left->v_bigint);
+      break;
+    case MYSQL_TYPE_YEAR:
+    case MYSQL_TYPE_TIMESTAMP2:
+      compare_value = (right->v_date - left->v_date);
+      break;
+    case MYSQL_TYPE_NEWDATE:
+      compare_value = date_compare((const uchar *)&right->v_date, (const uchar *)&left->v_date);
+      break;
+    case MYSQL_TYPE_DATETIME2:
+      compare_value = datetime_compare((const uchar *)&(right->v_date), (const uchar *)&(left->v_date));
+      break;
+    case MYSQL_TYPE_TIME2:
+      compare_value = time_compare((const uchar *)&(right->v_date), (const uchar *)&(left->v_date));
       break;
     default:
       return UNCOMPARABLE;
@@ -242,7 +294,7 @@ double percent_in_bucket(tse_cbo_stats_column_t *col_stat, uint32 high,
   tse_cbo_column_hist_t *hist_infos = col_stat->column_hist;
   cache_variant_t *ep_high = high >= col_stat->hist_count ? &col_stat->high_value : &hist_infos[high].ep_value;
   cache_variant_t *ep_low = high < 1 ? &col_stat->low_value : &hist_infos[high - 1].ep_value;
-
+  double denominator;
   switch(field_type) {
     case MYSQL_TYPE_TINY:
     case MYSQL_TYPE_SHORT:
@@ -260,6 +312,31 @@ double percent_in_bucket(tse_cbo_stats_column_t *col_stat, uint32 high,
     case MYSQL_TYPE_LONGLONG:
       if (ep_high->v_bigint - ep_low->v_bigint > 0) {
         percent = (double)(ep_high->v_bigint - key->v_bigint) / (ep_high->v_bigint - ep_low->v_bigint);
+      }
+      break;
+    case MYSQL_TYPE_YEAR:
+    case MYSQL_TYPE_TIMESTAMP2:
+      denominator = ep_high->v_date - ep_low->v_date;
+      if (denominator > 0) {
+        percent = (double)(ep_high->v_date - key->v_date) / denominator;
+      }
+      break;
+    case MYSQL_TYPE_NEWDATE:
+      denominator = date_compare((const uchar *)&ep_high->v_date, (const uchar *)&ep_low->v_date);
+      if (denominator > 0) {
+        percent = date_compare((const uchar *)&ep_high->v_date, (const uchar *)&key->v_date) / denominator;
+      }
+      break;
+    case MYSQL_TYPE_DATETIME2:
+      denominator = datetime_compare((const uchar *)&ep_high->v_date, (const uchar *)&ep_low->v_date);
+      if (denominator > 0) {
+        percent = datetime_compare((const uchar *)&ep_high->v_date, (const uchar *)&key->v_date) / denominator;
+      }
+      break;
+    case MYSQL_TYPE_TIME2:
+      denominator = time_compare((const uchar *)&ep_high->v_date, (const uchar *)&ep_low->v_date);
+      if (denominator > 0) {
+        percent = time_compare((const uchar *)&ep_high->v_date, (const uchar *)&key->v_date) / denominator;
       }
       break;
     default:
