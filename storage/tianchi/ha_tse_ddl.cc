@@ -704,9 +704,9 @@ static bool tse_get_datetime_default_value(
   }
   if (field->real_type() == MYSQL_TYPE_TIME2) {
     column->default_text = (char *)tse_ddl_alloc_mem(mem_start, mem_end,
-                                                     sizeof(char) * (expr_str.length() + sizeof("1900-01-01 ") + 1));
+                                                     sizeof(char) * (expr_str.length() + 1));
     assert(column->default_text != NULL);
-    sprintf(column->default_text, "1900-01-01 %s", expr_str.c_str());
+    sprintf(column->default_text, "%s", expr_str.c_str());
   } else if (!is_expr_value && field->real_type() == MYSQL_TYPE_TIMESTAMP2) {
     char tmp_timestamp[MAX_DATE_STRING_REP_LENGTH];
     int len = my_datetime_to_str(ltime, tmp_timestamp, field->decimals());

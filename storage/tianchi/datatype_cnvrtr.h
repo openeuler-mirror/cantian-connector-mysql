@@ -239,4 +239,7 @@ bool tse_datetime_with_no_zero_in_date_to_timeval(const MYSQL_TIME *ltime, const
                                                   struct timeval *tm, int *warnings);
 bool check_zero_date(const date_detail_t& datetime);
 bool check_zero_time_ltime(const MYSQL_TIME ltime);
+
+void cnvrt_time_decimal(const uchar *src_ptr, int src_dec, uchar *des_ptr, int des_dec, uint32 length);
+void cnvrt_datetime_decimal(const uchar *src_ptr, int src_dec, uchar *des_ptr, int des_dec, uint32 length);
 #endif
