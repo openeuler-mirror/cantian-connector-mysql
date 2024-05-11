@@ -1,0 +1,188 @@
+drop table if exists tbl_date, tbl_datetime, tbl_year, tbl_timestamp, tbl_time;
+create table tbl_date(a date);
+alter table tbl_date add index key_a(a);
+insert into tbl_date values("2000-01-01"), ("2000-01-02"), ("2000-01-03"), ("2000-01-04"), ("2000-01-05"), ("2000-01-06");
+analyze table tbl_date;
+Table	Op	Msg_type	Msg_text
+test.tbl_date	analyze	status	OK
+select * from tbl_date where a < "2000-01-03";
+a
+2000-01-01
+2000-01-02
+explain select * from tbl_date where a < "2000-01-03";
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_date	NULL	range	key_a	key_a	4	NULL	2	100.00	Using where; Using pushed condition (`test`.`tbl_date`.`a` < DATE'2000-01-03'); Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_date`.`a` AS `a` from `test`.`tbl_date` where (`test`.`tbl_date`.`a` < DATE'2000-01-03')
+drop table tbl_date;
+create table tbl_datetime(a datetime);
+alter table tbl_datetime add index key_a(a);
+insert into tbl_datetime values("2000-01-01 10:00:00"), ("2000-01-02 10:00:00"), ("2000-01-03 10:00:00"), ("2000-01-04 10:00:00"), ("2000-01-05 10:00:00"), ("2000-01-06 10:00:00");
+analyze table tbl_datetime;
+Table	Op	Msg_type	Msg_text
+test.tbl_datetime	analyze	status	OK
+select * from tbl_datetime where a < "2000-01-03 10:00:00";
+a
+2000-01-01 10:00:00
+2000-01-02 10:00:00
+explain select * from tbl_datetime where a < "2000-01-02 10:00:00";
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_datetime	NULL	range	key_a	key_a	6	NULL	1	100.00	Using where; Using pushed condition (`test`.`tbl_datetime`.`a` < TIMESTAMP'2000-01-02 10:00:00'); Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_datetime`.`a` AS `a` from `test`.`tbl_datetime` where (`test`.`tbl_datetime`.`a` < TIMESTAMP'2000-01-02 10:00:00')
+explain select * from tbl_datetime where a < "2000-01-03 10:00:00";
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_datetime	NULL	range	key_a	key_a	6	NULL	2	100.00	Using where; Using pushed condition (`test`.`tbl_datetime`.`a` < TIMESTAMP'2000-01-03 10:00:00'); Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_datetime`.`a` AS `a` from `test`.`tbl_datetime` where (`test`.`tbl_datetime`.`a` < TIMESTAMP'2000-01-03 10:00:00')
+explain select * from tbl_datetime where a < "2000-01-04 10:00:00";
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_datetime	NULL	range	key_a	key_a	6	NULL	3	100.00	Using where; Using pushed condition (`test`.`tbl_datetime`.`a` < TIMESTAMP'2000-01-04 10:00:00'); Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_datetime`.`a` AS `a` from `test`.`tbl_datetime` where (`test`.`tbl_datetime`.`a` < TIMESTAMP'2000-01-04 10:00:00')
+explain select * from tbl_datetime where a < "2000-01-05 10:00:00";
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_datetime	NULL	range	key_a	key_a	6	NULL	4	100.00	Using where; Using pushed condition (`test`.`tbl_datetime`.`a` < TIMESTAMP'2000-01-05 10:00:00'); Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_datetime`.`a` AS `a` from `test`.`tbl_datetime` where (`test`.`tbl_datetime`.`a` < TIMESTAMP'2000-01-05 10:00:00')
+explain select * from tbl_datetime where a < "2000-01-06 10:00:00";
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_datetime	NULL	range	key_a	key_a	6	NULL	5	100.00	Using where; Using pushed condition (`test`.`tbl_datetime`.`a` < TIMESTAMP'2000-01-06 10:00:00'); Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_datetime`.`a` AS `a` from `test`.`tbl_datetime` where (`test`.`tbl_datetime`.`a` < TIMESTAMP'2000-01-06 10:00:00')
+explain select * from tbl_datetime where a <= "2000-01-06 10:00:00";
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_datetime	NULL	index	key_a	key_a	6	NULL	6	100.00	Using where; Using pushed condition (`test`.`tbl_datetime`.`a` <= TIMESTAMP'2000-01-06 10:00:00'); Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_datetime`.`a` AS `a` from `test`.`tbl_datetime` where (`test`.`tbl_datetime`.`a` <= TIMESTAMP'2000-01-06 10:00:00')
+drop table tbl_datetime;
+create table tbl_datetime(a datetime(2));
+alter table tbl_datetime add index key_a(a);
+insert into tbl_datetime values("2000-01-01 10:00:00.01"), ("2000-01-01 10:00:00.02"), ("2000-01-01 10:00:00.03"), ("2000-01-01 10:00:00.04"), ("2000-01-01 10:00:00.05"), ("2000-01-01 10:00:00.06");
+analyze table tbl_datetime;
+Table	Op	Msg_type	Msg_text
+test.tbl_datetime	analyze	status	OK
+select * from tbl_datetime where a < "2000-01-01 10:00:00.03";
+a
+2000-01-01 10:00:00.01
+2000-01-01 10:00:00.02
+explain select * from tbl_datetime where a < "2000-01-01 10:00:00.03";
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_datetime	NULL	range	key_a	key_a	7	NULL	2	100.00	Using where; Using pushed condition (`test`.`tbl_datetime`.`a` < TIMESTAMP'2000-01-01 10:00:00.03'); Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_datetime`.`a` AS `a` from `test`.`tbl_datetime` where (`test`.`tbl_datetime`.`a` < TIMESTAMP'2000-01-01 10:00:00.03')
+explain select * from tbl_datetime where a < "2000-01-01 10:00:00.03";
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_datetime	NULL	range	key_a	key_a	7	NULL	2	100.00	Using where; Using pushed condition (`test`.`tbl_datetime`.`a` < TIMESTAMP'2000-01-01 10:00:00.03'); Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_datetime`.`a` AS `a` from `test`.`tbl_datetime` where (`test`.`tbl_datetime`.`a` < TIMESTAMP'2000-01-01 10:00:00.03')
+explain select * from tbl_datetime where a < "2000-01-01 10:00:00.04";
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_datetime	NULL	range	key_a	key_a	7	NULL	3	100.00	Using where; Using pushed condition (`test`.`tbl_datetime`.`a` < TIMESTAMP'2000-01-01 10:00:00.04'); Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_datetime`.`a` AS `a` from `test`.`tbl_datetime` where (`test`.`tbl_datetime`.`a` < TIMESTAMP'2000-01-01 10:00:00.04')
+explain select * from tbl_datetime where a < "2000-01-01 10:00:00.05";
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_datetime	NULL	range	key_a	key_a	7	NULL	4	100.00	Using where; Using pushed condition (`test`.`tbl_datetime`.`a` < TIMESTAMP'2000-01-01 10:00:00.05'); Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_datetime`.`a` AS `a` from `test`.`tbl_datetime` where (`test`.`tbl_datetime`.`a` < TIMESTAMP'2000-01-01 10:00:00.05')
+explain select * from tbl_datetime where a < "2000-01-01 10:00:00.06";
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_datetime	NULL	range	key_a	key_a	7	NULL	5	100.00	Using where; Using pushed condition (`test`.`tbl_datetime`.`a` < TIMESTAMP'2000-01-01 10:00:00.06'); Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_datetime`.`a` AS `a` from `test`.`tbl_datetime` where (`test`.`tbl_datetime`.`a` < TIMESTAMP'2000-01-01 10:00:00.06')
+explain select * from tbl_datetime where a <= "2000-01-01 10:00:00.06";
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_datetime	NULL	index	key_a	key_a	7	NULL	6	100.00	Using where; Using pushed condition (`test`.`tbl_datetime`.`a` <= TIMESTAMP'2000-01-01 10:00:00.06'); Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_datetime`.`a` AS `a` from `test`.`tbl_datetime` where (`test`.`tbl_datetime`.`a` <= TIMESTAMP'2000-01-01 10:00:00.06')
+drop table tbl_datetime;
+create table tbl_datetime(a datetime(6));
+alter table tbl_datetime add index key_a(a);
+insert into tbl_datetime values("2000-01-01 10:00:00.9"), ("2000-01-01 10:00:00.99"), ("2000-01-01 10:00:00.999"), ("2000-01-01 10:00:00.9999"), ("2000-01-01 10:00:00.99999"), ("2000-01-01 10:00:00.999999");
+analyze table tbl_datetime;
+Table	Op	Msg_type	Msg_text
+test.tbl_datetime	analyze	status	OK
+select * from tbl_datetime where a < "2000-01-01 10:00:00.999";
+a
+2000-01-01 10:00:00.900000
+2000-01-01 10:00:00.990000
+explain select * from tbl_datetime where a < "2000-01-01 10:00:00.99";
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_datetime	NULL	range	key_a	key_a	9	NULL	1	100.00	Using where; Using pushed condition (`test`.`tbl_datetime`.`a` < TIMESTAMP'2000-01-01 10:00:00.99'); Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_datetime`.`a` AS `a` from `test`.`tbl_datetime` where (`test`.`tbl_datetime`.`a` < TIMESTAMP'2000-01-01 10:00:00.99')
+explain select * from tbl_datetime where a < "2000-01-01 10:00:00.999";
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_datetime	NULL	range	key_a	key_a	9	NULL	2	100.00	Using where; Using pushed condition (`test`.`tbl_datetime`.`a` < TIMESTAMP'2000-01-01 10:00:00.999'); Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_datetime`.`a` AS `a` from `test`.`tbl_datetime` where (`test`.`tbl_datetime`.`a` < TIMESTAMP'2000-01-01 10:00:00.999')
+explain select * from tbl_datetime where a < "2000-01-01 10:00:00.9999";
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_datetime	NULL	range	key_a	key_a	9	NULL	3	100.00	Using where; Using pushed condition (`test`.`tbl_datetime`.`a` < TIMESTAMP'2000-01-01 10:00:00.9999'); Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_datetime`.`a` AS `a` from `test`.`tbl_datetime` where (`test`.`tbl_datetime`.`a` < TIMESTAMP'2000-01-01 10:00:00.9999')
+explain select * from tbl_datetime where a < "2000-01-01 10:00:00.99999";
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_datetime	NULL	range	key_a	key_a	9	NULL	4	100.00	Using where; Using pushed condition (`test`.`tbl_datetime`.`a` < TIMESTAMP'2000-01-01 10:00:00.99999'); Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_datetime`.`a` AS `a` from `test`.`tbl_datetime` where (`test`.`tbl_datetime`.`a` < TIMESTAMP'2000-01-01 10:00:00.99999')
+explain select * from tbl_datetime where a < "2000-01-01 10:00:00.999999";
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_datetime	NULL	range	key_a	key_a	9	NULL	5	100.00	Using where; Using pushed condition (`test`.`tbl_datetime`.`a` < TIMESTAMP'2000-01-01 10:00:00.999999'); Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_datetime`.`a` AS `a` from `test`.`tbl_datetime` where (`test`.`tbl_datetime`.`a` < TIMESTAMP'2000-01-01 10:00:00.999999')
+explain select * from tbl_datetime where a < "2000-01-01 10:00:01";
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_datetime	NULL	index	key_a	key_a	9	NULL	6	100.00	Using where; Using pushed condition (`test`.`tbl_datetime`.`a` < TIMESTAMP'2000-01-01 10:00:01'); Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_datetime`.`a` AS `a` from `test`.`tbl_datetime` where (`test`.`tbl_datetime`.`a` < TIMESTAMP'2000-01-01 10:00:01')
+drop table tbl_datetime;
+create table tbl_year(a year);
+alter table tbl_year add index key_a(a);
+insert into tbl_year values("2000"), ("2001"), ("2002"), ("2003"), ("2004"), ("2005");
+analyze table tbl_year;
+Table	Op	Msg_type	Msg_text
+test.tbl_year	analyze	status	OK
+select * from tbl_year where a < "2002";
+a
+2000
+2001
+explain select * from tbl_year where a < "2002";
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_year	NULL	range	key_a	key_a	2	NULL	2	100.00	Using where; Using pushed condition (`test`.`tbl_year`.`a` < 2002); Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_year`.`a` AS `a` from `test`.`tbl_year` where (`test`.`tbl_year`.`a` < 2002)
+drop table tbl_year;
+create table tbl_timestamp(a timestamp(2));
+alter table tbl_timestamp add index key_a(a);
+insert into tbl_timestamp values("2000-01-01 10:00:00.01"), ("2000-01-01 10:00:00.02"), ("2000-01-01 10:00:00.03"), ("2000-01-01 10:00:00.04"), ("2000-01-01 10:00:00.05"), ("2000-01-01 10:00:00.06");
+analyze table tbl_timestamp;
+Table	Op	Msg_type	Msg_text
+test.tbl_timestamp	analyze	status	OK
+select * from tbl_timestamp where a < "2000-01-01 10:00:00.03";
+a
+2000-01-01 10:00:00.01
+2000-01-01 10:00:00.02
+explain select * from tbl_timestamp where a < "2000-01-01 10:00:00.03";
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_timestamp	NULL	range	key_a	key_a	6	NULL	2	100.00	Using where; Using pushed condition (`test`.`tbl_timestamp`.`a` < TIMESTAMP'2000-01-01 10:00:00.03'); Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_timestamp`.`a` AS `a` from `test`.`tbl_timestamp` where (`test`.`tbl_timestamp`.`a` < TIMESTAMP'2000-01-01 10:00:00.03')
+drop table tbl_timestamp;
+create table tbl_time(a time);
+alter table tbl_time add index key_a(a);
+insert into tbl_time values("15:15:11"), ("15:15:12"), ("15:15:13"), ("15:15:14"), ("15:15:15"), ("15:15:16");
+analyze table tbl_time;
+Table	Op	Msg_type	Msg_text
+test.tbl_time	analyze	status	OK
+select * from tbl_time where a < "15:15:13";
+a
+15:15:11
+15:15:12
+explain select * from tbl_time where a < "15:15:13";
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_time	NULL	range	key_a	key_a	4	NULL	2	100.00	Using where; Using pushed condition (`test`.`tbl_time`.`a` < TIME'15:15:13'); Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_time`.`a` AS `a` from `test`.`tbl_time` where (`test`.`tbl_time`.`a` < TIME'15:15:13')
+drop table tbl_time;
