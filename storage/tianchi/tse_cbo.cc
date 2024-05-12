@@ -531,24 +531,26 @@ double calc_density_one_table(uint16_t idx_id, tse_range_key *key,
 
 void tse_index_stats_update(TABLE *table, tianchi_cbo_stats_t *cbo_stats)
 {
-  rec_per_key_t rec_per_key;
+  rec_per_key_t rec_per_key = 0.0f;
   KEY sk;
   uint32_t *n_diff = cbo_stats->ndv_keys;
-  uint32_t  records = cbo_stats->records;
-  if (records == 0) {
-    return;
-  }
-  for (uint32 i = 0; i < table->s->keys; i++){
+  uint32_t records;
+  uint32_t table_part_num = cbo_stats->part_cnt == 0 ? 1 : cbo_stats->part_cnt;
+
+  for (uint32 i = 0; i < table->s->keys; i++) {
     sk = table->key_info[i];
-    if (*(n_diff+i) == 0) {
-      rec_per_key = static_cast<rec_per_key_t>(records);
-    } else {
-      rec_per_key = static_cast<rec_per_key_t>(records) / static_cast<rec_per_key_t>(*(n_diff+i));
-    }
-    if (rec_per_key < 1.0) {
-      rec_per_key = 1.0;
-    }
-    for (uint32 j=0;j<sk.actual_key_parts;j++) {
+    for (uint32 j = 0; j < sk.actual_key_parts; j++) {
+      rec_per_key = 0.0f;
+      for (uint32 k = 0; k < table_part_num; k++) {
+        records = cbo_stats->tse_cbo_stats_table[k].estimate_rows;
+        if (*(n_diff + i * MAX_KEY_COLUMNS + j) > 0) {
+          rec_per_key += static_cast<rec_per_key_t>(records) / static_cast<rec_per_key_t>(*(n_diff + i * MAX_KEY_COLUMNS + j));
+        }
+      }
+
+      if (rec_per_key < 1.0) {
+        rec_per_key = 1.0;
+      }
       sk.set_records_per_key(j, rec_per_key);
     }
   }

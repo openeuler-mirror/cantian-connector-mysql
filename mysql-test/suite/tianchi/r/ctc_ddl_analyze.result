@@ -111,3 +111,75 @@ alter table t1 analyze partition p0;
 Table	Op	Msg_type	Msg_text
 test.t1	analyze	status	OK
 drop table t1;
+create table t1(a int, b int, c int, index(a,b,c));
+insert into t1 values(1,1,1),(1,2,3),(2,1,1),(2,2,3),(3,2,1);
+analyze table t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+show keys from t1;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t1	1	a	1	a	A	3	NULL	NULL	YES	BTREE			YES	NULL
+t1	1	a	2	b	A	5	NULL	NULL	YES	BTREE			YES	NULL
+t1	1	a	3	c	A	5	NULL	NULL	YES	BTREE			YES	NULL
+insert into t1 values(3,3,3);
+analyze table t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+show keys from t1;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t1	1	a	1	a	A	3	NULL	NULL	YES	BTREE			YES	NULL
+t1	1	a	2	b	A	6	NULL	NULL	YES	BTREE			YES	NULL
+t1	1	a	3	c	A	6	NULL	NULL	YES	BTREE			YES	NULL
+drop table t1;
+create table t1(
+c1 int,
+c2 int,
+key(c1, c2)
+) partition by range(c1) (
+partition p0 values less than (10),
+partition p1 values less than (20)
+);
+insert into t1 values(1,1),(1,2),(11,1),(11,2),(13,3);
+analyze table t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+show keys from t1;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t1	1	c1	1	c1	A	3	NULL	NULL	YES	BTREE			YES	NULL
+t1	1	c1	2	c2	A	5	NULL	NULL	YES	BTREE			YES	NULL
+insert into t1 values(3,4),(5,6),(18,10);
+analyze table t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+show keys from t1;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t1	1	c1	1	c1	A	6	NULL	NULL	YES	BTREE			YES	NULL
+t1	1	c1	2	c2	A	8	NULL	NULL	YES	BTREE			YES	NULL
+drop table t1;
+create table t1(
+c1 int,
+c2 int,
+key(c1, c2)
+) partition by range(c1)
+subpartition by hash(c2) subpartitions 5 (
+partition p0 values less than (10),
+partition p1 values less than (20),
+partition p2 values less than (60)
+);
+insert into t1 values(1,2),(3,4),(5,6),(7,8),(9,10),(12,13),(14,15),(16,17),(18,19),(52,53),(55,56),(57,58);
+analyze table t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+show keys from t1;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t1	1	c1	1	c1	A	12	NULL	NULL	YES	BTREE			YES	NULL
+t1	1	c1	2	c2	A	12	NULL	NULL	YES	BTREE			YES	NULL
+insert into t1 values(11,11),(59,59);
+analyze table t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+show keys from t1;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t1	1	c1	1	c1	A	14	NULL	NULL	YES	BTREE			YES	NULL
+t1	1	c1	2	c2	A	14	NULL	NULL	YES	BTREE			YES	NULL
+drop table t1;
