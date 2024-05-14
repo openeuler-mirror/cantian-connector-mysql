@@ -5250,10 +5250,10 @@ int ha_tse::initialize_cbo_stats()
   }
   
   m_share->cbo_stats->ndv_keys =
-    (uint32_t*)my_malloc(PSI_NOT_INSTRUMENTED, table->s->keys * sizeof(uint32_t), MYF(MY_WME));
+    (uint32_t*)my_malloc(PSI_NOT_INSTRUMENTED, table->s->keys * sizeof(uint32_t) * MAX_KEY_COLUMNS, MYF(MY_WME));
   
   m_share->cbo_stats->msg_len = table->s->fields * sizeof(tse_cbo_stats_column_t);
-  m_share->cbo_stats->key_len = table->s->keys * sizeof(uint32_t);
+  m_share->cbo_stats->key_len = table->s->keys * sizeof(uint32_t) * MAX_KEY_COLUMNS;
   return CT_SUCCESS;
 }
 
