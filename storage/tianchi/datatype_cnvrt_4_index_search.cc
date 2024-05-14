@@ -19,8 +19,7 @@
 #include "tse_log.h"
 #include "tse_error.h"
 #include "datatype_cnvrt_4_index_search.h"
-
-constexpr uint8 OFFSET_VARCHAR_TYPE = 2;
+#include "tse_util.h"
 
 static void tse_convert_mysql_key_to_cantian(KEY_PART_INFO &key_part, const uint8_t *key, uint16_t key_len, uint32_t *data_field_len,
                                              uint8_t **use_key, uint32_t *use_key_len, bool *is_key_null) {
