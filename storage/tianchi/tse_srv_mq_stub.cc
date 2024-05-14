@@ -812,6 +812,7 @@ int tse_get_cbo_stats(tianchi_handler_t *tch, tianchi_cbo_stats_t *stats, tse_cb
   if (ret == CT_SUCCESS) {
     if (req->result == CT_SUCCESS) {
       stats->is_updated = req->stats->is_updated;
+      stats->records = req->stats->records;
       memcpy(stats->ndv_keys, req->stats->ndv_keys, stats->key_len);
       if (!is_part_table) {
           *tch = req->tch;
