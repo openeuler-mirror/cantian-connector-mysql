@@ -1,0 +1,15 @@
+create table t_decimal (`id` decimal(18,0), primary key (`id`));
+insert into t_decimal values (1),(2),(3),(4),(5),(6),(7),(8);
+analyze table t_decimal;
+Table	Op	Msg_type	Msg_text
+test.t_decimal	analyze	status	OK
+select * from t_decimal where id < 3;
+id
+1
+2
+explain select * from t_decimal where id < 3;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t_decimal	NULL	range	PRIMARY	PRIMARY	8	NULL	2	100.00	Using where; Using pushed condition (`test`.`t_decimal`.`id` < 3); Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t_decimal`.`id` AS `id` from `test`.`t_decimal` where (`test`.`t_decimal`.`id` < 3)
+drop table t_decimal;
