@@ -18,7 +18,9 @@
 #include "my_dbug.h"
 #include "my_inttypes.h"
 #include "string.h"
-
+#include "tse_srv.h"
+#include "sql/item.h"
+#include "sql/item_func.h"
 #ifndef DECIMAL_CONVERT_H
 #define DECIMAL_CONVERT_H
 #define DEC8_EXPN_UNIT 8
@@ -355,3 +357,4 @@ static inline void cm_dec_8_to_4(dec4_t *d4, const dec8_t *d8) {
   }
   d4->ncells = (uint8)i4;
 }
+my_decimal cnvrt_cantian_to_my_decimal(dec4_t *d4);

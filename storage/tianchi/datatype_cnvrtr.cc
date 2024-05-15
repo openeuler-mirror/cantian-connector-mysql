@@ -389,9 +389,8 @@ int decimal_mysql_to_cantian(const uint8_t *mysql_ptr, uchar *cantian_ptr, Field
   return ret;
 }
 
-void decimal_cantian_to_mysql(uint8_t *mysql_ptr, uchar *cantian_ptr, Field *mysql_field)
+my_decimal cnvrt_cantian_to_my_decimal(dec4_t *d4)
 {
-  dec4_t *d4 = (dec4_t *)(char *)cantian_ptr;
   dec8_t dec;
   ct_cm_dec_4_to_8(&dec, d4, (uint32)cm_dec4_stor_sz(d4));
   char str[DEC_MAX_NUM_SAVING_PREC];
@@ -407,6 +406,13 @@ void decimal_cantian_to_mysql(uint8_t *mysql_ptr, uchar *cantian_ptr, Field *mys
     tse_log_error("[cantian2mysql]Decimal data type convert str to my_decimal failed!");
     assert(0);
   }
+  return decimal_value;
+}
+
+void decimal_cantian_to_mysql(uint8_t *mysql_ptr, uchar *cantian_ptr, Field *mysql_field)
+{
+  dec4_t *d4 = (dec4_t *)(char *)cantian_ptr;
+  my_decimal decimal_value = cnvrt_cantian_to_my_decimal(d4);
 
   const int prec = ((Field_new_decimal *)mysql_field)->precision;
   const int scale = mysql_field->decimals();
