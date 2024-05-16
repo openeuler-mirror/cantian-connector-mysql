@@ -1990,10 +1990,10 @@ static bool tse_notify_exclusive_mdl(THD *thd, const MDL_key *mdl_key,
 
   if (notification_type == HA_NOTIFY_PRE_EVENT) {
     ret = tse_notify_pre_event(thd, tse_hton, tch, &lock_info);
-    update_sess_ctx_by_tch(tch, tse_hton, thd);
   } else {
     ret = tse_notify_post_event(thd, tse_hton, tch, &lock_info);
   }
+  update_sess_ctx_by_tch(tch, tse_hton, thd);
   
   if (ret != 0) {
     tse_unlock_table(&tch, tse_instance_id, &lock_info);
