@@ -385,3 +385,16 @@ select count(*) from t1 where t like 'a%';
 count(*)
 1
 drop table t1;
+CREATE TABLE t1(c0 INT UNSIGNED, INDEX idx ((ABS(c0))));
+INSERT INTO t1 (c0) VALUES (4294967294);
+INSERT INTO t1 (c0) VALUES (4294967295);
+INSERT INTO t1 (c0) VALUES (4294967296);
+ERROR 22003: Out of range value for column 'c0' at row 1
+drop table t1;
+CREATE TABLE t1(c0 INT UNSIGNED);
+ALTER TABLE t1 ADD INDEX idx ((ABS(c0)));
+INSERT INTO t1 (c0) VALUES (4294967294);
+INSERT INTO t1 (c0) VALUES (4294967295);
+INSERT INTO t1 (c0) VALUES (4294967296);
+ERROR 22003: Out of range value for column 'c0' at row 1
+drop table t1;
