@@ -151,7 +151,6 @@ typedef struct st_dec4 {
     c4typ_t head;
   };
   cell4_t cells;
-  text_t num_text;  // only for bind param
 } dec4_t;
 #pragma pack()
 typedef enum en_status {
