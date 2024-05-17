@@ -446,6 +446,15 @@ static bool tse_fill_column_precision_and_scale(TcDb__TseDDLColumnDef *column, F
   return true;
 }
 
+static void tse_set_unsigned_column(Field *field, uint32 *is_unsigned) {
+  if ((is_numeric_type(field->type()) && field->is_unsigned()) ||
+       field->real_type() == MYSQL_TYPE_ENUM || field->real_type() == MYSQL_TYPE_BIT) {
+    *is_unsigned = 1;
+  } else {
+    *is_unsigned = 0;
+  }
+}
+
 static bool tse_ddl_fill_column_by_field_fill_type(TcDb__TseDDLColumnDef *column, Field *field) {
   if (!tse_ddl_get_data_type_from_mysql_type(field, field->type(), &column->datatype->datatype)) {
     char info[300]; // max column name length(64) * max_mb_size(4) + redundancy
@@ -464,10 +473,7 @@ static bool tse_ddl_fill_column_by_field_fill_type(TcDb__TseDDLColumnDef *column
     }
     column->datatype->size = varchar_length;
   }
-  if ((is_numeric_type(field->type()) && field->is_unsigned()) ||
-       field->real_type() == MYSQL_TYPE_ENUM || field->real_type() == MYSQL_TYPE_BIT) {
-    column->is_unsigned = 1;
-  }
+  tse_set_unsigned_column(field, &column->is_unsigned);
 
   if (!tse_fill_column_precision_and_scale(column, field)) {
     tse_log_error("fill column precision and scale failed");
@@ -1279,6 +1285,7 @@ static bool tse_ddl_create_table_fill_add_key(TcDb__TseDDLCreateTableDef *req, T
         }
         req_key_part->length = key_part->length;
         tse_ddl_get_data_type_from_mysql_type(fld, fld->type(), &req_key_part->datatype);
+        tse_set_unsigned_column(fld, &req_key_part->is_unsigned);
         if (is_prefix_key && fld->is_flag_set(BLOB_FLAG)) {
           req_key_part->datatype = TSE_DDL_TYPE_VARCHAR;
         }
@@ -1332,6 +1339,7 @@ static bool tse_ddl_create_table_fill_add_key(TcDb__TseDDLCreateTableDef *req, T
       }
       req_key_part->length = key_part->length();
       tse_ddl_get_data_type_from_mysql_type(fld, fld->type(), &req_key_part->datatype);
+      tse_set_unsigned_column(fld, &req_key_part->is_unsigned);
       if (is_prefix_key && fld->is_flag_set(BLOB_FLAG)) {
         req_key_part->datatype = TSE_DDL_TYPE_VARCHAR;
       }
@@ -2187,6 +2195,7 @@ static uint32_t tse_fill_key_part(THD *thd,
   }
 
   tse_ddl_get_data_type_from_mysql_type(field, create_field->sql_type, &req_key_part->datatype);
+  tse_set_unsigned_column(field, &req_key_part->is_unsigned);
   if (is_prefix_key && field->is_flag_set(BLOB_FLAG)) {
     req_key_part->datatype = TSE_DDL_TYPE_VARCHAR;
   }
