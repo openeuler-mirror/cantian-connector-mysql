@@ -982,8 +982,6 @@ void free_m_cond(tianchi_handler_t m_tch, tse_conds **conds);
 void tse_set_metadata_switch();
 int32_t tse_get_metadata_switch();
 bool is_meta_version_initialize();
-uint64_t calculate_size_of_cbo_stats(TABLE *table);
-uint64_t calculate_size_of_cbo_part_stats(TABLE *table,uint32_t part_num);
 bool user_var_set(MYSQL_THD thd, string target_str);
 bool is_initialize();
 bool is_starting();
