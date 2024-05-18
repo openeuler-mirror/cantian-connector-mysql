@@ -242,4 +242,5 @@ bool check_zero_time_ltime(const MYSQL_TIME ltime);
 
 void cnvrt_time_decimal(const uchar *src_ptr, int src_dec, uchar *des_ptr, int des_dec, uint32 length);
 void cnvrt_datetime_decimal(const uchar *src_ptr, int src_dec, uchar *des_ptr, int des_dec, uint32 length);
+int decimal_mysql_to_double(const uint8_t *mysql_ptr, uchar *double_ptr, Field *mysql_field);
 #endif

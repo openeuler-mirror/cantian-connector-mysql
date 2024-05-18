@@ -33,7 +33,7 @@ using namespace std;
 static unordered_set<string> mysql_system_db{"information_schema", "mysql", "performance_schema", "sys"};
 
 #define CM_IS_EMPTY_STR(str)     (((str) == NULL) || ((str)[0] == 0))
-constexpr uint8 OFFSET_VARCHAR_TYPE = 2;
+
 #define TSE_GET_THD_DB_NAME(thd) (thd->db().str == NULL) ? nullptr : const_cast<char *>(thd->db().str)
 
 void tse_split_normalized_name(const char *file_name, char db[], size_t db_buf_len,
