@@ -20,7 +20,6 @@
 #include "sql/field.h"
 #include "tse_srv_mq_module.h"
 #include "datatype_cnvrtr.h"
-#include "decimal_convert.h"
 #include "tse_util.h"
 
 void r_key2variant(tse_key *rKey, KEY_PART_INFO *cur_index_part, cache_variant_t *ret_val, cache_variant_t * value, uint32_t key_offset)
@@ -78,9 +77,8 @@ void r_key2variant(tse_key *rKey, KEY_PART_INFO *cur_index_part, cache_variant_t
       break;
     case MYSQL_TYPE_DECIMAL:
     case MYSQL_TYPE_NEWDECIMAL:
-      uint32 length;
-      decimal_mysql_to_cantian(const_cast<uchar *>(key), tmp_ptr, field, &length);
-      memcpy((void *)&ret_val->v_dec, tmp_ptr, sizeof(dec4_t));
+      decimal_mysql_to_double(const_cast<uchar *>(key), tmp_ptr, field);
+      ret_val->v_real = *(double *)tmp_ptr;
       break;
     default:
       break;
@@ -108,13 +106,6 @@ double datetime_compare(const uchar *datetime1, const uchar *datetime2)
   return datetime1_int - datetime2_int;
 }
 
-double decimal_compare(dec4_t *dec1, dec4_t *dec2)
-{
-  my_decimal my_decimal1 = cnvrt_cantian_to_my_decimal(dec1);
-  my_decimal my_decimal2 = cnvrt_cantian_to_my_decimal(dec2);
-  return my_decimal_cmp(&my_decimal1, &my_decimal2);
-}
-
 en_tse_compare_type compare(cache_variant_t *right, cache_variant_t *left, enum_field_types field_type)
 {
   double compare_value = 0;
@@ -126,6 +117,8 @@ en_tse_compare_type compare(cache_variant_t *right, cache_variant_t *left, enum_
       break;
     case MYSQL_TYPE_FLOAT:
     case MYSQL_TYPE_DOUBLE:
+    case MYSQL_TYPE_DECIMAL:
+    case MYSQL_TYPE_NEWDECIMAL:
       compare_value = (right->v_real - left->v_real);
       break;
     case MYSQL_TYPE_LONGLONG:
@@ -143,10 +136,6 @@ en_tse_compare_type compare(cache_variant_t *right, cache_variant_t *left, enum_
       break;
     case MYSQL_TYPE_TIME2:
       compare_value = time_compare((const uchar *)&(right->v_date), (const uchar *)&(left->v_date));
-      break;
-    case MYSQL_TYPE_DECIMAL:
-    case MYSQL_TYPE_NEWDECIMAL:
-      compare_value = decimal_compare((dec4_t *)&right->v_dec, (dec4_t *)&left->v_dec);
       break;
     default:
       return UNCOMPARABLE;
@@ -306,31 +295,6 @@ static double calc_hist_between_frequency(tse_cbo_stats_table_t *cbo_stats, fiel
 
 }
 
-double percent_in_bucket_4_decimal(dec4_t *high_dec, dec4_t *key_dec, dec4_t *low_dec)
-{
-  double percent = 0.0D;
-  my_decimal high_decimal_value = cnvrt_cantian_to_my_decimal(high_dec);
-  my_decimal key_decimal_value = cnvrt_cantian_to_my_decimal(key_dec);
-  my_decimal low_decimal_value = cnvrt_cantian_to_my_decimal(low_dec);
-  my_decimal denominator;
-  if (my_decimal_sub(E_DEC_FATAL_ERROR, &denominator, &high_decimal_value, &low_decimal_value) != E_DEC_OK) {
-    return 0;
-  }
-  my_decimal numerator;
-  if (my_decimal_sub(E_DEC_FATAL_ERROR, &numerator, &high_decimal_value, &key_decimal_value) != E_DEC_OK) {
-    return 0;
-  }
-  my_decimal percent_decimal_value;
-  if (my_decimal_div(E_DEC_FATAL_ERROR, &percent_decimal_value, &numerator, &denominator, 0) != E_DEC_OK) {
-    return 0;
-  }
-  my_decimal2double(E_DEC_FATAL_ERROR, &percent_decimal_value, &percent);
-  if (percent > 0) {
-    return percent;
-  }
-  return 0;
-}
-
 double percent_in_bucket(tse_cbo_stats_column_t *col_stat, uint32 high,
                          cache_variant_t *key, enum_field_types field_type)
 {
@@ -349,6 +313,8 @@ double percent_in_bucket(tse_cbo_stats_column_t *col_stat, uint32 high,
       break;
     case MYSQL_TYPE_FLOAT:
     case MYSQL_TYPE_DOUBLE:
+    case MYSQL_TYPE_DECIMAL:
+    case MYSQL_TYPE_NEWDECIMAL:
       if (ep_high->v_real - ep_low->v_real > 0) {
         percent = (double)(ep_high->v_real - key->v_real) / (ep_high->v_real - ep_low->v_real);
       }
@@ -382,10 +348,6 @@ double percent_in_bucket(tse_cbo_stats_column_t *col_stat, uint32 high,
       if (denominator > 0) {
         percent = time_compare((const uchar *)&ep_high->v_date, (const uchar *)&key->v_date) / denominator;
       }
-      break;
-    case MYSQL_TYPE_DECIMAL:
-    case MYSQL_TYPE_NEWDECIMAL:
-      percent = percent_in_bucket_4_decimal((dec4_t *)&ep_high->v_dec, (dec4_t *)&key->v_dec, (dec4_t *)&ep_low->v_dec);
       break;
     default:
       return DEFAULT_RANGE_DENSITY;

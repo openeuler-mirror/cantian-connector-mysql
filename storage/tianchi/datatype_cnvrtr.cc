@@ -389,9 +389,10 @@ int decimal_mysql_to_cantian(const uint8_t *mysql_ptr, uchar *cantian_ptr, Field
   return ret;
 }
 
-my_decimal cnvrt_cantian_to_my_decimal(dec4_t *d4)
+void decimal_cantian_to_mysql(uint8_t *mysql_ptr, uchar *cantian_ptr, Field *mysql_field)
 {
   dec8_t dec;
+  dec4_t *d4 = (dec4_t *)cantian_ptr;
   ct_cm_dec_4_to_8(&dec, d4, (uint32)cm_dec4_stor_sz(d4));
   char str[DEC_MAX_NUM_SAVING_PREC];
   if (ct_cm_dec8_to_str(&dec, DEC_MAX_NUM_SAVING_PREC, str) != CT_SUCCESS_STATUS) {
@@ -406,13 +407,6 @@ my_decimal cnvrt_cantian_to_my_decimal(dec4_t *d4)
     tse_log_error("[cantian2mysql]Decimal data type convert str to my_decimal failed!");
     assert(0);
   }
-  return decimal_value;
-}
-
-void decimal_cantian_to_mysql(uint8_t *mysql_ptr, uchar *cantian_ptr, Field *mysql_field)
-{
-  dec4_t *d4 = (dec4_t *)(char *)cantian_ptr;
-  my_decimal decimal_value = cnvrt_cantian_to_my_decimal(d4);
 
   const int prec = ((Field_new_decimal *)mysql_field)->precision;
   const int scale = mysql_field->decimals();
@@ -420,6 +414,25 @@ void decimal_cantian_to_mysql(uint8_t *mysql_ptr, uchar *cantian_ptr, Field *mys
     tse_log_error("[cantian2mysql]Decimal data type convert my_decimal to binary failed!");
     assert(0);
   }
+}
+
+int decimal_mysql_to_double(const uint8_t *mysql_ptr, uchar *double_ptr, Field *mysql_field)
+{
+  int ret = 0;
+  const int scale = mysql_field->decimals();
+  Field_new_decimal *f = (Field_new_decimal *)mysql_field;
+  const int prec = f->precision;
+  my_decimal d;
+  ret = binary2my_decimal(E_DEC_FATAL_ERROR, mysql_ptr, &d, prec, scale);
+  if (ret != E_DEC_OK) {
+    tse_log_error("[decimal2double]: Decimal data type convert binary to my_decimal failed!");
+    return ret;
+  }
+  ret = decimal2double(&d, (double *)double_ptr);
+  if (ret != E_DEC_OK) {
+    tse_log_error("[decimal2double]: Decimal data type convert my_decimal to double failed!");
+  }
+  return ret;
 }
 
 static inline uint32 get_lob_locator_size(void* locator)
