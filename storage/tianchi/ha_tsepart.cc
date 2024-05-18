@@ -111,13 +111,7 @@ static bool get_used_partitions(partition_info *part_info,
   }
   return true;
 }
-uint64_t calculate_size_of_cbo_part_stats(TABLE *table,uint32_t part_num){
-  uint64_t size_mem = 0;
-  for (uint i = 0; i < part_num; i++) {
-    size_mem += table->s->fields * sizeof(tse_cbo_stats_column_t);
-  }
-  return sizeof(tianchi_cbo_stats_t) + part_num * sizeof(tse_cbo_stats_table_t) + size_mem ;
-}
+
 ha_tsepart::ha_tsepart(handlerton *hton, TABLE_SHARE *table_arg)
     : ha_tse(hton, table_arg), Partition_helper(this),
       m_bulk_insert_parts(nullptr), m_part_share(nullptr) {
@@ -1026,10 +1020,6 @@ int ha_tsepart::initialize_cbo_stats() {
   m_part_share->cbo_stats->msg_len = table->s->fields * sizeof(tse_cbo_stats_column_t);
   m_part_share->cbo_stats->key_len = table->s->keys * sizeof(uint32_t) * MAX_KEY_COLUMNS;
 
-  THD* thd = ha_thd();
-  if (user_var_set(thd, "ctc_show_alloc_cbo_stats_mem")) {
-    tse_log_system("[alloc memory]part table first_partid: %s alloc size :%lu", table->alias, calculate_size_of_cbo_part_stats(table,part_num));
-  }
   return CT_SUCCESS;
 }
 
@@ -1090,10 +1080,7 @@ void ha_tsepart::free_cbo_stats() {
   }
   uint32_t part_num = m_is_sub_partitioned ? table->part_info->num_parts * table->part_info->num_subparts : 
                       table->part_info->num_parts;
-  THD* thd = ha_thd();
-  if(user_var_set(thd, "ctc_show_alloc_cbo_stats_mem")){
-    tse_log_system("[free memory]normal table : %s alloc size :%lu", table->alias, calculate_size_of_cbo_part_stats(table,part_num));
-  }
+
   for (uint i = 0; i < part_num; i++) {
     my_free(m_part_share->cbo_stats->tse_cbo_stats_table[i].columns);
     m_part_share->cbo_stats->tse_cbo_stats_table[i].columns = nullptr;
