@@ -1179,7 +1179,14 @@ static void tse_fill_prefix_func_key_part(TcDb__TseDDLTableKeyPart *req_key_part
 
 static uint32_t tse_fill_func_key_part(TABLE *form, THD *thd, TcDb__TseDDLTableKeyPart *req_key_part, Value_generator *gcol_info)
 {
-  uint32_t arg_count = ((Item_func *)gcol_info->expr_item)->arg_count;
+  Item_func *func_expr_item = dynamic_cast<Item_func *>(gcol_info->expr_item);
+  if (func_expr_item == nullptr) {
+    my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
+          "[TSE_CREATE_TABLE]: CTC do not support this functional index.");    
+    return CT_ERROR;
+  }
+
+  uint32_t arg_count = func_expr_item->arg_count;
   if (arg_count == 0) {
     my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
           "[TSE_CREATE_TABLE]: There is no functional index.");    
@@ -1187,8 +1194,8 @@ static uint32_t tse_fill_func_key_part(TABLE *form, THD *thd, TcDb__TseDDLTableK
   }
 
   req_key_part->is_func = true;
-  req_key_part->func_name = const_cast<char *>(((Item_func *)gcol_info->expr_item)->func_name());
-  Item **args = ((Item_func *)gcol_info->expr_item)->arguments();
+  req_key_part->func_name = const_cast<char *>(func_expr_item->func_name());
+  Item **args = func_expr_item->arguments();
   uint32_t col_item_count = 0;
   Field *field = nullptr;
   for (uint32_t i = 0; i < arg_count; i++) {
