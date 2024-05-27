@@ -829,6 +829,9 @@ int ctc_set_sys_var(tse_ddl_broadcast_request *broadcast_req) {
 }
 
 int tse_ddl_execute_lock_tables_by_req(tianchi_handler_t *tch, tse_lock_table_info *lock_info, int *err_code) {
+// unlock tables before locking tables
+  tse_mdl_unlock_tables_thd(tch);
+
   bool is_same_node = (tch->inst_id == tse_instance_id);
   uint64_t mdl_thd_key = tse_get_conn_key(tch->inst_id, tch->thd_id, true);
  
