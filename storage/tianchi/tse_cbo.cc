@@ -550,11 +550,20 @@ void tse_index_stats_update(TABLE *table, tianchi_cbo_stats_t *cbo_stats)
   for (uint32 i = 0; i < table->s->keys; i++) {
     sk = table->key_info[i];
     for (uint32 j = 0; j < sk.actual_key_parts; j++) {
+      bool all_n_diff_is_zero = true;
       rec_per_key = 0.0f;
       for (uint32 k = 0; k < table_part_num; k++) {
         records = cbo_stats->tse_cbo_stats_table[k].estimate_rows;
         if (*(n_diff + i * MAX_KEY_COLUMNS + j) > 0) {
           rec_per_key += static_cast<rec_per_key_t>(records) / static_cast<rec_per_key_t>(*(n_diff + i * MAX_KEY_COLUMNS + j));
+          all_n_diff_is_zero = false;
+        }
+      }
+
+      // if all n_diff(s) values 0, take records itself as rec_per_key
+      if (all_n_diff_is_zero) {
+        for (uint32 k = 0; k < table_part_num; k++) {
+          rec_per_key += static_cast<rec_per_key_t>(cbo_stats->tse_cbo_stats_table[k].estimate_rows);
         }
       }
 
