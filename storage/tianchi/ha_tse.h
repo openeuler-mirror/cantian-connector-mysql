@@ -36,6 +36,7 @@
 #include "sql/abstract_query_plan.h"
 #include "sql/dd/types/schema.h"
 #include "sql/dd/types/object_table_definition.h"
+#include "sql/dd/string_type.h"
 
 #pragma GCC visibility push(default)
 
@@ -148,6 +149,7 @@ again. */
 #define IS_PRIMARY_ROLE() (tse_get_cluster_role() == (int32_t)dis_cluster_role::PRIMARY)
 #define IS_STANDBY_ROLE() (tse_get_cluster_role() == (int32_t)dis_cluster_role::STANDBY)
 
+static const dd::String_type index_file_name_val_key("index_file_name");
 static const uint ROW_ID_LENGTH = sizeof(uint64_t);
 static const uint TSE_START_TIMEOUT = 120; // seconds
 extern const char *tse_hton_name;
