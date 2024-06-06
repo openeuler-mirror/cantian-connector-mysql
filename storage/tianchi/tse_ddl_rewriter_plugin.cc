@@ -706,9 +706,6 @@ static int tse_read_only_ddl(string &, MYSQL_THD thd, bool &need_forward) {
   return 0;
 }
 
-int tse_lock_table_pre(THD* thd, vector<MDL_ticket*>& ticket_list);
-void tse_lock_table_post(THD* thd, vector<MDL_ticket*>& ticket_list);
-
 static int tse_lock_tables_ddl(string &, MYSQL_THD thd, bool &) {
   TABLE_LIST *tables = thd->lex->query_tables;
   int ret = 0;
@@ -951,39 +948,6 @@ static int plugin_init(MYSQL_PLUGIN) {
 #define plugin_init nullptr
 #define key_memory_tse_ddl_rewriter PSI_NOT_INSTRUMENTED
 #endif /* HAVE_PSI_INTERFACE */
-
-static inline bool is_temporary_table_being_opened(const TABLE_LIST *table) {
-  return table->open_type == OT_TEMPORARY_ONLY ||
-         (table->open_type == OT_TEMPORARY_OR_BASE &&
-          is_temporary_table(table));
-}
-
-int tse_lock_table_pre(THD* thd, vector<MDL_ticket*>& ticket_list) {
-  TABLE_LIST *tables_start = thd->lex->query_tables;
-  TABLE_LIST *tables_end = thd->lex->first_not_own_table();
-  TABLE_LIST *table;
-  for (table = tables_start; table && table != tables_end;
-       table = table->next_global) {
-    if (is_temporary_table_being_opened(table)) {
-      continue;
-    }
-    MDL_request req;
-    MDL_REQUEST_INIT(&req, MDL_key::TABLE, table->db, table->table_name,
-                     MDL_SHARED_NO_READ_WRITE, MDL_EXPLICIT);
-    if (thd->mdl_context.acquire_lock(&req, 1)) {
-      return 1;
-    }
-    ticket_list.push_back(req.ticket);
-  }
-  return 0;
-}
-
-void tse_lock_table_post(THD* thd, vector<MDL_ticket*>& ticket_list) {
-  for (auto it = ticket_list.begin(); it != ticket_list.end(); ++it) {
-    thd->mdl_context.release_lock(*it);
-  }
-  ticket_list.clear();
-}
 
 static void tse_ddl_rewrite_handle_error(MYSQL_THD thd, int ret, tse_ddl_broadcast_request &broadcast_req, uint8_t sql_cmd) {
   if (ret == TSE_DDL_VERSION_NOT_MATCH) {
