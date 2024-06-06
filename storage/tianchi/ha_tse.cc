@@ -148,8 +148,8 @@ static MYSQL_SYSVAR_BOOL(db_datafile_autoextend, tse_db_datafile_autoextend, PLU
 uint32_t tse_db_datafile_size = 32;
 static MYSQL_SYSVAR_UINT(db_datafile_size, tse_db_datafile_size, PLUGIN_VAR_RQCMDARG, 
   "Size of the tablespace data file of the TSE database, in MB.", nullptr, nullptr, 32, 1,  8192 * 1024, 0);
-/* 创库的表空间datafile自动扩展大小, 单位M, 默认8M, 最小1M, 最大8T */
-uint32_t tse_db_datafile_extend_size = 8;
+/* 创库的表空间datafile自动扩展大小, 单位M, 默认128M, 最小1M, 最大8T */
+uint32_t tse_db_datafile_extend_size = 128;
 static MYSQL_SYSVAR_UINT(db_datafile_extend_size, tse_db_datafile_extend_size, PLUGIN_VAR_RQCMDARG, 
   "Size of the TSE database tablespace data file automatically extended, in MB.", nullptr, nullptr, 8, 1, 8192 * 1024, 0);
 
