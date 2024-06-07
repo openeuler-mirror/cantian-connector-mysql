@@ -2002,7 +2002,22 @@ static bool tse_notify_exclusive_mdl(THD *thd, const MDL_key *mdl_key,
 
 static bool tse_notify_alter_table(THD *thd, const MDL_key *mdl_key,
                                    ha_notification_type notification_type) {
-  return tse_notify_exclusive_mdl(thd, mdl_key, notification_type, nullptr);
+  vector<MDL_ticket*> ticket_list;
+  if (IS_METADATA_NORMALIZATION() && notification_type == HA_NOTIFY_PRE_EVENT) {
+    int pre_lock_ret = tse_lock_table_pre(thd, ticket_list);
+    if (pre_lock_ret != 0) {
+      tse_lock_table_post(thd, ticket_list);
+      my_printf_error(ER_LOCK_WAIT_TIMEOUT, "[tse_notify_alter_table]: LOCK TABLE FAILED", MYF(0));
+      return true;
+    }
+  }
+
+  bool ret = tse_notify_exclusive_mdl(thd, mdl_key, notification_type, nullptr);
+
+  if (IS_METADATA_NORMALIZATION() && notification_type == HA_NOTIFY_PRE_EVENT) {
+    tse_lock_table_post(thd, ticket_list);
+  }
+  return ret;
 }
 
 static const unsigned int MAX_SAVEPOINT_NAME_LEN = 64;
