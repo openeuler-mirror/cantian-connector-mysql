@@ -21,6 +21,7 @@
 #include "tse_proxy_util.h"
 
 #include "sql/sql_class.h"
+#include "sql/sql_lex.h"
 #include "sql/tztime.h"
 #include "m_ctype.h"
 #include "my_sys.h"
@@ -723,4 +724,37 @@ int tse_check_unlock_instance(MYSQL_THD thd) {
   tse_unlock_instance(&is_mysqld_starting, &tch);
   tse_log_system("[TSE_UNLOCK_INSTANCE]: SUCCESS. tse_inst:%u, conn_id:%u", tch.inst_id, tch.thd_id);
   return 0;
+}
+
+static inline bool is_temporary_table_being_opened(const TABLE_LIST *table) {
+  return table->open_type == OT_TEMPORARY_ONLY ||
+         (table->open_type == OT_TEMPORARY_OR_BASE &&
+          is_temporary_table(table));
+}
+
+int tse_lock_table_pre(MYSQL_THD thd, vector<MDL_ticket*>& ticket_list) {
+  TABLE_LIST *tables_start = thd->lex->query_tables;
+  TABLE_LIST *tables_end = thd->lex->first_not_own_table();
+  TABLE_LIST *table;
+  for (table = tables_start; table && table != tables_end;
+       table = table->next_global) {
+    if (is_temporary_table_being_opened(table)) {
+      continue;
+    }
+    MDL_request req;
+    MDL_REQUEST_INIT(&req, MDL_key::TABLE, table->db, table->table_name,
+                     MDL_SHARED_NO_READ_WRITE, MDL_EXPLICIT);
+    if (thd->mdl_context.acquire_lock(&req, 1)) {
+      return 1;
+    }
+    ticket_list.push_back(req.ticket);
+  }
+  return 0;
+}
+
+void tse_lock_table_post(MYSQL_THD thd, vector<MDL_ticket*>& ticket_list) {
+  for (auto it = ticket_list.begin(); it != ticket_list.end(); ++it) {
+    thd->mdl_context.release_lock(*it);
+  }
+  ticket_list.clear();
 }
