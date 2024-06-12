@@ -140,6 +140,11 @@ int convert_cantian_err_to_mysql(ct_errno_t error) {
                       "Cannot add or update a child row: a foreign key constraint fails", MYF(0));
       err_code = ER_NO_REFERENCED_ROW_2;
       break;
+    case ERR_LOCK_TIMEOUT:
+      my_printf_error(ERR_LOCK_TIMEOUT,
+                      "Locking timed out while the operation was waiting", MYF(0));
+      err_code = ER_LOCK_NOWAIT;
+      break;
     default:
       return err_code;
   }
