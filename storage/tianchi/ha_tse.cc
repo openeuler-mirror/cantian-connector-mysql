@@ -106,6 +106,9 @@
 #include "sql/dd/upgrade/server.h"             // UPGRADE_FORCE
 #include "sql/abstract_query_plan.h"
 
+#include "sql/dd/properties.h"
+#include "sql/dd/types/partition.h"
+
 #include "tse_stats.h"
 #include "tse_error.h"
 #include "tse_log.h"
@@ -117,6 +120,7 @@
 #include "sql/mysqld.h"
 #include "sql/plugin_table.h"
 #include "sql/dd/object_id.h"
+#include "sql/dd/string_type.h"
 #include "sql/dd/cache/dictionary_client.h"
 #include "sql/dd/dd_schema.h"
 #include "sql/sql_table.h"
@@ -775,7 +779,10 @@ bool ha_tse::check_unsupported_operation(THD *thd, HA_CREATE_INFO *create_info) 
     my_error(ER_NOT_ALLOWED_COMMAND, MYF(0));
     return HA_ERR_UNSUPPORTED;
   }
-  
+  if (create_info != nullptr && create_info->index_file_name) {
+    my_error(ER_ILLEGAL_HA, MYF(0), table_share != nullptr ? table_share->table_name.str : " ");
+    return true;
+  }
   return false;
 }
 
