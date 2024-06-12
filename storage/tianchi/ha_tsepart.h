@@ -24,6 +24,7 @@
 #include "tse_srv.h"
 #include "tse_util.h"
 #include "sql/partitioning/partition_handler.h"
+#include "sql/dd/string_type.h"
 
 class Tsepart_share : public Partition_share {
  public:
@@ -63,6 +64,8 @@ class ha_tsepart : public ha_tse,
     @sa Partition_handler::truncate_partition().
   */
   int truncate_partition_low(dd::Table *dd_table) override;
+
+  bool check_unsupported_indexdir(dd::Table *table_def);
 
   /** Write a row in specific partition.
   Stores a row in an TSE database, to the table specified in this
@@ -367,6 +370,9 @@ class ha_tsepart : public ha_tse,
   int analyze(THD *thd, HA_CHECK_OPT *check_opt) override;
 
   int optimize(THD *thd, HA_CHECK_OPT *check_opt) override;
+
+  int create(const char *name, TABLE *form, HA_CREATE_INFO *create_info,
+             dd::Table *table_def) override; 
 
   /* Get partition row type
   @param[in] partition_table partition table

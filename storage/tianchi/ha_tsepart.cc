@@ -53,6 +53,9 @@
 #include "typelib.h"
 #include "tse_cbo.h"
 #include "sql/sql_alter.h"
+#include "sql/dd/properties.h"
+#include "sql/dd/types/partition.h"
+#include "sql/dd/string_type.h"
 
 #define INVALID_PART_ID (uint32)0xFFFFFFFF;
 
@@ -1128,5 +1131,33 @@ int ha_tsepart::repair(THD *thd, HA_CHECK_OPT *)
 uint32 ha_tsepart::calculate_key_hash_value(Field **field_array)
 {
   return (Partition_helper::ph_calculate_key_hash_value(field_array));
+}
+
+bool ha_tsepart::check_unsupported_indexdir(dd::Table *table_def) {
+  for (const auto dd_part : *table_def->leaf_partitions()) {
+    dd::String_type index_file_name;
+    if (dd_part == nullptr){
+      continue;
+    }
+    const dd::Properties &options = dd_part->options();
+    if (options.exists(index_file_name_val_key)) {
+      options.get(index_file_name_val_key, &index_file_name);
+    }
+    if (!index_file_name.empty()) {
+      my_error(ER_ILLEGAL_HA, MYF(0), table_share != nullptr ? table_share->table_name.str : " ");
+      return true;
+    }  
+  }
+  return false;
+}
+
+EXTER_ATTACK int ha_tsepart::create(const char *name, TABLE *form, HA_CREATE_INFO *create_info,
+                   dd::Table *table_def) {
+  THD *thd = ha_thd();                  
+  if (table_def != nullptr && check_unsupported_indexdir(table_def)) {
+    tse_log_system("Unsupported operation. sql = %s", thd->query().str);
+    return HA_ERR_WRONG_COMMAND;
+  }                 
+  return ha_tse::create(name, form, create_info, table_def);                  
 }
 
