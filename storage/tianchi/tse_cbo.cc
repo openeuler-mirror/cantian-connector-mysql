@@ -552,12 +552,21 @@ void tse_index_stats_update(TABLE *table, tianchi_cbo_stats_t *cbo_stats)
     for (uint32 j = 0; j < sk.actual_key_parts; j++) {
       bool all_n_diff_is_zero = true;
       rec_per_key = 0.0f;
+      uint32 fld_idx = sk.key_part[j].field->field_index();
       for (uint32 k = 0; k < table_part_num; k++) {
         records = cbo_stats->tse_cbo_stats_table[k].estimate_rows;
-        if (*(n_diff + i * MAX_KEY_COLUMNS + j) > 0) {
-          rec_per_key += static_cast<rec_per_key_t>(records) / static_cast<rec_per_key_t>(*(n_diff + i * MAX_KEY_COLUMNS + j));
+        uint32 n_null = cbo_stats->tse_cbo_stats_table[k].columns[fld_idx].num_null;
+        uint32 n_diff_part = *(n_diff + i * MAX_KEY_COLUMNS + j);
+        do {
+          if (!n_diff_part) {
+            break;
+          } else if (n_diff_part <= n_null) {
+            rec_per_key += 1.0f;
+          } else {
+            rec_per_key += static_cast<rec_per_key_t>(records - n_null) / static_cast<rec_per_key_t>(n_diff_part - n_null);
+          }
           all_n_diff_is_zero = false;
-        }
+        } while(0);
       }
 
       // if all n_diff(s) values 0, take records itself as rec_per_key
