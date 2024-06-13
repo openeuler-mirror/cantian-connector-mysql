@@ -151,7 +151,7 @@ static MYSQL_SYSVAR_UINT(db_datafile_size, tse_db_datafile_size, PLUGIN_VAR_RQCM
 /* 创库的表空间datafile自动扩展大小, 单位M, 默认128M, 最小1M, 最大8T */
 uint32_t tse_db_datafile_extend_size = 128;
 static MYSQL_SYSVAR_UINT(db_datafile_extend_size, tse_db_datafile_extend_size, PLUGIN_VAR_RQCMDARG, 
-  "Size of the TSE database tablespace data file automatically extended, in MB.", nullptr, nullptr, 8, 1, 8192 * 1024, 0);
+  "Size of the TSE database tablespace data file automatically extended, in MB.", nullptr, nullptr, 128, 1, 8192 * 1024, 0);
 
 bool tse_concurrent_ddl = true;
 static MYSQL_SYSVAR_BOOL(concurrent_ddl, tse_concurrent_ddl, PLUGIN_VAR_RQCMDARG,
