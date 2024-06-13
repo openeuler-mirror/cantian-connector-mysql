@@ -2296,11 +2296,6 @@ int ha_tse::initialize() {
   m_tch.cursor_ref = 0;
   m_tch.cursor_valid = false;
   m_tch.part_id = (uint32_t)0xFFFFFFFF;
-
-  m_tse_buf = tse_alloc_buf(&m_tch, BIG_RECORD_SIZE);
-  if (m_tse_buf == nullptr) {
-    tse_log_warning("alloc shm mem failed, m_tse_buf size(%u)", BIG_RECORD_SIZE);
-  }
   return CT_SUCCESS;
 }
 
@@ -2585,26 +2580,24 @@ int ha_tse::convert_mysql_record_and_write_to_cantian(uchar *buf, int *cantian_r
   int error_result;
   ct_errno_t ret;
   uint64_t cur_last_insert_id = 0;
-  uchar *tse_buf = m_tse_buf ? m_tse_buf : tse_alloc_buf(&m_tch, BIG_RECORD_SIZE_DYNAMIC);
-  if (tse_buf == nullptr) {
+  if (m_tse_buf == nullptr) {
+    m_tse_buf = tse_alloc_buf(&m_tch, BIG_RECORD_SIZE);
+  }
+  if (m_tse_buf == nullptr) {
     return convert_tse_error_code_to_mysql(ERR_ALLOC_MEMORY);
   }
-  memset(tse_buf, 0, sizeof(row_head_t));
-  record_buf_info_t record_buf = {tse_buf, buf, cantian_record_buf_size};
+  memset(m_tse_buf, 0, sizeof(row_head_t));
+  record_buf_info_t record_buf = {m_tse_buf, buf, cantian_record_buf_size};
   
   update_member_tch(m_tch, tse_hton, ha_thd());
   error_result = mysql_record_to_cantian_record(*table, &record_buf, m_tch, serial_column_offset);
   update_sess_ctx_by_tch(m_tch, tse_hton, ha_thd());  // update for tse_knl_write_lob in mysql_record_to_cantian_record
 
   if (error_result != 0) {
-    // 如果m_tse_buf为空，说明tse_buf是动态申请的，在函数退出之前要释放掉
-    if (m_tse_buf == nullptr) {
-      tse_free_buf(&m_tch, tse_buf);
-    }
     return error_result;
   }
   update_member_tch(m_tch, tse_hton, ha_thd());
-  record_info_t record_info = { tse_buf, (uint16_t)*cantian_record_buf_size };
+  record_info_t record_info = { m_tse_buf, (uint16_t)*cantian_record_buf_size };
   ret = (ct_errno_t)tse_write_row(&m_tch, &record_info, *serial_column_offset, &cur_last_insert_id, flag);
   update_sess_ctx_by_tch(m_tch, tse_hton, ha_thd());
   check_error_code_to_mysql(ha_thd(), &ret);
@@ -2612,10 +2605,6 @@ int ha_tse::convert_mysql_record_and_write_to_cantian(uchar *buf, int *cantian_r
   if (table->next_number_field && buf == table->record[0] && !flag.has_explicit_autoinc) {
     table->next_number_field->store(cur_last_insert_id, true);
     insert_id_for_cur_row = cur_last_insert_id;
-  }
-
-  if (m_tse_buf == nullptr) {
-    tse_free_buf(&m_tch, tse_buf);
   }
 
   return convert_tse_error_code_to_mysql(ret);
@@ -2781,13 +2770,15 @@ EXTER_ATTACK int ha_tse::update_row(const uchar *old_data, uchar *new_data) {
     return HA_ERR_RECORD_IS_THE_SAME;
   }
 
-  uchar *tse_buf = m_tse_buf ? m_tse_buf : tse_alloc_buf(&m_tch, BIG_RECORD_SIZE_DYNAMIC);
-  if (tse_buf == nullptr) {
+  if (m_tse_buf == nullptr) {
+    m_tse_buf = tse_alloc_buf(&m_tch, BIG_RECORD_SIZE);
+  }
+  if (m_tse_buf == nullptr) {
     return convert_tse_error_code_to_mysql(ERR_ALLOC_MEMORY);
   }
-  memset(tse_buf, 0, sizeof(row_head_t));
+  memset(m_tse_buf, 0, sizeof(row_head_t));
 
-  record_buf_info_t record_buf = {tse_buf, new_data, &cantian_new_record_buf_size};
+  record_buf_info_t record_buf = {m_tse_buf, new_data, &cantian_new_record_buf_size};
   ct_errno_t ret = (ct_errno_t)mysql_record_to_cantian_record(*table, &record_buf,
                                              m_tch, &serial_column_offset, &upd_fields);
   if (ret != CT_SUCCESS) {
@@ -2803,13 +2794,9 @@ EXTER_ATTACK int ha_tse::update_row(const uchar *old_data, uchar *new_data) {
   if (!flag.no_foreign_key_check) {
     flag.no_cascade_check = flag.dd_update ? true : pre_check_for_cascade(true);
   }
-  ret = (ct_errno_t)tse_update_row(&m_tch, cantian_new_record_buf_size, tse_buf,
+  ret = (ct_errno_t)tse_update_row(&m_tch, cantian_new_record_buf_size, m_tse_buf,
                                    &upd_fields[0], upd_fields.size(), flag);
   check_error_code_to_mysql(thd, &ret);
-  // 如果m_tse_buf为空，说明tse_buf是动态申请的，在函数退出之前要释放掉
-  if (m_tse_buf == nullptr) {
-    tse_free_buf(&m_tch, tse_buf);
-  }
   return convert_tse_error_code_to_mysql(ret);
 }
 
@@ -3106,19 +3093,16 @@ int ha_tse::rnd_next(uchar *buf) {
   if (!m_rec_buf || m_rec_buf->max_records() == 0) {
     int ret = CT_SUCCESS;
     ct_errno_t ct_ret = CT_SUCCESS;
-    uchar *tse_buf = m_tse_buf ? m_tse_buf : tse_alloc_buf(&m_tch, BIG_RECORD_SIZE_DYNAMIC);
-    if (tse_buf == nullptr) {
+    if (m_tse_buf == nullptr) {
+      m_tse_buf = tse_alloc_buf(&m_tch, BIG_RECORD_SIZE);
+    }
+    if (m_tse_buf == nullptr) {
       return convert_tse_error_code_to_mysql(ERR_ALLOC_MEMORY);
     }
 
-    record_info_t record_info = {tse_buf, 0};
+    record_info_t record_info = {m_tse_buf, 0};
     ct_ret = (ct_errno_t)tse_rnd_next(&m_tch, &record_info);
     ret = process_cantian_record(buf, &record_info, ct_ret, HA_ERR_END_OF_FILE);
-
-    // 如果m_tse_buf为空，说明tse_buf是动态申请的，在函数退出之前要释放掉
-    if (m_tse_buf == nullptr) {
-      tse_free_buf(&m_tch, tse_buf);
-    }
     return ret;
   }
 
@@ -3201,23 +3185,21 @@ EXTER_ATTACK int ha_tse::rnd_pos(uchar *buf, uchar *pos) {
   ha_statistic_increment(&System_status_var::ha_read_rnd_count);
   int ret = CT_SUCCESS;
   ct_errno_t ct_ret = CT_SUCCESS;
-  uchar *tse_buf = m_tse_buf ? m_tse_buf : tse_alloc_buf(&m_tch, BIG_RECORD_SIZE_DYNAMIC);
-  if (tse_buf == nullptr) {
+  
+  if (m_tse_buf == nullptr) {
+    m_tse_buf = tse_alloc_buf(&m_tch, BIG_RECORD_SIZE);
+  }
+  if (m_tse_buf == nullptr) {
     return convert_tse_error_code_to_mysql(ERR_ALLOC_MEMORY);
   }
 
-  record_info_t record_info = {tse_buf, 0};
+  record_info_t record_info = {m_tse_buf, 0};
   uint key_len = ref_length;
   if (IS_TSE_PART(m_tch.part_id)) {
     key_len -= PARTITION_BYTES_IN_POS;
   }
   ct_ret = (ct_errno_t)tse_rnd_pos(&m_tch, key_len, pos, &record_info);
   ret = process_cantian_record(buf, &record_info, ct_ret, HA_ERR_KEY_NOT_FOUND);
-
-  // 如果m_tse_buf为空，说明tse_buf是动态申请的，在函数退出之前要释放掉
-  if (m_tse_buf == nullptr) {
-    tse_free_buf(&m_tch, tse_buf);
-  }
   return ret;
 }
 
@@ -3553,13 +3535,15 @@ EXTER_ATTACK int ha_tse::index_read(uchar *buf, const uchar *key, uint key_len, 
       return ret;
   }
 
-  uchar *tse_buf = m_tse_buf ? m_tse_buf : tse_alloc_buf(&m_tch, BIG_RECORD_SIZE_DYNAMIC);
-  if (tse_buf == nullptr) {
+  if (m_tse_buf == nullptr) {
+    m_tse_buf = tse_alloc_buf(&m_tch, BIG_RECORD_SIZE);
+  }
+  if (m_tse_buf == nullptr) {
     return convert_tse_error_code_to_mysql(ERR_ALLOC_MEMORY);
   }
   
   update_member_tch(m_tch, tse_hton, ha_thd());
-  record_info_t record_info = {tse_buf, 0};
+  record_info_t record_info = {m_tse_buf, 0};
 
 
   attachable_trx_update_pre_addr(tse_hton, ha_thd(), &m_tch, true);
@@ -3575,11 +3559,6 @@ EXTER_ATTACK int ha_tse::index_read(uchar *buf, const uchar *key, uint key_len, 
   }
 
   ret = process_cantian_record(buf, &record_info, ct_ret, HA_ERR_KEY_NOT_FOUND);
-
-  // 如果m_tse_buf为空，说明tse_buf是动态申请的，在函数退出之前要释放掉
-  if (m_tse_buf == nullptr) {
-    tse_free_buf(&m_tch, tse_buf);
-  }
   return ret;
 }
 
@@ -3594,20 +3573,18 @@ int ha_tse::index_fetch(uchar *buf) {
   if (!m_rec_buf || m_rec_buf->max_records() == 0) {
     int ret = CT_SUCCESS;
     ct_errno_t ct_ret = CT_SUCCESS;
-    uchar *tse_buf = m_tse_buf ? m_tse_buf : tse_alloc_buf(&m_tch, BIG_RECORD_SIZE_DYNAMIC);
-    if (tse_buf == nullptr) {
+    if (m_tse_buf == nullptr) {
+      m_tse_buf = tse_alloc_buf(&m_tch, BIG_RECORD_SIZE);
+    }
+    if (m_tse_buf == nullptr) {
       return convert_tse_error_code_to_mysql(ERR_ALLOC_MEMORY);
     }
 
-    record_info_t record_info = {tse_buf, 0};
+    record_info_t record_info = {m_tse_buf, 0};
     attachable_trx_update_pre_addr(tse_hton, ha_thd(), &m_tch, true);
     ct_ret = (ct_errno_t)tse_general_fetch(&m_tch, &record_info);
     attachable_trx_update_pre_addr(tse_hton, ha_thd(), &m_tch, false);
     ret = process_cantian_record(buf, &record_info, ct_ret, HA_ERR_END_OF_FILE);
-    // 如果m_tse_buf为空，说明tse_buf是动态申请的，在函数退出之前要释放掉
-    if (m_tse_buf == nullptr) {
-      tse_free_buf(&m_tch, tse_buf);
-    }
     return ret;
   }
 
