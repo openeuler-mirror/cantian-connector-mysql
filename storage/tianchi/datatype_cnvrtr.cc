@@ -1625,11 +1625,6 @@ void copy_column_data_to_mysql(field_info_t *field_info, const field_cnvrt_aux_t
 bool parse_cantian_column_and_update_offset(Field *field, uint8 cantian_col_type, const field_cnvrt_aux_t* cnvrt_aux,
   record_buf_info_t *record_buf, field_offset_and_len_t *size, bool is_index_only)
 {
-  if ((cnvrt_aux->mysql_field_type == MYSQL_TYPE_BLOB || cnvrt_aux->mysql_field_type == MYSQL_TYPE_JSON)
-      && ((Field_blob *)field)->is_null()) {
-    record_buf->mysql_record_buf[field->null_offset()] |= field->null_bit;
-    return true;
-  }
   switch (cantian_col_type) {
     case CANTIAN_COL_BITS_NULL:
       // set null bit & continue to next field if current column is null
@@ -1740,7 +1735,7 @@ void cantian_record_to_mysql_record(const TABLE &table, index_info_t *index, rec
   // update offset if it's a migrated row
   cantian_field_offset += (row_head->is_migr) ? 8 : 0;
   // initialize null bitmap
-  memset(table.null_flags, 0x00, table.s->null_bytes);
+  memset(record_buf->mysql_record_buf, 0x00, table.s->null_bytes);
   for (uint column_id = 0; column_id < n_fields; column_id++) {
     // early return if current column exceeds the max column id we wanted
     if (column_id > index->max_col_idx) {
