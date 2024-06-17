@@ -1740,7 +1740,7 @@ void cantian_record_to_mysql_record(const TABLE &table, index_info_t *index, rec
   // update offset if it's a migrated row
   cantian_field_offset += (row_head->is_migr) ? 8 : 0;
   // initialize null bitmap
-  memset(record_buf->mysql_record_buf, 0x00, table.s->null_bytes);
+  memset(table.null_flags, 0x00, table.s->null_bytes);
   for (uint column_id = 0; column_id < n_fields; column_id++) {
     // early return if current column exceeds the max column id we wanted
     if (column_id > index->max_col_idx) {
