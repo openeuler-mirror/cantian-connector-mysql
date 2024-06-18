@@ -5309,10 +5309,45 @@ void ha_tse::free_cbo_stats()
 */
 const Item *ha_tse::cond_push(const Item *cond, bool other_tbls_ok MY_ATTRIBUTE((unused)))
 {
+  assert(m_cond == nullptr);
   assert(pushed_cond == nullptr);
   assert(cond != nullptr);
-  const Item *remainder;
-  remainder = cond;
+  const Item *remainder = cond;
+
+  THD *const thd = table->in_use;
+  if (!thd->optimizer_switch_flag(OPTIMIZER_SWITCH_ENGINE_CONDITION_PUSHDOWN)) {
+    return remainder;
+  }
+  if (thd->lex->all_query_blocks_list && thd->lex->all_query_blocks_list->is_recursive()) {
+    return remainder;
+  }
+
+  prep_cond_push(cond);
+  if (m_pushed_conds == nullptr) {
+    return remainder;
+  }
+
+  m_cond = (tse_conds *)tse_alloc_buf(&m_tch, sizeof(tse_conds));
+  if (m_cond == nullptr) {
+    tse_log_warning("alloc shm mem failed, m_cond size(%lu), pushdown cond is null.",  sizeof(tse_conds));
+    return remainder;
+  }
+
+  bool no_backslash = false;
+  if (thd->variables.sql_mode & MODE_NO_BACKSLASH_ESCAPES) {
+    no_backslash = true;
+  }
+  Field **field = table->field;
+  if (tse_fill_conds(m_tch, m_pushed_conds, field, m_cond, no_backslash) != CT_SUCCESS) {
+    free_m_cond(m_tch, &m_cond);
+    m_pushed_conds = nullptr;
+    m_remainder_conds = nullptr;
+    return remainder;
+  }
+
+  pushed_cond = m_pushed_conds;
+  m_remainder_conds = const_cast<Item *>(cond);
+
   return remainder;
 }
 
@@ -5344,24 +5379,24 @@ const Item *ha_tse::cond_push(const Item *cond, bool other_tbls_ok MY_ATTRIBUTE(
 int ha_tse::engine_push(AQP::Table_access *table_aqp)
 {
   DBUG_TRACE;
-  const Item *cond = table_aqp->get_condition();
   assert(m_cond == nullptr);
+
+  // Filter Multi-Table Queries
+  const AQP::Join_plan *const plan = table_aqp->get_join_plan();
+  if (plan->get_access_count() > 1) {
+    return 0;
+  }
 
   THD *const thd = table->in_use;
   if (!thd->optimizer_switch_flag(OPTIMIZER_SWITCH_ENGINE_CONDITION_PUSHDOWN)) {
     return 0;
   }
-  
   if (thd->lex->all_query_blocks_list && thd->lex->all_query_blocks_list->is_recursive()) {
     return 0;
   }
 
+  const Item *cond = table_aqp->get_condition();
   if (cond == nullptr) {
-    return 0;
-  }
-  // Filter Multi-Table Queries
-  const AQP::Join_plan *const plan = table_aqp->get_join_plan();
-  if (plan->get_access_count() > 1) {
     return 0;
   }
 
