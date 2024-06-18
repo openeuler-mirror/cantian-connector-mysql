@@ -1625,11 +1625,6 @@ void copy_column_data_to_mysql(field_info_t *field_info, const field_cnvrt_aux_t
 bool parse_cantian_column_and_update_offset(Field *field, uint8 cantian_col_type, const field_cnvrt_aux_t* cnvrt_aux,
   record_buf_info_t *record_buf, field_offset_and_len_t *size, bool is_index_only)
 {
-  if ((cnvrt_aux->mysql_field_type == MYSQL_TYPE_BLOB || cnvrt_aux->mysql_field_type == MYSQL_TYPE_JSON)
-      && ((Field_blob *)field)->is_null()) {
-    record_buf->mysql_record_buf[field->null_offset()] |= field->null_bit;
-    return true;
-  }
   switch (cantian_col_type) {
     case CANTIAN_COL_BITS_NULL:
       // set null bit & continue to next field if current column is null
