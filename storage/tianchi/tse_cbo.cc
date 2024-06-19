@@ -546,6 +546,10 @@ void tse_index_stats_update(TABLE *table, tianchi_cbo_stats_t *cbo_stats)
   uint32_t *n_diff = cbo_stats->ndv_keys;
   uint32_t records;
   uint32_t table_part_num = cbo_stats->part_cnt == 0 ? 1 : cbo_stats->part_cnt;
+  
+  if (cbo_stats->records == 0) {
+    return;
+  }
 
   for (uint32 i = 0; i < table->s->keys; i++) {
     sk = table->key_info[i];
