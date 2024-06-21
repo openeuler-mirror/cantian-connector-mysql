@@ -149,4 +149,11 @@ void tse_log_print(enum loglevel loglevel, const char *fmt, ...) {
         }                                                   \
     } while (0)
 
+#define TSE_RET_ERR_IF_NULL(var)                            \
+    do {                                                    \
+        if (var == NULL) {                                  \
+            return CT_ERROR;                                \
+        }                                                   \
+    } while (0)
+
 #endif // __TSE_LOG_H__
