@@ -529,9 +529,7 @@ int dfs_fill_conds(tianchi_handler_t m_tch, Item *items, Field **field, tse_cond
       }
       memset(list, 0, sizeof(tse_cond_list));
       ret = tse_push_cond_list(m_tch, items, field, list, no_backslash);
-      if (ret == CT_SUCCESS) {
-        conds->cond_list = list;
-      }
+      conds->cond_list = list;
       break;
     case TSE_NOT_FUNC:
     case TSE_XOR_FUNC:
@@ -542,9 +540,7 @@ int dfs_fill_conds(tianchi_handler_t m_tch, Item *items, Field **field, tse_cond
       }
       memset(list, 0, sizeof(tse_cond_list));
       ret = tse_push_cond_args(m_tch, items, field, list, no_backslash);
-      if (ret == CT_SUCCESS) {
-        conds->cond_list = list;
-      }
+      conds->cond_list = list;
       break;
     case TSE_EQ_FUNC:
     case TSE_EQUAL_FUNC:
