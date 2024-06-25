@@ -867,6 +867,11 @@ static unordered_map<enum enum_sql_command, ddl_broadcast_cmd>
     // alter database broadcast for recording logical logs
     {SQLCOM_ALTER_DB, {false, NULL}},
 
+    // 不支持创建,修改，删除EVENT
+    {SQLCOM_CREATE_EVENT, {false, tse_check_unspport_ddl}},
+    {SQLCOM_ALTER_EVENT, {false, tse_check_unspport_ddl}},
+    {SQLCOM_DROP_EVENT, {false, tse_check_unspport_ddl}},
+
     // Replication operations - unsupported
     {SQLCOM_CREATE_SERVER, {false, tse_check_unspport_ddl}},
     {SQLCOM_DROP_SERVER, {false, tse_check_unspport_ddl}},
