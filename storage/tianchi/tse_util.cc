@@ -171,14 +171,20 @@ int tse_fill_cond_field_data_num(tianchi_handler_t m_tch, Item *items, Field *my
   switch (mysql_info->ddl_field_type) {
     case TSE_DDL_TYPE_LONG:
     case TSE_DDL_TYPE_LONGLONG: {
+      longlong val;
       if ((((Item_func *)items)->arguments()[1])->type() == Item::CACHE_ITEM) {
-        longlong val = ((Item_cache_int *)(((Item_func *)items)->arguments()[1]))->val_int();
-        data = (uchar *)malloc(sizeof(longlong));
-        is_alloc_data = CT_TRUE;
-        memcpy(data, &val, sizeof(longlong));
+        val = ((Item_cache_int *)(((Item_func *)items)->arguments()[1]))->val_int();
       } else {
-        data = &((Item_int *)(((Item_func_eq *)items)->arguments()[1]))->value;
+        val = (((Item_func_eq *)items)->arguments()[1])->val_int();
       }
+      data = (uchar *)my_malloc(PSI_NOT_INSTRUMENTED, sizeof(longlong), MYF(MY_WME));
+      if (data == nullptr) {
+        tse_log_error("[tse_fill_cond_field_data_num]alloc mem failed, size(%ld)", sizeof(longlong));
+        my_error(ER_OUT_OF_RESOURCES, MYF(0), "COND FIELD DATA");
+        return CT_ERROR;
+      }
+      is_alloc_data = CT_TRUE;
+      memcpy(data, &val, sizeof(longlong));
       break;
     }
     case TSE_DDL_TYPE_DOUBLE:
@@ -191,7 +197,12 @@ int tse_fill_cond_field_data_num(tianchi_handler_t m_tch, Item *items, Field *my
       uchar *buff = new uchar[binary_size];
       my_decimal *d = ((Item_decimal *)(((Item_func_eq *)items)->arguments()[1]))->val_decimal(nullptr);
       my_decimal2binary(E_DEC_FATAL_ERROR, d, buff, prec, scale);
-      data = (uchar *)malloc(binary_size);
+      data = (uchar *)my_malloc(PSI_NOT_INSTRUMENTED, binary_size, MYF(MY_WME));
+      if (data == nullptr) {
+        tse_log_error("[tse_fill_cond_field_data_num]alloc mem failed, size(%d)", binary_size);
+        my_error(ER_OUT_OF_RESOURCES, MYF(0), "COND FIELD DATA");
+        return CT_ERROR;
+      }
       is_alloc_data = CT_TRUE;
       memcpy(data, buff, binary_size);
       delete[] buff;
@@ -213,7 +224,7 @@ int tse_fill_cond_field_data_num(tianchi_handler_t m_tch, Item *items, Field *my
 
   memcpy(cond->field_info.field_value, cantian_ptr, cond->field_info.field_size);
   if (is_alloc_data) {
-    free(data);
+    my_free(data);
     is_alloc_data = CT_FALSE;
   }
   return ret;
