@@ -168,14 +168,22 @@ int tse_fill_cond_field_data_num(tianchi_handler_t m_tch, Item *items, Field *my
   int ret = CT_SUCCESS;
   void *data = nullptr;
   bool is_alloc_data = CT_FALSE;
+  Item_func_comparison *item_func_comparison = dynamic_cast<Item_func_comparison *>(items);
+  TSE_RET_ERR_IF_NULL(item_func_comparison);
   switch (mysql_info->ddl_field_type) {
     case TSE_DDL_TYPE_LONG:
     case TSE_DDL_TYPE_LONGLONG: {
+      Item_func *item_func = dynamic_cast<Item_func *>(items);
+      TSE_RET_ERR_IF_NULL(item_func);
       longlong val;
-      if ((((Item_func *)items)->arguments()[1])->type() == Item::CACHE_ITEM) {
-        val = ((Item_cache_int *)(((Item_func *)items)->arguments()[1]))->val_int();
+      if ((item_func->arguments()[1])->type() == Item::CACHE_ITEM) {
+        Item_cache_int *item_cache_int = dynamic_cast<Item_cache_int *>(item_func_comparison->arguments()[1]);
+        TSE_RET_ERR_IF_NULL(item_cache_int);
+        val = item_cache_int->val_int();
       } else {
-        val = (((Item_func_eq *)items)->arguments()[1])->val_int();
+        Item_int *item_int = dynamic_cast<Item_int *>(item_func_comparison->arguments()[1]);
+        TSE_RET_ERR_IF_NULL(item_int);
+        val = item_int->val_int();
       }
       data = (uchar *)my_malloc(PSI_NOT_INSTRUMENTED, sizeof(longlong), MYF(MY_WME));
       if (data == nullptr) {
@@ -187,15 +195,22 @@ int tse_fill_cond_field_data_num(tianchi_handler_t m_tch, Item *items, Field *my
       memcpy(data, &val, sizeof(longlong));
       break;
     }
-    case TSE_DDL_TYPE_DOUBLE:
-      data = &((Item_float *)(((Item_func_eq *)items)->arguments()[1]))->value;
+    case TSE_DDL_TYPE_DOUBLE: {
+      Item_float *item_float = dynamic_cast<Item_float *>(item_func_comparison->arguments()[1]);
+      TSE_RET_ERR_IF_NULL(item_float);
+      data = &item_float->value;
       break;
+    }
     case TSE_DDL_TYPE_NEWDECIMAL: {
       const int scale = mysql_field->decimals();
-      const int prec = ((Field_new_decimal *)mysql_field)->precision;
+      Field_new_decimal *field_new_decimal = dynamic_cast<Field_new_decimal *>(mysql_field);
+      TSE_RET_ERR_IF_NULL(field_new_decimal);
+      const int prec = field_new_decimal->precision;
       int binary_size = my_decimal_get_binary_size(prec, scale);
       uchar *buff = new uchar[binary_size];
-      my_decimal *d = ((Item_decimal *)(((Item_func_eq *)items)->arguments()[1]))->val_decimal(nullptr);
+      Item_decimal *item_decimal = dynamic_cast<Item_decimal *>(item_func_comparison->arguments()[1]);
+      TSE_RET_ERR_IF_NULL(item_decimal);
+      my_decimal *d = item_decimal->val_decimal(nullptr);
       my_decimal2binary(E_DEC_FATAL_ERROR, d, buff, prec, scale);
       data = (uchar *)my_malloc(PSI_NOT_INSTRUMENTED, binary_size, MYF(MY_WME));
       if (data == nullptr) {
@@ -327,15 +342,18 @@ int tse_fill_cond_field_data_string(tianchi_handler_t m_tch, Item_func *item_fun
     cond->field_info.null_value = true;
     return CT_SUCCESS;
   }
-  Item_field *item_field = (Item_field *)((item_func)->arguments()[0]);
+  Item_field *item_field = dynamic_cast<Item_field *>((item_func)->arguments()[0]);
+  TSE_RET_ERR_IF_NULL(item_field);
   uint cslen = item_field->collation.collation->mbminlen;
   cond->field_info.collate_id = tse_get_column_cs(item_field->collation.collation);
   if (no_backslash) {
     cond->field_info.no_backslash = true;
   }
-  String *item_string = ((Item_string *)(item_func->arguments()[1]))->val_str(nullptr);
-  cond->field_info.field_size = item_string->length();
-  void *data = item_string->ptr();
+  Item_string *item_string = dynamic_cast<Item_string *>(item_func->arguments()[1]);
+  TSE_RET_ERR_IF_NULL(item_string);
+  String *item_str = item_string->val_str(nullptr);
+  cond->field_info.field_size = item_str->length();
+  void *data = item_str->ptr();
   cond->field_info.field_value = tse_alloc_buf(&m_tch, cond->field_info.field_size);
   if (cond->field_info.field_size > 0 && cond->field_info.field_value == nullptr) {
     tse_log_error("tse_fill_cond_field: alloc field_data error, size(%u).", cond->field_info.field_size);
@@ -352,11 +370,16 @@ int tse_fill_cond_field_data_string(tianchi_handler_t m_tch, Item_func *item_fun
 int tse_fill_cond_field_data(tianchi_handler_t m_tch, Item *items, Field *mysql_field,
                              const field_cnvrt_aux_t *mysql_info, tse_conds *cond) {
   int ret = CT_SUCCESS;
-  Item_func *item_func = (Item_func *)items;
+  Item_func *item_func = dynamic_cast<Item_func *>(items);
+  TSE_RET_ERR_IF_NULL(item_func);
+  Item_func_comparison *item_func_comparison = dynamic_cast<Item_func_comparison *>(items);
+  TSE_RET_ERR_IF_NULL(item_func_comparison);
   if ((item_func->arguments()[1])->type() == Item::CACHE_ITEM) {
-    cond->field_info.null_value = !((Item_cache *)((item_func)->arguments()[1]))->has_value();
+    Item_cache *item_cache = dynamic_cast<Item_cache *>(item_func_comparison->arguments()[1]);
+    TSE_RET_ERR_IF_NULL(item_cache);
+    cond->field_info.null_value = !item_cache->has_value();
   } else {
-    cond->field_info.null_value = ((Item_func_eq *)items)->arguments()[1]->null_value;
+    cond->field_info.null_value = item_func_comparison->arguments()[1]->null_value;
   }
   if (cond->field_info.null_value) {
     return CT_SUCCESS;
@@ -370,8 +393,12 @@ int tse_fill_cond_field_data(tianchi_handler_t m_tch, Item *items, Field *mysql_
       MYSQL_TIME ltime;
       date_detail_t date_detail;
       memset(&date_detail, 0, sizeof(date_detail_t));
+      Item_func_comparison *item_func_comparison = dynamic_cast<Item_func_comparison *>(items);
+      TSE_RET_ERR_IF_NULL(item_func_comparison);
       if (mysql_info->mysql_field_type == MYSQL_TYPE_YEAR) {
-        ltime.year = ((Item_int *)(((Item_func_eq *)items)->arguments()[1]))->value;
+        Item_int *item_int = dynamic_cast<Item_int *>(item_func_comparison->arguments()[1]);
+        TSE_RET_ERR_IF_NULL(item_int);
+        ltime.year = item_int->value;
         ltime.month = 1;
         ltime.day = 1;
         ltime.hour = 0;
@@ -379,8 +406,14 @@ int tse_fill_cond_field_data(tianchi_handler_t m_tch, Item *items, Field *mysql_
         ltime.second = 0;
         ltime.second_part = 0;
         ltime.neg = false;
-      } else if (((Item_date_literal *)(((Item_func_eq *)items)->arguments()[1]))->get_date(&ltime, TIME_FUZZY_DATE)) {
-        return CT_ERROR;
+      } else {
+        Item_func *item_date_func = dynamic_cast<Item_func *>(item_func->arguments()[1]);
+        TSE_RET_ERR_IF_NULL(item_date_func);
+        Item_date_literal *item_date_literal = (Item_date_literal *)(item_date_func);
+        TSE_RET_ERR_IF_NULL(item_date_literal);
+        if (item_date_literal->get_date(&ltime, TIME_FUZZY_DATE)) {
+          return CT_ERROR;
+        }
       }
       ret = tse_fill_cond_field_data_date(m_tch, mysql_info, ltime, &date_detail, cond);
       break;
@@ -399,7 +432,8 @@ int tse_fill_cond_field_data(tianchi_handler_t m_tch, Item *items, Field *mysql_
 }
 
 int tse_fill_cond_field(tianchi_handler_t m_tch, Item *items, Field **field, tse_conds *cond, bool no_backslash) {
-  Item_func *item_func = (Item_func *)items;
+  Item_func *item_func = dynamic_cast<Item_func *>(items);
+  TSE_RET_ERR_IF_NULL(item_func);
   const char *field_name = item_func->arguments()[0]->item_name.ptr();
   cond->field_info.field_no = tse_get_column_by_field(field, field_name);
   if (cond->field_info.field_no == INVALID_MAX_COLUMN) {
@@ -434,7 +468,8 @@ int tse_fill_cond_field(tianchi_handler_t m_tch, Item *items, Field **field, tse
 
 int tse_push_cond_list(tianchi_handler_t m_tch, Item *items, Field **field,
                        tse_cond_list *list, bool no_backslash) {
-  Item_cond *item_cond = (Item_cond *)items;
+  Item_cond *item_cond = dynamic_cast<Item_cond *>(items);
+  TSE_RET_ERR_IF_NULL(item_cond);
   List<Item> *argument_list = item_cond->argument_list();
   uint16_t size = argument_list->size();
   list_node *node = argument_list->first_node();
@@ -464,7 +499,8 @@ int tse_push_cond_list(tianchi_handler_t m_tch, Item *items, Field **field,
 
 int tse_push_cond_args(tianchi_handler_t m_tch, Item *items, Field **field,
                        tse_cond_list *list, bool no_backslash) {
-  Item_func *item_func = (Item_func *)items;
+  Item_func *item_func = dynamic_cast<Item_func *>(items);
+  TSE_RET_ERR_IF_NULL(item_func);
   Item **args = item_func->arguments();
   uint16_t size = item_func->argument_count();
 
@@ -524,7 +560,8 @@ tse_func_type_t item_func_to_tse_func(Item_func::Functype fc) {
 }
 
 int dfs_fill_conds(tianchi_handler_t m_tch, Item *items, Field **field, tse_conds *conds, bool no_backslash) {
-  Item_func *item_func = (Item_func *)items;
+  Item_func *item_func = dynamic_cast<Item_func *>(items);
+  TSE_RET_ERR_IF_NULL(item_func);
   Item_func::Functype fc = item_func->functype();
   conds->func_type = item_func_to_tse_func(fc);
   int ret = CT_SUCCESS;

@@ -410,13 +410,14 @@ static bool tse_fill_column_precision_and_scale(TcDb__TseDDLColumnDef *column, F
         column->datatype->precision = CT_UNSPECIFIED_NUM_PREC;
       } else {
         column->datatype->scale = field->decimals();
-        column->datatype->precision = ((Field_real *)field)->max_display_length();
+        Field_real *field_real = dynamic_cast<Field_real *>(field);
+        column->datatype->precision = field_real->max_display_length();
       }
       break;
     }
     case MYSQL_TYPE_DECIMAL: 
     case MYSQL_TYPE_NEWDECIMAL: {
-      Field_new_decimal *f = (Field_new_decimal *)field;
+      Field_new_decimal *f = dynamic_cast<Field_new_decimal *>(field);
       column->datatype->precision = f->precision;
       column->datatype->scale = f->decimals();
       if (f->precision > MAX_NUMERIC_BUFF) {
@@ -434,7 +435,8 @@ static bool tse_fill_column_precision_and_scale(TcDb__TseDDLColumnDef *column, F
     }
     case MYSQL_TYPE_ENUM:
     case MYSQL_TYPE_SET: {
-      column->datatype->precision = ((Field_enum *)field)->typelib->count;
+      Field_enum *field_enum = dynamic_cast<Field_enum *>(field);
+      column->datatype->precision = field_enum->typelib->count;
       break;
     }
     case MYSQL_TYPE_BIT:
@@ -948,7 +950,7 @@ static bool tse_check_expression_default_value(TcDb__TseDDLColumnDef *column, Fi
     return false; 
   } else if (constant_default->type() == Item::FUNC_ITEM) {
     // default function
-    Item_func *item_func = (Item_func *)constant_default;
+    Item_func *item_func = dynamic_cast<Item_func *>(constant_default);
     column->default_func_name = const_cast<char *>(item_func->func_name());
     for (uint i = 0; i < item_func->arg_count; i++) {
       if (item_func->get_arg(i)->type() == Item::FIELD_ITEM) {
