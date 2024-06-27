@@ -364,7 +364,8 @@ int decimal_mysql_to_cantian(const uint8_t *mysql_ptr, uchar *cantian_ptr, Field
 {
   int ret = 0;
   const int scale = mysql_field->decimals();
-  Field_new_decimal *f = (Field_new_decimal *)mysql_field;
+  Field_new_decimal *f = dynamic_cast<Field_new_decimal *>(mysql_field);
+  TSE_RET_ERR_IF_NULL(f);
   const int prec = f->precision;
   my_decimal d;
   ret = binary2my_decimal(E_DEC_FATAL_ERROR, mysql_ptr, &d, prec, scale);
@@ -408,7 +409,13 @@ void decimal_cantian_to_mysql(uint8_t *mysql_ptr, uchar *cantian_ptr, Field *mys
     assert(0);
   }
 
-  const int prec = ((Field_new_decimal *)mysql_field)->precision;
+  Field_new_decimal *f = dynamic_cast<Field_new_decimal *>(mysql_field);
+  if (f == nullptr) {
+    tse_log_error("[cantian2mysql]Decimal data type convert my_decimal to binary failed!");
+    assert(0);
+  }
+
+  const int prec = f->precision;
   const int scale = mysql_field->decimals();
   if (my_decimal2binary(E_DEC_FATAL_ERROR, &decimal_value, mysql_ptr, prec, scale) != E_DEC_OK) {
     tse_log_error("[cantian2mysql]Decimal data type convert my_decimal to binary failed!");
@@ -420,7 +427,8 @@ int decimal_mysql_to_double(const uint8_t *mysql_ptr, uchar *double_ptr, Field *
 {
   int ret = 0;
   const int scale = mysql_field->decimals();
-  Field_new_decimal *f = (Field_new_decimal *)mysql_field;
+  Field_new_decimal *f = dynamic_cast<Field_new_decimal *>(mysql_field);
+  TSE_RET_ERR_IF_NULL(f);
   const int prec = f->precision;
   my_decimal d;
   ret = binary2my_decimal(E_DEC_FATAL_ERROR, mysql_ptr, &d, prec, scale);
@@ -535,9 +543,9 @@ void convert_json_to_mysql(Field *mysql_field)
 {
   // json binary serialize
   if (mysql_field->type() == MYSQL_TYPE_JSON) {
-    Field_json *json = (Field_json *)mysql_field;
+    Field_json *json = dynamic_cast<Field_json *>(mysql_field);
     Json_wrapper wr;
-    if (bitmap_is_set(json->table->read_set, mysql_field->field_index()) && json->val_json(&wr)) {
+    if (json == nullptr || (bitmap_is_set(json->table->read_set, mysql_field->field_index()) && json->val_json(&wr))) {
       tse_log_error("[convert_json_to_mysql] get json value failed");
       assert(0);
     }
@@ -663,7 +671,11 @@ void cal_gcol_cnts_for_update(Field **field, uint column_id, uint32_t *virtual_g
 longlong bit_cnvt_mysql_cantian(const uchar *ptr, Field *mysql_field)
 {
   ulonglong bits = 0;
-  Field_bit *field = (Field_bit *)mysql_field;
+  Field_bit *field = dynamic_cast<Field_bit *>(mysql_field);
+  if (field == nullptr) {
+    tse_log_error("bit_cnvt_mysql_cantian failed!");
+    assert(0);
+  }
   uint bytes_in_rec = field->bytes_in_rec;
   if (field->bit_len) {
     bits = get_rec_bits(field->bit_ptr, field->bit_ofs, field->bit_len);
@@ -694,7 +706,12 @@ longlong bit_cnvt_mysql_cantian(const uchar *ptr, Field *mysql_field)
 void bit_cnvt_cantian_mysql(const uchar *cantian_ptr, uchar *mysql_ptr, Field *mysql_field)
 {
   ulonglong bits = 0;
-  Field_bit *field = (Field_bit *)mysql_field;
+  Field_bit *field = dynamic_cast<Field_bit *>(mysql_field);
+  if (field == nullptr) {
+    tse_log_error("bit_cnvt_cantian_mysql failed!");
+    assert(0);
+    return;
+  }
   uint bytes_in_rec = field->bytes_in_rec;
   if (field->bit_len) {
     bits = get_rec_bits(field->bit_ptr, field->bit_ofs, field->bit_len);
@@ -1314,7 +1331,12 @@ static uint32_t calculate_variable_len(const field_cnvrt_aux_t* mysql_info, Fiel
     case MYSQL_TYPE_NEWDECIMAL: {
       // field_len indicates the max bytes occupied by the decimal(prec,scale) column of Cantian
       int scale = mysql_field->decimals();
-      Field_new_decimal *f = (Field_new_decimal *)mysql_field;
+      Field_new_decimal *f = dynamic_cast<Field_new_decimal *>(mysql_field);
+      if (f == nullptr) {
+        tse_log_error("[mysql2cantian calculate length]unknow data type: %d", mysql_info->mysql_field_type);
+        data_offset = 0;
+        break;
+      }
       int prec = f->precision;
       // the number of cells(dec4_t) used to store the decimal(prec,scale) = (Integer part + decimal part)
       int ncells = ALIGN_UP(prec - scale, 4) + ALIGN_UP(scale, 4);
@@ -1838,7 +1860,8 @@ int get_cantian_record_length(const TABLE *table)
         break;
       case MYSQL_TYPE_NEWDECIMAL: {
         int scale = mysql_field->decimals();
-        Field_new_decimal *f = (Field_new_decimal *)mysql_field;
+        Field_new_decimal *f = dynamic_cast<Field_new_decimal *>(mysql_field);
+        TSE_RET_ERR_IF_NULL(f);
         int prec = f->precision; 
         int ncells = ALIGN_UP(prec - scale, 4) + ALIGN_UP(scale, 4);
         field_len = ROUND_UP((1 + ncells) * sizeof(uint16_t) + sizeof(uint16_t), 4);

@@ -493,24 +493,46 @@ static bool is_lock_table(MYSQL_THD thd) {
 }
 
 static bool check_cmp_result(Item *term) {
-  Item_field *item_field = (Item_field *)(((Item_func *)term)->arguments()[0]);
-  Item_field *item_field_next = (Item_field *)(((Item_func *)term)->arguments()[1]);
-  Item::Type type = (((Item_func *)term)->arguments()[1])->type();
+  Item_func *item_func = dynamic_cast<Item_func *>(term);
+  if (item_func == nullptr) {
+    return false;
+  }
+
+  Item_field *item_field = dynamic_cast<Item_field *>(item_func->arguments()[0]);
+  Item_result cmp_context_next = item_func->arguments()[1]->cmp_context;
+  if (item_field == nullptr) {
+    return false;
+  }
+
+  Item::Type type = item_func->arguments()[1]->type();
 
   if (type == Item::NULL_ITEM) {
     return true;
   }
   if (item_field->data_type() == MYSQL_TYPE_YEAR) {
-    return type == Item::INT_ITEM && item_field_next->cmp_context == INT_RESULT;
+    return type == Item::INT_ITEM && cmp_context_next == INT_RESULT;
   }
 
   if (is_temporal_type(item_field->data_type())) {
-    if (!((((Item_func *)term)->arguments()[1])->basic_const_item() && item_field_next->cmp_context == INT_RESULT)) {
+    if (!((item_func->arguments()[1])->basic_const_item() && cmp_context_next == INT_RESULT)) {
       return false;
     }
     if (item_field->data_type() == MYSQL_TYPE_TIMESTAMP) {
       MYSQL_TIME ltime;
-      if (((Item_date_literal *)(((Item_func_eq *)term)->arguments()[1]))->get_date(&ltime, TIME_FUZZY_DATE)) {
+      Item_func_comparison *item_func_comparison = dynamic_cast<Item_func_comparison *>(term);
+      if (item_func_comparison == nullptr) {
+        return false;
+      }
+      
+      Item_func *item_date_func = dynamic_cast<Item_func *>(item_func->arguments()[1]);
+      if (item_date_func == nullptr) {
+        return false;
+      }
+      Item_date_literal *item_date_literal = (Item_date_literal *)(item_date_func);
+      if (item_date_literal == nullptr) {
+        return false;
+      }
+      if (item_date_literal->get_date(&ltime, TIME_FUZZY_DATE)) {
         return false;
       }
       if (non_zero_date(ltime)) {
@@ -521,15 +543,15 @@ static bool check_cmp_result(Item *term) {
   }
 
   if (is_string_type(item_field->data_type())) {
-    return type == Item::STRING_ITEM && item_field_next->cmp_context == STRING_RESULT;
+    return type == Item::STRING_ITEM && cmp_context_next == STRING_RESULT;
   }
 
   if (is_integer_type(item_field->data_type())) {
-    return (type == Item::INT_ITEM && item_field_next->cmp_context == INT_RESULT) || type == Item::CACHE_ITEM;
+    return (type == Item::INT_ITEM && cmp_context_next == INT_RESULT) || type == Item::CACHE_ITEM;
   }
 
   if (is_numeric_type(item_field->data_type())) {
-    return (type == Item::REAL_ITEM || type == Item::DECIMAL_ITEM) && item_field_next->cmp_context != STRING_RESULT;
+    return (type == Item::REAL_ITEM || type == Item::DECIMAL_ITEM) && cmp_context_next != STRING_RESULT;
   }
 
   return false;
@@ -555,7 +577,11 @@ static bool is_supported_datatype_cond(enum_field_types datatype) {
 }
 
 static bool is_supported_func_item(Item *term) {
-  Item_func::Functype functype = ((Item_func *)term)->functype();
+  Item_func *item_func = dynamic_cast<Item_func *>(term);
+  if (item_func == nullptr) {
+    return false;
+  }
+  Item_func::Functype functype = item_func->functype();
   // filter unspported func
   if (functype != Item_func::EQ_FUNC &&
       functype != Item_func::EQUAL_FUNC &&
@@ -570,13 +596,16 @@ static bool is_supported_func_item(Item *term) {
       return false;
   }
 
-  Item::Type type = (((Item_func *)term)->arguments()[0])->type();
+  Item::Type type = (item_func->arguments()[0])->type();
   // filter expressions
   if (type != Item::FIELD_ITEM) {
     return false;
   }
 
-  Item_field *item_field = (Item_field *)(((Item_func *)term)->arguments()[0]);
+  Item_field *item_field = dynamic_cast<Item_field *>(item_func->arguments()[0]);
+  if (item_field == nullptr) {
+    return false;
+  }
 
   // filter generated column
   if (item_field->field->is_gcol() || !item_field->field->part_of_prefixkey.is_clear_all()) {
@@ -600,8 +629,8 @@ static bool is_supported_func_item(Item *term) {
   }
 
   if (functype == Item_func::LIKE_FUNC) {
-    Item_func_like *like_func = (Item_func_like *)((Item_func *)term);
-    if (like_func->escape_was_used_in_parsing() || !is_string_type(item_field->data_type())) {
+    Item_func_like *like_func = dynamic_cast<Item_func_like *>(item_func);
+    if (like_func == nullptr || like_func->escape_was_used_in_parsing() || !is_string_type(item_field->data_type())) {
       return false;
     }
   }
@@ -681,7 +710,10 @@ void cond_push_boolean_term(Item *term, Item *&pushed_cond, Item *&remainder_con
   if (term->type() == Item::COND_ITEM) {
     List<Item> pushed_list;
     List<Item> remainder_list;
-    Item_cond *cond = (Item_cond *)term;
+    Item_cond *cond = dynamic_cast<Item_cond *>(term);
+    if (cond == nullptr) {
+      return;
+    }
     if (cond->functype() == Item_func::COND_AND_FUNC) {
       List_iterator<Item> li(*cond->argument_list());
       Item *boolean_term;
@@ -2369,7 +2401,7 @@ EXTER_ATTACK int ha_tse::open(const char *name, int, uint test_if_locked, const 
   }
 
   m_cantian_rec_len = get_cantian_record_length(table);
-  assert(m_cantian_rec_len <= CT_MAX_RECORD_LENGTH);
+  assert(m_cantian_rec_len >= 0 && m_cantian_rec_len <= CT_MAX_RECORD_LENGTH);
   m_max_batch_num = MAX_RECORD_SIZE / m_cantian_rec_len;
   m_max_batch_num = m_max_batch_num > UINT_MAX ? UINT_MAX : m_max_batch_num;  // restricted by uint32
 
