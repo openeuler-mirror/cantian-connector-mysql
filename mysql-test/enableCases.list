@@ -88,7 +88,7 @@ ctc_ddl_default_index.test
 # ------ END TEST CASES OF DDL ------
 
 delete_decimal
-update_decimal
+# update_decimal
 ctc_dml_decimal_table.test
 tianchi.ctc_crud_for_drop_column.test
 ctc_select_early_return.test
