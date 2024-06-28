@@ -141,9 +141,8 @@ int convert_cantian_err_to_mysql(ct_errno_t error) {
       err_code = ER_NO_REFERENCED_ROW_2;
       break;
     case ERR_LOCK_TIMEOUT:
-      my_printf_error(ERR_LOCK_TIMEOUT,
-                      "Locking timed out while the operation was waiting", MYF(0));
-      err_code = ER_LOCK_NOWAIT;
+      my_error(ER_LOCK_WAIT_TIMEOUT,MYF(0));
+      err_code = ER_LOCK_WAIT_TIMEOUT;
       break;
     default:
       return err_code;
