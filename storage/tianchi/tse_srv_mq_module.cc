@@ -313,7 +313,7 @@ EXTER_ATTACK int tse_mq_deal_func(void *shm_inst, TSE_FUNC_TYPE func_type,
                                   void *request, void* msg_buf, uint32_t server_id, uint32_t wait_sec)
 {
   uint64_t start_time = 0;
-  if (ctc_stats::get_instance().get_stats_enabled()) {
+  if (ctc_stats::get_instance().get_statistics_enabled()) {
     start_time = my_getsystime() / 10;
   }
 
@@ -391,7 +391,7 @@ EXTER_ATTACK int tse_mq_deal_func(void *shm_inst, TSE_FUNC_TYPE func_type,
   }
   
 
-  if (ctc_stats::get_instance().get_stats_enabled()) {
+  if (ctc_stats::get_instance().get_statistics_enabled()) {
     ctc_stats::get_instance().gather_stats(func_type, my_getsystime() / 10 - start_time);
   }
 

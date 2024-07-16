@@ -59,7 +59,7 @@
 
 using namespace std;
 
-extern uint32_t tse_instance_id;
+extern uint32_t ctc_instance_id;
 static map<uint64_t, THD*> g_tse_mdl_thd_map;
 static mutex m_tse_mdl_thd_mutex;
 static map<THD *, map<string, MDL_ticket *> *> g_tse_mdl_ticket_maps;
@@ -390,7 +390,7 @@ static typename std::enable_if<CHECK_HAS_MEMBER_FUNC(T, invalidates), int>::type
   tse_invalidate_mysql_dd_cache_impl(tianchi_handler_t *tch, tse_invalidate_broadcast_request *broadcast_req, int *err_code) {
   UNUSED_PARAM(err_code);
   // 相同节点不用执行
-  if(broadcast_req->mysql_inst_id == tse_instance_id) {
+  if(broadcast_req->mysql_inst_id == ctc_instance_id) {
     tse_log_note("tse_invalidate_mysql_dd_cache curnode not need execute,mysql_inst_id:%u", broadcast_req->mysql_inst_id);
     return 0;
   }
@@ -512,7 +512,7 @@ static void tse_init_mdl_request(tse_lock_table_info *lock_info, MDL_request *md
 }
  
 int tse_mdl_lock_thd(tianchi_handler_t *tch, tse_lock_table_info *lock_info, int *err_code) {
-  bool is_same_node = (tch->inst_id == tse_instance_id);
+  bool is_same_node = (tch->inst_id == ctc_instance_id);
   uint64_t mdl_thd_key = tse_get_conn_key(tch->inst_id, tch->thd_id, true);
  
   if (is_same_node) {
@@ -582,7 +582,7 @@ void ctc_mdl_unlock_thd_by_ticket(THD* thd, MDL_request *tse_release_request) {
 }
 
 void tse_mdl_unlock_tables_thd(tianchi_handler_t *tch) {
-  bool is_same_node = (tch->inst_id == tse_instance_id);
+  bool is_same_node = (tch->inst_id == ctc_instance_id);
   uint64_t mdl_thd_key = tse_get_conn_key(tch->inst_id, tch->thd_id, true);
 
   if (is_same_node) {
@@ -633,7 +633,7 @@ void tse_mdl_unlock_tables_thd(tianchi_handler_t *tch) {
 }
 
 void tse_mdl_unlock_thd(tianchi_handler_t *tch, tse_lock_table_info *lock_info) {
-  bool is_same_node = (tch->inst_id == tse_instance_id);
+  bool is_same_node = (tch->inst_id == ctc_instance_id);
   uint64_t mdl_thd_key = tse_get_conn_key(tch->inst_id, tch->thd_id, true);
 
   if (is_same_node) {
@@ -667,13 +667,13 @@ int close_tse_mdl_thd(uint32_t thd_id, uint32_t mysql_inst_id) {
       release_tse_mdl_thd_by_cantian_id((uint16_t)(mysql_inst_id >> 16));
     } else {
       /* 清理整个mysqld节点相关的THD */
-      tse_log_system("[TSE_MDL_THD]:Close All MDL THD by tse_instance_id:%u", mysql_inst_id);
+      tse_log_system("[TSE_MDL_THD]:Close All MDL THD by ctc_instance_id:%u", mysql_inst_id);
       release_tse_mdl_thd_by_inst_id(mysql_inst_id);
     }
   } else {
     /* 通过把mysql_inst_id左移32位 与 thd_id拼接在一起 用来唯一标识一个THD */
     uint64_t mdl_thd_key = tse_get_conn_key(mysql_inst_id, thd_id, true);
-    tse_log_note("[TSE_MDL_THD]: Close THD by conn_id=%u, tse_instance_id=%u, proxy_conn_map_key=%lu",
+    tse_log_note("[TSE_MDL_THD]: Close THD by conn_id=%u, ctc_instance_id=%u, proxy_conn_map_key=%lu",
                    thd_id, mysql_inst_id, mdl_thd_key);
     release_tse_mdl_thd_by_key(mdl_thd_key);
   }
@@ -832,7 +832,7 @@ int tse_ddl_execute_lock_tables_by_req(tianchi_handler_t *tch, tse_lock_table_in
 // unlock tables before locking tables
   tse_mdl_unlock_tables_thd(tch);
 
-  bool is_same_node = (tch->inst_id == tse_instance_id);
+  bool is_same_node = (tch->inst_id == ctc_instance_id);
   uint64_t mdl_thd_key = tse_get_conn_key(tch->inst_id, tch->thd_id, true);
  
   if (is_same_node) {

@@ -34,7 +34,7 @@
 #include "ha_tse_ddl.h"
 
 using namespace std;
-extern bool tse_enable_x_lock_instance;
+extern bool ctc_enable_x_lock_instance;
 
 string cnvrt_name_for_sql(string name) {
   string res = "";
@@ -733,7 +733,7 @@ int tse_check_lock_instance(MYSQL_THD thd, bool &need_forward) {
   
   tse_lock_table_mode_t lock_mode;
   bool is_mysqld_starting = is_starting();
-  if (tse_enable_x_lock_instance || is_mysqld_starting) {
+  if (ctc_enable_x_lock_instance || is_mysqld_starting) {
     lock_mode = TSE_LOCK_MODE_EXCLUSIVE;
   } else {
     lock_mode = TSE_LOCK_MODE_SHARE;

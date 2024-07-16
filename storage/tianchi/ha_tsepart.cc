@@ -897,7 +897,7 @@ int ha_tsepart::records(ha_rows *num_rows) /*!< out: number of rows */
   return 0;
 }
 
-extern uint32_t tse_instance_id;
+extern uint32_t ctc_instance_id;
 /* alter table truncate partition */
 int ha_tsepart::truncate_partition_low(dd::Table *dd_table) {
   THD *thd = ha_thd();
@@ -907,7 +907,7 @@ int ha_tsepart::truncate_partition_low(dd::Table *dd_table) {
 
   tse_ddl_stack_mem stack_mem(0);
   update_member_tch(m_tch, ht, thd);
-  ddl_ctrl_t ddl_ctrl = {{0}, {0}, {0}, 0, 0, m_tch, tse_instance_id, false, 0};
+  ddl_ctrl_t ddl_ctrl = {{0}, {0}, {0}, 0, 0, m_tch, ctc_instance_id, false, 0};
   FILL_USER_INFO_WITH_THD(ddl_ctrl, thd);
   ct_errno_t ret = (ct_errno_t)fill_truncate_partition_req(
       table->s->normalized_path.str, m_part_info, dd_table, thd, &ddl_ctrl,
@@ -1111,7 +1111,7 @@ int ha_tsepart::repair(THD *thd, HA_CHECK_OPT *)
   tse_ddl_broadcast_request broadcast_req {{0}, {0}, {0}, {0}, 0, 0, 0, 0, {0}};
   string sql = string(thd->query().str).substr(0, thd->query().length);
   FILL_BROADCAST_BASE_REQ(broadcast_req, sql.c_str(), thd->m_main_security_ctx.priv_user().str,
-    thd->m_main_security_ctx.priv_host().str, tse_instance_id, thd->lex->sql_command);
+    thd->m_main_security_ctx.priv_host().str, ctc_instance_id, thd->lex->sql_command);
   if (thd->db().str != NULL && thd->db().length > 0) {
     strncpy(broadcast_req.db_name, thd->db().str, SMALL_RECORD_SIZE - 1);
   }

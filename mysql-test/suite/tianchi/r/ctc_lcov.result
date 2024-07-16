@@ -28,7 +28,7 @@ set @ctc_dcl_disabled=1;
 create user test_user;
 ERROR HY000: DCL query is not allowed (ctc_dcl_disabled = true)
 set @ctc_dcl_disabled=0;
-set global ctc_stats_enabled=ON;
+set global ctc_statistics_enabled=ON;
 show engine ctc status;
 Type	Name	Status
 ctc		
@@ -47,7 +47,7 @@ set sort_buffer_size = (select i from t1);
 Warnings:
 Warning	1292	Truncated incorrect sort_buffer_size value: '123'
 drop table t1;
-set global ctc_stats_enabled=OFF;
+set global ctc_statistics_enabled=OFF;
 set global max_connections=101;
 set global max_connections=default;
 set global autocommit=false;
