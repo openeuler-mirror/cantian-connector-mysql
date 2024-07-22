@@ -456,6 +456,3 @@ e
 NULL
 5
 drop table if exists DEMO;
-show variables like '%ctc_prefetch_buf_size%';
-Variable_name	Value
-ctc_prefetch_buf_size	196608

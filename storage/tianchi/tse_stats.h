@@ -35,13 +35,13 @@ class ctc_stats {
   
   public:
     static ctc_stats& get_instance(void) noexcept;
-    bool get_stats_enabled(void);
-    void set_stats_enabled(const bool val);
+    bool get_statistics_enabled(void);
+    void set_statistics_enabled(const bool val);
     void gather_stats(const enum TSE_FUNC_TYPE& type, const uint64_t use_time);
     void print_stats(THD *thd, stat_print_fn *stat_print);
   
   private:
-    bool m_stats_enabled = false;
+    bool m_statistics_enabled = false;
 
     std::atomic_uint64_t m_calls[TSE_FUNC_TYPE_NUMBER];
     std::atomic_uint64_t m_use_time[TSE_FUNC_TYPE_NUMBER];

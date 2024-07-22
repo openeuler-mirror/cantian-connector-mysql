@@ -62,7 +62,7 @@ static SYS_VAR *tse_rewriter_system_variables[] = {
   nullptr
 };
 
-extern uint32_t tse_instance_id;
+extern uint32_t ctc_instance_id;
 
 static bool is_current_system_var(set_var *setvar) {
   Item_func_get_system_var *itemFunc = dynamic_cast<Item_func_get_system_var *>(setvar->value);
@@ -467,7 +467,7 @@ static uint32_t tse_set_var_option(bool is_null_value, bool is_set_default_value
 static int tse_set_var_meta(MYSQL_THD thd, uint32_t options, const char* base_name,
                             string var_name, string var_value) {
   tianchi_handler_t tch;
-  tch.inst_id = tse_instance_id;
+  tch.inst_id = ctc_instance_id;
   handlerton* hton = get_tse_hton();
 
   TSE_RETURN_IF_NOT_ZERO(get_tch_in_handler_data(hton, thd, tch));
@@ -479,7 +479,7 @@ static int tse_set_var_meta(MYSQL_THD thd, uint32_t options, const char* base_na
 
   // user_name存变量名，user_ip存变量值
   FILL_BROADCAST_BASE_REQ(broadcast_req, sql.c_str(), var_name.c_str(),
-                          var_value.c_str(), tse_instance_id, SQLCOM_SET_OPTION);
+                          var_value.c_str(), ctc_instance_id, SQLCOM_SET_OPTION);
   if(base_name != nullptr) {
     strncpy(broadcast_req.db_name, base_name, strlen(base_name));
   }
@@ -720,7 +720,7 @@ static int tse_lock_tables_ddl(string &, MYSQL_THD thd, bool &) {
 
   for (TABLE_LIST *table = tables; table != NULL; table = table->next_global) {
     tianchi_handler_t tch;
-    tch.inst_id = tse_instance_id;
+    tch.inst_id = ctc_instance_id;
     handlerton* hton = get_tse_hton();
 
     TSE_RETURN_IF_NOT_ZERO(get_tch_in_handler_data(hton, thd, tch));
@@ -750,7 +750,7 @@ static int tse_lock_tables_ddl(string &, MYSQL_THD thd, bool &) {
   if (ret != 0) {
     for (TABLE_LIST *table = tables; table != NULL; table = table->next_global) {
       tianchi_handler_t tch;
-      tch.inst_id = tse_instance_id;
+      tch.inst_id = ctc_instance_id;
       handlerton* hton = get_tse_hton();
 
       TSE_RETURN_IF_NOT_ZERO(get_tch_in_handler_data(hton, thd, tch));
@@ -759,7 +759,7 @@ static int tse_lock_tables_ddl(string &, MYSQL_THD thd, bool &) {
       FILL_USER_INFO_WITH_THD(lock_info, thd);
       strncpy(lock_info.db_name, table->db, SMALL_RECORD_SIZE);
       strncpy(lock_info.table_name, table->table_name, SMALL_RECORD_SIZE);
-      ret = tse_unlock_table(&tch, tse_instance_id, &lock_info);
+      ret = tse_unlock_table(&tch, ctc_instance_id, &lock_info);
       if (ret != 0) {
         tse_log_error("[TSE_DDL_REWRITE]:unlock table failed, table:%s.%s", lock_info.db_name, lock_info.table_name);
       }
@@ -772,7 +772,7 @@ static int tse_unlock_tables_ddl(string &, MYSQL_THD thd, bool &) {
   int ret = 0;
 
   tianchi_handler_t tch;
-  tch.inst_id = tse_instance_id;
+  tch.inst_id = ctc_instance_id;
   handlerton* hton = get_tse_hton();
 
   TSE_RETURN_IF_NOT_ZERO(get_tch_in_handler_data(hton, thd, tch));
@@ -781,7 +781,7 @@ static int tse_unlock_tables_ddl(string &, MYSQL_THD thd, bool &) {
 
   FILL_USER_INFO_WITH_THD(lock_info, thd);
 
-  ret = tse_unlock_table(&tch, tse_instance_id, &lock_info);
+  ret = tse_unlock_table(&tch, ctc_instance_id, &lock_info);
 
   return ret;
 }
@@ -974,7 +974,7 @@ int ddl_broadcast_and_wait(MYSQL_THD thd, string &query_str,
                                   uint8_t sql_cmd, ddl_broadcast_cmd &broadcast_cmd) {
   tianchi_handler_t tch;
   memset(&tch, 0, sizeof(tch));
-  tch.inst_id = tse_instance_id;
+  tch.inst_id = ctc_instance_id;
   handlerton *hton = get_tse_hton();
   update_member_tch(tch, hton, thd);
 
@@ -992,7 +992,7 @@ int ddl_broadcast_and_wait(MYSQL_THD thd, string &query_str,
   broadcast_req.options |= TSE_NOT_NEED_CANTIAN_EXECUTE;
   broadcast_req.options |= (thd->lex->contains_plaintext_password ? TSE_CURRENT_SQL_CONTAIN_PLAINTEXT_PASSWORD : 0);
   FILL_BROADCAST_BASE_REQ(broadcast_req, query_str.c_str(), thd->m_main_security_ctx.priv_user().str,
-    thd->m_main_security_ctx.priv_host().str, tse_instance_id, sql_cmd);
+    thd->m_main_security_ctx.priv_host().str, ctc_instance_id, sql_cmd);
   
   vector<MDL_ticket*> ticket_list;
   if (sql_cmd == SQLCOM_LOCK_TABLES) {
@@ -1075,7 +1075,7 @@ bool check_agent_connection(MYSQL_THD thd) {
 
 int ctc_record_sql(MYSQL_THD thd, bool need_select_db) {
   tianchi_handler_t tch;
-  tch.inst_id = tse_instance_id;
+  tch.inst_id = ctc_instance_id;
   handlerton* hton = get_tse_hton();
 
   TSE_RETURN_IF_NOT_ZERO(get_tch_in_handler_data(hton, thd, tch));
@@ -1091,7 +1091,7 @@ int ctc_record_sql(MYSQL_THD thd, bool need_select_db) {
   string sql = string(thd->query().str).substr(0, thd->query().length);
 
   FILL_BROADCAST_BASE_REQ(broadcast_req, sql.c_str(), thd->m_main_security_ctx.priv_user().str,
-    thd->m_main_security_ctx.priv_host().str, tse_instance_id, (uint8_t)thd->lex->sql_command);
+    thd->m_main_security_ctx.priv_host().str, ctc_instance_id, (uint8_t)thd->lex->sql_command);
   
   int ret = ctc_record_sql_for_cantian(&tch, &broadcast_req, false);
   update_sess_ctx_by_tch(tch, hton, thd);

@@ -71,7 +71,7 @@ using namespace std;
 const uint32_t TSE_DDL_PROTOBUF_MEM_SIZE = 1024 * 1024 * 10;  // 10M
 mutex m_tse_ddl_protobuf_mem_mutex;
 char tse_ddl_req_mem[TSE_DDL_PROTOBUF_MEM_SIZE];
-extern uint32_t tse_instance_id;
+extern uint32_t ctc_instance_id;
 extern handlerton *tse_hton;
 
 size_t tse_ddl_stack_mem::tse_ddl_req_msg_mem_max_size = 0;
@@ -225,7 +225,7 @@ static int tse_create_tablespace_handler(handlerton *hton, THD *thd,
   }
   tianchi_handler_t tch;
   TSE_RETURN_IF_NOT_ZERO(get_tch_in_handler_data(hton, thd, tch));
-  ddl_ctrl_t ddl_ctrl = {{0}, {0}, {0}, 0, 0, tch, tse_instance_id, false, 0};
+  ddl_ctrl_t ddl_ctrl = {{0}, {0}, {0}, 0, 0, tch, ctc_instance_id, false, 0};
   FILL_USER_INFO_WITH_THD(ddl_ctrl, thd);
   ddl_ctrl.msg_len = msg_len;
   ret = (ct_errno_t)tse_create_tablespace(tse_ddl_req_msg_mem, &ddl_ctrl);
@@ -300,7 +300,7 @@ static int tse_alter_tablespace_handler(handlerton *hton, THD *thd,
   }
   tianchi_handler_t tch;
   TSE_RETURN_IF_NOT_ZERO(get_tch_in_handler_data(hton, thd, tch));
-  ddl_ctrl_t ddl_ctrl = {{0}, {0}, {0}, 0, 0, tch, tse_instance_id, false, 0};
+  ddl_ctrl_t ddl_ctrl = {{0}, {0}, {0}, 0, 0, tch, ctc_instance_id, false, 0};
   FILL_USER_INFO_WITH_THD(ddl_ctrl, thd);
   ddl_ctrl.msg_len = msg_len;
   ret = (ct_errno_t)tse_alter_tablespace(tse_ddl_req_msg_mem, &ddl_ctrl);
@@ -345,7 +345,7 @@ static int tse_drop_tablespace_handler(handlerton *hton, THD *thd,
   }
   tianchi_handler_t tch;
   TSE_RETURN_IF_NOT_ZERO(get_tch_in_handler_data(hton, thd, tch));
-  ddl_ctrl_t ddl_ctrl = {{0}, {0}, {0}, 0, 0, tch, tse_instance_id, false, 0};
+  ddl_ctrl_t ddl_ctrl = {{0}, {0}, {0}, 0, 0, tch, ctc_instance_id, false, 0};
   FILL_USER_INFO_WITH_THD(ddl_ctrl, thd);
   ddl_ctrl.msg_len = msg_len;
 
@@ -1656,7 +1656,7 @@ int ha_tse_truncate_table(tianchi_handler_t *tch, THD *thd, const char *db_name,
     }
   }
   update_member_tch(*tch, tse_hton, thd);
-  ddl_ctrl_t ddl_ctrl = {{0}, {0}, {0}, 0, 0, *tch, tse_instance_id, false, 0};
+  ddl_ctrl_t ddl_ctrl = {{0}, {0}, {0}, 0, 0, *tch, ctc_instance_id, false, 0};
   FILL_USER_INFO_WITH_THD(ddl_ctrl, thd);
   ddl_ctrl.msg_len = msg_len;
   ret = (ct_errno_t)tse_truncate_table(tse_ddl_req_msg_mem, &ddl_ctrl);

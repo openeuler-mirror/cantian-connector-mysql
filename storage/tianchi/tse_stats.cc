@@ -96,19 +96,19 @@ ctc_stats& ctc_stats::get_instance() noexcept {
   return m_ctc_stats;
 }
 
-bool ctc_stats::get_stats_enabled() {
-  return m_stats_enabled;
+bool ctc_stats::get_statistics_enabled() {
+  return m_statistics_enabled;
 }
 
-void ctc_stats::set_stats_enabled(const bool val) {
-  if (val && !m_stats_enabled) {
+void ctc_stats::set_statistics_enabled(const bool val) {
+  if (val && !m_statistics_enabled) {
     for (int i = 0; i < TSE_FUNC_TYPE_NUMBER; i++) {
       m_calls[i] = 0;
       m_use_time[i] = 0;
     }
   }
   
-  m_stats_enabled = val;
+  m_statistics_enabled = val;
 }
 
 void ctc_stats::gather_stats(const enum TSE_FUNC_TYPE& type, const uint64_t use_time) {

@@ -333,10 +333,10 @@ static inline bool tse_use_proxy(uint8_t sql_command) {
   return !is_slave && !is_backup_lock_op(sql_command);
 }
 
-extern uint32_t tse_instance_id;
+extern uint32_t ctc_instance_id;
 __attribute__((visibility("default"))) int tse_execute_rewrite_open_conn(uint32_t thd_id, tse_ddl_broadcast_request *broadcast_req) {
   // 相同节点不用执行
-  if (broadcast_req->mysql_inst_id == tse_instance_id) {
+  if (broadcast_req->mysql_inst_id == ctc_instance_id) {
     return 0;
   }
 
@@ -363,7 +363,7 @@ __attribute__((visibility("default"))) int tse_execute_rewrite_open_conn(uint32_
 
 __attribute__((visibility("default"))) int tse_ddl_execute_update(uint32_t thd_id, tse_ddl_broadcast_request *broadcast_req,  bool *allow_fail) {
   // 相同节点不用执行
-  if(broadcast_req->mysql_inst_id == tse_instance_id) {
+  if(broadcast_req->mysql_inst_id == ctc_instance_id) {
     tse_log_note("tse_ddl_execute_update curnode not need execute,mysql_inst_id:%u", broadcast_req->mysql_inst_id);
     return 0;
   }
@@ -518,14 +518,14 @@ __attribute__((visibility("default"))) int tse_ddl_execute_lock_tables(tianchi_h
     return 0;
   }
 
-  bool is_same_node = (tch->inst_id == tse_instance_id);
+  bool is_same_node = (tch->inst_id == ctc_instance_id);
   uint64_t conn_map_key = tse_get_conn_key(tch->inst_id, tch->thd_id, !is_same_node);
 
   MYSQL *curr_conn = NULL;
   int ret = tse_init_mysql_client(conn_map_key, db_name, curr_conn, lock_info->user_name, lock_info->user_ip, !is_same_node);
   if (ret != 0) {
     *err_code = ret;
-    tse_log_error("[TSE_LOCK_TABLE]:tse_init_mysql_client failed, ret:%d, conn_id:%u, tse_instance_id:%u",
+    tse_log_error("[TSE_LOCK_TABLE]:tse_init_mysql_client failed, ret:%d, conn_id:%u, ctc_instance_id:%u",
         ret, tch->thd_id, tch->inst_id);
     return ret;
   }
@@ -591,7 +591,7 @@ __attribute__((visibility("default"))) int tse_ddl_execute_lock_tables(tianchi_h
     ret = tse_mysql_query(curr_conn, lock_str.c_str());
     if (ret != 0 || mysql_errno(curr_conn) != 0) {
       *err_code = mysql_errno(curr_conn);
-      tse_log_error("[TSE_LOCK_TABLE]:return_err:%d, err_code:%d, err_msg:%s, lock_sql_str:%s, conn_id:%u, tse_instance_id:%u",
+      tse_log_error("[TSE_LOCK_TABLE]:return_err:%d, err_code:%d, err_msg:%s, lock_sql_str:%s, conn_id:%u, ctc_instance_id:%u",
         ret, *err_code, mysql_error(curr_conn), lock_str.c_str(), tch->thd_id, tch->inst_id);
     }
   }
@@ -610,11 +610,11 @@ __attribute__((visibility("default"))) int tse_ddl_execute_unlock_tables(tianchi
     return 0;
   }
 
-  bool is_same_node = (tch->inst_id == tse_instance_id);
+  bool is_same_node = (tch->inst_id == ctc_instance_id);
   uint64_t conn_map_key = tse_get_conn_key(tch->inst_id, tch->thd_id, !is_same_node);
   MYSQL *curr_conn = get_mysql_conn_by_key(conn_map_key);
   if (curr_conn == NULL) {
-    tse_log_system("[TSE_UNLOCK_TABLE]: curr_conn is NULL, conn_map_key=%lu, conn_id=%u, tse_instance_id=%u",
+    tse_log_system("[TSE_UNLOCK_TABLE]: curr_conn is NULL, conn_map_key=%lu, conn_id=%u, ctc_instance_id=%u",
                    conn_map_key, tch->thd_id, tch->inst_id);
     return 0;
   }
@@ -685,18 +685,18 @@ __attribute__((visibility("default"))) int close_mysql_connection(uint32_t thd_i
       close_mysql_conn_by_inst_id((mysql_inst_id >> 16), false);
     } else {
       /* 清理整个mysqld节点相关的连接 */
-      tse_log_system("[TSE_CLOSE_SESSION]:Close All connects by tse_instance_id:%u", mysql_inst_id);
+      tse_log_system("[TSE_CLOSE_SESSION]:Close All connects by ctc_instance_id:%u", mysql_inst_id);
       close_mysql_conn_by_inst_id(mysql_inst_id, true);
     }
   } else {
     /* 通过把mysql_inst_id左移32位 与 thd_id拼接在一起 用来唯一标识一个连接 */
     uint64_t proxy_conn_map_key = tse_get_conn_key(mysql_inst_id, thd_id, true);
-    tse_log_note("[TSE_CLOSE_SESSION]: Close connect by conn_id=%u, tse_instance_id=%u, proxy_conn_map_key=%lu",
+    tse_log_note("[TSE_CLOSE_SESSION]: Close connect by conn_id=%u, ctc_instance_id=%u, proxy_conn_map_key=%lu",
                    thd_id, mysql_inst_id, proxy_conn_map_key);
     close_mysql_conn_by_key(proxy_conn_map_key);
     
     uint64_t agent_conn_map_key = tse_get_conn_key(mysql_inst_id, thd_id, false);
-    tse_log_note("[TSE_CLOSE_SESSION]: Close connect by conn_id=%u, tse_instance_id=%u, agent_conn_map_key=%lu",
+    tse_log_note("[TSE_CLOSE_SESSION]: Close connect by conn_id=%u, ctc_instance_id=%u, agent_conn_map_key=%lu",
                     thd_id, mysql_inst_id, agent_conn_map_key);
     close_mysql_conn_by_key(agent_conn_map_key);
   }
