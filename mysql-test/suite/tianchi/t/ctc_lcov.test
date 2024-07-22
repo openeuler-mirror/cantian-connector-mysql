@@ -37,7 +37,7 @@ set @ctc_dcl_disabled=1;
 create user test_user;
 set @ctc_dcl_disabled=0;
 
-set global ctc_stats_enabled=ON;
+set global ctc_statistics_enabled=ON;
 show engine ctc status;
 create table t1(i int);
 insert into t1 value(123);
@@ -47,7 +47,7 @@ unlock tables;
 set debug = '-d, non_metadata_normalization';
 set sort_buffer_size = (select i from t1);
 drop table t1;
-set global ctc_stats_enabled=OFF;
+set global ctc_statistics_enabled=OFF;
 set global max_connections=101;
 set global max_connections=default;
 set global autocommit=false;

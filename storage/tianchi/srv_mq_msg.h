@@ -172,9 +172,9 @@ struct pre_create_db_request {
     tianchi_handler_t tch;
     char sql_str[MAX_DDL_SQL_LEN];
     char db_name[SMALL_RECORD_SIZE];
-    uint32_t tse_db_datafile_size;
-    bool tse_db_datafile_autoextend;
-    uint32_t tse_db_datafile_extend_size;
+    uint32_t ctc_db_datafile_size;
+    bool ctc_db_datafile_autoextend;
+    uint32_t ctc_db_datafile_extend_size;
     int error_code;
     char error_message[SMALL_RECORD_SIZE];
     int result;

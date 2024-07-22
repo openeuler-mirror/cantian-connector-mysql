@@ -1020,9 +1020,9 @@ int tse_pre_create_db(tianchi_handler_t *tch, const char *sql_str, tse_db_infos_
   assert(strlen(db_infos->name) + 1 <= sizeof(req->db_name));
   memcpy(req->db_name, db_infos->name, strlen(db_infos->name) + 1);
 
-  req->tse_db_datafile_size = db_infos->datafile_size;
-  req->tse_db_datafile_autoextend = db_infos->datafile_autoextend;
-  req->tse_db_datafile_extend_size = db_infos->datafile_extend_size;
+  req->ctc_db_datafile_size = db_infos->datafile_size;
+  req->ctc_db_datafile_autoextend = db_infos->datafile_autoextend;
+  req->ctc_db_datafile_extend_size = db_infos->datafile_extend_size;
   req->tch = *tch;
   TSE_RESET_SHM_REQ_ERROR_CODE(req);
   int ret = tse_mq_deal_func(shm_inst, TSE_FUNC_PRE_CREATE_DB, req, tch->msg_buf);
