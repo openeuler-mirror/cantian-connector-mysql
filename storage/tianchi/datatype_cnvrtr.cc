@@ -1817,8 +1817,8 @@ int isolation_level_to_cantian(enum_tx_isolation isolation_level)
   switch (isolation_level) {
     case ISO_READ_UNCOMMITTED:
     case ISO_READ_COMMITTED:
-      return (ISOLATION_READ_COMMITTED);
     case ISO_REPEATABLE_READ:
+      return (ISOLATION_READ_COMMITTED);
     case ISO_SERIALIZABLE:
       return (ISOLATION_SERIALIZABLE);
     default:
