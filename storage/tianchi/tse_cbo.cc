@@ -509,18 +509,11 @@ double calc_density_one_table(uint16_t idx_id, tse_range_key *key,
     if (col_map & ((uint64_t)1 << idx_col_num)) {
       KEY_PART_INFO cur_index_part = cur_index.key_part[idx_col_num];
       col_id = cur_index_part.field->field_index();
-      uint32_t offset = cur_index_part.field->is_nullable() ? 1 : 0;//null值标记位
-
-      if (cbo_stats->columns[col_id].total_rows == 0) { //空表
-        col_product = 0;
-      } else if (key_offset + offset + cur_index_part.field->key_length() == key_len) {//
-        col_product = calc_density_by_cond(cbo_stats, cur_index_part, key, key_offset);
-      } else if ((offset == 1) && *(key->min_key->key + key_offset) == 1) { //null值
+      uint32_t offset = cur_index_part.field->is_nullable() ? 1 : 0;
+      if ((offset == 1) && *(key->min_key->key + key_offset) == 1 && *(key->max_key->key + key_offset) == 1) {
         col_product = calc_equal_null_density(cbo_stats, col_id, true);
       } else {
-        col_product = calc_density_by_cond(cbo_stats, cur_index_part, key, key_offset);//联合索引
-        // col_product = calc_equal_density(part_info, QUERY_TYPE_EQUAL, cbo_stats, col_id);
-        // col_product = calc_hist_equal_density(cbo_stats, &max_key_val, col_id, field_type);
+        col_product = calc_density_by_cond(cbo_stats, cur_index_part, key, key_offset);
       }
       col_product = eval_density_result(col_product);
       key_offset += (offset + cur_index_part.field->key_length());
