@@ -761,6 +761,7 @@ int tse_get_cbo_stats(tianchi_handler_t *tch, tianchi_cbo_stats_t *stats, tse_cb
   req->stats->part_cnt = stats->part_cnt;
   req->first_partid = first_partid;
   req->num_part_fetch = num_part_fetch;
+  req->stats->stats_version = stats->stats_version;
   void *shm_inst_4_columns = get_one_shm_inst(tch);
   void *shm_inst_4_keys = get_one_shm_inst(tch);
   void *shm_inst_4_table = get_one_shm_inst(tch);
@@ -807,12 +808,13 @@ int tse_get_cbo_stats(tianchi_handler_t *tch, tianchi_cbo_stats_t *stats, tse_cb
   }
 
   req->tch = *tch;
-  int result = ERR_CONNECTION_FAILED;
+  int result = 0;
   int ret = tse_mq_deal_func(shm_inst_4_req, TSE_FUNC_TYPE_GET_CBO_STATS, req, tch->msg_buf);
-  if (ret == CT_SUCCESS) {
+  if (ret == CT_SUCCESS && stats->stats_version != req->stats->stats_version) {
     if (req->result == CT_SUCCESS) {
       stats->is_updated = req->stats->is_updated;
       stats->records = req->stats->records;
+      stats->stats_version = req->stats->stats_version;
       memcpy(stats->ndv_keys, req->stats->ndv_keys, stats->key_len);
       if (!is_part_table) {
           *tch = req->tch;
@@ -836,7 +838,7 @@ int tse_get_cbo_stats(tianchi_handler_t *tch, tianchi_cbo_stats_t *stats, tse_cb
   free_share_mem(shm_inst_4_table, req->tse_cbo_stats_table);
   free_share_mem(shm_inst_4_stats, req->stats);
   free_share_mem(shm_inst_4_req, req);
-  return result;
+  return ret == CT_SUCCESS ? result : ERR_CONNECTION_FAILED;
 }
 
 int tse_get_index_name(tianchi_handler_t *tch, char *index_name) {

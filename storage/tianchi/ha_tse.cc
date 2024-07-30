@@ -3271,7 +3271,7 @@ EXTER_ATTACK int ha_tse::rnd_pos(uchar *buf, uchar *pos) {
 
 void ha_tse::info_low() {
   if (m_share && m_share->cbo_stats != nullptr) {
-    stats.records = m_share->cbo_stats->tse_cbo_stats_table->estimate_rows;
+    stats.records = m_share->cbo_stats->stats_version > 0 ? m_share->cbo_stats->tse_cbo_stats_table->estimate_rows : 0;
   }
 }
 
@@ -5262,7 +5262,7 @@ int ha_tse::initialize_cbo_stats()
     tse_log_error("alloc shm mem failed, m_share->cbo_stats size(%lu)", sizeof(tianchi_cbo_stats_t));
     return ERR_ALLOC_MEMORY;
   }
-  *m_share->cbo_stats = {0, 0, 0, 0, 0, nullptr, nullptr};
+  *m_share->cbo_stats = {0, 0, 0, 0, 0, 0, nullptr, nullptr};
   m_share->cbo_stats->tse_cbo_stats_table = 
         (tse_cbo_stats_table_t*)my_malloc(PSI_NOT_INSTRUMENTED, sizeof(tse_cbo_stats_table_t), MYF(MY_WME));
   m_share->cbo_stats->tse_cbo_stats_table->columns =
