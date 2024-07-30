@@ -497,7 +497,6 @@ double calc_density_one_table(uint16_t idx_id, tse_range_key *key,
   uint32 col_id;
   uint32_t key_offset = 0;//列在索引中的偏移量
   uint64_t col_map = max(key->min_key->col_map, key->max_key->col_map);
-  uint32_t key_len = max(key->min_key->len, key->max_key->len);
   KEY cur_index = table.key_info[idx_id];
 
   /*
