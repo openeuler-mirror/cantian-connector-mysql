@@ -395,6 +395,8 @@ class ha_tsepart : public ha_tse,
 
   void info_low() override;
 
+  int info(uint) override;
+
   ha_rows records_in_range(uint inx, key_range *min_key, key_range *max_key) override;
 
   int records(ha_rows *num_rows) override;

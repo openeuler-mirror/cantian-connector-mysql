@@ -830,6 +830,10 @@ void ha_tsepart::info_low() {
   }
 }
 
+int ha_tsepart::info(uint flag) {
+  return ha_tse::info(flag);
+}
+
 ha_rows ha_tsepart::records_in_range(uint inx, key_range *min_key, key_range *max_key) {
 
   double density;

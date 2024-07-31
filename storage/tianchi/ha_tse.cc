@@ -315,11 +315,7 @@ handlerton *get_tse_hton() { return tse_hton; }
 *  reference: populate_table
  */
 static inline bool is_create_table_check(MYSQL_THD thd) {
-  if (thd->lex->sql_command == SQLCOM_CREATE_TABLE &&
-      thd->lex->is_exec_started()) {
-    return true;
-  }
-  return false;
+  return (thd->lex->sql_command == SQLCOM_CREATE_TABLE && thd->lex->is_exec_started());
 }
 
 bool user_var_set(MYSQL_THD thd, string target_str) {
@@ -3294,6 +3290,15 @@ int ha_tse::info(uint flag) {
       records(&stats.records);
       return 0;
     }
+    // analyze..update histogram on colname flag
+    if ((flag & HA_STATUS_VARIABLE) && (flag & HA_STATUS_NO_LOCK) &&
+      thd->lex->sql_command == SQLCOM_ANALYZE) {
+      ret = (ct_errno_t)analyze(thd, nullptr);
+      if (ret != CT_SUCCESS) {
+        return convert_tse_error_code_to_mysql(ret);
+      }
+    }
+    
     ret = (ct_errno_t)get_cbo_stats_4share();
     if (ret != CT_SUCCESS) {
       return convert_tse_error_code_to_mysql(ret);
