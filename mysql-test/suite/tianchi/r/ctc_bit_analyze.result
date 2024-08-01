@@ -1,0 +1,119 @@
+drop table if exists tbl_bit;
+create table tbl_bit (num bit(4), index idx_num(num));
+insert into tbl_bit (num) values (b'0000'), (b'0001'), (b'0010'), (b'0011');
+insert into tbl_bit (num) values (b'0100'), (b'0101'), (b'0110'), (b'0111');
+insert into tbl_bit (num) values (b'1000'), (b'1001'), (b'1010'), (b'1011');
+insert into tbl_bit (num) values (b'1100'), (b'1101'), (b'1110'), (b'1111');
+analyze table tbl_bit;
+Table	Op	Msg_type	Msg_text
+test.tbl_bit	analyze	status	OK
+explain select * from tbl_bit where num <  b'0000';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_bit	NULL	range	idx_num	idx_num	2	NULL	1	100.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_bit`.`num` AS `num` from `test`.`tbl_bit` where (`test`.`tbl_bit`.`num` < 0x00)
+explain select * from tbl_bit where num >  b'1111';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_bit	NULL	range	idx_num	idx_num	2	NULL	1	100.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_bit`.`num` AS `num` from `test`.`tbl_bit` where (`test`.`tbl_bit`.`num` > 0x0f)
+explain select * from tbl_bit where num <  b'0001';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_bit	NULL	range	idx_num	idx_num	2	NULL	1	100.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_bit`.`num` AS `num` from `test`.`tbl_bit` where (`test`.`tbl_bit`.`num` < 0x01)
+explain select * from tbl_bit where num >  b'1110';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_bit	NULL	range	idx_num	idx_num	2	NULL	1	100.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_bit`.`num` AS `num` from `test`.`tbl_bit` where (`test`.`tbl_bit`.`num` > 0x0e)
+explain select * from tbl_bit where num <= b'0001';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_bit	NULL	range	idx_num	idx_num	2	NULL	2	100.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_bit`.`num` AS `num` from `test`.`tbl_bit` where (`test`.`tbl_bit`.`num` <= 0x01)
+explain select * from tbl_bit where num >= b'1110';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_bit	NULL	range	idx_num	idx_num	2	NULL	2	100.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_bit`.`num` AS `num` from `test`.`tbl_bit` where (`test`.`tbl_bit`.`num` >= 0x0e)
+explain select * from tbl_bit where num >  b'0010' and num <  b'1101';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_bit	NULL	range	idx_num	idx_num	2	NULL	10	100.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_bit`.`num` AS `num` from `test`.`tbl_bit` where ((`test`.`tbl_bit`.`num` > 0x02) and (`test`.`tbl_bit`.`num` < 0x0d))
+explain select * from tbl_bit where num >= b'0010' and num <= b'1101';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_bit	NULL	index	idx_num	idx_num	2	NULL	16	75.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_bit`.`num` AS `num` from `test`.`tbl_bit` where ((`test`.`tbl_bit`.`num` >= 0x02) and (`test`.`tbl_bit`.`num` <= 0x0d))
+drop table tbl_bit;
+create table tbl_bit (num bit(7), index idx_num(num));
+insert into tbl_bit (num) values (1), (2), (3), (4), (5), (6);
+insert into tbl_bit (num) values (7), (8), (9), (10), (11), (12);
+insert into tbl_bit (num) values (13), (14), (15), (16), (17), (18);
+insert into tbl_bit (num) values (19), (20), (21), (22), (23), (24);
+insert into tbl_bit (num) values (25), (26), (27), (28), (29), (30);
+analyze table tbl_bit;
+Table	Op	Msg_type	Msg_text
+test.tbl_bit	analyze	status	OK
+explain select * from tbl_bit where num <   2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_bit	NULL	range	idx_num	idx_num	2	NULL	1	100.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_bit`.`num` AS `num` from `test`.`tbl_bit` where (`test`.`tbl_bit`.`num` < 2)
+explain select * from tbl_bit where num >   29;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_bit	NULL	range	idx_num	idx_num	2	NULL	1	100.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_bit`.`num` AS `num` from `test`.`tbl_bit` where (`test`.`tbl_bit`.`num` > 29)
+explain select * from tbl_bit where num <=  2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_bit	NULL	range	idx_num	idx_num	2	NULL	2	100.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_bit`.`num` AS `num` from `test`.`tbl_bit` where (`test`.`tbl_bit`.`num` <= 2)
+explain select * from tbl_bit where num >=  29;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_bit	NULL	range	idx_num	idx_num	2	NULL	2	100.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_bit`.`num` AS `num` from `test`.`tbl_bit` where (`test`.`tbl_bit`.`num` >= 29)
+explain select * from tbl_bit where num >   10 and num <  20;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_bit	NULL	range	idx_num	idx_num	2	NULL	9	100.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_bit`.`num` AS `num` from `test`.`tbl_bit` where ((`test`.`tbl_bit`.`num` > 10) and (`test`.`tbl_bit`.`num` < 20))
+explain select * from tbl_bit where num >=  10 and num <= 20;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_bit	NULL	range	idx_num	idx_num	2	NULL	11	100.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_bit`.`num` AS `num` from `test`.`tbl_bit` where ((`test`.`tbl_bit`.`num` >= 10) and (`test`.`tbl_bit`.`num` <= 20))
+drop table tbl_bit;
+create table tbl_bit (num bit(64), index idx_num(num));
+create procedure insert_nums_to_tbl_bit()
+begin
+declare i int default 1;
+while i <= 10000 do
+insert into tbl_bit (num) values (i);
+set i = i + 1;
+end while;
+end//
+call insert_nums_to_tbl_bit();
+analyze table tbl_bit;
+Table	Op	Msg_type	Msg_text
+test.tbl_bit	analyze	status	OK
+explain select * from tbl_bit where num < 100;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_bit	NULL	range	idx_num	idx_num	9	NULL	79	100.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_bit`.`num` AS `num` from `test`.`tbl_bit` where (`test`.`tbl_bit`.`num` < 100)
+explain select * from tbl_bit where num > 9900;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_bit	NULL	range	idx_num	idx_num	9	NULL	79	100.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_bit`.`num` AS `num` from `test`.`tbl_bit` where (`test`.`tbl_bit`.`num` > 9900)
+explain select * from tbl_bit where num > 333 and num <= 966;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tbl_bit	NULL	range	idx_num	idx_num	9	NULL	630	100.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tbl_bit`.`num` AS `num` from `test`.`tbl_bit` where ((`test`.`tbl_bit`.`num` > 333) and (`test`.`tbl_bit`.`num` <= 966))
+drop table tbl_bit;

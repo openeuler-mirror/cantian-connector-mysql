@@ -45,6 +45,9 @@ void r_key2variant(tse_key *rKey, KEY_PART_INFO *cur_index_part, cache_variant_t
   uchar tmp_ptr[TSE_BYTE_8] = {0};
   const field_cnvrt_aux_t *mysql_info = get_auxiliary_for_field_convert(field, field->type());
   switch(field->real_type()) {
+    case MYSQL_TYPE_BIT:
+      ret_val->v_ubigint = bit_cnvt_mysql_cantian(key, field);
+      break;
     case MYSQL_TYPE_TINY:
     case MYSQL_TYPE_SHORT:
     case MYSQL_TYPE_LONG:
@@ -106,10 +109,19 @@ double datetime_compare(const uchar *datetime1, const uchar *datetime2)
   return datetime1_int - datetime2_int;
 }
 
+template <typename T>
+static inline en_tse_compare_type two_nums_compare(T a, T b) {
+  if (a > b) { return GREAT; }
+  if (a < b) { return LESS; }
+  return EQUAL;
+}
+
 en_tse_compare_type compare(cache_variant_t *right, cache_variant_t *left, enum_field_types field_type)
 {
   double compare_value = 0;
   switch(field_type) {
+    case MYSQL_TYPE_BIT:
+      return two_nums_compare(right->v_ubigint, left->v_ubigint);
     case MYSQL_TYPE_TINY:
     case MYSQL_TYPE_SHORT:
     case MYSQL_TYPE_LONG:
