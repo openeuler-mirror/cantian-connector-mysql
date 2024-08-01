@@ -775,7 +775,7 @@ int convert_numeric_to_cantian(const field_cnvrt_aux_t *mysql_info, const uchar 
       *(double *)cantian_ptr = *(const double *)mysql_ptr;
       break;
     case MYSQL_TYPE_BIT:
-      *(int64_t *)cantian_ptr = bit_cnvt_mysql_cantian(mysql_ptr, mysql_field);
+      *(uint64_t *)cantian_ptr = (uint64_t)bit_cnvt_mysql_cantian(mysql_ptr, mysql_field);
       break;
     case MYSQL_TYPE_LONGLONG:
       *(int64_t *)cantian_ptr = *(const int64_t *)mysql_ptr;
