@@ -38,6 +38,8 @@
 #include "sql/sql_plugin.h"  // st_plugin_int
 #include "sql/sql_initialize.h" // opt_initialize_insecure
 #include "tse_log.h"
+#include "ha_tse.h"
+#include "decimal_convert.h"
 
 struct mysql_daac_context {
   my_thread_handle daac_startup_thread;
@@ -59,6 +61,7 @@ static std::string get_cantiand_mode() {
   if (tmp_mode != NULL && strlen(tmp_mode) > 0) {
     mode = tmp_mode;
   }
+
   return mode;
 }
 
@@ -68,6 +71,7 @@ static std::string get_cantiand_home_dir() {
   if (tmp_home_dir != NULL && strlen(tmp_home_dir) > 0) {
     home_dir = tmp_home_dir;
   }
+  tse_log_system("get cantiand home_dir:%s", home_dir.c_str());
   return home_dir;
 }
 
@@ -96,21 +100,64 @@ static void *mysql_daac_startup_thread(void *p) {
   return nullptr;
 }
 
+static bool32 is_cantian_run_mode_single() {
+  // use env variable to check if single process
+  const char* run_mode = getenv("RUN_MODE");
+
+  // define single mode
+  const char* valid_modes[] = {
+      "cantiand_with_mysql", // single process mode
+      "cantiand_with_mysql_st", // single process mode with mysql llt
+      "cantiand_with_mysql_in_cluster" // single process mode in cluster
+  };
+
+  if (run_mode != NULL) {
+      bool32 found = CT_FALSE;
+
+      // check if cantian is installed with single process mode
+      for (size_t  i = 0; i < sizeof(valid_modes) / sizeof(valid_modes[0]); i++) {
+          if (strcmp(run_mode, valid_modes[i]) == 0) {
+              found = CT_TRUE;
+              break;
+          }
+      }
+        
+      // if single process mode, then return true
+      // else return false 
+      if (found) {
+          tse_log_system("RUN_MODE %s is single process", run_mode);
+          return CT_TRUE;
+      } else {
+          tse_log_system("RUN_MODE %s is not single process", run_mode);
+          return CT_FALSE;
+      }
+  } else {
+      tse_log_system("RUN_MODE not set");
+      return CT_FALSE;
+  }
+  return CT_FALSE;
+}
+
 struct mysql_daac_context *daac_context = NULL;
 int daemon_daac_plugin_init() {
   DBUG_TRACE;
-  if (opt_initialize_insecure) {
-    tse_log_debug("initialize-insecure mode no need start the daac startup thread.");
-    return 0;
-  }
 
-  const char *se_name = "ctc_ddl_rewriter";
-  const LEX_CSTRING name = {se_name, strlen(se_name)};
-  if (!plugin_is_ready(name, MYSQL_AUDIT_PLUGIN)) {
-    tse_log_error("tse_ddl_rewriter plugin install failed.");
-    return -1;
-  }
+  // mysql with nometa does not need to start cantian startup thread in multiple process when initializing
+  // but single process needs to start up cantian thread in both meat and nometa when initializing
+  if (!is_cantian_run_mode_single()) {
+    if (opt_initialize_insecure) {
+      tse_log_warning("initialize-insecure mode no need start the daac startup thread.");
+      return 0;
+    }
 
+    const char *se_name = "ctc_ddl_rewriter";
+    const LEX_CSTRING name = {se_name, strlen(se_name)};
+    if (!plugin_is_ready(name, MYSQL_AUDIT_PLUGIN)) {
+      tse_log_error("tse_ddl_rewriter plugin install failed.");
+      return -1;
+    }
+  }
+  
   if (daac_context != NULL) {
     tse_log_error("daemon_daac_plugin_init daac_context:%p not NULL", daac_context);
     return 0;
@@ -119,7 +166,10 @@ int daemon_daac_plugin_init() {
   daac_context = (struct mysql_daac_context *)my_malloc(
     PSI_NOT_INSTRUMENTED,
     sizeof(struct mysql_daac_context), MYF(0));
-
+  if (daac_context == nullptr) {
+    tse_log_error("alloc mem failed, daac_context size(%lu)", sizeof(struct mysql_daac_context));
+    return -1;
+  }
   my_thread_attr_t startup_attr; /* Thread attributes */
   my_thread_attr_init(&startup_attr);
   my_thread_attr_setdetachstate(&startup_attr, MY_THREAD_CREATE_JOINABLE);

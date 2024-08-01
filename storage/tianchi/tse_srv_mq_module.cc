@@ -298,7 +298,11 @@ static void tse_log_reg_error_by_code(int error_code)
 {
   switch(error_code) {
     case ERR_CONNECTION_FAILED:
+#ifdef WITH_DAAC
+      tse_log_error("connection failed");
+#else
       tse_log_error("shm connection failed");
+#endif
       break;
     case REG_MISMATCH_CTC_VERSION:
       tse_log_error("CTC client version mismatch server!");
