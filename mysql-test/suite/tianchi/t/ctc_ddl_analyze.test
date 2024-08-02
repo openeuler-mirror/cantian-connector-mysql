@@ -130,3 +130,9 @@ insert into t1 values(11,11),(59,59);
 analyze table t1;
 show keys from t1;
 drop table t1;
+
+create table t1(a int, b int, c int, index(a), index(b), index(c));
+insert into t1 values(1,1,1),(2,2,2),(3,3,3);
+alter table t1 drop index b;
+analyze table t1;
+drop table t1;
