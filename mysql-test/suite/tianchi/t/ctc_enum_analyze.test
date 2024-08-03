@@ -1,0 +1,21 @@
+--disable_warnings
+drop table if exists t1;
+--enable_warnings
+
+create table t1 (c enum('x1','x2','x3','x4'), index idx_c(c));
+insert into t1 values ('x1');
+insert into t1 values ('x2');
+insert into t1 values ('x2');
+insert into t1 values ('x3');
+insert into t1 values ('x3');
+insert into t1 values ('x3');
+insert into t1 values ('x4');
+insert into t1 values ('x4');
+insert into t1 values ('x4');
+insert into t1 values ('x4');
+analyze table t1;
+explain select * from t1 where c = 'x1';
+explain select * from t1 where c = 'x2';
+explain select * from t1 where c = 'x3';
+explain select * from t1 where c = 'x4';
+drop table t1;
