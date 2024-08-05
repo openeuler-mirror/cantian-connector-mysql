@@ -223,8 +223,8 @@ static double calc_balance_hist_equal_density(tse_cbo_stats_column_t *col_stat, 
       break;
     }
   }
-  if (popular_count > 1 && col_stat->num_buckets > 0) {
-    return (double)popular_count / col_stat->num_buckets;
+  if (popular_count > 1 && col_stat->hist_count > 0) {
+    return (double)popular_count / col_stat->hist_count;
   }
   return col_stat->density;
 }
@@ -400,8 +400,8 @@ static int calc_hist_range_boundary(field_stats_val stats_val, enum_field_types 
   // calc the part of value below hi_pos
   *percent -= percent_in_bucket(col_stat, i, stats_val.max_key_val, field_type);
 
-  if (col_stat->num_buckets > 0) {
-    *percent = *percent / col_stat->num_buckets;
+  if (col_stat->hist_count > 0) {
+    *percent = *percent / col_stat->hist_count;
   }
 
   if (stats_val.min_type == CMP_TYPE_CLOSE_INTERNAL) {
@@ -428,8 +428,8 @@ static double calc_hist_between_balance(tse_cbo_stats_table_t *cbo_stats, field_
 
   int bucket_range = calc_hist_range_boundary(stats_val, field_type, col_stat, &percent);
 
-  if (col_stat->num_buckets > 0) {
-    density = (double)bucket_range / col_stat->num_buckets + percent;
+  if (col_stat->hist_count > 0) {
+    density = (double)bucket_range / col_stat->hist_count + percent;
   } else {
     density = percent;
   }
