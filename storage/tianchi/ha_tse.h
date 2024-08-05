@@ -477,9 +477,7 @@ public:
 
 #ifdef METADATA_NORMALIZED
   int write_row(uchar *buf, bool write_through = false) override;
-#endif
-
-#ifndef METADATA_NORMALIZED
+#else
   int write_row(uchar *buf) override;
 #endif
 
