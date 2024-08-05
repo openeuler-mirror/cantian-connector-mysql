@@ -108,7 +108,6 @@
 
 #include "sql/dd/properties.h"
 #include "sql/dd/types/partition.h"
-
 #include "tse_stats.h"
 #include "tse_error.h"
 #include "tse_log.h"
@@ -364,17 +363,20 @@ bool is_ctc_mdl_thd(THD* thd) {
 
 // 是否为元数据归一的初始化流程
 bool is_meta_version_initialize() {
-  bool is_meta_normalization = CHECK_HAS_MEMBER(handlerton, get_metadata_switch);
-  if (is_meta_normalization && is_initialize()) {
-    return true;
-  }
+#ifdef METADATA_NORMALIZED
+  return is_initialize();
+#else
   return false;
+#endif
 }
 
 // 是否为--upgrade=FORCE
 bool is_meta_version_upgrading_force() {
-  bool is_meta_normalization = CHECK_HAS_MEMBER(handlerton, get_metadata_switch);
-  return is_meta_normalization && (opt_upgrade_mode == UPGRADE_FORCE);
+#ifdef METADATA_NORMALIZED
+  return (opt_upgrade_mode == UPGRADE_FORCE);
+#else
+  return false;
+#endif
 }
 
 bool is_alter_table_scan(bool m_error_if_not_empty) {
@@ -393,7 +395,7 @@ bool engine_skip_ddl(MYSQL_THD thd) {
 
 bool engine_ddl_passthru(MYSQL_THD thd) {
   // 元数据归一初始化场景，接口流程需要走到参天
-  if (is_meta_version_initialize() || is_meta_version_upgrading_force()) {
+  if (is_initialize() || is_meta_version_upgrading_force()) {
     return false;
   }
   bool is_mysql_local = user_var_set(thd, "ctc_ddl_local_enabled");
@@ -802,6 +804,7 @@ bool ha_tse::check_unsupported_operation(THD *thd, HA_CREATE_INFO *create_info) 
     my_error(ER_NOT_ALLOWED_COMMAND, MYF(0));
     return HA_ERR_UNSUPPORTED;
   }
+
   if (create_info != nullptr && create_info->index_file_name) {
     my_error(ER_ILLEGAL_HA, MYF(0), table_share != nullptr ? table_share->table_name.str : " ");
     return true;
@@ -975,10 +978,10 @@ static bool tse_check_if_log_table(const char* db_name, const char* table_name) 
 static bool tse_is_supported_system_table(const char *db MY_ATTRIBUTE((unused)),
                                           const char *table_name MY_ATTRIBUTE((unused)),
                                           bool is_sql_layer_system_table MY_ATTRIBUTE((unused))) {
+
   if (IS_METADATA_NORMALIZATION()) {
     return true;
   }
-  
   return false;
 }
 
@@ -1255,6 +1258,7 @@ thd_sess_ctx_s *get_or_init_sess_ctx(handlerton *hton, THD *thd) {
     sess_ctx = (thd_sess_ctx_s *)my_malloc(PSI_NOT_INSTRUMENTED,
                                            sizeof(thd_sess_ctx_s), MYF(MY_WME));
     if (sess_ctx == nullptr) {
+      tse_log_error("my_malloc error for sess_ctx");
       return nullptr;
     }
     
@@ -1357,6 +1361,9 @@ void update_sess_ctx_cursor_by_tch(tianchi_handler_t &tch, handlerton *hton, THD
   if (total_csize >= SESSION_CURSOR_NUM) {
     uint32_t free_csize = sess_ctx->invalid_cursors->size();
     uint64_t *cursors = (uint64_t *)tse_alloc_buf(&tch, sizeof(uint64_t) * free_csize);
+    if ((total_csize != 0) && (cursors == nullptr)) {
+      tse_log_error("tse_alloc_buf for cursors in update_sess_ctx_cursor_by_tch failed");
+    }
     assert((total_csize == 0) ^ (cursors != nullptr));
     ctc_copy_cursors_to_free(sess_ctx, cursors, 1);
     assert(sess_ctx->invalid_cursors->empty());
@@ -1623,6 +1630,9 @@ static void tse_free_cursors_no_autocommit(THD *thd, tianchi_handler_t *tch, thd
   }
 
   uint64_t *cursors = (uint64_t *)tse_alloc_buf(tch, sizeof(uint64_t) * total_csize);
+  if ((total_csize != 0) && (cursors == nullptr)) {
+    tse_log_error("tse_alloc_buf for cursors in tse_free_cursors_no_autocommit failed");
+  }
   assert((total_csize == 0) ^ (cursors != nullptr));
   ctc_copy_cursors_to_free(sess_ctx, cursors, 0);
   tse_free_session_cursors(tch, cursors, total_csize);
@@ -1663,6 +1673,9 @@ static int tse_commit(handlerton *hton, THD *thd, bool commit_trx) {
       total_csize += sess_ctx->invalid_cursors->size();
     }
     uint64_t *cursors = (uint64_t *)tse_alloc_buf(&tch, sizeof(uint64_t) * total_csize);
+    if ((total_csize != 0) && (cursors == nullptr)) {
+      tse_log_error("tse_alloc_buf for cursors in tse_commit failed");
+    }
     assert((total_csize == 0) ^ (cursors != nullptr));
     ctc_copy_cursors_to_free(sess_ctx, cursors, 0);
     ret = (ct_errno_t)tse_trx_commit(&tch, cursors, total_csize, &is_ddl_commit);
@@ -1730,6 +1743,9 @@ static int tse_rollback(handlerton *hton, THD *thd, bool rollback_trx) {
       total_csize += sess_ctx->invalid_cursors->size();
     }
     uint64_t *cursors = (uint64_t *)tse_alloc_buf(&tch, sizeof(uint64_t) * total_csize);
+    if ((total_csize != 0) && (cursors == nullptr)) {
+      tse_log_error("tse_alloc_buf for cursors in tse_rollback failed");
+    }
     assert((total_csize == 0) ^ (cursors != nullptr));
     ctc_copy_cursors_to_free(sess_ctx, cursors, 0);
     ret = (ct_errno_t)tse_trx_rollback(&tch, cursors, total_csize);
@@ -1747,6 +1763,9 @@ static int tse_rollback(handlerton *hton, THD *thd, bool rollback_trx) {
       total_csize += sess_ctx->invalid_cursors->size();
     }
     uint64_t *cursors = (uint64_t *)tse_alloc_buf(&tch, sizeof(uint64_t) * total_csize);
+    if ((total_csize != 0) && (cursors == nullptr)) {
+      tse_log_error("tse_alloc_buf for cursors in tse_rollback failed");
+    }
     assert((total_csize == 0) ^ (cursors != nullptr));
     ctc_copy_cursors_to_free(sess_ctx, cursors, 0);
     (void)tse_srv_rollback_savepoint(&tch, cursors, total_csize, TSE_SQL_START_INTERNAL_SAVEPOINT);
@@ -1992,6 +2011,7 @@ static bool tse_notify_exclusive_mdl(THD *thd, const MDL_key *mdl_key,
       tse_log_warning("[CTC_NOMETA_SQL]:record sql str only generate metadata. sql:%s", thd->query().str);
       return false;
     }
+
     if (!ddl_enabled_normal(thd)) {
       my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0), "DDL not allowed in this mode, Please check the value of @@ctc_concurrent_ddl.");
       return true;
@@ -2043,10 +2063,10 @@ static bool tse_notify_alter_table(THD *thd, const MDL_key *mdl_key,
   }
 
   bool ret = tse_notify_exclusive_mdl(thd, mdl_key, notification_type, nullptr);
-
   if (IS_METADATA_NORMALIZATION() && notification_type == HA_NOTIFY_PRE_EVENT) {
     tse_lock_table_post(thd, ticket_list);
   }
+
   return ret;
 }
 
@@ -2099,6 +2119,9 @@ static int tse_rollback_savepoint(handlerton *hton, THD *thd, void *savepoint) {
     total_csize += sess_ctx->invalid_cursors->size();
   }
   uint64_t *cursors = (uint64_t *)tse_alloc_buf(&tch, sizeof(uint64_t) * total_csize);
+  if ((total_csize != 0) && (cursors == nullptr)) {
+    tse_log_error("tse_alloc_buf for cursors in tse_rollback_savepoint failed");
+  }
   assert((total_csize == 0) ^ (cursors != nullptr));
   ctc_copy_cursors_to_free(sess_ctx, cursors, 0);
   ct_errno_t ret = (ct_errno_t)tse_srv_rollback_savepoint(&tch, cursors, total_csize, name);
@@ -4119,12 +4142,13 @@ int ha_tse::external_lock(THD *thd, int lock_type) {
     out they lock meaning.
   */
   DBUG_TRACE;
-  
+
   if (IS_METADATA_NORMALIZATION() &&
     tse_check_if_log_table(table_share->db.str, table_share->table_name.str)) {
     is_log_table = true;  
     return 0;
   }
+
   is_log_table = false;
   
   if (engine_ddl_passthru(thd) && (is_create_table_check(thd) || is_alter_table_copy(thd))) {
@@ -4715,18 +4739,16 @@ static int tse_init_func(void *p) {
 
   // 元数据归一流程初始化下发参天
   // 主干非initialize_insecure模式，需要注册共享内存接收线程并等待参天启动完成
-  if (!opt_initialize_insecure || CHECK_HAS_MEMBER(handlerton, get_inst_id)) {
-    ret = srv_wait_instance_startuped();
-    if (ret != 0) {
-      tse_log_error("wait cantian instance startuped failed:%d", ret);
-      return HA_ERR_INITIALIZATION;
-    }
-    
-    ret = tse_reg_instance();
-    if (ret != 0) {
-      tse_log_error("[CTC_INIT]:ctc_reg_instance failed:%d", ret);
-      return HA_ERR_INITIALIZATION;
-    }
+  ret = srv_wait_instance_startuped();
+  if (ret != 0) {
+    tse_log_error("wait cantian instance startuped failed:%d", ret);
+    return HA_ERR_INITIALIZATION;
+  }
+  
+  ret = tse_reg_instance();
+  if (ret != 0) {
+    tse_log_error("[CTC_INIT]:ctc_reg_instance failed:%d", ret);
+    return HA_ERR_INITIALIZATION;
   }
   
   ret = tse_check_tx_isolation();
@@ -5264,18 +5286,28 @@ int ha_tse::initialize_cbo_stats()
   }
   m_share->cbo_stats = (tianchi_cbo_stats_t*)my_malloc(PSI_NOT_INSTRUMENTED, sizeof(tianchi_cbo_stats_t), MYF(MY_WME));
   if (m_share->cbo_stats == nullptr) {
-    tse_log_error("alloc shm mem failed, m_share->cbo_stats size(%lu)", sizeof(tianchi_cbo_stats_t));
+    tse_log_error("alloc mem failed, m_share->cbo_stats size(%lu)", sizeof(tianchi_cbo_stats_t));
     return ERR_ALLOC_MEMORY;
   }
   *m_share->cbo_stats = {0, 0, 0, 0, 0, 0, nullptr, nullptr};
   m_share->cbo_stats->tse_cbo_stats_table = 
         (tse_cbo_stats_table_t*)my_malloc(PSI_NOT_INSTRUMENTED, sizeof(tse_cbo_stats_table_t), MYF(MY_WME));
+  if (m_share->cbo_stats->tse_cbo_stats_table == nullptr) {
+    tse_log_error("alloc mem failed, m_share->cbo_stats->tse_cbo_stats_table(%lu)", sizeof(tse_cbo_stats_table_t));
+    return ERR_ALLOC_MEMORY;
+  } 
   m_share->cbo_stats->tse_cbo_stats_table->columns =
     (tse_cbo_stats_column_t*)my_malloc(PSI_NOT_INSTRUMENTED, table->s->fields * sizeof(tse_cbo_stats_column_t), MYF(MY_WME));
-  
+  if (m_share->cbo_stats->tse_cbo_stats_table->columns == nullptr) {
+    tse_log_error("alloc mem failed, m_share->cbo_stats->tse_cbo_stats_table->columns size(%lu)", table->s->fields * sizeof(tse_cbo_stats_column_t));
+    return ERR_ALLOC_MEMORY;
+  }
   m_share->cbo_stats->ndv_keys =
     (uint32_t*)my_malloc(PSI_NOT_INSTRUMENTED, table->s->keys * sizeof(uint32_t) * MAX_KEY_COLUMNS, MYF(MY_WME));
-  
+  if (m_share->cbo_stats->ndv_keys == nullptr) {
+    tse_log_error("alloc mem failed, m_share->cbo_stats->ndv_keys size(%lu)", table->s->keys * sizeof(uint32_t) * MAX_KEY_COLUMNS);
+    return ERR_ALLOC_MEMORY;
+  }
   m_share->cbo_stats->msg_len = table->s->fields * sizeof(tse_cbo_stats_column_t);
   m_share->cbo_stats->key_len = table->s->keys * sizeof(uint32_t) * MAX_KEY_COLUMNS;
   return CT_SUCCESS;
@@ -5360,7 +5392,7 @@ const Item *ha_tse::cond_push(const Item *cond, bool other_tbls_ok MY_ATTRIBUTE(
 
   m_cond = (tse_conds *)tse_alloc_buf(&m_tch, sizeof(tse_conds));
   if (m_cond == nullptr) {
-    tse_log_warning("alloc shm mem failed, m_cond size(%lu), pushdown cond is null.",  sizeof(tse_conds));
+    tse_log_error("alloc mem failed, m_cond size(%lu), pushdown cond is null.",  sizeof(tse_conds));
     return remainder;
   }
 
@@ -5438,7 +5470,7 @@ int ha_tse::engine_push(AQP::Table_access *table_aqp)
 
   m_cond = (tse_conds *)tse_alloc_buf(&m_tch, sizeof(tse_conds));
   if (m_cond == nullptr) {
-    tse_log_warning("alloc shm mem failed, m_cond size(%lu), pushdown cond is null.",  sizeof(tse_conds));
+    tse_log_error("alloc mem failed, m_cond size(%lu), pushdown cond is null.",  sizeof(tse_conds));
     return 0;
   }
 

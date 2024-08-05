@@ -250,8 +250,7 @@ class ha_tsepart : public ha_tse,
   void part_autoinc_has_expl_non_null_value_update_row(uchar *new_data);
 #ifdef METADATA_NORMALIZED
   int write_row(uchar *record, bool write_through MY_ATTRIBUTE((unused)) = false) override {
-#endif
-#ifndef METADATA_NORMALIZED
+#else
   int write_row(uchar *record) override {
 #endif
     if (table->next_number_field) {

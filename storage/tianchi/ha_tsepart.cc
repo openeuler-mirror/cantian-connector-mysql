@@ -1009,7 +1009,7 @@ int ha_tsepart::initialize_cbo_stats() {
     
   m_part_share->cbo_stats = (tianchi_cbo_stats_t*)my_malloc(PSI_NOT_INSTRUMENTED, sizeof(tianchi_cbo_stats_t), MYF(MY_WME));
   if (m_part_share->cbo_stats == nullptr) {
-    tse_log_error("alloc shm mem failed, m_part_share->cbo_stats size(%lu)", sizeof(tianchi_cbo_stats_t));
+    tse_log_error("alloc mem failed, m_part_share->cbo_stats size(%lu)", sizeof(tianchi_cbo_stats_t));
     return ERR_ALLOC_MEMORY;
   }
   *m_part_share->cbo_stats = {0, 0, 0, 0, 0, 0, nullptr, nullptr};
@@ -1018,11 +1018,23 @@ int ha_tsepart::initialize_cbo_stats() {
 
   m_part_share->cbo_stats->tse_cbo_stats_table = 
       (tse_cbo_stats_table_t*)my_malloc(PSI_NOT_INSTRUMENTED, part_num * sizeof(tse_cbo_stats_table_t), MYF(MY_WME));
+  if (m_part_share->cbo_stats->tse_cbo_stats_table == nullptr) {
+    tse_log_error("alloc mem failed, m_part_share->cbo_stats->tse_cbo_stats_table size(%lu)", part_num * sizeof(tse_cbo_stats_table_t));
+    return ERR_ALLOC_MEMORY;
+  }
   m_part_share->cbo_stats->ndv_keys =
       (uint32_t*)my_malloc(PSI_NOT_INSTRUMENTED, table->s->keys * sizeof(uint32_t) * MAX_KEY_COLUMNS, MYF(MY_WME));
+  if (m_part_share->cbo_stats->ndv_keys == nullptr) {
+    tse_log_error("alloc mem failed, m_part_share->cbo_stats->ndv_keys size(%lu)", table->s->keys * sizeof(uint32_t) * MAX_KEY_COLUMNS);
+    return ERR_ALLOC_MEMORY;
+  }
   for (uint i = 0; i < part_num; i++) {
     m_part_share->cbo_stats->tse_cbo_stats_table[i].columns =
       (tse_cbo_stats_column_t*)my_malloc(PSI_NOT_INSTRUMENTED, table->s->fields * sizeof(tse_cbo_stats_column_t), MYF(MY_WME));
+    if (m_part_share->cbo_stats->tse_cbo_stats_table[i].columns == nullptr) {
+    tse_log_error("alloc mem failed, m_part_share->cbo_stats->tse_cbo_stats_table size(%lu)", table->s->fields * sizeof(tse_cbo_stats_column_t));
+    return ERR_ALLOC_MEMORY;
+    }
   }
   m_part_share->cbo_stats->msg_len = table->s->fields * sizeof(tse_cbo_stats_column_t);
   m_part_share->cbo_stats->key_len = table->s->keys * sizeof(uint32_t) * MAX_KEY_COLUMNS;
