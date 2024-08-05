@@ -1012,7 +1012,7 @@ int ha_tsepart::initialize_cbo_stats() {
     tse_log_error("alloc mem failed, m_part_share->cbo_stats size(%lu)", sizeof(tianchi_cbo_stats_t));
     return ERR_ALLOC_MEMORY;
   }
-  *m_part_share->cbo_stats = {0, 0, 0, 0, 0, 0, nullptr, nullptr};
+  *m_part_share->cbo_stats = {0, 0, 0, 0, 0, 0, nullptr, 0, nullptr, nullptr};
 
   m_part_share->cbo_stats->part_cnt = part_num;
 
@@ -1036,6 +1036,12 @@ int ha_tsepart::initialize_cbo_stats() {
     return ERR_ALLOC_MEMORY;
     }
   }
+  
+  ct_errno_t ret = (ct_errno_t)alloc_str_mysql_mem(m_part_share->cbo_stats, part_num, table);
+  if (ret != CT_SUCCESS) {
+    tse_log_error("m_part_share:tse alloc str mysql mem failed, ret:%d", ret);
+  }
+  
   m_part_share->cbo_stats->msg_len = table->s->fields * sizeof(tse_cbo_stats_column_t);
   m_part_share->cbo_stats->key_len = table->s->keys * sizeof(uint32_t) * MAX_KEY_COLUMNS;
 
@@ -1059,14 +1065,15 @@ int ha_tsepart::get_cbo_stats_4share()
         return ret;
       }
     }
-
-    uint32_t data_size = m_part_share->cbo_stats->msg_len;
+    uint32_t str_data_size = m_part_share->cbo_stats->num_str_cols * (STATS_HISTGRAM_MAX_SIZE + 2) * CBO_STRING_MAX_LEN;
+    uint32_t data_size = m_part_share->cbo_stats->msg_len > str_data_size ?
+                         m_part_share->cbo_stats->msg_len : str_data_size;
     uint32_t part_cnt = m_part_share->cbo_stats->part_cnt;
     uint32_t num_part_fetch = MAX_MESSAGE_SIZE / data_size;
     uint32_t fetch_times = part_cnt / num_part_fetch;
     uint32_t first_partid = 0;
 
-    for (uint32_t i = 0; i<fetch_times; i++) {
+    for (uint32_t i = 0; i < fetch_times; i++) {
       update_member_tch(m_tch, get_tse_hton(), thd);
       ret = tse_get_cbo_stats(&m_tch, m_part_share->cbo_stats, &m_part_share->cbo_stats->tse_cbo_stats_table[first_partid], first_partid, num_part_fetch);
       update_sess_ctx_by_tch(m_tch, get_tse_hton(), thd);
@@ -1100,12 +1107,15 @@ void ha_tsepart::free_cbo_stats() {
   uint32_t part_num = m_is_sub_partitioned ? table->part_info->num_parts * table->part_info->num_subparts : 
                       table->part_info->num_parts;
 
+  bool is_str_first_addr = true;
   for (uint i = 0; i < part_num; i++) {
-    my_free(m_part_share->cbo_stats->tse_cbo_stats_table[i].columns);
-    m_part_share->cbo_stats->tse_cbo_stats_table[i].columns = nullptr;
+    free_columns_cbo_stats(m_part_share->cbo_stats->tse_cbo_stats_table[i].columns, &is_str_first_addr, table);
   }
+
   my_free((m_part_share->cbo_stats->ndv_keys));
   m_part_share->cbo_stats->ndv_keys = nullptr;
+  my_free((m_part_share->cbo_stats->col_type));
+  m_part_share->cbo_stats->col_type = nullptr;
   my_free(m_part_share->cbo_stats->tse_cbo_stats_table);
   m_part_share->cbo_stats->tse_cbo_stats_table = nullptr;
   my_free(m_part_share->cbo_stats);

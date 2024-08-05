@@ -78,6 +78,21 @@ void r_key2variant(tse_key *rKey, KEY_PART_INFO *cur_index_part, cache_variant_t
     }
     offset = 1;
   }
+  // calculate string copy length
+  uint32_t str_key_len = 0;
+  if (field->real_type() == MYSQL_TYPE_VARCHAR) {
+    str_key_len = *(uint16_t *)const_cast<uint8_t *>(rKey->key + offset);
+  }
+  if (field->real_type() == MYSQL_TYPE_STRING) {
+      uint32_t data_len = field->key_length();
+      while (data_len > 0 && rKey->key[data_len + offset - 1] == field->charset()->pad_char) {
+        data_len--;
+      }
+      str_key_len = data_len;
+  }
+  uint32_t str_copy_len = str_key_len > CBO_STRING_MAX_LEN-1 ? CBO_STRING_MAX_LEN-1 : str_key_len;
+
+  key_offset += field->real_type() == MYSQL_TYPE_VARCHAR ? OFFSET_VARCHAR_TYPE : 0;
   const uchar *key = rKey->key + key_offset + offset;
   uchar tmp_ptr[TSE_BYTE_8] = {0};
   const field_cnvrt_aux_t *mysql_info = get_auxiliary_for_field_convert(field, field->type());
@@ -126,6 +141,11 @@ void r_key2variant(tse_key *rKey, KEY_PART_INFO *cur_index_part, cache_variant_t
       decimal_mysql_to_double(const_cast<uchar *>(key), tmp_ptr, field);
       ret_val->v_real = *(double *)tmp_ptr;
       break;
+    case MYSQL_TYPE_VARCHAR:
+    case MYSQL_TYPE_VAR_STRING:
+    case MYSQL_TYPE_STRING:
+      strncpy(ret_val->v_str, (const char *)key, str_copy_len);
+      break;
     default:
       break;
   }
@@ -159,7 +179,8 @@ static inline en_tse_compare_type two_nums_compare(T a, T b) {
   return EQUAL;
 }
 
-static en_tse_compare_type compare(cache_variant_t *right, cache_variant_t *left, Field *field)
+static en_tse_compare_type compare(cache_variant_t *right, cache_variant_t *left, Field *field,
+                                   const CHARSET_INFO *cs)
 {
   double compare_value = 0;
   switch (field->real_type()) {
@@ -199,6 +220,12 @@ static en_tse_compare_type compare(cache_variant_t *right, cache_variant_t *left
     case MYSQL_TYPE_TIME2:
       compare_value = time_compare((const uchar *)&(right->v_date), (const uchar *)&(left->v_date));
       break;
+    case MYSQL_TYPE_VARCHAR:
+    case MYSQL_TYPE_VAR_STRING:
+    case MYSQL_TYPE_STRING:
+      compare_value = cs->coll->strnncollsp(cs, (const uchar *)right->v_str, strlen(right->v_str),
+                      (const uchar *)left->v_str, strlen(left->v_str));
+      break;
     default:
       return UNCOMPARABLE;
   }
@@ -230,14 +257,14 @@ double eval_density_result(double density)
 }
 
 static double calc_frequency_hist_equal_density(tse_cbo_stats_column_t *col_stat, cache_variant_t *val,
-                                                Field *field)
+                                                Field *field, const CHARSET_INFO *cs)
 {
   en_tse_compare_type cmp_result;
   int64 result = 0;
   double density = col_stat->density;
   tse_cbo_column_hist_t *hist_infos = col_stat->column_hist;
   for (uint32 i = 0; i < col_stat->hist_count; i++) {
-    cmp_result = compare(&hist_infos[i].ep_value, val, field);
+    cmp_result = compare(&hist_infos[i].ep_value, val, field, cs);
 
     if (cmp_result == EQUAL) {
         result = (i == 0) ? hist_infos[i].ep_number : hist_infos[i].ep_number - hist_infos[i - 1].ep_number;
@@ -258,13 +285,13 @@ static double calc_frequency_hist_equal_density(tse_cbo_stats_column_t *col_stat
 }
 
 static double calc_balance_hist_equal_density(tse_cbo_stats_column_t *col_stat, cache_variant_t *val,
-                                              Field *field)
+                                              Field *field, const CHARSET_INFO *cs)
 {
   uint32 popular_count = 0;
   en_tse_compare_type cmp_result;
   tse_cbo_column_hist_t *hist_infos = col_stat->column_hist;
   for (uint32 i = 0; i < col_stat->hist_count; i++) {
-    cmp_result = compare(&hist_infos[i].ep_value, val, field);
+    cmp_result = compare(&hist_infos[i].ep_value, val, field, cs);
 
     if (cmp_result == EQUAL) {
         // ep_number is different from oracle, when compress balance histogram, need to change this
@@ -290,7 +317,7 @@ static double calc_equal_null_density(tse_cbo_stats_table_t *cbo_stats, uint32 c
 }
 
 double calc_hist_equal_density(tse_cbo_stats_table_t *cbo_stats, cache_variant_t *val,
-                               uint32 col_id, Field *field)
+                               uint32 col_id, Field *field, const CHARSET_INFO *cs)
 {
   tse_cbo_stats_column_t *col_stat = &cbo_stats->columns[col_id];
   double density = col_stat->density;
@@ -300,15 +327,16 @@ double calc_hist_equal_density(tse_cbo_stats_table_t *cbo_stats, cache_variant_t
   }
   if (col_stat->hist_type == FREQUENCY_HIST) {
     // HISTOGRAM_FREQUENCY
-    density = calc_frequency_hist_equal_density(col_stat, val, field);
+    density = calc_frequency_hist_equal_density(col_stat, val, field, cs);
   } else {
     // HISTOGRAM_BALANCE
-    density = calc_balance_hist_equal_density(col_stat, val, field);
+    density = calc_balance_hist_equal_density(col_stat, val, field, cs);
   }
   return density;
 }
 
-static double calc_hist_between_frequency(tse_cbo_stats_table_t *cbo_stats, field_stats_val stats_val, Field *field, uint32 col_id)
+static double  calc_hist_between_frequency(tse_cbo_stats_table_t *cbo_stats, field_stats_val stats_val,
+                                           Field *field, uint32 col_id, const CHARSET_INFO *cs)
 {
   tse_cbo_stats_column_t *col_stat = &cbo_stats->columns[col_id];
   double density = col_stat->density;
@@ -327,7 +355,7 @@ static double calc_hist_between_frequency(tse_cbo_stats_table_t *cbo_stats, fiel
   // HISTOGRAM_FREQUNCEY
   for (uint32 i = 0; i < hist_count; i++) {
 
-    cmp_result = compare(&hist_infos[i].ep_value, stats_val.min_key_val, field);
+    cmp_result = compare(&hist_infos[i].ep_value, stats_val.min_key_val, field, cs);
     if ((stats_val.min_type == CMP_TYPE_CLOSE_INTERNAL && (cmp_result == GREAT || cmp_result == EQUAL))
          || (stats_val.min_type == CMP_TYPE_OPEN_INTERNAL && cmp_result == GREAT)) {
         if (i > 0) {
@@ -340,7 +368,7 @@ static double calc_hist_between_frequency(tse_cbo_stats_table_t *cbo_stats, fiel
 
   for (uint32 i = 0; i < hist_count; i++) {
 
-    cmp_result = compare(&hist_infos[i].ep_value, stats_val.max_key_val, field);
+    cmp_result = compare(&hist_infos[i].ep_value, stats_val.max_key_val, field, cs);
 
     if ((stats_val.max_type == CMP_TYPE_OPEN_INTERNAL && (cmp_result == GREAT || cmp_result == EQUAL))
         || (stats_val.max_type == CMP_TYPE_CLOSE_INTERNAL && cmp_result == GREAT)) {
@@ -427,6 +455,9 @@ static double percent_in_bucket(tse_cbo_stats_column_t *col_stat, uint32 high,
         percent = time_compare((const uchar *)&ep_high->v_date, (const uchar *)&key->v_date) / denominator;
       }
       break;
+    case MYSQL_TYPE_VARCHAR:
+    case MYSQL_TYPE_VAR_STRING:
+    case MYSQL_TYPE_STRING:
     default:
       return DEFAULT_RANGE_DENSITY;
   }
@@ -435,7 +466,7 @@ static double percent_in_bucket(tse_cbo_stats_column_t *col_stat, uint32 high,
 }
 
 static int calc_hist_range_boundary(field_stats_val stats_val, Field *field, tse_cbo_stats_column_t *col_stat,
-                                    double *percent)
+                                    double *percent, const CHARSET_INFO *cs)
 {
   en_tse_compare_type cmp_result;
   uint32 i, lo_pos, hi_pos;
@@ -445,7 +476,7 @@ static int calc_hist_range_boundary(field_stats_val stats_val, Field *field, tse
   lo_pos = hi_pos = hist_count - 1;
 
   for (i = 0; i < hist_count; i++) {
-    cmp_result = compare(&hist_infos[i].ep_value, stats_val.min_key_val, field);
+    cmp_result = compare(&hist_infos[i].ep_value, stats_val.min_key_val, field, cs);
     if (cmp_result == GREAT) {
       lo_pos = i;
       break;
@@ -456,7 +487,7 @@ static int calc_hist_range_boundary(field_stats_val stats_val, Field *field, tse
   *percent += percent_in_bucket(col_stat, i, stats_val.min_key_val, field);
 
   for (i = lo_pos; i < hist_count; i++) {
-    cmp_result = compare(&hist_infos[i].ep_value, stats_val.max_key_val, field);
+    cmp_result = compare(&hist_infos[i].ep_value, stats_val.max_key_val, field, cs);
     if (cmp_result == GREAT || cmp_result == EQUAL) {
       hi_pos = i;
       break;
@@ -471,18 +502,19 @@ static int calc_hist_range_boundary(field_stats_val stats_val, Field *field, tse
   }
 
   if (stats_val.min_type == CMP_TYPE_CLOSE_INTERNAL) {
-    *percent += calc_balance_hist_equal_density(col_stat, stats_val.min_key_val, field);
+    *percent += calc_balance_hist_equal_density(col_stat, stats_val.min_key_val, field, cs);
   }
 
   if (stats_val.max_type == CMP_TYPE_CLOSE_INTERNAL) {
-    *percent += calc_balance_hist_equal_density(col_stat, stats_val.max_key_val, field);
+    *percent += calc_balance_hist_equal_density(col_stat, stats_val.max_key_val, field, cs);
   }
 
   // return complete bucket number
   return hi_pos - lo_pos;
 }
 
-static double calc_hist_between_balance(tse_cbo_stats_table_t *cbo_stats, field_stats_val stats_val, Field *field, uint32 col_id)
+static double calc_hist_between_balance(tse_cbo_stats_table_t *cbo_stats, field_stats_val stats_val,
+                                        Field *field, uint32 col_id, const CHARSET_INFO *cs)
 {
   tse_cbo_stats_column_t *col_stat = &cbo_stats->columns[col_id];
   double density = col_stat->density;
@@ -492,7 +524,7 @@ static double calc_hist_between_balance(tse_cbo_stats_table_t *cbo_stats, field_
   }
   double percent = 0;
 
-  int bucket_range = calc_hist_range_boundary(stats_val, field, col_stat, &percent);
+  int bucket_range = calc_hist_range_boundary(stats_val, field, col_stat, &percent, cs);
 
   if (col_stat->hist_count > 0) {
     density = (double)bucket_range / col_stat->hist_count + percent;
@@ -503,22 +535,22 @@ static double calc_hist_between_balance(tse_cbo_stats_table_t *cbo_stats, field_
 }
 
 static double calc_hist_between_density(tse_cbo_stats_table_t *cbo_stats,
-                                        uint32 col_id, Field *field, field_stats_val stats_val)
+                                        uint32 col_id, Field *field, field_stats_val stats_val, const CHARSET_INFO *cs)
 {
   double density;
   tse_cbo_stats_column_t *col_stat = &cbo_stats->columns[col_id];
   if (col_stat->hist_type == FREQUENCY_HIST) {
     // HISTOGRAM_FREQUENCY
-    density = calc_hist_between_frequency(cbo_stats, stats_val, field, col_id);
+    density = calc_hist_between_frequency(cbo_stats, stats_val, field, col_id, cs);
   } else {
     // HISTOGRAM_BALANCE
-    density = calc_hist_between_balance(cbo_stats, stats_val, field, col_id);
+    density = calc_hist_between_balance(cbo_stats, stats_val, field, col_id, cs);
   }
   return density;
 }
 
 double calc_density_by_cond(tse_cbo_stats_table_t *cbo_stats, KEY_PART_INFO cur_index_part, tse_range_key *key,
-                            uint32_t key_offset)
+                            uint32_t key_offset, const CHARSET_INFO *cs)
 {
   double density = DEFAULT_RANGE_DENSITY;
   uint32 col_id = cur_index_part.field->field_index();
@@ -541,17 +573,25 @@ double calc_density_by_cond(tse_cbo_stats_table_t *cbo_stats, KEY_PART_INFO cur_
   low_val = &cbo_stats->columns[col_id].low_value;
   high_val = &cbo_stats->columns[col_id].high_value;
 
-  cache_variant_t min_key_val;
-  cache_variant_t max_key_val;
+  cache_variant_t min_key_val = { 0 };
+  cache_variant_t max_key_val = { 0 };
+  enum_field_types field_type = cur_index_part.field->real_type();
+  char v_str_min[CBO_STRING_MAX_LEN] = { 0 };
+  char v_str_max[CBO_STRING_MAX_LEN] = { 0 };
+  if (field_type == MYSQL_TYPE_VARCHAR || field_type == MYSQL_TYPE_VAR_STRING || field_type == MYSQL_TYPE_STRING) {
+    min_key_val.v_str = v_str_min;
+    max_key_val.v_str = v_str_max;
+  }
   r_key2variant(min_key, &cur_index_part, &min_key_val, low_val, key_offset);
   r_key2variant(max_key, &cur_index_part, &max_key_val, high_val, key_offset);
-  if (compare(&max_key_val, low_val, cur_index_part.field) == LESS || compare(&min_key_val, high_val, cur_index_part.field) == GREAT) {
+  if (compare(&max_key_val, low_val, cur_index_part.field, cs) == LESS ||
+      compare(&min_key_val, high_val, cur_index_part.field, cs) == GREAT) {
     return 0;
   }
-  en_tse_compare_type comapare_value = compare(&max_key_val, &min_key_val, cur_index_part.field);
+  en_tse_compare_type comapare_value = compare(&max_key_val, &min_key_val, cur_index_part.field, cs);
   if (comapare_value == EQUAL && min_key->cmp_type == CMP_TYPE_CLOSE_INTERNAL &&
       max_key->cmp_type == CMP_TYPE_CLOSE_INTERNAL) {
-    return calc_hist_equal_density(cbo_stats, &max_key_val, col_id, cur_index_part.field);
+    return calc_hist_equal_density(cbo_stats, &max_key_val, col_id, cur_index_part.field, cs);
   } else if (comapare_value == UNCOMPARABLE) {
     return DEFAULT_RANGE_DENSITY;
   } else if (comapare_value == LESS) {
@@ -559,7 +599,7 @@ double calc_density_by_cond(tse_cbo_stats_table_t *cbo_stats, KEY_PART_INFO cur_
   }
 
   field_stats_val stats_val = {min_key->cmp_type, max_key->cmp_type, &max_key_val, &min_key_val};
-  density = calc_hist_between_density(cbo_stats, col_id, cur_index_part.field, stats_val);
+  density = calc_hist_between_density(cbo_stats, col_id, cur_index_part.field, stats_val, cs);
 
   return density;
 }
@@ -589,7 +629,7 @@ double calc_density_one_table(uint16_t idx_id, tse_range_key *key,
       if ((offset == 1) && *(key->min_key->key + key_offset) == 1 && *(key->max_key->key + key_offset) == 1) {
         col_product = calc_equal_null_density(cbo_stats, col_id, true);
       } else {
-        col_product = calc_density_by_cond(cbo_stats, cur_index_part, key, key_offset);
+        col_product = calc_density_by_cond(cbo_stats, cur_index_part, key, key_offset, table.field[col_id]->charset());
       }
       col_product = eval_density_result(col_product);
       key_offset += (offset + cur_index_part.field->key_length());
