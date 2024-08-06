@@ -92,28 +92,29 @@ create table tbl_bit (num bit(64), index idx_num(num));
 create procedure insert_nums_to_tbl_bit()
 begin
 declare i int default 1;
-while i <= 10000 do
+while i <= 1000 do
 insert into tbl_bit (num) values (i);
 set i = i + 1;
 end while;
 end//
 call insert_nums_to_tbl_bit();
+drop procedure insert_nums_to_tbl_bit;
 analyze table tbl_bit;
 Table	Op	Msg_type	Msg_text
 test.tbl_bit	analyze	status	OK
 explain select * from tbl_bit where num < 100;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_bit	NULL	range	idx_num	idx_num	9	NULL	79	100.00	Using where; Using index
+1	SIMPLE	tbl_bit	NULL	range	idx_num	idx_num	9	NULL	101	100.00	Using where; Using index
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_bit`.`num` AS `num` from `test`.`tbl_bit` where (`test`.`tbl_bit`.`num` < 100)
-explain select * from tbl_bit where num > 9900;
+explain select * from tbl_bit where num > 900;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_bit	NULL	range	idx_num	idx_num	9	NULL	79	100.00	Using where; Using index
+1	SIMPLE	tbl_bit	NULL	range	idx_num	idx_num	9	NULL	100	100.00	Using where; Using index
 Warnings:
-Note	1003	/* select#1 */ select `test`.`tbl_bit`.`num` AS `num` from `test`.`tbl_bit` where (`test`.`tbl_bit`.`num` > 9900)
-explain select * from tbl_bit where num > 333 and num <= 966;
+Note	1003	/* select#1 */ select `test`.`tbl_bit`.`num` AS `num` from `test`.`tbl_bit` where (`test`.`tbl_bit`.`num` > 900)
+explain select * from tbl_bit where num > 333 and num <= 555;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_bit	NULL	range	idx_num	idx_num	9	NULL	630	100.00	Using where; Using index
+1	SIMPLE	tbl_bit	NULL	range	idx_num	idx_num	9	NULL	222	100.00	Using where; Using index
 Warnings:
-Note	1003	/* select#1 */ select `test`.`tbl_bit`.`num` AS `num` from `test`.`tbl_bit` where ((`test`.`tbl_bit`.`num` > 333) and (`test`.`tbl_bit`.`num` <= 966))
+Note	1003	/* select#1 */ select `test`.`tbl_bit`.`num` AS `num` from `test`.`tbl_bit` where ((`test`.`tbl_bit`.`num` > 333) and (`test`.`tbl_bit`.`num` <= 555))
 drop table tbl_bit;

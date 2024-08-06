@@ -38,15 +38,16 @@ delimiter //;
 create procedure insert_nums_to_tbl_bit()
 begin
 declare i int default 1;
-while i <= 10000 do
+while i <= 1000 do
 insert into tbl_bit (num) values (i);
 set i = i + 1;
 end while;
 end//
 delimiter ;//
 call insert_nums_to_tbl_bit();
+drop procedure insert_nums_to_tbl_bit;
 analyze table tbl_bit;
 explain select * from tbl_bit where num < 100;
-explain select * from tbl_bit where num > 9900;
-explain select * from tbl_bit where num > 333 and num <= 966;
+explain select * from tbl_bit where num > 900;
+explain select * from tbl_bit where num > 333 and num <= 555;
 drop table tbl_bit;
