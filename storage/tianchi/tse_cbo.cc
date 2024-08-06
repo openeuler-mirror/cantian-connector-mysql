@@ -22,6 +22,43 @@
 #include "datatype_cnvrtr.h"
 #include "tse_util.h"
 
+static void convert_enum_key_to_variant(const uchar *enum_key, cache_variant_t *variant, capacity_usage cap_usage_of_enum_key)
+{
+  switch (cap_usage_of_enum_key) {
+    case ONE_BYTE:
+      variant->v_uint32 = *(uint8_t *)const_cast<uchar *>(enum_key);
+      break;
+    case TWO_BYTES:
+      variant->v_uint32 = *(uint16_t *)const_cast<uchar *>(enum_key);
+      break;
+    default:
+      break;
+  }
+}
+
+static void convert_set_key_to_variant(const uchar *set_key, cache_variant_t *variant, capacity_usage cap_usage_of_set_key)
+{
+  switch (cap_usage_of_set_key) {
+    case ONE_BYTE:
+      variant->v_uint32 = *(uint8_t *)const_cast<uchar *>(set_key);
+      break;
+    case TWO_BYTES:
+      variant->v_uint32 = *(uint16_t *)const_cast<uchar *>(set_key);
+      break;
+    case THREE_BYTES:
+      variant->v_uint32 = uint3korr(set_key);
+      break;
+    case FOUR_BYTES:
+      variant->v_uint32 = *(uint32_t *)const_cast<uchar *>(set_key);
+      break;
+    case EIGHT_BYTES:
+      variant->v_ubigint = *(uint64_t *)const_cast<uchar *>(set_key);
+      break;
+    default:
+      break;
+  }
+}
+
 void r_key2variant(tse_key *rKey, KEY_PART_INFO *cur_index_part, cache_variant_t *ret_val, cache_variant_t * value, uint32_t key_offset)
 {
   if (rKey->cmp_type == CMP_TYPE_NULL) {
@@ -44,7 +81,13 @@ void r_key2variant(tse_key *rKey, KEY_PART_INFO *cur_index_part, cache_variant_t
   const uchar *key = rKey->key + key_offset + offset;
   uchar tmp_ptr[TSE_BYTE_8] = {0};
   const field_cnvrt_aux_t *mysql_info = get_auxiliary_for_field_convert(field, field->type());
-  switch(field->real_type()) {
+  switch (field->real_type()) {
+    case MYSQL_TYPE_SET:
+      convert_set_key_to_variant(key, ret_val, (capacity_usage)field->pack_length());
+      break;
+    case MYSQL_TYPE_ENUM:
+      convert_enum_key_to_variant(key, ret_val, (capacity_usage)field->pack_length());
+      break;
     case MYSQL_TYPE_BIT:
       ret_val->v_ubigint = bit_cnvt_mysql_cantian(key, field);
       break;
@@ -116,10 +159,17 @@ static inline en_tse_compare_type two_nums_compare(T a, T b) {
   return EQUAL;
 }
 
-en_tse_compare_type compare(cache_variant_t *right, cache_variant_t *left, enum_field_types field_type)
+static en_tse_compare_type compare(cache_variant_t *right, cache_variant_t *left, Field *field)
 {
   double compare_value = 0;
-  switch(field_type) {
+  switch (field->real_type()) {
+    case MYSQL_TYPE_SET:
+      if ((capacity_usage)field->pack_length() <= FOUR_BYTES) {
+        return two_nums_compare(right->v_uint32, left->v_uint32);
+      }
+      return two_nums_compare(right->v_ubigint, left->v_ubigint);
+    case MYSQL_TYPE_ENUM:
+      return two_nums_compare(right->v_uint32, left->v_uint32);
     case MYSQL_TYPE_BIT:
       return two_nums_compare(right->v_ubigint, left->v_ubigint);
     case MYSQL_TYPE_TINY:
@@ -180,14 +230,14 @@ double eval_density_result(double density)
 }
 
 static double calc_frequency_hist_equal_density(tse_cbo_stats_column_t *col_stat, cache_variant_t *val,
-                                                enum_field_types field_type)
+                                                Field *field)
 {
   en_tse_compare_type cmp_result;
   int64 result = 0;
   double density = col_stat->density;
   tse_cbo_column_hist_t *hist_infos = col_stat->column_hist;
   for (uint32 i = 0; i < col_stat->hist_count; i++) {
-    cmp_result = compare(&hist_infos[i].ep_value, val, field_type);
+    cmp_result = compare(&hist_infos[i].ep_value, val, field);
 
     if (cmp_result == EQUAL) {
         result = (i == 0) ? hist_infos[i].ep_number : hist_infos[i].ep_number - hist_infos[i - 1].ep_number;
@@ -208,13 +258,13 @@ static double calc_frequency_hist_equal_density(tse_cbo_stats_column_t *col_stat
 }
 
 static double calc_balance_hist_equal_density(tse_cbo_stats_column_t *col_stat, cache_variant_t *val,
-                                              enum_field_types field_type)
+                                              Field *field)
 {
   uint32 popular_count = 0;
   en_tse_compare_type cmp_result;
   tse_cbo_column_hist_t *hist_infos = col_stat->column_hist;
   for (uint32 i = 0; i < col_stat->hist_count; i++) {
-    cmp_result = compare(&hist_infos[i].ep_value, val, field_type);
+    cmp_result = compare(&hist_infos[i].ep_value, val, field);
 
     if (cmp_result == EQUAL) {
         // ep_number is different from oracle, when compress balance histogram, need to change this
@@ -240,7 +290,7 @@ static double calc_equal_null_density(tse_cbo_stats_table_t *cbo_stats, uint32 c
 }
 
 double calc_hist_equal_density(tse_cbo_stats_table_t *cbo_stats, cache_variant_t *val,
-                               uint32 col_id, enum_field_types field_type)
+                               uint32 col_id, Field *field)
 {
   tse_cbo_stats_column_t *col_stat = &cbo_stats->columns[col_id];
   double density = col_stat->density;
@@ -250,15 +300,15 @@ double calc_hist_equal_density(tse_cbo_stats_table_t *cbo_stats, cache_variant_t
   }
   if (col_stat->hist_type == FREQUENCY_HIST) {
     // HISTOGRAM_FREQUENCY
-    density = calc_frequency_hist_equal_density(col_stat, val, field_type);
+    density = calc_frequency_hist_equal_density(col_stat, val, field);
   } else {
     // HISTOGRAM_BALANCE
-    density = calc_balance_hist_equal_density(col_stat, val, field_type);
+    density = calc_balance_hist_equal_density(col_stat, val, field);
   }
   return density;
 }
 
-static double calc_hist_between_frequency(tse_cbo_stats_table_t *cbo_stats, field_stats_val stats_val, enum_field_types field_type, uint32 col_id)
+static double calc_hist_between_frequency(tse_cbo_stats_table_t *cbo_stats, field_stats_val stats_val, Field *field, uint32 col_id)
 {
   tse_cbo_stats_column_t *col_stat = &cbo_stats->columns[col_id];
   double density = col_stat->density;
@@ -277,7 +327,7 @@ static double calc_hist_between_frequency(tse_cbo_stats_table_t *cbo_stats, fiel
   // HISTOGRAM_FREQUNCEY
   for (uint32 i = 0; i < hist_count; i++) {
 
-    cmp_result = compare(&hist_infos[i].ep_value, stats_val.min_key_val, field_type);
+    cmp_result = compare(&hist_infos[i].ep_value, stats_val.min_key_val, field);
     if ((stats_val.min_type == CMP_TYPE_CLOSE_INTERNAL && (cmp_result == GREAT || cmp_result == EQUAL))
          || (stats_val.min_type == CMP_TYPE_OPEN_INTERNAL && cmp_result == GREAT)) {
         if (i > 0) {
@@ -290,7 +340,7 @@ static double calc_hist_between_frequency(tse_cbo_stats_table_t *cbo_stats, fiel
 
   for (uint32 i = 0; i < hist_count; i++) {
 
-    cmp_result = compare(&hist_infos[i].ep_value, stats_val.max_key_val, field_type);
+    cmp_result = compare(&hist_infos[i].ep_value, stats_val.max_key_val, field);
 
     if ((stats_val.max_type == CMP_TYPE_OPEN_INTERNAL && (cmp_result == GREAT || cmp_result == EQUAL))
         || (stats_val.max_type == CMP_TYPE_CLOSE_INTERNAL && cmp_result == GREAT)) {
@@ -307,15 +357,31 @@ static double calc_hist_between_frequency(tse_cbo_stats_table_t *cbo_stats, fiel
 
 }
 
-double percent_in_bucket(tse_cbo_stats_column_t *col_stat, uint32 high,
-                         cache_variant_t *key, enum_field_types field_type)
+static double percent_in_bucket(tse_cbo_stats_column_t *col_stat, uint32 high,
+                         cache_variant_t *key, Field *field)
 {
   double percent = 0.0D;
   tse_cbo_column_hist_t *hist_infos = col_stat->column_hist;
   cache_variant_t *ep_high = high >= col_stat->hist_count ? &col_stat->high_value : &hist_infos[high].ep_value;
   cache_variant_t *ep_low = high < 1 ? &col_stat->low_value : &hist_infos[high - 1].ep_value;
   double denominator;
-  switch(field_type) {
+  switch (field->real_type()) {
+    case MYSQL_TYPE_SET:
+      if ((capacity_usage)field->pack_length() <= FOUR_BYTES) {
+        if (ep_high->v_uint32 > ep_low->v_uint32) {
+          percent = (double)(ep_high->v_uint32 - key->v_uint32) / (ep_high->v_uint32 - ep_low->v_uint32);
+        }
+      } else {
+        if (ep_high->v_ubigint > ep_low->v_ubigint) {
+          percent = (double)(ep_high->v_ubigint - key->v_ubigint) / (ep_high->v_ubigint - ep_low->v_ubigint);
+        }
+      }
+      break;
+    case MYSQL_TYPE_ENUM:
+      if (ep_high->v_uint32 > ep_low->v_uint32) {
+        percent = (double)(ep_high->v_uint32 - key->v_uint32) / (ep_high->v_uint32 - ep_low->v_uint32);
+      }
+      break;
     case MYSQL_TYPE_TINY:
     case MYSQL_TYPE_SHORT:
     case MYSQL_TYPE_LONG:
@@ -368,7 +434,7 @@ double percent_in_bucket(tse_cbo_stats_column_t *col_stat, uint32 high,
   return percent;
 }
 
-static int calc_hist_range_boundary(field_stats_val stats_val, enum_field_types field_type, tse_cbo_stats_column_t *col_stat,
+static int calc_hist_range_boundary(field_stats_val stats_val, Field *field, tse_cbo_stats_column_t *col_stat,
                                     double *percent)
 {
   en_tse_compare_type cmp_result;
@@ -379,7 +445,7 @@ static int calc_hist_range_boundary(field_stats_val stats_val, enum_field_types 
   lo_pos = hi_pos = hist_count - 1;
 
   for (i = 0; i < hist_count; i++) {
-    cmp_result = compare(&hist_infos[i].ep_value, stats_val.min_key_val, field_type);
+    cmp_result = compare(&hist_infos[i].ep_value, stats_val.min_key_val, field);
     if (cmp_result == GREAT) {
       lo_pos = i;
       break;
@@ -387,10 +453,10 @@ static int calc_hist_range_boundary(field_stats_val stats_val, enum_field_types 
   }
 
   // calc the part of value below lo_pos
-  *percent += percent_in_bucket(col_stat, i, stats_val.min_key_val, field_type);
+  *percent += percent_in_bucket(col_stat, i, stats_val.min_key_val, field);
 
   for (i = lo_pos; i < hist_count; i++) {
-    cmp_result = compare(&hist_infos[i].ep_value, stats_val.max_key_val, field_type);
+    cmp_result = compare(&hist_infos[i].ep_value, stats_val.max_key_val, field);
     if (cmp_result == GREAT || cmp_result == EQUAL) {
       hi_pos = i;
       break;
@@ -398,25 +464,25 @@ static int calc_hist_range_boundary(field_stats_val stats_val, enum_field_types 
   }
 
   // calc the part of value below hi_pos
-  *percent -= percent_in_bucket(col_stat, i, stats_val.max_key_val, field_type);
+  *percent -= percent_in_bucket(col_stat, i, stats_val.max_key_val, field);
 
   if (col_stat->hist_count > 0) {
     *percent = *percent / col_stat->hist_count;
   }
 
   if (stats_val.min_type == CMP_TYPE_CLOSE_INTERNAL) {
-    *percent += calc_balance_hist_equal_density(col_stat, stats_val.min_key_val, field_type);
+    *percent += calc_balance_hist_equal_density(col_stat, stats_val.min_key_val, field);
   }
 
   if (stats_val.max_type == CMP_TYPE_CLOSE_INTERNAL) {
-    *percent += calc_balance_hist_equal_density(col_stat, stats_val.max_key_val, field_type);
+    *percent += calc_balance_hist_equal_density(col_stat, stats_val.max_key_val, field);
   }
 
   // return complete bucket number
   return hi_pos - lo_pos;
 }
 
-static double calc_hist_between_balance(tse_cbo_stats_table_t *cbo_stats, field_stats_val stats_val, enum_field_types field_type, uint32 col_id)
+static double calc_hist_between_balance(tse_cbo_stats_table_t *cbo_stats, field_stats_val stats_val, Field *field, uint32 col_id)
 {
   tse_cbo_stats_column_t *col_stat = &cbo_stats->columns[col_id];
   double density = col_stat->density;
@@ -426,7 +492,7 @@ static double calc_hist_between_balance(tse_cbo_stats_table_t *cbo_stats, field_
   }
   double percent = 0;
 
-  int bucket_range = calc_hist_range_boundary(stats_val, field_type, col_stat, &percent);
+  int bucket_range = calc_hist_range_boundary(stats_val, field, col_stat, &percent);
 
   if (col_stat->hist_count > 0) {
     density = (double)bucket_range / col_stat->hist_count + percent;
@@ -437,16 +503,16 @@ static double calc_hist_between_balance(tse_cbo_stats_table_t *cbo_stats, field_
 }
 
 static double calc_hist_between_density(tse_cbo_stats_table_t *cbo_stats,
-                                        uint32 col_id, enum_field_types field_type, field_stats_val stats_val)
+                                        uint32 col_id, Field *field, field_stats_val stats_val)
 {
   double density;
   tse_cbo_stats_column_t *col_stat = &cbo_stats->columns[col_id];
   if (col_stat->hist_type == FREQUENCY_HIST) {
     // HISTOGRAM_FREQUENCY
-    density = calc_hist_between_frequency(cbo_stats, stats_val, field_type, col_id);
+    density = calc_hist_between_frequency(cbo_stats, stats_val, field, col_id);
   } else {
     // HISTOGRAM_BALANCE
-    density = calc_hist_between_balance(cbo_stats, stats_val, field_type, col_id);
+    density = calc_hist_between_balance(cbo_stats, stats_val, field, col_id);
   }
   return density;
 }
@@ -479,14 +545,13 @@ double calc_density_by_cond(tse_cbo_stats_table_t *cbo_stats, KEY_PART_INFO cur_
   cache_variant_t max_key_val;
   r_key2variant(min_key, &cur_index_part, &min_key_val, low_val, key_offset);
   r_key2variant(max_key, &cur_index_part, &max_key_val, high_val, key_offset);
-  enum_field_types field_type = cur_index_part.field->real_type();
-  if (compare(&max_key_val, low_val, field_type) == LESS || compare(&min_key_val, high_val, field_type) == GREAT) {
+  if (compare(&max_key_val, low_val, cur_index_part.field) == LESS || compare(&min_key_val, high_val, cur_index_part.field) == GREAT) {
     return 0;
   }
-  en_tse_compare_type comapare_value = compare(&max_key_val, &min_key_val, field_type);
+  en_tse_compare_type comapare_value = compare(&max_key_val, &min_key_val, cur_index_part.field);
   if (comapare_value == EQUAL && min_key->cmp_type == CMP_TYPE_CLOSE_INTERNAL &&
       max_key->cmp_type == CMP_TYPE_CLOSE_INTERNAL) {
-    return calc_hist_equal_density(cbo_stats, &max_key_val, col_id, field_type);
+    return calc_hist_equal_density(cbo_stats, &max_key_val, col_id, cur_index_part.field);
   } else if (comapare_value == UNCOMPARABLE) {
     return DEFAULT_RANGE_DENSITY;
   } else if (comapare_value == LESS) {
@@ -494,7 +559,7 @@ double calc_density_by_cond(tse_cbo_stats_table_t *cbo_stats, KEY_PART_INFO cur_
   }
 
   field_stats_val stats_val = {min_key->cmp_type, max_key->cmp_type, &max_key_val, &min_key_val};
-  density = calc_hist_between_density(cbo_stats, col_id, field_type, stats_val);
+  density = calc_hist_between_density(cbo_stats, col_id, cur_index_part.field, stats_val);
 
   return density;
 }
