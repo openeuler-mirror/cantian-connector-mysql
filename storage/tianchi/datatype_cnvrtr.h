@@ -76,6 +76,14 @@ enum enum_sql_data_types
   LOB_DATA
 };
 
+typedef enum {
+  ONE_BYTE = 1,
+  TWO_BYTES,
+  THREE_BYTES,
+  FOUR_BYTES,
+  EIGHT_BYTES = 8
+} capacity_usage;
+
 #pragma pack(4)
 // row format
 typedef struct st_row_head {
