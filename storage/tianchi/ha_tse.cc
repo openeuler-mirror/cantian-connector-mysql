@@ -436,7 +436,7 @@ bool engine_ddl_passthru(MYSQL_THD thd) {
 }
 
 bool ha_tse::is_replay_ddl(MYSQL_THD thd) {
-  char db_name[SMALL_RECORD_SIZE];
+  char db_name[SMALL_RECORD_SIZE] = { 0 };
   tse_split_normalized_name(table->s->normalized_path.str, db_name, SMALL_RECORD_SIZE, nullptr, 0, nullptr);
   tse_copy_name(db_name, db_name, SMALL_RECORD_SIZE);
   if (mysql_system_db.find(db_name) != mysql_system_db.end()) {
@@ -1351,7 +1351,7 @@ int get_tch_in_handler_data(handlerton *hton, THD *thd, tianchi_handler_t &tch, 
 
 static void ctc_copy_cursors_to_free(thd_sess_ctx_s *sess_ctx, uint64_t *cursors, uint32_t left) {
   uint32_t idx = 0;
-  if (sess_ctx->invalid_cursors) {
+  if (sess_ctx->invalid_cursors && sess_ctx->invalid_cursors->size() > 0) {
     uint32_t invalid_csize = sess_ctx->invalid_cursors->size();
     memcpy(cursors, &(*sess_ctx->invalid_cursors)[0], invalid_csize * sizeof(uint64_t));
     sess_ctx->invalid_cursors->clear();
@@ -1525,6 +1525,9 @@ static int tse_start_trx_and_assign_scn(
   // get_tch_in_handler_data若成功返回，则sess_ctx肯定不为空
   assert(sess_ctx != nullptr);
   assert(sess_ctx->is_tse_trx_begin == 0);
+  if (sess_ctx == nullptr) {
+    return HA_ERR_OUT_OF_MEM;
+  }
 
   uint32_t autocommit = !thd->in_multi_stmt_transaction_mode();
   int isolation_level = isolation_level_to_cantian(mysql_isolation);
@@ -1841,7 +1844,9 @@ static int tse_close_connect(handlerton *hton, THD *thd) {
 static void tse_kill_connection(handlerton *hton, THD *thd) {
   tianchi_handler_t tch;
   int ret = get_tch_in_handler_data(hton, thd, tch);
-  assert(ret == 0);
+  if (ret != CT_SUCCESS) {
+    return;
+  }
   if (tch.sess_addr == INVALID_VALUE64) {
     tse_log_system("[TSE_KILL_SESSION]:trying to kill a thd without session assigned, conn_id=%u, instid=%u",
       tch.thd_id, tch.inst_id);
@@ -1866,7 +1871,7 @@ static int tse_pre_create_db4cantian(THD *thd, tianchi_handler_t *tch) {
   if (engine_skip_ddl(thd)) {
     return CT_SUCCESS;
   }
-  char user_name[SMALL_RECORD_SIZE];
+  char user_name[SMALL_RECORD_SIZE] = { 0 };
   tse_copy_name(user_name, thd->lex->name.str, SMALL_RECORD_SIZE);
   int error_code = 0;
   char error_message[ERROR_MESSAGE_LEN] = {0};
@@ -1936,6 +1941,9 @@ static void tse_lock_table_handle_error(int err_code, tse_lock_table_info *lock_
 static int tse_notify_pre_event(THD *thd, handlerton *tse_hton, tianchi_handler_t &tch, tse_lock_table_info *lock_info) {
   thd_sess_ctx_s *sess_ctx = get_or_init_sess_ctx(tse_hton, thd);
   assert(sess_ctx != nullptr);
+  if (sess_ctx == nullptr) {
+    return HA_ERR_OUT_OF_MEM;
+  }
 
   int ret = 0;
   int err_code = 0;
@@ -1978,6 +1986,9 @@ static int tse_notify_pre_event(THD *thd, handlerton *tse_hton, tianchi_handler_
 static int tse_notify_post_event(THD *thd, handlerton *tse_hton, tianchi_handler_t &tch, tse_lock_table_info *lock_info) {
   thd_sess_ctx_s *sess_ctx = get_or_init_sess_ctx(tse_hton, thd);
   assert(sess_ctx != nullptr);
+  if (sess_ctx == nullptr) {
+    return HA_ERR_OUT_OF_MEM;
+  }
 
   DBUG_EXECUTE_IF("core_before_tse_unlock_table", { assert(0); });  // 解锁前core
 
@@ -2031,7 +2042,10 @@ static bool tse_notify_exclusive_mdl(THD *thd, const MDL_key *mdl_key,
     we can not check sql length while using prepare statement, 
     so we need to check the sql length before ddl sql again
   */
-  if (!IS_METADATA_NORMALIZATION() && thd->query().str && tse_check_ddl_sql_length(thd->query().str)) {
+  int query_len = thd->query().length;
+  if (!IS_METADATA_NORMALIZATION() && query_len > MAX_DDL_SQL_LEN_CONTEXT) {
+    string err_msg = "`" + string(thd->query().str).substr(0, 100) + "...` Is Large Than " + to_string(MAX_DDL_SQL_LEN_CONTEXT);
+    my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0), err_msg.c_str());
     return true;
   }
 
@@ -2065,8 +2079,8 @@ static bool tse_notify_exclusive_mdl(THD *thd, const MDL_key *mdl_key,
 
   tse_lock_table_info lock_info = {{0}, {0}, {0}, {0}, thd->lex->sql_command, (int32_t)mdl_key->mdl_namespace()};
   FILL_USER_INFO_WITH_THD(lock_info, thd);
-  strncpy(lock_info.db_name, mdl_key->db_name(), SMALL_RECORD_SIZE);
-  strncpy(lock_info.table_name, mdl_key->name(), SMALL_RECORD_SIZE);
+  strncpy(lock_info.db_name, mdl_key->db_name(), SMALL_RECORD_SIZE - 1);
+  strncpy(lock_info.table_name, mdl_key->name(), SMALL_RECORD_SIZE - 1);
 
   if (notification_type == HA_NOTIFY_PRE_EVENT) {
     ret = tse_notify_pre_event(thd, tse_hton, tch, &lock_info);
@@ -3363,7 +3377,7 @@ int ha_tse::info(uint flag) {
   }
 
   if (flag & HA_STATUS_ERRKEY) {
-    char index_name[TSE_MAX_KEY_NAME_LENGTH + 1];
+    char index_name[TSE_MAX_KEY_NAME_LENGTH + 1] = { 0 };
     ret = (ct_errno_t)tse_get_index_name(&m_tch, index_name);
 
     if (ret == CT_SUCCESS) {
@@ -3395,7 +3409,7 @@ int ha_tse::analyze(THD *thd, HA_CHECK_OPT *) {
     return HA_ADMIN_OK;
   }
 
-  char user_name_str[SMALL_RECORD_SIZE];
+  char user_name_str[SMALL_RECORD_SIZE] = { 0 };
   tse_copy_name(user_name_str, thd->lex->query_tables->get_db_name(), SMALL_RECORD_SIZE);
 
   ct_errno_t ret = (ct_errno_t)tse_analyze_table(
@@ -4300,9 +4314,12 @@ EXTER_ATTACK bool tse_drop_database_with_err(handlerton *hton, char *path) {
 
   tianchi_handler_t tch;
   int res = get_tch_in_handler_data(hton, thd, tch);
-  assert(res == 0);
+  if (res != CT_SUCCESS) {
+    assert(0);
+    return true;
+  }
 
-  char db_name[SMALL_RECORD_SIZE];
+  char db_name[SMALL_RECORD_SIZE] = { 0 };
   tse_split_normalized_name(path, db_name, SMALL_RECORD_SIZE, nullptr, 0, nullptr);
   int error_code = 0;
   char error_message[ERROR_MESSAGE_LEN] = {0};
@@ -4517,23 +4534,28 @@ static int tse_init_tablespace(List<const Plugin_tablespace> *tablespaces)
   tablespaces->push_back(&dd_space);
   return 0;
 }
- 
+
 static bool tse_ddse_dict_init(
     dict_init_mode_t dict_init_mode, uint version,
     List<const dd::Object_table> *tables,
     List<const Plugin_tablespace> *tablespaces) {
   DBUG_TRACE;
-  tse_log_system("[CTC_INIT]:begin init!");
-  
+  tse_log_system("[CTC_INIT]: begin tse_ddse_dict_init.");
+
   assert(tables && tables->is_empty());
   assert(tablespaces && tablespaces->is_empty());
   assert(dict_init_mode == DICT_INIT_CREATE_FILES || dict_init_mode == DICT_INIT_CHECK_FILES);
   assert(version < 1000000000);
-  
-  if (tse_init_tablespace(tablespaces)) {
-      return true;
+  if (!(tables && tables->is_empty()) || !(tablespaces && tablespaces->is_empty()) ||
+      !(dict_init_mode == DICT_INIT_CREATE_FILES || dict_init_mode == DICT_INIT_CHECK_FILES) ||
+      version >= 1000000000) {
+    return true;
   }
- 
+
+  if (tse_init_tablespace(tablespaces)) {
+    return true;
+  }
+
   /* Instantiate table defs only if we are successful so far. */
   dd::Object_table *innodb_dynamic_metadata =
       dd::Object_table::create_object_table();
@@ -4546,24 +4568,24 @@ static bool tse_ddse_dict_init(
   def->add_field(2, "metadata", "metadata BLOB NOT NULL");
   def->add_index(0, "index_pk", "PRIMARY KEY (table_id)");
   /* Options and tablespace are set at the SQL layer. */
- 
+
   /* Changing these values would change the specification of innodb statistics
   tables. */
   static constexpr size_t DB_NAME_FIELD_SIZE = 64;
   static constexpr size_t TABLE_NAME_FIELD_SIZE = 199;
- 
+
   /* Set length for database name field. */
   std::ostringstream db_name_field;
   db_name_field << "database_name VARCHAR(" << DB_NAME_FIELD_SIZE
                 << ") NOT NULL";
   std::string db_field = db_name_field.str();
- 
+
   /* Set length for table name field. */
   std::ostringstream table_name_field;
   table_name_field << "table_name VARCHAR(" << TABLE_NAME_FIELD_SIZE
                    << ") NOT NULL";
   std::string table_field = table_name_field.str();
- 
+
   dd::Object_table *innodb_table_stats =
       dd::Object_table::create_object_table();
   innodb_table_stats->set_hidden(false);
@@ -4582,7 +4604,7 @@ static bool tse_ddse_dict_init(
                  "sum_of_other_index_sizes BIGINT UNSIGNED NOT NULL");
   def->add_index(0, "index_pk", "PRIMARY KEY (database_name, table_name)");
   /* Options and tablespace are set at the SQL layer. */
- 
+
   dd::Object_table *innodb_index_stats =
       dd::Object_table::create_object_table();
   innodb_index_stats->set_hidden(false);
@@ -4609,7 +4631,7 @@ static bool tse_ddse_dict_init(
                  "PRIMARY KEY (database_name, table_name, "
                  "index_name, stat_name)");
   /* Options and tablespace are set at the SQL layer. */
- 
+
   dd::Object_table *innodb_ddl_log = dd::Object_table::create_object_table();
   innodb_ddl_log->set_hidden(true);
   def = innodb_ddl_log->target_table_definition();
@@ -4628,17 +4650,17 @@ static bool tse_ddse_dict_init(
   def->add_index(0, "index_pk", "PRIMARY KEY(id)");
   def->add_index(1, "index_k_thread_id", "KEY(thread_id)");
   /* Options and tablespace are set at the SQL layer. */
- 
+
   tables->push_back(innodb_dynamic_metadata);
   tables->push_back(innodb_table_stats);
   tables->push_back(innodb_index_stats);
   tables->push_back(innodb_ddl_log);
- 
+
   tse_log_system("[CTC_INIT]:end init dict!");
- 
+
   return false;
 }
- 
+
 /** Set of ids of DD tables */
 static set<dd::Object_id> s_dd_table_ids;
  
@@ -4646,24 +4668,15 @@ static bool is_dd_table_id(uint16_t id) {
   DBUG_TRACE;
   return (s_dd_table_ids.find(id) != s_dd_table_ids.end());
 }
- 
+
 static void tse_dict_register_dd_table_id(dd::Object_id dd_table_id) {
   DBUG_TRACE;
   s_dd_table_ids.insert(dd_table_id);
   return;
 }
  
-static bool tse_dict_recover(dict_recovery_mode_t dict_recovery_mode, uint version){
+static bool tse_dict_recover(dict_recovery_mode_t, uint){
   DBUG_TRACE;
-  switch (dict_recovery_mode) {
-    case DICT_RECOVERY_INITIALIZE_SERVER:
-      return false;
-    case DICT_RECOVERY_INITIALIZE_TABLESPACES:
-      return false;
-    case DICT_RECOVERY_RESTART_SERVER:
-      return false;
-  }
-  assert(version < 0xFFFFFFFF);
   return false;
 }
  
@@ -4849,7 +4862,7 @@ void ha_tse::update_create_info(HA_CREATE_INFO *create_info) {
 
   int ret = 0;
   if (m_tch.ctx_addr == INVALID_VALUE64) {
-    char user_name[SMALL_RECORD_SIZE];
+    char user_name[SMALL_RECORD_SIZE] = { 0 };
     tse_split_normalized_name(table->s->normalized_path.str, user_name, SMALL_RECORD_SIZE, nullptr, 0, nullptr);
     tse_copy_name(user_name, user_name, SMALL_RECORD_SIZE);
     update_member_tch(m_tch, tse_hton, thd);
@@ -5405,7 +5418,7 @@ int ha_tse::get_cbo_stats_4share()
   time_t now = time(nullptr);
   if (m_share && (m_share->need_fetch_cbo || now - m_share->get_cbo_time > ctc_update_analyze_time)) {
     if (m_tch.ctx_addr == INVALID_VALUE64) {
-      char user_name[SMALL_RECORD_SIZE];
+      char user_name[SMALL_RECORD_SIZE] = { 0 };
       tse_split_normalized_name(table->s->normalized_path.str, user_name, SMALL_RECORD_SIZE, nullptr, 0, nullptr);
       tse_copy_name(user_name, user_name, SMALL_RECORD_SIZE);
       update_member_tch(m_tch, tse_hton, thd);

@@ -481,7 +481,7 @@ static int tse_set_var_meta(MYSQL_THD thd, uint32_t options, const char* base_na
   FILL_BROADCAST_BASE_REQ(broadcast_req, sql.c_str(), var_name.c_str(),
                           var_value.c_str(), ctc_instance_id, SQLCOM_SET_OPTION);
   if(base_name != nullptr) {
-    strncpy(broadcast_req.db_name, base_name, strlen(base_name));
+    strncpy(broadcast_req.db_name, base_name, SMALL_RECORD_SIZE - 1);
   }
   broadcast_req.options |= options;
   int ret = tse_execute_mysql_ddl_sql(&tch, &broadcast_req, false);
@@ -732,11 +732,10 @@ static int tse_lock_tables_ddl(string &, MYSQL_THD thd, bool &) {
     } else {
       continue;
     }
-    tse_lock_table_info lock_info = {{0}, {0}, {0}, {0}, SQLCOM_LOCK_TABLES,
-                                     mdl_type};
+    tse_lock_table_info lock_info = {{0}, {0}, {0}, {0}, SQLCOM_LOCK_TABLES, mdl_type};
     FILL_USER_INFO_WITH_THD(lock_info, thd);
-    strncpy(lock_info.db_name, table->db, SMALL_RECORD_SIZE);
-    strncpy(lock_info.table_name, table->table_name, SMALL_RECORD_SIZE);
+    strncpy(lock_info.db_name, table->db, SMALL_RECORD_SIZE - 1);
+    strncpy(lock_info.table_name, table->table_name, SMALL_RECORD_SIZE - 1);
     int err_code = 0;
     ret = tse_lock_table(&tch, lock_info.db_name, &lock_info, &err_code);
     if (ret != 0) {
@@ -753,11 +752,10 @@ static int tse_lock_tables_ddl(string &, MYSQL_THD thd, bool &) {
       handlerton* hton = get_tse_hton();
 
       TSE_RETURN_IF_NOT_ZERO(get_tch_in_handler_data(hton, thd, tch));
-      tse_lock_table_info lock_info = {{0}, {0}, {0}, {0}, SQLCOM_LOCK_TABLES,
-                                      (int32_t)TL_UNLOCK};
+      tse_lock_table_info lock_info = {{0}, {0}, {0}, {0}, SQLCOM_LOCK_TABLES, (int32_t)TL_UNLOCK};
       FILL_USER_INFO_WITH_THD(lock_info, thd);
-      strncpy(lock_info.db_name, table->db, SMALL_RECORD_SIZE-1);
-      strncpy(lock_info.table_name, table->table_name, SMALL_RECORD_SIZE-1);
+      strncpy(lock_info.db_name, table->db, SMALL_RECORD_SIZE - 1);
+      strncpy(lock_info.table_name, table->table_name, SMALL_RECORD_SIZE - 1);
       ret = tse_unlock_table(&tch, ctc_instance_id, &lock_info);
       if (ret != 0) {
         tse_log_error("[TSE_DDL_REWRITE]:unlock table failed, table:%s.%s", lock_info.db_name, lock_info.table_name);
@@ -1245,7 +1243,9 @@ static int tse_ddl_rewrite(MYSQL_THD thd, mysql_event_class_t event_class,
       static_cast<const struct mysql_event_parse *>(event);
   assert(event_class == MYSQL_AUDIT_PARSE_CLASS &&
          event_parse->event_subclass == MYSQL_AUDIT_PARSE_POSTPARSE);
-
+  if (event_class != MYSQL_AUDIT_PARSE_CLASS || event_parse->event_subclass != MYSQL_AUDIT_PARSE_POSTPARSE) {
+    return 1;
+  }
   enum enum_sql_command sql_cmd = thd->lex->sql_command;
   auto it = ddl_cmds.find(sql_cmd);
 

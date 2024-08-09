@@ -181,10 +181,8 @@ typedef int (*tse_prefetch_fn)(tianchi_handler_t *tch, uint8_t *records, uint16_
     do {                                                                                                           \
         const char *user_name = _thd->m_main_security_ctx.priv_user().str;                                         \
         const char *user_ip = _thd->m_main_security_ctx.priv_host().str;                                           \
-        assert(strlen(user_name) + 1 <= sizeof(ctrl.user_name));                                                   \
-        memcpy(ctrl.user_name, user_name, strlen(user_name) + 1);                                                  \
-        assert(strlen(user_ip) + 1 <= sizeof(ctrl.user_ip));                                                       \
-        memcpy(ctrl.user_ip, user_ip, strlen(user_ip) + 1);                                                        \
+        strncpy(ctrl.user_name, user_name, SMALL_RECORD_SIZE - 1);                                                 \
+        strncpy(ctrl.user_ip, user_ip, SMALL_RECORD_SIZE - 1);                                                     \
     } while (0)
 
 #define FILL_BROADCAST_BASE_REQ(broadcast_req, _sql_str, _user_name, _user_ip, _mysql_inst_id, _sql_command)       \

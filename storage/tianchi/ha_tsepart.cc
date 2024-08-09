@@ -1055,7 +1055,7 @@ int ha_tsepart::get_cbo_stats_4share()
   time_t now = time(nullptr);
   if (m_part_share->need_fetch_cbo || now - m_part_share->get_cbo_time > ctc_update_analyze_time) {
     if (m_tch.ctx_addr == INVALID_VALUE64) {
-      char user_name[SMALL_RECORD_SIZE];
+      char user_name[SMALL_RECORD_SIZE] = { 0 };
       tse_split_normalized_name(table->s->normalized_path.str, user_name, SMALL_RECORD_SIZE, nullptr, 0, nullptr);
       tse_copy_name(user_name, user_name, SMALL_RECORD_SIZE);
       update_member_tch(m_tch, get_tse_hton(), thd);
@@ -1143,15 +1143,16 @@ int ha_tsepart::repair(THD *thd, HA_CHECK_OPT *)
   }
   broadcast_req.options |= TSE_NOT_NEED_CANTIAN_EXECUTE;
 
+  ct_errno_t ret = CT_SUCCESS;
   if (IS_METADATA_NORMALIZATION()) {
-    ct_errno_t ret = (ct_errno_t)ctc_record_sql_for_cantian(&tch, &broadcast_req, false);
+    ret = (ct_errno_t)ctc_record_sql_for_cantian(&tch, &broadcast_req, false);
     assert (ret == CT_SUCCESS);
   } else {
-    ct_errno_t ret = (ct_errno_t)tse_execute_mysql_ddl_sql(&tch, &broadcast_req, false);
+    ret = (ct_errno_t)tse_execute_mysql_ddl_sql(&tch, &broadcast_req, false);
     assert (ret == CT_SUCCESS);
   }
 
-  return HA_ADMIN_OK;
+  return (int)ret;
 }
 
 uint32 ha_tsepart::calculate_key_hash_value(Field **field_array)

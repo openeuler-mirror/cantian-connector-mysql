@@ -74,7 +74,6 @@ tianchi.ctc_ddl_auto_inc
 tianchi.ctc_ddl_multi_db
 tianchi.ctc_ddl_temporary_table
 # tianchi.ctc_ddl_engine
-tianchi.ctc_ddl_unsupport_command
 tianchi.ctc_ddl_func_index
 tianchi.ctc_ddl_create_table_check
 tianchi.ctc_ddl_generated_columns
@@ -105,3 +104,4 @@ tianchi.ctc_varchar
 
 # ------ TEST CASES for handler operation ------
 ctc_handler_operation.test
+tianchi.ctc_ddl_unsupport_command
