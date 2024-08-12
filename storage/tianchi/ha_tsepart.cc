@@ -286,7 +286,7 @@ void ha_tsepart::start_bulk_insert(ha_rows rows) {
 }
 
 int ha_tsepart::bulk_insert_low(dml_flag_t flag, uint *dup_offset) {
-  record_info_t record_info = {m_rec_buf_data, (uint16_t)m_cantian_rec_len};
+  record_info_t record_info = {m_rec_buf_data, (uint16_t)m_cantian_rec_len, nullptr, nullptr};
   return (ct_errno_t)tse_bulk_write(&m_tch, &record_info, m_rec_buf_4_writing->records(),
                                     dup_offset, flag, m_bulk_insert_parts);
 }

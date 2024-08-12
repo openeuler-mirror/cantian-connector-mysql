@@ -244,6 +244,10 @@ static MYSQL_SYSVAR_UINT(sample_size, ctc_sample_size, PLUGIN_VAR_RQCMDARG,
                          "The size of the sample used, in MB.", nullptr, update_sample_size, 128,
                          32, 4096, 0);
 
+bool ctc_select_prefetch = true;
+static MYSQL_SYSVAR_BOOL(select_prefetch, ctc_select_prefetch, PLUGIN_VAR_RQCMDARG,
+                         "Indicates whether using prefetch in select.", nullptr, nullptr, true);
+
 // All global and session system variables must be published to mysqld before
 // use. This is done by constructing a NULL-terminated array of the variables
 // and linking to it in the plugin public interface.
@@ -265,6 +269,7 @@ static SYS_VAR *tse_system_variables[] = {
   MYSQL_SYSVAR(cluster_role),
   MYSQL_SYSVAR(update_analyze_time),
   MYSQL_SYSVAR(gather_change_stats),
+  MYSQL_SYSVAR(select_prefetch),
   nullptr
 };
 
@@ -2042,7 +2047,7 @@ static bool tse_notify_exclusive_mdl(THD *thd, const MDL_key *mdl_key,
     we can not check sql length while using prepare statement, 
     so we need to check the sql length before ddl sql again
   */
-  int query_len = thd->query().length;
+  size_t query_len = thd->query().length;
   if (!IS_METADATA_NORMALIZATION() && query_len > MAX_DDL_SQL_LEN_CONTEXT) {
     string err_msg = "`" + string(thd->query().str).substr(0, 100) + "...` Is Large Than " + to_string(MAX_DDL_SQL_LEN_CONTEXT);
     my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0), err_msg.c_str());
@@ -2253,7 +2258,7 @@ int ha_tse::prefetch_and_fill_record_buffer(uchar *buf, tse_prefetch_fn prefetch
     if (max_col_index != INVALID_MAX_UINT32) {
       record_buf_info_t record_buf = {m_prefetch_buf + cur_off_in_prefetch_buf, tmpRecBuf, nullptr};
       index_info_t index = {active_index, max_col_index};
-      cnvrt_to_mysql_record(*table, &index, &record_buf, m_tch);
+      cnvrt_to_mysql_record(*table, &index, &record_buf, m_tch, nullptr);
     }
     cur_off_in_prefetch_buf += m_record_lens[cur_fill_buf_index++];
   }
@@ -2273,7 +2278,7 @@ void ha_tse::fill_record_to_rec_buffer() {
     if (max_col_index != INVALID_MAX_UINT32) {
       record_buf_info_t record_buf = {m_prefetch_buf + cur_off_in_prefetch_buf, tmpRecBuf, nullptr};
       index_info_t index = {active_index, max_col_index};
-      cnvrt_to_mysql_record(*table, &index, &record_buf, m_tch);
+      cnvrt_to_mysql_record(*table, &index, &record_buf, m_tch, nullptr);
     }
     cur_off_in_prefetch_buf += m_record_lens[cur_fill_buf_index++];
   }
@@ -2675,9 +2680,9 @@ int ha_tse::convert_mysql_record_and_write_to_cantian(uchar *buf, int *cantian_r
   uint64_t cur_last_insert_id = 0;
   if (m_tse_buf == nullptr) {
     m_tse_buf = tse_alloc_buf(&m_tch, BIG_RECORD_SIZE);
-  }
-  if (m_tse_buf == nullptr) {
-    return convert_tse_error_code_to_mysql(ERR_ALLOC_MEMORY);
+    if (m_tse_buf == nullptr) {
+      return convert_tse_error_code_to_mysql(ERR_ALLOC_MEMORY);
+    }
   }
   memset(m_tse_buf, 0, sizeof(row_head_t));
   record_buf_info_t record_buf = {m_tse_buf, buf, cantian_record_buf_size};
@@ -2690,7 +2695,7 @@ int ha_tse::convert_mysql_record_and_write_to_cantian(uchar *buf, int *cantian_r
     return error_result;
   }
   update_member_tch(m_tch, tse_hton, ha_thd());
-  record_info_t record_info = { m_tse_buf, (uint16_t)*cantian_record_buf_size };
+  record_info_t record_info = {m_tse_buf, (uint16_t)*cantian_record_buf_size, nullptr, nullptr};
   ret = (ct_errno_t)tse_write_row(&m_tch, &record_info, *serial_column_offset, &cur_last_insert_id, flag);
   update_sess_ctx_by_tch(m_tch, tse_hton, ha_thd());
   check_error_code_to_mysql(ha_thd(), &ret);
@@ -2704,7 +2709,7 @@ int ha_tse::convert_mysql_record_and_write_to_cantian(uchar *buf, int *cantian_r
 }
 
 int ha_tse::bulk_insert_low(dml_flag_t flag, uint *dup_offset) {
-  record_info_t record_info = {m_rec_buf_data, (uint16_t)m_cantian_rec_len};
+  record_info_t record_info = {m_rec_buf_data, (uint16_t)m_cantian_rec_len, nullptr, nullptr};
   return tse_bulk_write(&m_tch, &record_info, m_rec_buf_4_writing->records(), dup_offset, flag, nullptr);
 }
 
@@ -2723,7 +2728,7 @@ int ha_tse::bulk_insert() {
     if (ret == ERR_DUPLICATE_KEY) {
       record_buf_info_t record_buf = {m_rec_buf_4_writing->record(dup_offset), table->record[0], nullptr};
       index_info_t index = {UINT_MAX, UINT_MAX};
-      cantian_record_to_mysql_record(*table, &index, &record_buf, m_tch);
+      cantian_record_to_mysql_record(*table, &index, &record_buf, m_tch, nullptr);
     }
     return convert_tse_error_code_to_mysql(ret);
   }
@@ -2865,9 +2870,9 @@ EXTER_ATTACK int ha_tse::update_row(const uchar *old_data, uchar *new_data) {
 
   if (m_tse_buf == nullptr) {
     m_tse_buf = tse_alloc_buf(&m_tch, BIG_RECORD_SIZE);
-  }
-  if (m_tse_buf == nullptr) {
-    return convert_tse_error_code_to_mysql(ERR_ALLOC_MEMORY);
+    if (m_tse_buf == nullptr) {
+      return convert_tse_error_code_to_mysql(ERR_ALLOC_MEMORY);
+    }
   }
   memset(m_tse_buf, 0, sizeof(row_head_t));
 
@@ -3000,6 +3005,11 @@ int ha_tse::set_prefetch_buffer() {
 
 // @ref row_prebuilt_t::can_prefetch_records()
 bool ha_tse::can_prefetch_records() const {
+  // do not prefetch if set ctc_select_prefetch = false
+  if (!ctc_select_prefetch) {
+    return false;
+  }
+
   // do not prefetch if it's not a read-only scan
   THD *thd = ha_thd();
   if (thd->lex->sql_command != SQLCOM_SELECT) {
@@ -3157,6 +3167,28 @@ int ha_tse::rnd_init(bool) {
 
 /**
   @brief
+  alloc m_tse_buf for select.
+*/
+int ha_tse::tse_alloc_tse_buf_4_read() {
+  // no need alloc/copy/free record in single run mode
+  if (is_single_run_mode()) {
+    m_tse_buf = nullptr;
+    return CT_SUCCESS;
+  }
+  
+  if (m_tse_buf != nullptr) {
+    return CT_SUCCESS;
+  }
+
+  m_tse_buf = tse_alloc_buf(&m_tch, BIG_RECORD_SIZE);
+  if (m_tse_buf == nullptr) {
+    return convert_tse_error_code_to_mysql(ERR_ALLOC_MEMORY);
+  }
+  return CT_SUCCESS;
+}
+
+/**
+  @brief
   This is called for each row of the table scan. When you run out of records
   you should return HA_ERR_END_OF_FILE. Fill buff up with the row information.
   The Field structure for the table is the key to getting data into buf
@@ -3186,14 +3218,8 @@ int ha_tse::rnd_next(uchar *buf) {
   if (!m_rec_buf || m_rec_buf->max_records() == 0) {
     int ret = CT_SUCCESS;
     ct_errno_t ct_ret = CT_SUCCESS;
-    if (m_tse_buf == nullptr) {
-      m_tse_buf = tse_alloc_buf(&m_tch, BIG_RECORD_SIZE);
-    }
-    if (m_tse_buf == nullptr) {
-      return convert_tse_error_code_to_mysql(ERR_ALLOC_MEMORY);
-    }
-
-    record_info_t record_info = {m_tse_buf, 0};
+    TSE_RETURN_IF_NOT_ZERO(tse_alloc_tse_buf_4_read());
+    record_info_t record_info = {m_tse_buf, 0, nullptr, nullptr};
     ct_ret = (ct_errno_t)tse_rnd_next(&m_tch, &record_info);
     ret = process_cantian_record(buf, &record_info, ct_ret, HA_ERR_END_OF_FILE);
     return ret;
@@ -3278,15 +3304,8 @@ EXTER_ATTACK int ha_tse::rnd_pos(uchar *buf, uchar *pos) {
   ha_statistic_increment(&System_status_var::ha_read_rnd_count);
   int ret = CT_SUCCESS;
   ct_errno_t ct_ret = CT_SUCCESS;
-  
-  if (m_tse_buf == nullptr) {
-    m_tse_buf = tse_alloc_buf(&m_tch, BIG_RECORD_SIZE);
-  }
-  if (m_tse_buf == nullptr) {
-    return convert_tse_error_code_to_mysql(ERR_ALLOC_MEMORY);
-  }
-
-  record_info_t record_info = {m_tse_buf, 0};
+  TSE_RETURN_IF_NOT_ZERO(tse_alloc_tse_buf_4_read());
+  record_info_t record_info = {m_tse_buf, 0, nullptr, nullptr};
   uint key_len = ref_length;
   if (IS_TSE_PART(m_tch.part_id)) {
     key_len -= PARTITION_BYTES_IN_POS;
@@ -3578,7 +3597,7 @@ int ha_tse::process_cantian_record(uchar *buf, record_info_t *record_info, ct_er
 
   record_buf_info_t record_buf = {record_info->record, buf, nullptr};
   index_info_t index = {active_index, UINT_MAX};
-  cnvrt_to_mysql_record(*table, &index, &record_buf, m_tch);
+  cnvrt_to_mysql_record(*table, &index, &record_buf, m_tch, record_info);
   update_blob_addrs(buf);
 
   return ret;
@@ -3637,16 +3656,9 @@ EXTER_ATTACK int ha_tse::index_read(uchar *buf, const uchar *key, uint key_len, 
       return ret;
   }
 
-  if (m_tse_buf == nullptr) {
-    m_tse_buf = tse_alloc_buf(&m_tch, BIG_RECORD_SIZE);
-  }
-  if (m_tse_buf == nullptr) {
-    return convert_tse_error_code_to_mysql(ERR_ALLOC_MEMORY);
-  }
-  
+  TSE_RETURN_IF_NOT_ZERO(tse_alloc_tse_buf_4_read());
   update_member_tch(m_tch, tse_hton, ha_thd());
-  record_info_t record_info = {m_tse_buf, 0};
-
+  record_info_t record_info = {m_tse_buf, 0, nullptr, nullptr};
 
   attachable_trx_update_pre_addr(tse_hton, ha_thd(), &m_tch, true);
   ct_errno_t ct_ret = (ct_errno_t)tse_index_read(&m_tch, &record_info, &index_key_info,
@@ -3675,14 +3687,8 @@ int ha_tse::index_fetch(uchar *buf) {
   if (!m_rec_buf || m_rec_buf->max_records() == 0) {
     int ret = CT_SUCCESS;
     ct_errno_t ct_ret = CT_SUCCESS;
-    if (m_tse_buf == nullptr) {
-      m_tse_buf = tse_alloc_buf(&m_tch, BIG_RECORD_SIZE);
-    }
-    if (m_tse_buf == nullptr) {
-      return convert_tse_error_code_to_mysql(ERR_ALLOC_MEMORY);
-    }
-
-    record_info_t record_info = {m_tse_buf, 0};
+    TSE_RETURN_IF_NOT_ZERO(tse_alloc_tse_buf_4_read());
+    record_info_t record_info = {m_tse_buf, 0, nullptr, nullptr};
     attachable_trx_update_pre_addr(tse_hton, ha_thd(), &m_tch, true);
     ct_ret = (ct_errno_t)tse_general_fetch(&m_tch, &record_info);
     attachable_trx_update_pre_addr(tse_hton, ha_thd(), &m_tch, false);
@@ -4315,7 +4321,6 @@ EXTER_ATTACK bool tse_drop_database_with_err(handlerton *hton, char *path) {
   tianchi_handler_t tch;
   int res = get_tch_in_handler_data(hton, thd, tch);
   if (res != CT_SUCCESS) {
-    assert(0);
     return true;
   }
 
@@ -4454,6 +4459,15 @@ int tse_set_cluster_role_by_cantian(bool is_slave) {
   return 0;
 }
 
+bool is_single_run_mode()
+{
+#ifndef WITH_DAAC
+  return false;
+#else
+  return true;
+#endif
+}
+
 void tse_set_metadata_switch() { // MySQL为元数据归一版本
   lock_guard<mutex> lock(m_tse_metadata_normalization_mutex);
   if (ctc_metadata_normalization != (int32_t)metadata_switchs::DEFAULT) {
@@ -4546,6 +4560,7 @@ static bool tse_ddse_dict_init(
   assert(tablespaces && tablespaces->is_empty());
   assert(dict_init_mode == DICT_INIT_CREATE_FILES || dict_init_mode == DICT_INIT_CHECK_FILES);
   assert(version < 1000000000);
+  // valid value check
   if (!(tables && tables->is_empty()) || !(tablespaces && tablespaces->is_empty()) ||
       !(dict_init_mode == DICT_INIT_CREATE_FILES || dict_init_mode == DICT_INIT_CHECK_FILES) ||
       version >= 1000000000) {

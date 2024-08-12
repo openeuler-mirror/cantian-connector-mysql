@@ -9,8 +9,6 @@ ctc_compressed_proxy_conn
 ctc_dml_ignore
 tianchi.ctc_dml_two_table
 tianchi.ctc_link_and_migr_row
-tianchi.ctc_read_only
-subselect.test
 #test_services
 ctc_datetime_analyze
 ctc_set_analyze
@@ -18,12 +16,6 @@ ctc_enum_analyze
 ctc_bit_analyze
 ctc_string_analyze
 # ------ END TEST CASES OF DML ------
-
-# ------ TEST CASES FROM suite/engines/funcs ------
-ctc_insert_time
-ctc_update_time
-ctc_delete_time
-# ------ END TEST CASES ------
 
 # ------ BEGIN TEST CASES OF TRANSACTION ------
 binlog_transaction_write_set_savepoint_basic
@@ -57,20 +49,14 @@ tianchi.ctc_partition_update
 
 # ------ BEGIN TEST CASES OF DDL ------
 tianchi.ctc_ddl_func_index
-tianchi.ctc_ddl
 tianchi.ctc_ddl_trigger
-tianchi.ctc_ddl_cascade
 tianchi.ctc_ddl_view
 tianchi.ctc_ddl_index
 tianchi.ctc_ddl_partition
-tianchi.ctc_ddl_create_table
 tianchi.ctc_ddl_max_reclength
-tianchi.ctc_ddl_alter_table
-tianchi.ctc_ddl_analyze
 tianchi.ctc_ddl_func_proc
 tianchi.ctc_ddl_foreign_key
 tianchi.ctc_ddl_foreign_key_set_enum
-tianchi.ctc_ddl_auto_inc
 tianchi.ctc_ddl_multi_db
 tianchi.ctc_ddl_temporary_table
 # tianchi.ctc_ddl_engine
@@ -92,10 +78,8 @@ ctc_ddl_default_index.test
 
 delete_decimal
 # update_decimal
-ctc_dml_decimal_table.test
 tianchi.ctc_crud_for_drop_column.test
 ctc_select_early_return.test
-ctc_atomic_ddl.test
 
 # ------ TEST CASES for cond pushdown ------
 ctc_cond_pushdown.test
@@ -105,3 +89,21 @@ tianchi.ctc_varchar
 # ------ TEST CASES for handler operation ------
 ctc_handler_operation.test
 tianchi.ctc_ddl_unsupport_command
+
+tianchi.ctc_read_only
+subselect.test
+
+# ------ TEST CASES FROM suite/engines/funcs ------
+ctc_insert_time
+ctc_update_time
+ctc_delete_time
+# ------ END TEST CASES ------
+
+ctc_dml_decimal_table.test
+tianchi.ctc_ddl
+tianchi.ctc_ddl_cascade
+tianchi.ctc_ddl_create_table
+tianchi.ctc_ddl_alter_table
+tianchi.ctc_ddl_analyze
+tianchi.ctc_ddl_auto_inc
+ctc_atomic_ddl.test
