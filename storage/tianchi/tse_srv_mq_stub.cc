@@ -1320,6 +1320,24 @@ int tse_rename_table(void *alter_def, ddl_ctrl_t *ddl_ctrl) {
   return result;
 }
 
+int tse_update_job(update_job_info info)
+{
+  void *shm_inst = get_one_shm_inst(NULL);
+  update_job_request *req = (update_job_request*)alloc_share_mem(shm_inst, sizeof(update_job_request));
+  if (req == NULL) {
+    tse_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, sizeof(update_job_request));
+    return ERR_ALLOC_MEMORY;
+  }
+  int result = ERR_CONNECTION_FAILED;
+  req->info = info;
+  int ret = tse_mq_deal_func(shm_inst, TSE_FUNC_TYPE_UPDATE_JOB, req, nullptr);
+  if (ret == CT_SUCCESS) {
+    result = req->result;
+  }
+  free_share_mem(shm_inst, req);
+  return result;
+}
+
 int tse_execute_mysql_ddl_sql(tianchi_handler_t *tch, tse_ddl_broadcast_request *broadcast_req, bool allow_fail) {
   void *shm_inst = get_one_shm_inst(tch);
   execute_mysql_ddl_sql_request *req = (execute_mysql_ddl_sql_request*)alloc_share_mem(shm_inst, sizeof(execute_mysql_ddl_sql_request));
