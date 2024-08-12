@@ -382,6 +382,11 @@ static double percent_in_bucket(tse_cbo_stats_column_t *col_stat, uint32 high,
         percent = (double)(ep_high->v_uint32 - key->v_uint32) / (ep_high->v_uint32 - ep_low->v_uint32);
       }
       break;
+    case MYSQL_TYPE_BIT:
+      if (ep_high->v_ubigint > ep_low->v_ubigint) {
+        percent = (double)(ep_high->v_ubigint - key->v_ubigint) / (ep_high->v_ubigint - ep_low->v_ubigint);
+      }
+      break;
     case MYSQL_TYPE_TINY:
     case MYSQL_TYPE_SHORT:
     case MYSQL_TYPE_LONG:
