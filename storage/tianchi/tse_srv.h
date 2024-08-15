@@ -270,6 +270,7 @@ enum TSE_FUNC_TYPE {
     TSE_FUNC_TYPE_WRITE_ROW,
     TSE_FUNC_TYPE_WRITE_THROUGH_ROW,
     TSE_FUNC_TYPE_UPDATE_ROW,
+    CTC_FUNC_TYPE_UPDATE_SAMPLE_SIZE,
     TSE_FUNC_TYPE_DELETE_ROW,
     TSE_FUNC_TYPE_RND_INIT,
     TSE_FUNC_TYPE_RND_END,
@@ -498,6 +499,8 @@ typedef struct {
     uint32_t subpart_id;
 } ctc_part_t;
 
+void ctc_update_sample_size(uint32_t sample_size);
+
 /* General Control Interface */
 int srv_wait_instance_startuped(void);
 int tse_alloc_inst_id(uint32_t *inst_id);
@@ -610,6 +613,8 @@ int tse_set_cluster_role_by_cantian(bool is_slave);
 
 int ctc_record_sql_for_cantian(tianchi_handler_t *tch, tse_ddl_broadcast_request *broadcast_req, bool allow_fail);
 int tse_query_cluster_role(bool *is_slave, bool *cantian_cluster_ready);
+
+
 #ifdef __cplusplus
 }
 #endif

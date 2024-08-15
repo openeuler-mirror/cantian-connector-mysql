@@ -1517,3 +1517,22 @@ int tse_query_cluster_role(bool *is_slave, bool *cantian_cluster_ready) {
 
   return result;
 }
+
+void ctc_update_sample_size(uint32_t sample_size)
+{
+  void *shm_inst = get_one_shm_inst(nullptr);
+
+  uint32_t *req = (uint32_t*)alloc_share_mem(shm_inst, sizeof(uint32_t));
+  if (req == nullptr) {
+    tse_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, sizeof(uint32_t));
+    return ;
+  }
+  *req = sample_size;
+
+  int res = tse_mq_deal_func(shm_inst, CTC_FUNC_TYPE_UPDATE_SAMPLE_SIZE, req, nullptr);
+  if (res != CT_SUCCESS) {
+    tse_log_error("tse_mq_deal_func CTC_FUNC_TYPE_UPDATE_SAMPLE_SIZE failed");
+  }
+
+  free_share_mem(shm_inst, req);
+}
