@@ -992,6 +992,7 @@ void tse_reset_mysql_read_only();
 
 int alloc_str_mysql_mem(tianchi_cbo_stats_t *cbo_stats, uint32_t part_num, TABLE *table);
 void free_columns_cbo_stats(tse_cbo_stats_column_t *tse_cbo_stats_columns, bool *is_str_first_addr, TABLE *table);
+int32_t ctc_get_shm_file_num(uint32_t *shm_file_num);
 
 #pragma GCC visibility pop
 #endif
