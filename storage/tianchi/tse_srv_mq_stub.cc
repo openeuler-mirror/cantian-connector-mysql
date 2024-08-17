@@ -1624,3 +1624,22 @@ int tse_query_cluster_role(bool *is_slave, bool *cantian_cluster_ready) {
 
   return result;
 }
+
+int ctc_query_shm_file_num(uint32_t *shm_file_num)
+{
+  void *shm_inst = get_one_shm_inst(NULL);
+  query_shm_file_num_request *req = (query_shm_file_num_request*)
+                                     alloc_share_mem(shm_inst, sizeof(query_shm_file_num_request));
+  if (req == nullptr) {
+    tse_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, sizeof(query_shm_file_num_request));
+    return ERR_ALLOC_MEMORY;
+  }
+  int result = ERR_CONNECTION_FAILED;
+  int ret = tse_mq_deal_func(shm_inst, CTC_FUNC_QUERY_SHM_FILE_NUM, req, nullptr, SERVER_REGISTER_PROC_ID);
+  if (ret == CT_SUCCESS) {
+    result = req->result;
+    *shm_file_num = req->shm_file_num;
+  }
+  free_share_mem(shm_inst, req);
+  return result;
+}

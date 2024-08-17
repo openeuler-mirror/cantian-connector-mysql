@@ -170,6 +170,8 @@ int32_t ctc_cluster_role = (int32_t)dis_cluster_role::DEFAULT;
 static MYSQL_SYSVAR_INT(cluster_role, ctc_cluster_role, PLUGIN_VAR_READONLY,
                         "flag for Disaster Recovery Cluster Role.", nullptr, nullptr, -1, -1, 2, 0);
 
+static mutex m_ctc_shm_file_num_mutex;
+
 int32_t ctc_max_cursors_no_autocommit = 128;
 static MYSQL_SYSVAR_INT(max_cursors_no_autocommit, ctc_max_cursors_no_autocommit, PLUGIN_VAR_RQCMDARG,
                         "Size of max cursors for no autocommit in commit/rollback.", nullptr, nullptr, 128, 0, 8192, 0);
@@ -4059,6 +4061,12 @@ int32_t tse_get_cluster_role() {
   return ctc_cluster_role;
 }
 
+int32_t ctc_get_shm_file_num(uint32_t *shm_file_num) {
+  lock_guard<mutex> lock(m_ctc_shm_file_num_mutex);
+  int ret = ctc_query_shm_file_num(shm_file_num);
+  return ret;
+}
+
 /**
   @brief
   The idea with handler::store_lock() is: The statement decides which locks
@@ -4344,7 +4352,6 @@ bool tse_binlog_log_query_with_err(handlerton *hton, THD *thd,
   if (engine_ddl_passthru(thd)) {
     return false;
   }
-
   if (binlog_command == LOGCOM_CREATE_DB) {
     return tse_create_db(thd, hton);
   }
@@ -4449,7 +4456,6 @@ static int tse_get_metadata_status() {
 
   bool is_exists;
   int ret = 0;
-
   ct_errno_t begin = (ct_errno_t)tse_check_db_table_exists("mysql", "", &is_exists);
   if (begin != CT_SUCCESS) {
     tse_log_error("check metadata init start failed with error code: %d", begin);
@@ -4463,7 +4469,6 @@ static int tse_get_metadata_status() {
     return convert_tse_error_code_to_mysql(end);
   }
   ret = is_exists ? 2 : ret;
-
   return ret;
 }
 
