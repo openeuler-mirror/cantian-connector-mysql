@@ -820,9 +820,9 @@ enum row_type ha_tsepart::get_partition_row_type(const dd::Table *partition_tabl
 
 void ha_tsepart::info_low() {
   stats.records = 0;
-  if (m_part_share->cbo_stats != nullptr && m_part_share->cbo_stats->stats_version != 0) {
+  if (m_part_share->cbo_stats != nullptr) {
     uint part_num = m_is_sub_partitioned ? table->part_info->num_parts * table->part_info->num_subparts :
-                                           table->part_info->num_parts;
+                                            table->part_info->num_parts;
     for (uint part_id = m_part_info->get_first_used_partition(); part_id < part_num;
         part_id = m_part_info->get_next_used_partition(part_id)) {
           stats.records += m_part_share->cbo_stats->tse_cbo_stats_table[part_id].estimate_rows;
@@ -1012,7 +1012,7 @@ int ha_tsepart::initialize_cbo_stats() {
     tse_log_error("alloc mem failed, m_part_share->cbo_stats size(%lu)", sizeof(tianchi_cbo_stats_t));
     return ERR_ALLOC_MEMORY;
   }
-  *m_part_share->cbo_stats = {0, 0, 0, 0, 0, 0, nullptr, 0, nullptr, nullptr};
+  *m_part_share->cbo_stats = {0, 0, 0, 0, 0, nullptr, 0, nullptr, nullptr};
 
   m_part_share->cbo_stats->part_cnt = part_num;
 
