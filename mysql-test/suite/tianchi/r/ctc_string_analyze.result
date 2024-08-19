@@ -1,0 +1,228 @@
+drop table if exists t_varchar;
+Warnings:
+Note	1051	Unknown table 'test.t_varchar'
+create table t_varchar(a varchar(64) NOT NULL, key i1(a));
+insert into t_varchar values('aaaaa'),('bbbbb'),('ccccc'),('ddddd'),('eeeee'),('fffff');
+analyze table t_varchar;
+Table	Op	Msg_type	Msg_text
+test.t_varchar	analyze	status	OK
+select * from t_varchar where a < "ddddd";
+a
+aaaaa
+bbbbb
+ccccc
+explain select * from t_varchar where a < "ddddd";
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t_varchar	NULL	range	i1	i1	258	NULL	3	100.00	Using where; Using pushed condition (`test`.`t_varchar`.`a` < 'ddddd'); Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t_varchar`.`a` AS `a` from `test`.`t_varchar` where (`test`.`t_varchar`.`a` < 'ddddd')
+select * from t_varchar where a < "c";
+a
+aaaaa
+bbbbb
+explain select * from t_varchar where a < "c";
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t_varchar	NULL	range	i1	i1	258	NULL	2	100.00	Using where; Using pushed condition (`test`.`t_varchar`.`a` < 'c'); Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t_varchar`.`a` AS `a` from `test`.`t_varchar` where (`test`.`t_varchar`.`a` < 'c')
+drop table t_varchar;
+drop table if exists t_varchar;
+Warnings:
+Note	1051	Unknown table 'test.t_varchar'
+create table t_varchar(a varchar(64) NOT NULL, key i1(a));
+insert into t_varchar values('acde'),('bmwc'),('adccc'),('qoavm'),('mvc'),('ess');
+analyze table t_varchar;
+Table	Op	Msg_type	Msg_text
+test.t_varchar	analyze	status	OK
+select * from t_varchar where a < "qoavm";
+a
+acde
+adccc
+bmwc
+ess
+mvc
+explain select * from t_varchar where a < "qoavm";
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t_varchar	NULL	range	i1	i1	258	NULL	5	100.00	Using where; Using pushed condition (`test`.`t_varchar`.`a` < 'qoavm'); Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t_varchar`.`a` AS `a` from `test`.`t_varchar` where (`test`.`t_varchar`.`a` < 'qoavm')
+select * from t_varchar where a > "bmwc" and a < "mvc";
+a
+ess
+explain select * from t_varchar where a > "bmwc" and a < "mvc";
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t_varchar	NULL	range	i1	i1	258	NULL	1	100.00	Using where; Using pushed condition ((`test`.`t_varchar`.`a` > 'bmwc') and (`test`.`t_varchar`.`a` < 'mvc')); Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t_varchar`.`a` AS `a` from `test`.`t_varchar` where ((`test`.`t_varchar`.`a` > 'bmwc') and (`test`.`t_varchar`.`a` < 'mvc'))
+drop table t_varchar;
+drop table if exists t_char;
+Warnings:
+Note	1051	Unknown table 'test.t_char'
+create table t_char(a char(5) not null, key i1(a));
+insert into t_char values('aaaaa'),('bbbbb'),('ccccc'),('ddddd'),('eeeee'),('fffff');
+analyze table t_char;
+Table	Op	Msg_type	Msg_text
+test.t_char	analyze	status	OK
+select * from t_char where a < "ddddd";
+a
+aaaaa
+bbbbb
+ccccc
+explain select * from t_char where a < "ddddd";
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t_char	NULL	range	i1	i1	20	NULL	3	100.00	Using where; Using pushed condition (`test`.`t_char`.`a` < 'ddddd'); Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t_char`.`a` AS `a` from `test`.`t_char` where (`test`.`t_char`.`a` < 'ddddd')
+select * from t_char where a < "c";
+a
+aaaaa
+bbbbb
+explain select * from t_char where a < "c";
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t_char	NULL	range	i1	i1	20	NULL	2	100.00	Using where; Using pushed condition (`test`.`t_char`.`a` < 'c'); Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t_char`.`a` AS `a` from `test`.`t_char` where (`test`.`t_char`.`a` < 'c')
+drop table t_char;
+drop table if exists t_char;
+Warnings:
+Note	1051	Unknown table 'test.t_char'
+create table t_char(a char(5) NOT NULL, key i1(a));
+insert into t_char values('acdew'),('bmwcw'),('adccc'),('qoavm'),('mvcmv'),('essdd');
+analyze table t_char;
+Table	Op	Msg_type	Msg_text
+test.t_char	analyze	status	OK
+select * from t_char where a < "qoavm";
+a
+acdew
+adccc
+bmwcw
+essdd
+mvcmv
+explain select * from t_char where a < "qoavm";
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t_char	NULL	range	i1	i1	20	NULL	5	100.00	Using where; Using pushed condition (`test`.`t_char`.`a` < 'qoavm'); Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t_char`.`a` AS `a` from `test`.`t_char` where (`test`.`t_char`.`a` < 'qoavm')
+select * from t_char where a > "bmwcw" and a < "mvcmv";
+a
+essdd
+explain select * from t_char where a > "bmwcw" and a < "mvcmv";
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t_char	NULL	range	i1	i1	20	NULL	1	100.00	Using where; Using pushed condition ((`test`.`t_char`.`a` > 'bmwcw') and (`test`.`t_char`.`a` < 'mvcmv')); Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t_char`.`a` AS `a` from `test`.`t_char` where ((`test`.`t_char`.`a` > 'bmwcw') and (`test`.`t_char`.`a` < 'mvcmv'))
+drop table t_char;
+drop table if exists t_binary;
+Warnings:
+Note	1051	Unknown table 'test.t_binary'
+create table t_binary(a binary(5) not null, key i1(a));
+insert into t_binary values('aaaaa'),('bbbbb'),('ccccc'),('ddddd'),('eeeee'),('fffff');
+analyze table t_binary;
+Table	Op	Msg_type	Msg_text
+test.t_binary	analyze	status	OK
+select * from t_binary where a < "ddddd";
+a
+aaaaa
+bbbbb
+ccccc
+explain select * from t_binary where a < "ddddd";
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t_binary	NULL	range	i1	i1	5	NULL	3	100.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t_binary`.`a` AS `a` from `test`.`t_binary` where (`test`.`t_binary`.`a` < 'ddddd')
+select * from t_binary where a < "c";
+a
+aaaaa
+bbbbb
+explain select * from t_binary where a < "c";
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t_binary	NULL	range	i1	i1	5	NULL	2	100.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t_binary`.`a` AS `a` from `test`.`t_binary` where (`test`.`t_binary`.`a` < 'c')
+drop table t_binary;
+drop table if exists t_binary;
+Warnings:
+Note	1051	Unknown table 'test.t_binary'
+create table t_binary(a binary(5) NOT NULL, key i1(a));
+insert into t_binary values('acdew'),('bmwcw'),('adccc'),('qoavm'),('mvcmv'),('essdd');
+analyze table t_binary;
+Table	Op	Msg_type	Msg_text
+test.t_binary	analyze	status	OK
+select * from t_binary where a < "qoavm";
+a
+acdew
+adccc
+bmwcw
+essdd
+mvcmv
+explain select * from t_binary where a < "qoavm";
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t_binary	NULL	range	i1	i1	5	NULL	5	100.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t_binary`.`a` AS `a` from `test`.`t_binary` where (`test`.`t_binary`.`a` < 'qoavm')
+select * from t_binary where a > "bmwcw" and a < "mvcmv";
+a
+essdd
+explain select * from t_binary where a > "bmwcw" and a < "mvcmv";
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t_binary	NULL	range	i1	i1	5	NULL	1	100.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t_binary`.`a` AS `a` from `test`.`t_binary` where ((`test`.`t_binary`.`a` > 'bmwcw') and (`test`.`t_binary`.`a` < 'mvcmv'))
+drop table t_binary;
+drop table if exists t_varbinary;
+Warnings:
+Note	1051	Unknown table 'test.t_varbinary'
+create table t_varbinary(a varbinary(5) not null, key i1(a));
+insert into t_varbinary values('aaaaa'),('bbbbb'),('ccccc'),('ddddd'),('eeeee'),('fffff');
+analyze table t_varbinary;
+Table	Op	Msg_type	Msg_text
+test.t_varbinary	analyze	status	OK
+select * from t_varbinary where a < "ddddd";
+a
+aaaaa
+bbbbb
+ccccc
+explain select * from t_varbinary where a < "ddddd";
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t_varbinary	NULL	range	i1	i1	7	NULL	3	100.00	Using where; Using pushed condition (`test`.`t_varbinary`.`a` < 'ddddd'); Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t_varbinary`.`a` AS `a` from `test`.`t_varbinary` where (`test`.`t_varbinary`.`a` < 'ddddd')
+select * from t_varbinary where a < "c";
+a
+aaaaa
+bbbbb
+explain select * from t_varbinary where a < "c";
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t_varbinary	NULL	range	i1	i1	7	NULL	2	100.00	Using where; Using pushed condition (`test`.`t_varbinary`.`a` < 'c'); Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t_varbinary`.`a` AS `a` from `test`.`t_varbinary` where (`test`.`t_varbinary`.`a` < 'c')
+drop table t_varbinary;
+drop table if exists t_varbinary;
+Warnings:
+Note	1051	Unknown table 'test.t_varbinary'
+create table t_varbinary(a varbinary(5) NOT NULL, key i1(a));
+insert into t_varbinary values('acdew'),('bmwcw'),('adccc'),('qoavm'),('mvcmv'),('essdd');
+analyze table t_varbinary;
+Table	Op	Msg_type	Msg_text
+test.t_varbinary	analyze	status	OK
+select * from t_varbinary where a < "qoavm";
+a
+acdew
+adccc
+bmwcw
+essdd
+mvcmv
+explain select * from t_varbinary where a < "qoavm";
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t_varbinary	NULL	range	i1	i1	7	NULL	5	100.00	Using where; Using pushed condition (`test`.`t_varbinary`.`a` < 'qoavm'); Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t_varbinary`.`a` AS `a` from `test`.`t_varbinary` where (`test`.`t_varbinary`.`a` < 'qoavm')
+select * from t_varbinary where a > "bmwcw" and a < "mvcmv";
+a
+essdd
+explain select * from t_varbinary where a > "bmwcw" and a < "mvcmv";
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t_varbinary	NULL	range	i1	i1	7	NULL	1	100.00	Using where; Using pushed condition ((`test`.`t_varbinary`.`a` > 'bmwcw') and (`test`.`t_varbinary`.`a` < 'mvcmv')); Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t_varbinary`.`a` AS `a` from `test`.`t_varbinary` where ((`test`.`t_varbinary`.`a` > 'bmwcw') and (`test`.`t_varbinary`.`a` < 'mvcmv'))
+drop table t_varbinary;

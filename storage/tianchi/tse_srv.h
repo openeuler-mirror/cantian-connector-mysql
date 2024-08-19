@@ -113,6 +113,7 @@ typedef struct cache_st_variant {
         unsigned long long v_ubigint;
         double v_real;
         date_t v_date;
+        char *v_str;
     };
 } cache_variant_t;
 
@@ -127,7 +128,6 @@ typedef struct {
 } tse_cbo_column_hist_t;
 
 typedef struct {
-    uint32_t num_buckets;
     uint32_t num_null;
     double density;
     tse_cbo_hist_type_t hist_type;
@@ -158,6 +158,8 @@ typedef struct {
     bool is_updated;
     uint32_t records;
     uint32_t *ndv_keys;
+    uint32_t num_str_cols;
+    bool *col_type;
     tse_cbo_stats_table_t *tse_cbo_stats_table;
 } tianchi_cbo_stats_t;
 #pragma pack()
@@ -326,6 +328,7 @@ enum TSE_FUNC_TYPE {
     TSE_FUNC_TYPE_RECORD_SQL,
     /* for instance registration, should be the last but before duplex */
     TSE_FUNC_TYPE_REGISTER_INSTANCE,
+    CTC_FUNC_QUERY_SHM_FILE_NUM,
     TSE_FUNC_TYPE_WAIT_CONNETOR_STARTUPED,
     /* for duplex channel */
     TSE_FUNC_TYPE_MYSQL_EXECUTE_UPDATE,
@@ -613,8 +616,7 @@ int tse_set_cluster_role_by_cantian(bool is_slave);
 
 int ctc_record_sql_for_cantian(tianchi_handler_t *tch, tse_ddl_broadcast_request *broadcast_req, bool allow_fail);
 int tse_query_cluster_role(bool *is_slave, bool *cantian_cluster_ready);
-
-
+int ctc_query_shm_file_num(uint32_t *shm_file_num);
 #ifdef __cplusplus
 }
 #endif

@@ -1627,6 +1627,10 @@ void copy_column_data_to_mysql(field_info_t *field_info, const field_cnvrt_aux_t
       if (is_index_only) {
         uint32_t blob_len = field_info->field_len;
         char *blob_buf = (char *)my_malloc(PSI_NOT_INSTRUMENTED, blob_len * sizeof(char), MYF(MY_WME));
+        if (blob_buf == nullptr) {
+          tse_log_error("[cantian2mysql]Apply for blob buf:%u Failed", blob_len);
+          return;
+        }
         memcpy(blob_buf, field_info->cantian_cur_field, blob_len);
         memcpy(field_info->mysql_cur_field, &blob_buf, sizeof(char *));
         bitmap_set_bit(field_info->field->table->read_set, field_info->field->field_index());

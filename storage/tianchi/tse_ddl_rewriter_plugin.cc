@@ -623,7 +623,6 @@ static int is_system_db(const char *ddl_db) {
       "Once the CTC is loaded, it must be used as the default engine. To specify other engine for table, uninstall the CTC first.");
     return -1;
   }
-
   return 0;
 }
 
@@ -662,7 +661,7 @@ static int tse_check_ddl_engine(string &, MYSQL_THD thd, bool &need_forward) {
     }
   }
 
-// create tablespace 检查是否为engine=Innodb情况
+  // create tablespace 检查是否为engine=Innodb情况
   if (thd->lex->sql_command == SQLCOM_ALTER_TABLESPACE) {
     const Sql_cmd_tablespace *sct = dynamic_cast<const Sql_cmd_create_tablespace *>(thd->lex->m_sql_cmd);
     if (sct != nullptr &&
@@ -757,8 +756,8 @@ static int tse_lock_tables_ddl(string &, MYSQL_THD thd, bool &) {
       tse_lock_table_info lock_info = {{0}, {0}, {0}, {0}, SQLCOM_LOCK_TABLES,
                                       (int32_t)TL_UNLOCK};
       FILL_USER_INFO_WITH_THD(lock_info, thd);
-      strncpy(lock_info.db_name, table->db, SMALL_RECORD_SIZE);
-      strncpy(lock_info.table_name, table->table_name, SMALL_RECORD_SIZE);
+      strncpy(lock_info.db_name, table->db, SMALL_RECORD_SIZE-1);
+      strncpy(lock_info.table_name, table->table_name, SMALL_RECORD_SIZE-1);
       ret = tse_unlock_table(&tch, ctc_instance_id, &lock_info);
       if (ret != 0) {
         tse_log_error("[TSE_DDL_REWRITE]:unlock table failed, table:%s.%s", lock_info.db_name, lock_info.table_name);

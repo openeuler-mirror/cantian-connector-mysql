@@ -29,9 +29,8 @@
 #include "ha_tse.h"
 
 #define MQ_THD_NUM 1
-#define SHM_SEG_NUM 8
 #define MAX_DDL_THD_NUM 1024
-
+#define SHM_MAX_SEG_NUM 8
 using namespace std;
 #define CTC_IGNORE_ERROR_WHEN_MYSQL_SHUTDOWN(req, tag)                      \
   do {                                                                      \
@@ -44,8 +43,9 @@ using namespace std;
 
 #define CTC_GET_CLIENT_ID(inst_id) ((int) ((inst_id) & 0xFFFF))
 
-// the last shm seg g_shm_segs[SHM_SEG_NUM] is for upstream, served by mysqld
-shm_seg_s *g_shm_segs[SHM_SEG_NUM + 1] = {nullptr};
+// the last shm seg g_shm_segs[SHM_MAX_SEG_NUM] is for upstream, served by mysqld
+uint32_t g_shm_file_num = 1;
+shm_seg_s *g_shm_segs[SHM_MAX_SEG_NUM + 1] = {nullptr};
 shm_seg_s *g_upstream_shm_seg = nullptr;
 atomic_int g_ddl_thd_num(0);
 int g_shm_client_id(-1);
@@ -157,66 +157,83 @@ void shm_log_info(char *log_text, int length)
 
 int mq_srv_start(int proc_id)
 {
-  g_upstream_shm_seg = g_shm_segs[SHM_SEG_NUM];
+  g_upstream_shm_seg = g_shm_segs[g_shm_file_num];
   shm_set_thread_cool_time(0);
   return shm_proc_start(g_upstream_shm_seg, proc_id, MQ_THD_NUM, NULL, 0, mq_recv_msg);
 }
 
-int init_tse_mq_moudle()
+bool init_shm_segment(int shm_num, int *inst_id)
+{
+  if (g_shm_segs[shm_num] != nullptr) {
+    tse_log_system("The segment g_shm_segs[%d] has already been initialized.", shm_num);
+    return true;
+  }
+  shm_key_t shm_key{};
+  shm_key.type = SHM_KEY_MMAP;
+  std::string shm_name = MQ_SHM_MMAP_NAME_PREFIX;
+  std::string map_name = MQ_SHM_MMAP_NAME_PREFIX + std::string(".") + std::to_string(shm_num);
+  strcpy(shm_key.mmap_name, map_name.c_str());
+  strcpy(shm_key.shm_name, shm_name.c_str());
+  shm_key.seg_id = shm_num;
+
+  if (shm_num == 0) {
+    if (shm_client_connect(&shm_key, inst_id) < 0) {
+      tse_log_error("shm client connect failed, shm_name(%s)", shm_key.shm_name);
+      return false;
+    }
+    ha_tse_set_inst_id((uint32_t) *inst_id);
+    g_shm_client_id = CTC_GET_CLIENT_ID(*inst_id);
+  }
+
+  g_shm_segs[shm_num] = shm_init(&shm_key, false);
+
+  if (g_shm_segs[shm_num] == nullptr) {
+    tse_log_error("shm init failed, shm_seg is null shm_num:%d.", shm_num);
+    return false;
+  }
+
+  shm_assign_proc_id(g_shm_segs[shm_num], g_shm_client_id);
+  return true;
+}
+
+int init_ctc_mq_moudle()
 {
   shm_set_info_log_writer(shm_log_info);
   shm_set_error_log_writer(shm_log_err);
-  
+
+  int inst_id = -1;
   if (shm_tpool_init(MQ_THD_NUM) != 0) {
     tse_log_error("shm tpool init failed");
     return -1;
   }
-  
-  int inst_id = -1;
-  for (int i = 0; i < SHM_SEG_NUM + 1; ++i) {
-    if (g_shm_segs[i] != nullptr) {
-      continue;
-    }
-    
-    shm_key_t shm_key;
-    shm_key.type = SHM_KEY_MMAP;
-    std::string shm_name = MQ_SHM_MMAP_NAME_PREFIX;
-    std::string map_name = MQ_SHM_MMAP_NAME_PREFIX + std::string(".") + std::to_string(i);
-    strcpy(shm_key.mmap_name, map_name.c_str());
-    strcpy(shm_key.shm_name, shm_name.c_str());
-    shm_key.seg_id = i;
-    
-    if (i == 0) {
-      if (shm_client_connect(&shm_key, &inst_id) < 0) {
-        tse_log_error("shm client connect failed, shm_name(%s)", shm_key.shm_name);
-        return -1;
-      }
-      ha_tse_set_inst_id((uint32_t) inst_id);
-      g_shm_client_id = CTC_GET_CLIENT_ID(inst_id);
-    }
-    
-    g_shm_segs[i] = shm_init(&shm_key, false);
-    if (g_shm_segs[i] == nullptr) {
-      tse_log_error("shm init failed, shm_seg is null i:%d.", i);
+
+  if (!init_shm_segment(0, &inst_id)) {
+    tse_log_error("shm init failed, shm_seg is null");
+    return -1;
+  }
+  if (ctc_get_shm_file_num(&g_shm_file_num) != 0) {
+    tse_log_error("shm init g_shm_file_num failed");
+    return -1;
+  }
+  for (uint32_t i = 1; i < g_shm_file_num + 1; ++i) {
+    if (!init_shm_segment(i, &inst_id)) {
+      tse_log_error("shm init failed, init_shm_segment[%u] init failed.", i);
       return -1;
     }
-    
-    shm_assign_proc_id(g_shm_segs[i], g_shm_client_id);
   }
-  
   return 0;
 }
 
 int deinit_tse_mq_moudle()
 {
-  for (int i = 0; i < SHM_SEG_NUM + 1; ++i) {
+  for (uint32_t i = 0; i < g_shm_file_num + 1; ++i) {
     if (g_shm_segs[i] == nullptr) {
       continue;
     }
     shm_seg_stop(g_shm_segs[i]);
   }
   shm_tpool_destroy();
-  for (int i = 0; i < SHM_SEG_NUM + 1; ++i) {
+  for (uint32_t i = 0; i < g_shm_file_num + 1; ++i) {
     if (g_shm_segs[i] == nullptr) {
       continue;
     }
@@ -226,21 +243,22 @@ int deinit_tse_mq_moudle()
   return 0;
 }
 
-int (*tse_init)() = init_tse_mq_moudle;
+int (*tse_init)() = init_ctc_mq_moudle;
 int (*tse_deinit)() = deinit_tse_mq_moudle;
 
 static int g_group_num = 0;
-cpu_set_t g_masks[SHM_SEG_NUM];
+cpu_set_t g_masks[SHM_MAX_SEG_NUM];
 static int g_cpu_info[SHM_SEG_MAX_NUM][SMALL_RECORD_SIZE];
+
 void *get_one_shm_inst(tianchi_handler_t *tch)
 {
   uint32_t hashSeed = tch == nullptr ? 0 : tch->thd_id;
   if (g_group_num != 0 && tch != nullptr && tch->bind_core != 1) {
-    cpu_set_t mask = g_masks[(hashSeed % SHM_SEG_NUM) % g_group_num];
+    cpu_set_t mask = g_masks[(hashSeed % g_shm_file_num) % g_group_num];
     pthread_setaffinity_np(pthread_self(), sizeof(mask), &mask);
     tch->bind_core = 1;
   }
-  return (void *)g_shm_segs[hashSeed % SHM_SEG_NUM];
+   return (void *)g_shm_segs[hashSeed % g_shm_file_num];
 }
 
 void *alloc_share_mem(void *seg, uint32_t mem_size)
@@ -298,7 +316,11 @@ static void tse_log_reg_error_by_code(int error_code)
 {
   switch(error_code) {
     case ERR_CONNECTION_FAILED:
+#ifdef WITH_DAAC
+      tse_log_error("connection failed");
+#else
       tse_log_error("shm connection failed");
+#endif
       break;
     case REG_MISMATCH_CTC_VERSION:
       tse_log_error("CTC client version mismatch server!");
