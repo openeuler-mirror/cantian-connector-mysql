@@ -502,7 +502,7 @@ typedef struct {
     uint32_t subpart_id;
 } ctc_part_t;
 
-void ctc_update_sample_size(uint32_t sample_size);
+int ctc_update_sample_size(uint32_t sample_size);
 
 /* General Control Interface */
 int srv_wait_instance_startuped(void);

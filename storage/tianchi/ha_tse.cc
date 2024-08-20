@@ -215,12 +215,15 @@ static MYSQL_SYSVAR_UINT(update_analyze_time, ctc_update_analyze_time, PLUGIN_VA
                          "CBO updating time by CTC. Unit is second.", nullptr, nullptr, CTC_ANALYZE_TIME_SEC,
                          0, 900, 0);
 
+static mutex m_ctc_sample_size_mutex;
 /* 自动采样和手动采样的大小, 单位M, 默认128M, 最小32M, 最大4G */
 uint32_t ctc_sample_size = 0;
 static void update_sample_size(THD *, SYS_VAR *, void *, const void *save)
 {
-  ctc_sample_size = *static_cast<const uint32_t *>(save);
-  ctc_update_sample_size(ctc_sample_size);
+  lock_guard<mutex> lock(m_ctc_sample_size_mutex);
+  if (ctc_update_sample_size(*static_cast<const uint32_t *>(save)) == CT_SUCCESS) {
+    ctc_sample_size = *static_cast<const uint32_t *>(save);
+  }
 }
 static MYSQL_SYSVAR_UINT(sample_size, ctc_sample_size, PLUGIN_VAR_RQCMDARG,
                          "The size of the sample used, in MB.", nullptr, update_sample_size, 128,
