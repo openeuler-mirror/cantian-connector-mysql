@@ -1649,7 +1649,7 @@ void copy_column_data_to_mysql(field_info_t *field_info, const field_cnvrt_aux_t
 }
 
 bool parse_cantian_column_and_update_offset(Field *field, uint8 cantian_col_type, const field_cnvrt_aux_t* cnvrt_aux,
-  record_buf_info_t *record_buf, field_offset_and_len_t *size, bool is_index_only)
+    record_buf_info_t *record_buf, field_offset_and_len_t *size, bool is_index_only, tianchi_handler_t &tch)
 {
   switch (cantian_col_type) {
     case CANTIAN_COL_BITS_NULL:
@@ -1680,11 +1680,15 @@ bool parse_cantian_column_and_update_offset(Field *field, uint8 cantian_col_type
         *size->aligned_field_len = ROUND_UP(*size->field_len + sizeof(uint16_t), 4) - sizeof(uint16_t);
       }
 
+      // if read_only_in_ct is true,it means it is a cantian system table
+      // if cantian system table takes the varchar_as_blob branch,bob_len is an invalid value
+      // which makes the varchar column gets a huge invalid string exceeding its origin len like 4000 and field->row_pack_length 12000
       if (!is_index_only &&
           (cnvrt_aux->mysql_field_type == MYSQL_TYPE_BLOB ||
           cnvrt_aux->mysql_field_type == MYSQL_TYPE_JSON ||
           ((cnvrt_aux->mysql_field_type == MYSQL_TYPE_VARCHAR) &&
-           VARCHAR_AS_BLOB(field->row_pack_length())))) {
+           VARCHAR_AS_BLOB(field->row_pack_length()) &&
+           !tch.read_only_in_ct))) {
         // when the type is blob,the lob data length is not field_len
         // which should decode from lob_locator_t struct, locator->head.size
         lob_locator_t *locator = (lob_locator_t *)(uint8*)&record_buf->cantian_record_buf[*size->cantian_field_offset];
@@ -1718,7 +1722,7 @@ void convert_cantian_field_to_mysql_field(Field *field, field_offset_and_col_typ
     field_offset_and_len_t size = {&field_len, &aligned_field_len, filed_offset->cantian_field_offset,
                                    filed_offset->mysql_field_offset};
     if (parse_cantian_column_and_update_offset(field, filed_offset->cantian_col_type, cnvrt_aux_info, record_buf,
-      &size, is_index_only)) {
+        &size, is_index_only, tch)) {
       // continue to next column if current field is null
       return;
     }
