@@ -213,16 +213,16 @@ static std::unordered_map<uint32_t, uint32_t> g_blob_field_buffer_size_map =
 };
 
 typedef void (*cnvrt_to_mysql_fn)(const TABLE &table, index_info_t *index, record_buf_info_t *record_buf,
-                                  tianchi_handler_t &tch);
+                                  tianchi_handler_t &tch, record_info_t *record_info);
 
 void cantian_record_to_mysql_record(const TABLE &table, index_info_t *index, record_buf_info_t *record_buf,
-                                    tianchi_handler_t &tch);
+                                    tianchi_handler_t &tch, record_info_t *record_info);
 int mysql_record_to_cantian_record(const TABLE &table, record_buf_info_t *record_buf,
                                    tianchi_handler_t &tch, uint16_t *serial_column_offset,
                                    std::vector<uint16_t> *fields=nullptr);
 void cal_gcol_cnts_for_update(Field **field, uint column_id, uint32_t *virtual_gcol_cnt);
 void cantian_index_record_to_mysql_record(const TABLE &table, index_info_t *index, record_buf_info_t *record_buf,
-                                          tianchi_handler_t &tch);
+                                          tianchi_handler_t &tch, record_info_t *record_info);
 int isolation_level_to_cantian(
     enum_tx_isolation isolation_level);
 

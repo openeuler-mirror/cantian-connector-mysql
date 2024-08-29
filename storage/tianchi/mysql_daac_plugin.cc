@@ -100,51 +100,13 @@ static void *mysql_daac_startup_thread(void *p) {
   return nullptr;
 }
 
-static bool32 is_cantian_run_mode_single() {
-  // use env variable to check if single process
-  const char* run_mode = getenv("RUN_MODE");
-
-  // define single mode
-  const char* valid_modes[] = {
-      "cantiand_with_mysql", // single process mode
-      "cantiand_with_mysql_st", // single process mode with mysql llt
-      "cantiand_with_mysql_in_cluster" // single process mode in cluster
-  };
-
-  if (run_mode != NULL) {
-      bool32 found = CT_FALSE;
-
-      // check if cantian is installed with single process mode
-      for (size_t  i = 0; i < sizeof(valid_modes) / sizeof(valid_modes[0]); i++) {
-          if (strcmp(run_mode, valid_modes[i]) == 0) {
-              found = CT_TRUE;
-              break;
-          }
-      }
-        
-      // if single process mode, then return true
-      // else return false 
-      if (found) {
-          tse_log_system("RUN_MODE %s is single process", run_mode);
-          return CT_TRUE;
-      } else {
-          tse_log_system("RUN_MODE %s is not single process", run_mode);
-          return CT_FALSE;
-      }
-  } else {
-      tse_log_system("RUN_MODE not set");
-      return CT_FALSE;
-  }
-  return CT_FALSE;
-}
-
 struct mysql_daac_context *daac_context = NULL;
 int daemon_daac_plugin_init() {
   DBUG_TRACE;
 
   // mysql with nometa does not need to start cantian startup thread in multiple process when initializing
   // but single process needs to start up cantian thread in both meat and nometa when initializing
-  if (!is_cantian_run_mode_single()) {
+  if (!is_single_run_mode())  {
     if (opt_initialize_insecure) {
       tse_log_warning("initialize-insecure mode no need start the daac startup thread.");
       return 0;

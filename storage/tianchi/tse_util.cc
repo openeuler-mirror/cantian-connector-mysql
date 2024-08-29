@@ -96,7 +96,7 @@ void tse_split_normalized_name(const char *file_name, char db[], size_t db_buf_l
 
   assert(db != nullptr);
   if (is_tmp_table != nullptr && (*is_tmp_table)) {
-    (void)strncpy(db, TMP_DIR, db_buf_len);
+    (void)strncpy(db, TMP_DIR, db_buf_len - 1);
     db[db_buf_len - 1] = '\0';
   } else if (dir_length > 1) {
     /* Get database */
