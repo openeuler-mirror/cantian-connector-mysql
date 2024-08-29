@@ -122,8 +122,8 @@ const field_cnvrt_aux_t* get_auxiliary_for_field_convert(Field *field, enum_fiel
     return &g_field_cnvrt_aux_array[mysql_field_type];
   }
   enum_field_types mysql_real_type = mysql_field_type;
-  if (field->real_type() == MYSQL_TYPE_ENUM ||
-      field->real_type() == MYSQL_TYPE_SET) {
+  enum_field_types field_type = field->real_type();
+  if (field_type == MYSQL_TYPE_ENUM || field_type == MYSQL_TYPE_SET) {
     uint field_len = field->pack_length();
     switch (field_len) {
       case 1:
@@ -1648,8 +1648,52 @@ void copy_column_data_to_mysql(field_info_t *field_info, const field_cnvrt_aux_t
   }
 }
 
-bool parse_cantian_column_and_update_offset(Field *field, uint8 cantian_col_type, const field_cnvrt_aux_t* cnvrt_aux,
-    record_buf_info_t *record_buf, field_offset_and_len_t *size, bool is_index_only, tianchi_handler_t &tch)
+static inline bool ctc_field_type_is_lob(bool is_index_only, const field_cnvrt_aux_t* cnvrt_aux, Field *field, tianchi_handler_t &tch)
+{
+  return !is_index_only &&
+          (cnvrt_aux->mysql_field_type == MYSQL_TYPE_BLOB || cnvrt_aux->mysql_field_type == MYSQL_TYPE_JSON ||
+          ((cnvrt_aux->mysql_field_type == MYSQL_TYPE_VARCHAR) && VARCHAR_AS_BLOB(field->row_pack_length()) &&
+           !tch.read_only_in_ct));
+}
+
+static bool ctc_update_offset_single(uint col_id, Field *field, uint8 cantian_col_type, const field_cnvrt_aux_t* cnvrt_aux, record_info_t *record_info,
+                                     record_buf_info_t *record_buf, field_offset_and_len_t *size, bool is_index_only, tianchi_handler_t &tch)
+{
+  switch (cantian_col_type) {
+    case CANTIAN_COL_BITS_NULL:
+      // set null bit & continue to next field if current column is null
+      record_buf->mysql_record_buf[field->null_offset()] |= field->null_bit;
+      return true;
+    case CANTIAN_COL_BITS_4:
+    case CANTIAN_COL_BITS_8:
+      *size->field_len = record_info->lens[col_id];
+      *size->cantian_field_offset = record_info->offsets[col_id];
+      break;
+    case CANTIAN_COL_BITS_VAR: {
+      *size->field_len = record_info->lens[col_id];
+      *size->cantian_field_offset = record_info->offsets[col_id];
+      uint32 len = 0;
+      if (ctc_field_type_is_lob(is_index_only, cnvrt_aux, field, tch)) {
+        // when the type is blob,the lob data length is not field_len
+        // which should decode from lob_locator_t struct, locator->head.size
+        lob_locator_t *locator = (lob_locator_t *)(uint8 *)&record_buf->cantian_record_buf[*size->cantian_field_offset];
+        len = (uint32)locator->head.size;
+      } else {
+        len = (uint32)(*size->field_len);
+      }
+      *size->mysql_field_offset += padding_variable_byte(cnvrt_aux, &record_buf->mysql_record_buf[*size->mysql_field_offset], len, field);
+      break;
+    }
+    default:
+      tse_log_error("[cantian2mysql]unknow col bits: %u", cantian_col_type);
+      assert(0);
+      break;
+  }
+  return false;
+}
+
+static bool ctc_parse_cantian_column_and_update_offset(Field *field, uint8 cantian_col_type, const field_cnvrt_aux_t* cnvrt_aux,
+  record_buf_info_t *record_buf, field_offset_and_len_t *size, bool is_index_only, tianchi_handler_t &tch)
 {
   switch (cantian_col_type) {
     case CANTIAN_COL_BITS_NULL:
@@ -1664,7 +1708,7 @@ bool parse_cantian_column_and_update_offset(Field *field, uint8 cantian_col_type
       *size->field_len = 8;
       *size->aligned_field_len = 8;
       break;
-    case CANTIAN_COL_BITS_VAR:
+    case CANTIAN_COL_BITS_VAR: {
       // all fields in cantian are 4 bytes aligned except index_only decimal
       // for variable types there're two bytes in the front
       // representing length of the following data
@@ -1683,25 +1727,18 @@ bool parse_cantian_column_and_update_offset(Field *field, uint8 cantian_col_type
       // if read_only_in_ct is true,it means it is a cantian system table
       // if cantian system table takes the varchar_as_blob branch,bob_len is an invalid value
       // which makes the varchar column gets a huge invalid string exceeding its origin len like 4000 and field->row_pack_length 12000
-      if (!is_index_only &&
-          (cnvrt_aux->mysql_field_type == MYSQL_TYPE_BLOB ||
-          cnvrt_aux->mysql_field_type == MYSQL_TYPE_JSON ||
-          ((cnvrt_aux->mysql_field_type == MYSQL_TYPE_VARCHAR) &&
-           VARCHAR_AS_BLOB(field->row_pack_length()) &&
-           !tch.read_only_in_ct))) {
+      uint32 len = 0;
+      if (ctc_field_type_is_lob(is_index_only, cnvrt_aux, field, tch)) {
         // when the type is blob,the lob data length is not field_len
         // which should decode from lob_locator_t struct, locator->head.size
-        lob_locator_t *locator = (lob_locator_t *)(uint8*)&record_buf->cantian_record_buf[*size->cantian_field_offset];
-        uint32 lob_len = (uint32)locator->head.size;
-        *size->mysql_field_offset += padding_variable_byte(cnvrt_aux,
-                                                           &record_buf->mysql_record_buf[*size->mysql_field_offset],
-                                                           lob_len, field);
+        lob_locator_t *locator = (lob_locator_t *)(uint8 *)&record_buf->cantian_record_buf[*size->cantian_field_offset];
+        len = (uint32)locator->head.size;
       } else {
-        *size->mysql_field_offset += padding_variable_byte(cnvrt_aux,
-                                                           &record_buf->mysql_record_buf[*size->mysql_field_offset],
-                                                           *size->field_len, field);
+        len = (uint32)(*size->field_len);
       }
+      *size->mysql_field_offset += padding_variable_byte(cnvrt_aux, &record_buf->mysql_record_buf[*size->mysql_field_offset], len, field);
       break;
+    }
     default:
       tse_log_error("[cantian2mysql]unknow col bits: %u", cantian_col_type);
       assert(0);
@@ -1710,7 +1747,7 @@ bool parse_cantian_column_and_update_offset(Field *field, uint8 cantian_col_type
   return false;
 }
 
-void convert_cantian_field_to_mysql_field(Field *field, field_offset_and_col_type *filed_offset,
+void convert_cantian_field_to_mysql_field(uint col_id, Field *field, field_offset_and_col_type *filed_offset, record_info_t *record_info,
                                           record_buf_info_t *record_buf, tianchi_handler_t &tch, bool is_index_only)
 {
     // Get auxiliary info for field convertion
@@ -1721,8 +1758,15 @@ void convert_cantian_field_to_mysql_field(Field *field, field_offset_and_col_typ
     uint16_t aligned_field_len = 0;
     field_offset_and_len_t size = {&field_len, &aligned_field_len, filed_offset->cantian_field_offset,
                                    filed_offset->mysql_field_offset};
-    if (parse_cantian_column_and_update_offset(field, filed_offset->cantian_col_type, cnvrt_aux_info, record_buf,
-        &size, is_index_only, tch)) {
+    bool ret = false;
+    if (record_info && record_info->lens && is_single_run_mode()) {
+      ret = ctc_update_offset_single(col_id, field, filed_offset->cantian_col_type, cnvrt_aux_info, record_info, record_buf,
+                                     &size, is_index_only, tch);
+    } else {
+      ret = ctc_parse_cantian_column_and_update_offset(field, filed_offset->cantian_col_type, cnvrt_aux_info, record_buf,
+                                                       &size, is_index_only, tch);
+    }
+    if (ret) {
       // continue to next column if current field is null
       return;
     }
@@ -1736,9 +1780,9 @@ void convert_cantian_field_to_mysql_field(Field *field, field_offset_and_col_typ
 }
 
 void cantian_record_to_mysql_record(const TABLE &table, index_info_t *index, record_buf_info_t *record_buf,
-                                    tianchi_handler_t &tch)
+                                    tianchi_handler_t &tch, record_info_t *record_info)
 {
-  row_head_t *row_head = (row_head_t*)record_buf->cantian_record_buf;
+  row_head_t *row_head = (row_head_t *)record_buf->cantian_record_buf;
   bool is_index_only = false;
   tse_log_debug("size %u, column cnt %u, is_changed:%hu, is_deleted:%hu, "
                 "is_link:%hu, is_migr:%hu, self_chg:%hu, is_csf:%hu",
@@ -1759,11 +1803,16 @@ void cantian_record_to_mysql_record(const TABLE &table, index_info_t *index, rec
   // cantian bitmap is 3 byte by default and may be larger
   // for a table with more than 12 columns
   uint n_fields = table.s->fields;
-  uint ex_maps = col_bitmap_ex_size(row_head->column_count);
-  uint cantian_field_offset = sizeof(row_head_t) + ex_maps;
+
+  uint cantian_field_offset = 0; // prefetch in single mode no need parse column
+  if (!record_info || !record_info->lens || !is_single_run_mode()) {
+    uint ex_maps = col_bitmap_ex_size(row_head->column_count);
+    cantian_field_offset = sizeof(row_head_t) + ex_maps;
+    // update offset if it's a migrated row
+    cantian_field_offset += (row_head->is_migr) ? 8 : 0;
+  }
+
   uint virtual_gcol_cnt = 0;
-  // update offset if it's a migrated row
-  cantian_field_offset += (row_head->is_migr) ? 8 : 0;
   // initialize null bitmap
   memset(record_buf->mysql_record_buf, 0x00, table.s->null_bytes);
   for (uint column_id = 0; column_id < n_fields; column_id++) {
@@ -1778,11 +1827,12 @@ void cantian_record_to_mysql_record(const TABLE &table, index_info_t *index, rec
         continue;
     }
     uint mysql_field_offset = field->offset(table.record[0]);
-    uint8 cantian_col_type = (column_id - virtual_gcol_cnt >= row_head->column_count) ?
-                              CANTIAN_COL_BITS_NULL : row_get_column_bits2((row_head_t *)record_buf->cantian_record_buf, column_id - virtual_gcol_cnt);
+    int col_id = column_id - virtual_gcol_cnt; // column id in cantian
+    uint8 cantian_col_type = (col_id >= row_head->column_count) ?
+                              CANTIAN_COL_BITS_NULL : row_get_column_bits2((row_head_t *)record_buf->cantian_record_buf, col_id);
     
     field_offset_and_col_type filed_offset = {&cantian_field_offset, &mysql_field_offset, cantian_col_type};
-    convert_cantian_field_to_mysql_field(field, &filed_offset, record_buf, tch, is_index_only);
+    convert_cantian_field_to_mysql_field(col_id, field, &filed_offset, record_info, record_buf, tch, is_index_only);
   }
 }
 
@@ -1791,15 +1841,18 @@ void cantian_record_to_mysql_record(const TABLE &table, index_info_t *index, rec
 // @note that this cnvrt func can only be used for record fetched directly
 // from index structures(i.e. circumstances like index-only)
 void cantian_index_record_to_mysql_record(const TABLE &table, index_info_t *index, record_buf_info_t *record_buf,
-                                          tianchi_handler_t &tch)
+                                          tianchi_handler_t &tch, record_info_t *record_info)
 {
   auto index_info = table.key_info[index->active_index];
   uint n_fields = index_info.actual_key_parts;
   bool is_index_only = true;
 
-  row_head_t *row_head = (row_head_t *)record_buf->cantian_record_buf;
-  uint ex_maps = col_bitmap_ex_size(row_head->column_count);
-  uint cantian_field_offset = sizeof(row_head_t) + ex_maps;
+  uint cantian_field_offset = 0; // prefetch in single mode no need parse column
+  if (!record_info || !record_info->lens || !is_single_run_mode()) {
+    row_head_t *row_head = (row_head_t *)record_buf->cantian_record_buf;
+    uint ex_maps = col_bitmap_ex_size(row_head->column_count);
+    cantian_field_offset = sizeof(row_head_t) + ex_maps;
+  }
 
   // initialize null bitmap, the size of bitmap is decided by field num
   memset(record_buf->mysql_record_buf, 0x00, table.s->null_bytes);
@@ -1811,7 +1864,7 @@ void cantian_index_record_to_mysql_record(const TABLE &table, index_info_t *inde
     uint8 cantian_col_type = row_get_column_bits2((row_head_t *)record_buf->cantian_record_buf, key_id);
     field_offset_and_col_type filed_offset = {&cantian_field_offset, &mysql_field_offset, cantian_col_type};
     uint col_id = field->field_index();
-    convert_cantian_field_to_mysql_field(field, &filed_offset, record_buf, tch, is_index_only);
+    convert_cantian_field_to_mysql_field(key_id, field, &filed_offset, record_info, record_buf, tch, is_index_only);
 
     // early return if current column exceeds the last column id we wanted
     if (col_id == index->max_col_idx) {

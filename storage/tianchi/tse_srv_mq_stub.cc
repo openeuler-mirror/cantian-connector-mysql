@@ -28,12 +28,6 @@
 
 #define OUTLINE_LOB_LOCATOR_SIZE 44  // 行外LOB数据结构体长度
 
-#define TSE_RESET_SHM_REQ_ERROR_CODE(_req) \
-  do {                                     \
-    _req->error_code = 0;                  \
-    _req->error_message[0] = 0;            \
-  } while (0)
-
 // 双进程模式在 tse_init 中已经提前获取 inst_id
 int tse_alloc_inst_id(uint32_t *inst_id) { 
   *inst_id = ha_tse_get_inst_id();
@@ -46,18 +40,18 @@ int tse_release_inst_id(uint32_t ) {
 }
 
 int tse_open_table(tianchi_handler_t *tch, const char *table_name, const char *user_name) {
-  assert(strlen(table_name) + 1 < SMALL_RECORD_SIZE);
-  assert(strlen(user_name) + 1 < SMALL_RECORD_SIZE);
   void *shm_inst = get_one_shm_inst(tch);
-  open_table_request *req = (open_table_request*)alloc_share_mem(shm_inst, sizeof(open_table_request));
+  uint64_t len = sizeof(open_table_request);
+  open_table_request *req = (open_table_request*)alloc_share_mem(shm_inst, len);
   DBUG_EXECUTE_IF("open_table_shm_oom", { req = NULL; });
   if (req == NULL) {
-    tse_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, sizeof(open_table_request));
+    tse_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, len);
     return ERR_ALLOC_MEMORY;
   }
 
-  memcpy(req->table_name, table_name, strlen(table_name) + 1);
-  memcpy(req->user_name, user_name, strlen(user_name) + 1);
+  memset(req, 0, len);
+  strncpy(req->table_name, table_name, SMALL_RECORD_SIZE - 1);
+  strncpy(req->user_name, user_name, SMALL_RECORD_SIZE - 1);
   req->tch = *tch;
 
   int result = ERR_CONNECTION_FAILED;
@@ -237,14 +231,16 @@ int tse_delete_row(tianchi_handler_t *tch, uint16_t record_len, dml_flag_t flag)
 
 int tse_scan_records(tianchi_handler_t *tch, uint64_t *num_rows, char *index_name) {
   void *shm_inst = get_one_shm_inst(tch);
-  scan_records_request *req = (scan_records_request*)alloc_share_mem(shm_inst, sizeof(scan_records_request));
+  uint64_t len = sizeof(scan_records_request);
+  scan_records_request *req = (scan_records_request*)alloc_share_mem(shm_inst, len);
   if (req == NULL) {
-    tse_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, sizeof(scan_records_request));
+    tse_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, len);
     return ERR_ALLOC_MEMORY;
   }
-  memset(req, 0, sizeof(scan_records_request));
-  if (index_name != nullptr) {
-    memcpy(req->index_name, index_name, strlen(index_name) + 1);
+  memset(req, 0, len);
+  int index_name_len = index_name ? strlen(index_name) : 0;
+  if (index_name_len > 0) {
+    strncpy(req->index_name, index_name, index_name_len + 1);
   }
   req->tch = *tch;
   int result = ERR_CONNECTION_FAILED;
@@ -392,6 +388,7 @@ int tse_rnd_pos(tianchi_handler_t *tch, uint16_t pos_length, uint8_t *position, 
   req->tch = *tch;
   req->record = record_info->record;
   req->pos_length = pos_length;
+  memset(req->position, 0, SMALL_RECORD_SIZE);
   memcpy(req->position, position, pos_length);
 
   int result = ERR_CONNECTION_FAILED;
@@ -596,14 +593,15 @@ int tse_trx_rollback(tianchi_handler_t *tch, uint64_t *cursors, int32_t csize) {
 }
 
 int tse_srv_set_savepoint(tianchi_handler_t *tch, const char *name) {
-  assert(strlen(name) + 1 < SMALL_RECORD_SIZE);
   void *shm_inst = get_one_shm_inst(tch);
-  srv_set_savepoint_request *req = (srv_set_savepoint_request*)alloc_share_mem(shm_inst, sizeof(srv_set_savepoint_request));
+  uint64_t len = sizeof(srv_set_savepoint_request);
+  srv_set_savepoint_request *req = (srv_set_savepoint_request*)alloc_share_mem(shm_inst, len);
   if (req == NULL) {
-      tse_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, sizeof(srv_set_savepoint_request));
+      tse_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, len);
       return ERR_ALLOC_MEMORY;
   }
-  memcpy(req->name, name, strlen(name) + 1);
+  memset(req, 0, len);
+  strncpy(req->name, name, SMALL_RECORD_SIZE - 1);
   req->tch = *tch;
   int result = ERR_CONNECTION_FAILED;
   int ret = tse_mq_deal_func(shm_inst, TSE_FUNC_TYPE_SRV_SET_SAVEPOINT, req, tch->msg_buf);
@@ -615,14 +613,14 @@ int tse_srv_set_savepoint(tianchi_handler_t *tch, const char *name) {
 }
 
 int tse_srv_rollback_savepoint(tianchi_handler_t *tch, uint64_t *cursors, int32_t csize, const char *name) {
-  assert(strlen(name) + 1 < SMALL_RECORD_SIZE);
   void *shm_inst = get_one_shm_inst(tch);
   srv_rollback_savepoint_request *req = (srv_rollback_savepoint_request*)alloc_share_mem(shm_inst, sizeof(srv_rollback_savepoint_request));
   if (req == NULL) {
       tse_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, sizeof(srv_rollback_savepoint_request));
       return ERR_ALLOC_MEMORY;
   }
-  memcpy(req->name, name, strlen(name) + 1);
+  memset(req->name, 0, SMALL_RECORD_SIZE);
+  strncpy(req->name, name, SMALL_RECORD_SIZE - 1);
   req->tch = *tch;
   req->csize = csize;
   req->cursors = cursors;
@@ -637,14 +635,15 @@ int tse_srv_rollback_savepoint(tianchi_handler_t *tch, uint64_t *cursors, int32_
 }
 
 int tse_srv_release_savepoint(tianchi_handler_t *tch, const char *name) {
-  assert(strlen(name) + 1 < SMALL_RECORD_SIZE);
   void *shm_inst = get_one_shm_inst(tch);
-  srv_release_savepoint_request *req = (srv_release_savepoint_request*)alloc_share_mem(shm_inst, sizeof(srv_release_savepoint_request));
+  uint64_t len = sizeof(srv_release_savepoint_request);
+  srv_release_savepoint_request *req = (srv_release_savepoint_request*)alloc_share_mem(shm_inst, len);
   if (req == NULL) {
-      tse_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, sizeof(srv_release_savepoint_request));
+      tse_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, len);
       return ERR_ALLOC_MEMORY;
   }
-  memcpy(req->name, name, strlen(name) + 1);
+  memset(req, 0, len);
+  strncpy(req->name, name, SMALL_RECORD_SIZE - 1);
   req->tch = *tch;
   int result = ERR_CONNECTION_FAILED;
   int ret = tse_mq_deal_func(shm_inst, TSE_FUNC_TYPE_SRV_RELEASE_SAVEPOINT, req, tch->msg_buf);
@@ -715,20 +714,19 @@ int tse_get_max_sessions_per_node(uint32_t *max_sessions) {
 }
 
 int tse_analyze_table(tianchi_handler_t *tch, const char *db_name, const char *table_name, double sampling_ratio) {
-  assert(strlen(db_name) + 1 <= SMALL_RECORD_SIZE);
-  assert(strlen(table_name) + 1 <= SMALL_RECORD_SIZE);
-
   void *shm_inst = get_one_shm_inst(tch);
-  analyze_table_request *req = (analyze_table_request*)alloc_share_mem(shm_inst, sizeof(analyze_table_request));
+  uint64_t len = sizeof(analyze_table_request);
+  analyze_table_request *req = (analyze_table_request*)alloc_share_mem(shm_inst, len);
   DBUG_EXECUTE_IF("tse_analyze_table_shm_oom", { req = NULL; });
   if (req == NULL) {
-    tse_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, sizeof(analyze_table_request));
+    tse_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, len);
     return ERR_ALLOC_MEMORY;
   }
+  memset(req, 0, len);
   req->tch = *tch;
   req->ratio = sampling_ratio;
-  memcpy(req->table_name, table_name, strlen(table_name) + 1);
-  memcpy(req->user_name, db_name, strlen(db_name) + 1);
+  strncpy(req->table_name, table_name, SMALL_RECORD_SIZE - 1);
+  strncpy(req->user_name, db_name, SMALL_RECORD_SIZE - 1);
 
   int result = ERR_CONNECTION_FAILED;
   int ret = tse_mq_deal_func(shm_inst, TSE_FUNC_TYPE_ANALYZE, req, tch->msg_buf);
@@ -819,7 +817,7 @@ int tse_get_cbo_stats(tianchi_handler_t *tch, tianchi_cbo_stats_t *stats, tse_cb
   void *shm_inst_4_table = get_one_shm_inst(tch);
   void *shm_inst_4_str_stats = get_one_shm_inst(tch);
   char *shm_mem_4_str_stats_begin;
-  tse_cbo_stats_column_t* part_columns;
+  tse_cbo_stats_column_t* part_columns = nullptr;
   req->stats->ndv_keys = (uint32_t*)alloc_share_mem(shm_inst_4_keys, stats->key_len);
   if (req->stats->ndv_keys == NULL) {
     tse_log_error("alloc shm mem error, shm_inst(%p), size(%u)", shm_inst_4_keys, stats->key_len);
@@ -948,19 +946,20 @@ int tse_get_cbo_stats(tianchi_handler_t *tch, tianchi_cbo_stats_t *stats, tse_cb
 
 int tse_get_index_name(tianchi_handler_t *tch, char *index_name) {
   void *shm_inst = get_one_shm_inst(tch);
-  get_index_slot_request *req = (get_index_slot_request*)alloc_share_mem(shm_inst, sizeof(get_index_slot_request));
+  uint64_t len = sizeof(get_index_slot_request);
+  get_index_slot_request *req = (get_index_slot_request*)alloc_share_mem(shm_inst, len);
   if (req == NULL) {
-    tse_log_error("alloc shm mem error, shm_inst(%p), size(%d)", shm_inst, REQUEST_SIZE);
+    tse_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, len);
     return ERR_ALLOC_MEMORY;
   }
-  memset(req, 0, sizeof(get_index_slot_request));
+  memset(req, 0, len);
   req->tch = *tch;
 
   int result = ERR_CONNECTION_FAILED;
   int ret = tse_mq_deal_func(shm_inst, TSE_FUNC_TYPE_GET_INDEX_NAME, req, tch->msg_buf);
 
   if (ret == CT_SUCCESS) {
-    memcpy(index_name, req->index_name, strlen(req->index_name) + 1);
+    strncpy(index_name, req->index_name, strlen(req->index_name) + 1);
     result = req->result;
   } else {
     result = ret;
@@ -1032,28 +1031,24 @@ int tse_drop_tablespace_and_user(tianchi_handler_t *tch,
                                  char *error_message)
 {
   void *shm_inst = get_one_shm_inst(tch);
-  drop_tablespace_and_user_request *req = (drop_tablespace_and_user_request*)alloc_share_mem(shm_inst, sizeof(drop_tablespace_and_user_request));
+  uint64_t len = sizeof(drop_tablespace_and_user_request);
+  drop_tablespace_and_user_request *req = (drop_tablespace_and_user_request*)alloc_share_mem(shm_inst, len);
   DBUG_EXECUTE_IF("drop_tablespace_and_user_shm_oom", { req = NULL; });
   if (req == NULL) {
-      tse_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, sizeof(drop_tablespace_and_user_request));
+      tse_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, len);
       return ERR_ALLOC_MEMORY;
   }
-  assert(strlen(db_name) + 1 <= sizeof(req->db_name));
-  memcpy(req->db_name, db_name, strlen(db_name) + 1);
-  assert(strlen(sql_str) + 1 <= sizeof(req->sql_str));
-  memcpy(req->sql_str, sql_str, strlen(sql_str) + 1);
-
-  assert(strlen(user_name) + 1 <= sizeof(req->user_name));
-  memcpy(req->user_name, user_name, strlen(user_name) + 1);
-  assert(strlen(user_ip) + 1 <= sizeof(req->user_ip));
-  memcpy(req->user_ip, user_ip, strlen(user_ip) + 1);
-  TSE_RESET_SHM_REQ_ERROR_CODE(req);
+  memset(req, 0, len);
+  strncpy(req->db_name, db_name, SMALL_RECORD_SIZE - 1);
+  strncpy(req->sql_str, sql_str, MAX_DDL_SQL_LEN - 1);
+  strncpy(req->user_name, user_name, SMALL_RECORD_SIZE - 1);
+  strncpy(req->user_ip, user_ip, SMALL_RECORD_SIZE - 1);
   req->tch = *tch;
   int ret = tse_mq_deal_func(shm_inst, TSE_FUNC_TYPE_DROP_TABLESPACE_AND_USER, req, tch->msg_buf);
   *tch = req->tch;
   if(req->error_message != NULL && strlen(req->error_message) > 0) {
     *error_code = req->error_code;
-    memcpy(error_message, req->error_message, ERROR_MESSAGE_LEN);
+    strncpy(error_message, req->error_message, ERROR_MESSAGE_LEN);
   }
   free_share_mem(shm_inst, req);
   int result = ERR_CONNECTION_FAILED;
@@ -1065,16 +1060,20 @@ int tse_drop_tablespace_and_user(tianchi_handler_t *tch,
 
 int tse_drop_db_pre_check(tianchi_handler_t *tch, const char *db_name, int *error_code, char *error_message) {
   void *shm_inst = get_one_shm_inst(tch);
-  drop_db_pre_check_request *req = (drop_db_pre_check_request*)alloc_share_mem(shm_inst, sizeof(drop_db_pre_check_request));
+  uint64_t len = sizeof(drop_db_pre_check_request);
+  drop_db_pre_check_request *req = (drop_db_pre_check_request*)alloc_share_mem(shm_inst, len);
+  if (req == NULL) {
+      tse_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, len);
+      return ERR_ALLOC_MEMORY;
+  }
+  memset(req, 0, len);
   req->tch = *tch;
-  assert(strlen(db_name) + 1 <= sizeof(req->db_name));
-  memcpy(req->db_name, db_name, strlen(db_name) + 1);
-  TSE_RESET_SHM_REQ_ERROR_CODE(req);
+  strncpy(req->db_name, db_name, SMALL_RECORD_SIZE - 1);
   int result = ERR_CONNECTION_FAILED;
   int ret = tse_mq_deal_func(shm_inst, TSE_FUNC_DROP_DB_PRE_CHECK, req, tch->msg_buf);
   *tch = req->tch;
   *error_code = req->error_code;
-  strncpy(error_message, req->error_message, ERROR_MESSAGE_LEN - 1);
+  strncpy(error_message, req->error_message, ERROR_MESSAGE_LEN);
   if (ret == CT_SUCCESS) {
       result = req->result;
   }
@@ -1085,22 +1084,21 @@ int tse_drop_db_pre_check(tianchi_handler_t *tch, const char *db_name, int *erro
 int tse_lock_table(tianchi_handler_t *tch, const char *db_name, tse_lock_table_info *lock_info,
     int *error_code) {
   void *shm_inst = get_one_shm_inst(tch);
-  lock_table_request *req = (lock_table_request*)alloc_share_mem(shm_inst, sizeof(lock_table_request));
+  uint64_t len = sizeof(lock_table_request);
+  lock_table_request *req = (lock_table_request*)alloc_share_mem(shm_inst, len);
   DBUG_EXECUTE_IF("lock_table_shm_oom", { req = NULL; });
   if (req == NULL) {
-      tse_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, sizeof(lock_table_request));
+      tse_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, len);
       return ERR_ALLOC_MEMORY;
   }
   
-  req->db_name[0] = '\0';
+  memset(req, 0, len);
   if (db_name != nullptr) {
-    strncpy(req->db_name, db_name, strlen(db_name) + 1);
+    strncpy(req->db_name, db_name, SMALL_RECORD_SIZE - 1);
   }
-  
   req->tch = *tch;
   req->lock_info = *lock_info;
   req->mysql_inst_id = tch->inst_id;
-  TSE_RESET_SHM_REQ_ERROR_CODE(req);
   int result = ERR_CONNECTION_FAILED;
   int ret = tse_mq_deal_func(shm_inst, TSE_FUNC_TYPE_LOCK_TABLE, req, tch->msg_buf);
   *tch = req->tch;
@@ -1116,27 +1114,26 @@ int tse_pre_create_db(tianchi_handler_t *tch, const char *sql_str, tse_db_infos_
                       int *error_code, char *error_message)
 {
   void *shm_inst = get_one_shm_inst(tch);
-  pre_create_db_request *req = (pre_create_db_request*)alloc_share_mem(shm_inst, sizeof(pre_create_db_request));
+  uint64_t len = sizeof(pre_create_db_request);
+  pre_create_db_request *req = (pre_create_db_request*)alloc_share_mem(shm_inst, len);
   DBUG_EXECUTE_IF("create_tablespace_and_user_shm_oom", { req = NULL; });
   if (req == NULL) {
-      tse_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, sizeof(pre_create_db_request));
+      tse_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, len);
       return ERR_ALLOC_MEMORY;
   }
-  assert(strlen(sql_str) + 1 <= sizeof(req->sql_str));
-  memcpy(req->sql_str, sql_str, strlen(sql_str) + 1);
-  assert(strlen(db_infos->name) + 1 <= sizeof(req->db_name));
-  memcpy(req->db_name, db_infos->name, strlen(db_infos->name) + 1);
+  memset(req, 0, len);
+  strncpy(req->sql_str, sql_str, MAX_DDL_SQL_LEN - 1);
+  strncpy(req->db_name, db_infos->name, SMALL_RECORD_SIZE - 1);
 
   req->ctc_db_datafile_size = db_infos->datafile_size;
   req->ctc_db_datafile_autoextend = db_infos->datafile_autoextend;
   req->ctc_db_datafile_extend_size = db_infos->datafile_extend_size;
   req->tch = *tch;
-  TSE_RESET_SHM_REQ_ERROR_CODE(req);
   int ret = tse_mq_deal_func(shm_inst, TSE_FUNC_PRE_CREATE_DB, req, tch->msg_buf);
   *tch = req->tch;
   if(req->error_message != NULL && strlen(req->error_message) > 0) {
     *error_code = req->error_code;
-    memcpy(error_message, req->error_message, ERROR_MESSAGE_LEN);
+    strncpy(error_message, req->error_message, ERROR_MESSAGE_LEN);
   }
   free_share_mem(shm_inst, req);
   int result = ERR_CONNECTION_FAILED;
@@ -1320,6 +1317,24 @@ int tse_rename_table(void *alter_def, ddl_ctrl_t *ddl_ctrl) {
   return result;
 }
 
+int tse_update_job(update_job_info info)
+{
+  void *shm_inst = get_one_shm_inst(NULL);
+  update_job_request *req = (update_job_request*)alloc_share_mem(shm_inst, sizeof(update_job_request));
+  if (req == NULL) {
+    tse_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, sizeof(update_job_request));
+    return ERR_ALLOC_MEMORY;
+  }
+  int result = ERR_CONNECTION_FAILED;
+  req->info = info;
+  int ret = tse_mq_deal_func(shm_inst, TSE_FUNC_TYPE_UPDATE_JOB, req, nullptr);
+  if (ret == CT_SUCCESS) {
+    result = req->result;
+  }
+  free_share_mem(shm_inst, req);
+  return result;
+}
+
 int tse_execute_mysql_ddl_sql(tianchi_handler_t *tch, tse_ddl_broadcast_request *broadcast_req, bool allow_fail) {
   void *shm_inst = get_one_shm_inst(tch);
   execute_mysql_ddl_sql_request *req = (execute_mysql_ddl_sql_request*)alloc_share_mem(shm_inst, sizeof(execute_mysql_ddl_sql_request));
@@ -1378,7 +1393,7 @@ int tse_broadcast_rewrite_sql(tianchi_handler_t *tch, tse_ddl_broadcast_request 
   int ret = tse_mq_deal_func(shm_inst, TSE_FUNC_TYPE_BROADCAST_REWRITE_SQL, req, tch->msg_buf);
   *tch = req->tch;
   broadcast_req->err_code = req->broadcast_req.err_code;
-  memcpy(broadcast_req->err_msg, req->broadcast_req.err_msg, ERROR_MESSAGE_LEN);
+  strncpy(broadcast_req->err_msg, req->broadcast_req.err_msg, ERROR_MESSAGE_LEN);
   if (ret == CT_SUCCESS) {
     result = req->result;
   }
@@ -1560,15 +1575,17 @@ int tse_search_metadata_status(bool *cantian_metadata_switch, bool *cantian_clus
  
 int tse_check_db_table_exists(const char *db, const char *name, bool *is_exists) {
   void *shm_inst = get_one_shm_inst(NULL);
-  check_table_exists_request *req = (check_table_exists_request*)alloc_share_mem(shm_inst, sizeof(check_table_exists_request));
+  uint64_t len = sizeof(check_table_exists_request);
+  check_table_exists_request *req = (check_table_exists_request*)alloc_share_mem(shm_inst, len);
   DBUG_EXECUTE_IF("check_init_shm_oom", { req = NULL; });
   if (req == NULL) {
-      tse_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, sizeof(check_table_exists_request));
+      tse_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, len);
       return ERR_ALLOC_MEMORY;
   }
+  memset(req, 0, len);
   int result = ERR_CONNECTION_FAILED;
-  memcpy(req->db, db, strlen(db) + 1);
-  memcpy(req->name, name, strlen(name) + 1);
+  strncpy(req->db, db, SMALL_RECORD_SIZE - 1);
+  strncpy(req->name, name, SMALL_RECORD_SIZE - 1);
   int ret = tse_mq_deal_func(shm_inst, TSE_FUNC_CHECK_TABLE_EXIST, req, nullptr);
   if (ret == CT_SUCCESS) {
       result = req->result;
@@ -1594,7 +1611,7 @@ int ctc_record_sql_for_cantian(tianchi_handler_t *tch, tse_ddl_broadcast_request
   int ret = tse_mq_deal_func(shm_inst, TSE_FUNC_TYPE_RECORD_SQL, req, tch->msg_buf);
   *tch = req->tch;
   broadcast_req->err_code = req->broadcast_req.err_code;
-  memcpy(broadcast_req->err_msg, req->broadcast_req.err_msg, ERROR_MESSAGE_LEN);
+  strncpy(broadcast_req->err_msg, req->broadcast_req.err_msg, ERROR_MESSAGE_LEN);
   if (ret == CT_SUCCESS) {
     result = req->result;
   }

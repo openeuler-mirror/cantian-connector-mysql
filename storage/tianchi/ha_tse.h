@@ -147,6 +147,7 @@ again. */
 #define IS_METADATA_NORMALIZATION() (tse_get_metadata_switch() == (int32_t)metadata_switchs::MATCH_META)
 #define IS_PRIMARY_ROLE() (tse_get_cluster_role() == (int32_t)dis_cluster_role::PRIMARY)
 #define IS_STANDBY_ROLE() (tse_get_cluster_role() == (int32_t)dis_cluster_role::STANDBY)
+bool is_single_run_mode();
 
 static const dd::String_type index_file_name_val_key("index_file_name");
 static const uint ROW_ID_LENGTH = sizeof(uint64_t);
@@ -174,6 +175,11 @@ enum class dis_cluster_role {
   CLUSTER_NOT_READY
 };
 
+enum class mysql_run_mode {
+  SINGLE,
+  DOUBLE
+};
+
 typedef int (*tse_prefetch_fn)(tianchi_handler_t *tch, uint8_t *records, uint16_t *record_lens,
                                uint32_t *recNum, uint64_t *rowids, int32 max_row_size);
 
@@ -181,10 +187,8 @@ typedef int (*tse_prefetch_fn)(tianchi_handler_t *tch, uint8_t *records, uint16_
     do {                                                                                                           \
         const char *user_name = _thd->m_main_security_ctx.priv_user().str;                                         \
         const char *user_ip = _thd->m_main_security_ctx.priv_host().str;                                           \
-        assert(strlen(user_name) + 1 <= sizeof(ctrl.user_name));                                                   \
-        memcpy(ctrl.user_name, user_name, strlen(user_name) + 1);                                                  \
-        assert(strlen(user_ip) + 1 <= sizeof(ctrl.user_ip));                                                       \
-        memcpy(ctrl.user_ip, user_ip, strlen(user_ip) + 1);                                                        \
+        strncpy(ctrl.user_name, user_name, SMALL_RECORD_SIZE - 1);                                                 \
+        strncpy(ctrl.user_ip, user_ip, SMALL_RECORD_SIZE - 1);                                                     \
     } while (0)
 
 #define FILL_BROADCAST_BASE_REQ(broadcast_req, _sql_str, _user_name, _user_ip, _mysql_inst_id, _sql_command)       \
@@ -927,6 +931,7 @@ public:
   Item *m_remainder_conds = nullptr;
 
 private:
+  int tse_alloc_tse_buf_4_read();
   int process_cantian_record(uchar *buf, record_info_t *record_info, ct_errno_t ct_ret, int rc_ret);
   int bulk_insert();
   virtual int bulk_insert_low(dml_flag_t flag, uint *dup_offset);

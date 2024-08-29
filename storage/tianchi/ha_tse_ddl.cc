@@ -704,28 +704,50 @@ static bool tse_get_datetime_default_value(
 
   if (check_zero_date(date_detail)) {
     char *tmp_zero_date =  const_cast<char*>("0000-00-00 00:00:00");
-    column->default_text = (char *)tse_ddl_alloc_mem(mem_start, mem_end, strlen(tmp_zero_date) + 1);
-    assert(column->default_text != NULL);
-    memset(column->default_text, 0, strlen(tmp_zero_date) + 1); 
-    memcpy(column->default_text, tmp_zero_date, strlen(tmp_zero_date) + 1); 
+    int len = strlen(tmp_zero_date);
+    column->default_text = (char *)tse_ddl_alloc_mem(mem_start, mem_end, len + 1);
+    if (column->default_text == nullptr) {
+      tse_log_error("alloc mem for datetime default text failed.");
+      return false;
+    }
+    strncpy(column->default_text, tmp_zero_date, len + 1); 
     return true;
   }
-  if (field->real_type() == MYSQL_TYPE_TIME2) {
-    column->default_text = (char *)tse_ddl_alloc_mem(mem_start, mem_end,
-                                                     sizeof(char) * (expr_str.length() + 1));
-    assert(column->default_text != NULL);
-    sprintf(column->default_text, "%s", expr_str.c_str());
-  } else if (!is_expr_value && field->real_type() == MYSQL_TYPE_TIMESTAMP2) {
-    char tmp_timestamp[MAX_DATE_STRING_REP_LENGTH];
-    int len = my_datetime_to_str(ltime, tmp_timestamp, field->decimals());
-    column->default_text = (char *)tse_ddl_alloc_mem(mem_start, mem_end, len + 1);
-    assert(column->default_text != NULL);
-    memset(column->default_text, 0, len + 1);
-    memcpy(column->default_text, tmp_timestamp, len);
-    column->default_text[len] = '\0';
-  } else {
-    column->default_text = (char *)tse_ddl_alloc_mem(mem_start, mem_end, expr_str.length() + 1);
-    strncpy(column->default_text, expr_str.c_str(), expr_str.length() + 1);
+
+  switch (field->real_type()) {
+    case MYSQL_TYPE_TIME2: {
+      int len = expr_str.length();
+      column->default_text = (char *)tse_ddl_alloc_mem(mem_start, mem_end, sizeof(char) * (len + 1));
+      if (column->default_text == nullptr) {
+        tse_log_error("alloc mem for datetime default text failed.");
+        return false;
+      }
+      sprintf(column->default_text, "%s", expr_str.c_str());
+      break;
+    }
+    case MYSQL_TYPE_TIMESTAMP2: {
+      if (!is_expr_value) {
+        char tmp_timestamp[MAX_DATE_STRING_REP_LENGTH];
+        int len = my_datetime_to_str(ltime, tmp_timestamp, field->decimals());
+        column->default_text = (char *)tse_ddl_alloc_mem(mem_start, mem_end, len + 1);
+        if (column->default_text == nullptr) {
+          tse_log_error("alloc mem for datetime default text failed.");
+          return false;
+        }
+        strncpy(column->default_text, tmp_timestamp, len + 1);
+        break;
+      }
+    }
+    default: {
+      int len = expr_str.length();
+      column->default_text = (char *)tse_ddl_alloc_mem(mem_start, mem_end, len + 1);
+      if (column->default_text == nullptr) {
+        tse_log_error("alloc mem for datetime default text failed.");
+        return false;
+      }
+      strncpy(column->default_text, expr_str.c_str(), len + 1);
+      break;
+    }
   }
   return true;
 }
@@ -776,15 +798,23 @@ static bool tse_get_enum_default_value(
   if (is_enum == TSE_ENUM_DEFAULT_INVALID) {
     return false;
   }
-  column->default_text = (char *)tse_ddl_alloc_mem(mem_start, mem_end, 10);
-  if (column->default_text == nullptr) {
-    tse_log_error("alloc mem for enum default text failed, mem_start is null");
-    return false;
-  }
+  column->default_text = nullptr;
   if (is_enum != TSE_ENUM_DEFAULT_NULL) {
+    column->default_text = (char *)tse_ddl_alloc_mem(mem_start, mem_end, 10);
+    if (column->default_text == nullptr) {
+      tse_log_error("alloc mem for enum default text failed, mem_start is null");
+      return false;
+    }
     sprintf(column->default_text, "%d", is_enum);
   } else {
-    column->default_text = const_cast<char *>(col_obj->default_value_utf8().data());
+    char *default_value = const_cast<char *>(col_obj->default_value_utf8().data());
+    int len = strlen(default_value);
+    column->default_text = (char *)tse_ddl_alloc_mem(mem_start, mem_end, len + 1);
+    if (column->default_text == nullptr) {
+      tse_log_error("alloc mem for enum default text failed, mem_start is null");
+      return false;
+    }
+    strncpy(column->default_text, default_value, len + 1);
   }
   return true;
 }
@@ -834,13 +864,14 @@ static bool tse_get_set_default_value(
 
   if (!is_get_set_bitmap) {
     return false;
+  } else {
+    column->default_text = (char *)tse_ddl_alloc_mem(mem_start, mem_end, 64);
+    if (column->default_text == nullptr) {
+      tse_log_error("alloc mem for set default text failed, mem_start is null");
+      return false;
+    }
+    sprintf(column->default_text, "%lld", set_bitmap);
   }
-  column->default_text = (char *)tse_ddl_alloc_mem(mem_start, mem_end, 64);
-  if (column->default_text == nullptr) {
-    tse_log_error("alloc mem for set default text failed, mem_start is null");
-    return false;
-  }
-  sprintf(column->default_text, "%lld", set_bitmap);
 
   return true;
 }
@@ -920,15 +951,23 @@ static bool tse_get_numeric_default_value(
       column->default_text[num_len] = '\0';
     } else {
       field_default_string = expr_item->val_str(&tmp_string)->c_ptr();
-      column->default_text = (char *)tse_ddl_alloc_mem(mem_start, mem_end, strlen(field_default_string) + 1);
+      int default_text_len = strlen(field_default_string);
+      column->default_text = (char *)tse_ddl_alloc_mem(mem_start, mem_end, default_text_len + 1);
       if (column->default_text == nullptr) {
         tse_log_error("alloc mem for set default text failed, mem_start is null");
         return false;
       }
-      strncpy(column->default_text, field_default_string, strlen(field_default_string) + 1);
+      strncpy(column->default_text, field_default_string, default_text_len + 1);
     }
   } else {
-    column->default_text = const_cast<char *>(col_obj->default_value_utf8().data());
+    char *default_value = const_cast<char *>(col_obj->default_value_utf8().data());
+    int len = strlen(default_value);
+    column->default_text = (char *)tse_ddl_alloc_mem(mem_start, mem_end, len + 1);
+    if (column->default_text == nullptr) {
+      tse_log_error("alloc mem for numeric default text failed, mem_start is null");
+      return false;
+    }
+    strncpy(column->default_text, default_value, len + 1);
   }
   return true;
 }
@@ -996,7 +1035,14 @@ static bool tse_ddl_fill_column_default_value(
       is_blob_type = (column->datatype->datatype != TSE_DDL_TYPE_CLOB);
     case MYSQL_TYPE_JSON:
       if (!is_expr_value) {
-        column->default_text = const_cast<char *>(col_obj->default_value_utf8().data());
+        char *default_value = const_cast<char *>(col_obj->default_value_utf8().data());
+        int len = strlen(default_value);
+        column->default_text = (char *)tse_ddl_alloc_mem(mem_start, mem_end, len + 1);
+        if (column->default_text == nullptr) {
+          tse_log_error("alloc mem for json default text failed, mem_start is null");
+          return false;
+        }
+        strncpy(column->default_text, default_value, len + 1);
         break;
       }
     case MYSQL_TYPE_STRING:
@@ -1629,7 +1675,7 @@ int ha_tse_truncate_table(tianchi_handler_t *tch, THD *thd, const char *db_name,
   {
     TcDb__TseDDLTruncateTableDef req;
     tc_db__tse_ddltruncate_table_def__init(&req);
-    char user_name[SMALL_RECORD_SIZE];
+    char user_name[SMALL_RECORD_SIZE] = { 0 };
     tse_copy_name(user_name, db_name, SMALL_RECORD_SIZE);
     req.schema = const_cast<char *>(user_name);
     req.name = const_cast<char *>(table_name);
@@ -1801,10 +1847,12 @@ int fill_create_table_req(HA_CREATE_INFO *create_info, dd::Table *table_def, cha
 static int tse_ddl_fill_add_part_table_info(TcDb__TseDDLPartitionTableDef *add_part, partition_element &part,
   char **mem_start, char *mem_end)
 {
-  add_part->name = (char *)tse_ddl_alloc_mem(mem_start, mem_end, sizeof(char) * (strlen(part.partition_name) + 1));
-  assert(add_part->name != NULL);
-  memset(add_part->name, 0, (strlen(part.partition_name) + 1));
-  strncpy(add_part->name, part.partition_name, strlen(part.partition_name));
+  int name_len = strlen(part.partition_name);
+  add_part->name = (char *)tse_ddl_alloc_mem(mem_start, mem_end, sizeof(char) * (name_len + 1));
+  if (add_part->name == nullptr) {
+    return HA_ERR_OUT_OF_MEM;
+  }
+  strncpy(add_part->name, part.partition_name, name_len + 1);
   add_part->n_subpart_table_list = part.subpartitions.size();
   if (part.subpartitions.size() > 0) {
     add_part->subpart_table_list =
@@ -1820,10 +1868,12 @@ static int tse_ddl_fill_add_part_table_info(TcDb__TseDDLPartitionTableDef *add_p
         return HA_ERR_OUT_OF_MEM;
       }
       tc_db__tse_ddlpartition_table_def__init(subpart_table_list[i]);
-      subpart_table_list[i]->name = (char *)tse_ddl_alloc_mem(mem_start, mem_end, sizeof(char) * (strlen(sub_part_obj.partition_name) + 1));
-      assert(subpart_table_list[i]->name != NULL);
-      memset(subpart_table_list[i]->name, 0, (strlen(sub_part_obj.partition_name) + 1));
-      strncpy(subpart_table_list[i]->name, sub_part_obj.partition_name, strlen(sub_part_obj.partition_name));
+      int name_len = strlen(sub_part_obj.partition_name);
+      subpart_table_list[i]->name = (char *)tse_ddl_alloc_mem(mem_start, mem_end, sizeof(char) * (name_len + 1));
+      if (subpart_table_list[i]->name == NULL) {
+        return HA_ERR_OUT_OF_MEM;
+      }
+      strncpy(subpart_table_list[i]->name, sub_part_obj.partition_name, name_len + 1);
       i++;
     }
   }
@@ -1862,11 +1912,13 @@ static int tse_ddl_prepare_alter_partition_info(TcDb__TseDDLAlterTableDef *req,
   for (auto part : alter_info->modified_part_info->partitions) {
     switch (part.part_state) {
       case PART_TO_BE_DROPPED: {
+        int name_len = strlen(part.partition_name);
         req->drop_partition_names[req->n_drop_partition_names] = (char *)tse_ddl_alloc_mem(mem_start, mem_end,
-                                                                  sizeof(char) * (strlen(part.partition_name) + 1));
-        assert(req->drop_partition_names[req->n_drop_partition_names] != NULL);
-        memset(req->drop_partition_names[req->n_drop_partition_names], 0, (strlen(part.partition_name) + 1));
-        strcpy(req->drop_partition_names[req->n_drop_partition_names], part.partition_name);
+                                                                  sizeof(char) * (name_len + 1));
+        if (req->drop_partition_names[req->n_drop_partition_names] == NULL) {
+          return HA_ERR_OUT_OF_MEM;
+        }
+        strncpy(req->drop_partition_names[req->n_drop_partition_names], part.partition_name, name_len + 1);
         req->n_drop_partition_names++;
         break;
       }
@@ -2532,10 +2584,10 @@ static int init_tse_ddl_rename_constraints_def(THD *thd, TcDb__TseDDLRenameTable
 
 int fill_rename_table_req(const char *from, const char *to, const dd::Table *from_table_def,
   dd::Table *to_table_def, THD *thd, ddl_ctrl_t *ddl_ctrl, tse_ddl_stack_mem *stack_mem) {
-  char old_db[SMALL_RECORD_SIZE];
-  char new_db[SMALL_RECORD_SIZE];
-  char user_name[SMALL_RECORD_SIZE];
-  char new_user_name[SMALL_RECORD_SIZE];
+  char old_db[SMALL_RECORD_SIZE] = { 0 };
+  char new_db[SMALL_RECORD_SIZE] = { 0 };
+  char user_name[SMALL_RECORD_SIZE] = { 0 };
+  char new_user_name[SMALL_RECORD_SIZE] = { 0 };
   tse_split_normalized_name(from, old_db, SMALL_RECORD_SIZE, nullptr, 0, nullptr);
   tse_split_normalized_name(to, new_db, SMALL_RECORD_SIZE, nullptr, 0, nullptr);
   tse_copy_name(user_name, old_db, SMALL_RECORD_SIZE);
@@ -2628,8 +2680,8 @@ int fill_truncate_partition_req(const char *full_name, partition_info *part_info
   lock_guard<mutex> lock(m_tse_ddl_protobuf_mem_mutex);
   char *req_mem_start = tse_ddl_req_mem;
   char *req_mem_end = req_mem_start + TSE_DDL_PROTOBUF_MEM_SIZE;
-  char db_name[SMALL_RECORD_SIZE];
-  char user_name[SMALL_RECORD_SIZE];
+  char db_name[SMALL_RECORD_SIZE] = { 0 };
+  char user_name[SMALL_RECORD_SIZE] = { 0 };
   const char *table_name_str = dd_table->name().c_str();
   tse_split_normalized_name(full_name, db_name, SMALL_RECORD_SIZE, nullptr, 0, nullptr);
   tse_copy_name(user_name, db_name, SMALL_RECORD_SIZE);
@@ -2700,8 +2752,8 @@ int fill_rebuild_index_req(TABLE *table, THD *thd, ddl_ctrl_t *ddl_ctrl, tse_ddl
   TcDb__TseDDLAlterTableDef req;
   char *req_mem_start = tse_ddl_req_mem;
   char *req_mem_end = req_mem_start + TSE_DDL_PROTOBUF_MEM_SIZE;
-  char db_name[SMALL_RECORD_SIZE];
-  char table_name[SMALL_RECORD_SIZE];
+  char db_name[SMALL_RECORD_SIZE] = { 0 };
+  char table_name[SMALL_RECORD_SIZE] = { 0 };
 
   tse_copy_name(db_name, thd->lex->query_tables->get_db_name(), SMALL_RECORD_SIZE);
   tse_copy_name(table_name, thd->lex->query_tables->table_name, SMALL_RECORD_SIZE);
