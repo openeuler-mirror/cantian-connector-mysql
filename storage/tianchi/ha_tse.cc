@@ -191,6 +191,21 @@ static MYSQL_SYSVAR_UINT(instance_id, ctc_instance_id, PLUGIN_VAR_READONLY,
                          "mysql instance id which is used for daac", nullptr,
                          nullptr, 0, 0, UINT32_MAX, 0);
 
+static void ctc_gather_change_stats_update(THD *, SYS_VAR *, void *var_ptr, const void *save) {
+  int ret;
+  update_job_info info = { "GATHER_CHANGE_STATS", 19, "SYS", 3, 0 };
+  bool val = *static_cast<bool *>(var_ptr) = *static_cast<const bool *>(save);
+  info.switch_on = val;
+  ret = (ct_errno_t)tse_update_job(info);
+  if (ret != CT_SUCCESS) {
+    tse_log_error("Error update cantian job info: %d", ret);
+  }
+}
+
+bool ctc_gather_change_stats = true;
+static MYSQL_SYSVAR_BOOL(gather_change_stats, ctc_gather_change_stats, PLUGIN_VAR_NOCMDARG,
+                         "auto statistics collecting is turn on", nullptr, ctc_gather_change_stats_update, false);
+
 bool ctc_enable_x_lock_instance = false;
 static MYSQL_SYSVAR_BOOL(enable_x_lock_instance, ctc_enable_x_lock_instance, PLUGIN_VAR_NOCMDARG,
                          "LCOK INSTANCE FOR BACKUP add X latch on the cantian side", nullptr, nullptr, false);
@@ -249,6 +264,7 @@ static SYS_VAR *tse_system_variables[] = {
   MYSQL_SYSVAR(autoinc_lock_mode),
   MYSQL_SYSVAR(cluster_role),
   MYSQL_SYSVAR(update_analyze_time),
+  MYSQL_SYSVAR(gather_change_stats),
   nullptr
 };
 
