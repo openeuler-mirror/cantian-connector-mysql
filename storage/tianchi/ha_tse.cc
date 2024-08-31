@@ -3976,6 +3976,7 @@ enum_alter_inplace_result ha_tse::check_if_supported_inplace_alter(
 */
 void ha_tse::set_tse_range_key(tse_key *tse_key, key_range *mysql_range_key, bool is_min_key) {
   if (!mysql_range_key) {
+    tse_key->key = nullptr;
     tse_key->cmp_type = CMP_TYPE_NULL;
     tse_key->len = 0;
     tse_key->col_map = 0; 
