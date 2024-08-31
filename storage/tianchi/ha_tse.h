@@ -876,6 +876,7 @@ public:
 
   /* cantian record buffer */
   uchar *m_tse_buf = nullptr;
+  uchar *m_read_buf = nullptr;
 
   /* select lock mode */
   lock_mode m_select_lock = lock_mode::NO_LOCK;
