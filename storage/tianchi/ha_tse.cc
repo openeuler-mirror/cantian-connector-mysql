@@ -2361,6 +2361,11 @@ ha_tse::~ha_tse() {
     m_tse_buf = nullptr;
   }
 
+  if (m_read_buf != nullptr && !is_single_run_mode()) {
+    tse_free_buf(&m_tch, m_read_buf);
+    m_read_buf = nullptr;
+  }
+
   if (m_rec_buf_data != nullptr) {
     my_free(m_rec_buf_data);
     m_rec_buf_data = nullptr;
@@ -3167,21 +3172,21 @@ int ha_tse::rnd_init(bool) {
 
 /**
   @brief
-  alloc m_tse_buf for select.
+  alloc m_read_buf for select.
 */
 int ha_tse::tse_alloc_tse_buf_4_read() {
   // no need alloc/copy/free record in single run mode
   if (is_single_run_mode()) {
-    m_tse_buf = nullptr;
+    m_read_buf = nullptr;
     return CT_SUCCESS;
   }
   
-  if (m_tse_buf != nullptr) {
+  if (m_read_buf != nullptr) {
     return CT_SUCCESS;
   }
 
-  m_tse_buf = tse_alloc_buf(&m_tch, BIG_RECORD_SIZE);
-  if (m_tse_buf == nullptr) {
+  m_read_buf = tse_alloc_buf(&m_tch, BIG_RECORD_SIZE);
+  if (m_read_buf == nullptr) {
     return convert_tse_error_code_to_mysql(ERR_ALLOC_MEMORY);
   }
   return CT_SUCCESS;
@@ -3219,7 +3224,7 @@ int ha_tse::rnd_next(uchar *buf) {
     int ret = CT_SUCCESS;
     ct_errno_t ct_ret = CT_SUCCESS;
     TSE_RETURN_IF_NOT_ZERO(tse_alloc_tse_buf_4_read());
-    record_info_t record_info = {m_tse_buf, 0, nullptr, nullptr};
+    record_info_t record_info = {m_read_buf, 0, nullptr, nullptr};
     ct_ret = (ct_errno_t)tse_rnd_next(&m_tch, &record_info);
     ret = process_cantian_record(buf, &record_info, ct_ret, HA_ERR_END_OF_FILE);
     return ret;
@@ -3305,7 +3310,7 @@ EXTER_ATTACK int ha_tse::rnd_pos(uchar *buf, uchar *pos) {
   int ret = CT_SUCCESS;
   ct_errno_t ct_ret = CT_SUCCESS;
   TSE_RETURN_IF_NOT_ZERO(tse_alloc_tse_buf_4_read());
-  record_info_t record_info = {m_tse_buf, 0, nullptr, nullptr};
+  record_info_t record_info = {m_read_buf, 0, nullptr, nullptr};
   uint key_len = ref_length;
   if (IS_TSE_PART(m_tch.part_id)) {
     key_len -= PARTITION_BYTES_IN_POS;
@@ -3658,7 +3663,7 @@ EXTER_ATTACK int ha_tse::index_read(uchar *buf, const uchar *key, uint key_len, 
 
   TSE_RETURN_IF_NOT_ZERO(tse_alloc_tse_buf_4_read());
   update_member_tch(m_tch, tse_hton, ha_thd());
-  record_info_t record_info = {m_tse_buf, 0, nullptr, nullptr};
+  record_info_t record_info = {m_read_buf, 0, nullptr, nullptr};
 
   attachable_trx_update_pre_addr(tse_hton, ha_thd(), &m_tch, true);
   ct_errno_t ct_ret = (ct_errno_t)tse_index_read(&m_tch, &record_info, &index_key_info,
@@ -3688,7 +3693,7 @@ int ha_tse::index_fetch(uchar *buf) {
     int ret = CT_SUCCESS;
     ct_errno_t ct_ret = CT_SUCCESS;
     TSE_RETURN_IF_NOT_ZERO(tse_alloc_tse_buf_4_read());
-    record_info_t record_info = {m_tse_buf, 0, nullptr, nullptr};
+    record_info_t record_info = {m_read_buf, 0, nullptr, nullptr};
     attachable_trx_update_pre_addr(tse_hton, ha_thd(), &m_tch, true);
     ct_ret = (ct_errno_t)tse_general_fetch(&m_tch, &record_info);
     attachable_trx_update_pre_addr(tse_hton, ha_thd(), &m_tch, false);
