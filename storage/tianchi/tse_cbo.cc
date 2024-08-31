@@ -306,14 +306,14 @@ static double calc_balance_hist_equal_density(tse_cbo_stats_column_t *col_stat, 
   return col_stat->density;
 }
 
-static double calc_equal_null_density(tse_cbo_stats_table_t *cbo_stats, uint32 col_id, bool is_null)
+static double calc_equal_null_density(tse_cbo_stats_table_t *cbo_stats, uint32 col_id)
 {
   tse_cbo_stats_column_t *col_stat = &cbo_stats->columns[col_id];
   double density = DEFAULT_RANGE_DENSITY;
   if (cbo_stats->estimate_rows > 0) {
     density = (double)col_stat->num_null / cbo_stats->estimate_rows;
   }
-  return is_null ? density : (double)1 - density;
+  return density ;
 }
 
 double calc_hist_equal_density(tse_cbo_stats_table_t *cbo_stats, cache_variant_t *val,
@@ -562,16 +562,6 @@ double calc_density_by_cond(tse_cbo_stats_table_t *cbo_stats, KEY_PART_INFO cur_
   tse_key *min_key = key->min_key;
   tse_key *max_key = key->max_key;
 
-  if (cur_index_part.field->is_nullable()) {
-    if (*(min_key->key + key_offset) == 1 && max_key->cmp_type == CMP_TYPE_NULL) {
-      return calc_equal_null_density(cbo_stats, col_id, false);
-    }
-
-    if (*(min_key->key + key_offset) == 1 && *(max_key->key + key_offset) == 1) {
-      return calc_equal_null_density(cbo_stats, col_id, true);
-    }
-  }
-
   cache_variant_t *low_val;
   cache_variant_t *high_val;
 
@@ -631,8 +621,12 @@ double calc_density_one_table(uint16_t idx_id, tse_range_key *key,
       KEY_PART_INFO cur_index_part = cur_index.key_part[idx_col_num];
       col_id = cur_index_part.field->field_index();
       uint32_t offset = cur_index_part.field->is_nullable() ? 1 : 0;
-      if ((offset == 1) && *(key->min_key->key + key_offset) == 1 && *(key->max_key->key + key_offset) == 1) {
-        col_product = calc_equal_null_density(cbo_stats, col_id, true);
+      if ((offset == 1) && *(key->min_key->key + offset) == 1 && key->max_key->key == nullptr) {
+        // select * from table where col is not null
+        col_product = (double)1 - calc_equal_null_density(cbo_stats, col_id);
+      } else if ((offset == 1) && *(key->min_key->key + key_offset) == 1 && *(key->max_key->key + key_offset) == 1) {
+        // select * from table where col is null
+        col_product = calc_equal_null_density(cbo_stats, col_id);
       } else {
         col_product = calc_density_by_cond(cbo_stats, cur_index_part, key, key_offset, table.field[col_id]->charset());
       }
