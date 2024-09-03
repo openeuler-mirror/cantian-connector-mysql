@@ -667,16 +667,13 @@ void tse_index_stats_update(TABLE *table, tianchi_cbo_stats_t *cbo_stats)
       uint32 fld_idx = sk.key_part[j].field->field_index();
       for (uint32 k = 0; k < table_part_num; k++) {
         records = cbo_stats->tse_cbo_stats_table[k].estimate_rows;
-        uint32 n_null = cbo_stats->tse_cbo_stats_table[k].columns[fld_idx].num_null;
+        uint32 has_null = cbo_stats->tse_cbo_stats_table[k].columns[fld_idx].num_null ? 1 : 0;
         uint32 n_diff_part = *(n_diff + i * MAX_KEY_COLUMNS + j);
         do {
           if (!n_diff_part) {
             break;
-          } else if (n_diff_part <= n_null) {
-            rec_per_key += 1.0f;
-          } else {
-            rec_per_key += static_cast<rec_per_key_t>(records - n_null) / static_cast<rec_per_key_t>(n_diff_part - n_null);
-          }
+	  }
+          rec_per_key += static_cast<rec_per_key_t>(records) / static_cast<rec_per_key_t>(n_diff_part + has_null);
           all_n_diff_is_zero = false;
         } while(0);
       }
