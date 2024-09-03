@@ -86,3 +86,10 @@ explain select * from t_varbinary where a < "qoavm";
 select * from t_varbinary where a > "bmwcw" and a < "mvcmv";
 explain select * from t_varbinary where a > "bmwcw" and a < "mvcmv";
 drop table t_varbinary;
+
+create table t1(c1 int PRIMARY KEY AUTO_INCREMENT, c2 varchar(10), KEY idx_c2(c2));
+insert into t1(c2) values ('1');
+insert into t1(c2) values (NULL);
+analyze table t1;
+show keys from t1;
+drop table t1;

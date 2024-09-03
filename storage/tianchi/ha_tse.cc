@@ -204,7 +204,7 @@ static void ctc_gather_change_stats_update(THD *, SYS_VAR *, void *var_ptr, cons
 
 bool ctc_gather_change_stats = true;
 static MYSQL_SYSVAR_BOOL(gather_change_stats, ctc_gather_change_stats, PLUGIN_VAR_NOCMDARG,
-                         "auto statistics collecting is turn on", nullptr, ctc_gather_change_stats_update, false);
+                         "auto statistics collecting is turn on", nullptr, ctc_gather_change_stats_update, true);
 
 bool ctc_enable_x_lock_instance = false;
 static MYSQL_SYSVAR_BOOL(enable_x_lock_instance, ctc_enable_x_lock_instance, PLUGIN_VAR_NOCMDARG,

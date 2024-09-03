@@ -118,3 +118,35 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_bit`.`num` AS `num` from `test`.`tbl_bit` where ((`test`.`tbl_bit`.`num` > 333) and (`test`.`tbl_bit`.`num` <= 555))
 drop table tbl_bit;
+create table t1(id int AUTO_INCREMENT PRIMARY KEY, bit_col bit(8) default NULL,KEY(bit_col));
+create table t2(id int AUTO_INCREMENT PRIMARY KEY, bit_col bit(8) default NULL,KEY(bit_col));
+insert into t1(bit_col) values (b'00001111'),(b'00110000'),(b'00001111'),(b'00110000'),(b'00001111'),(b'00110000');
+insert into t2(bit_col) values (b'00001111'),(b'00110000'),(b'00001111'),(b'00110000'),(b'00001111'),(b'00110000');
+analyze table t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+analyze table t2;
+Table	Op	Msg_type	Msg_text
+test.t2	analyze	status	OK
+explain select count(*) from t1 where exists (select /*+NO_SEMIJOIN(FIRSTMATCH) */ 1 from t2 where t2.bit_col = t1.bit_col and t1.bit_col > b'00001111');
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	bit_col	bit_col	2	NULL	3	100.00	Using where; Using index
+1	SIMPLE	t2	NULL	ref	bit_col	bit_col	2	test.t1.bit_col	3	100.00	Using index; Start temporary; End temporary
+Warnings:
+Note	1276	Field or reference 'test.t1.bit_col' of SELECT #2 was resolved in SELECT #1
+Note	1276	Field or reference 'test.t1.bit_col' of SELECT #2 was resolved in SELECT #1
+Note	1003	/* select#1 */ select /*+ NO_SEMIJOIN(@`select#2` FIRSTMATCH) */ count(0) AS `count(*)` from `test`.`t1` semi join (`test`.`t2`) where ((`test`.`t2`.`bit_col` = `test`.`t1`.`bit_col`) and (`test`.`t1`.`bit_col` > 0x0f))
+insert into t2(bit_col) values (NULL),(NULL),(NULL);
+analyze table t2;
+Table	Op	Msg_type	Msg_text
+test.t2	analyze	status	OK
+explain select count(*) from t1 where exists (select /*+NO_SEMIJOIN(FIRSTMATCH) */ 1 from t2 where t2.bit_col = t1.bit_col and t1.bit_col > b'00001111');
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	bit_col	bit_col	2	NULL	3	100.00	Using where; Using index
+1	SIMPLE	t2	NULL	ref	bit_col	bit_col	2	test.t1.bit_col	3	100.00	Using index; Start temporary; End temporary
+Warnings:
+Note	1276	Field or reference 'test.t1.bit_col' of SELECT #2 was resolved in SELECT #1
+Note	1276	Field or reference 'test.t1.bit_col' of SELECT #2 was resolved in SELECT #1
+Note	1003	/* select#1 */ select /*+ NO_SEMIJOIN(@`select#2` FIRSTMATCH) */ count(0) AS `count(*)` from `test`.`t1` semi join (`test`.`t2`) where ((`test`.`t2`.`bit_col` = `test`.`t1`.`bit_col`) and (`test`.`t1`.`bit_col` > 0x0f))
+drop table t1;
+drop table t2;

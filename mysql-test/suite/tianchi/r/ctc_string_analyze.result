@@ -226,3 +226,14 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t_varbinary`.`a` AS `a` from `test`.`t_varbinary` where ((`test`.`t_varbinary`.`a` > 'bmwcw') and (`test`.`t_varbinary`.`a` < 'mvcmv'))
 drop table t_varbinary;
+create table t1(c1 int PRIMARY KEY AUTO_INCREMENT, c2 varchar(10), KEY idx_c2(c2));
+insert into t1(c2) values ('1');
+insert into t1(c2) values (NULL);
+analyze table t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+show keys from t1;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t1	0	PRIMARY	1	c1	A	2	NULL	NULL		BTREE			YES	NULL
+t1	1	idx_c2	1	c2	A	2	NULL	NULL	YES	BTREE			YES	NULL
+drop table t1;

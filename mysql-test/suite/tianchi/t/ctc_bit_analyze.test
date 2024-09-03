@@ -51,3 +51,16 @@ explain select * from tbl_bit where num < 100;
 explain select * from tbl_bit where num > 900;
 explain select * from tbl_bit where num > 333 and num <= 555;
 drop table tbl_bit;
+
+create table t1(id int AUTO_INCREMENT PRIMARY KEY, bit_col bit(8) default NULL,KEY(bit_col));
+create table t2(id int AUTO_INCREMENT PRIMARY KEY, bit_col bit(8) default NULL,KEY(bit_col));
+insert into t1(bit_col) values (b'00001111'),(b'00110000'),(b'00001111'),(b'00110000'),(b'00001111'),(b'00110000');
+insert into t2(bit_col) values (b'00001111'),(b'00110000'),(b'00001111'),(b'00110000'),(b'00001111'),(b'00110000');
+analyze table t1;
+analyze table t2;
+explain select count(*) from t1 where exists (select /*+NO_SEMIJOIN(FIRSTMATCH) */ 1 from t2 where t2.bit_col = t1.bit_col and t1.bit_col > b'00001111');
+insert into t2(bit_col) values (NULL),(NULL),(NULL);
+analyze table t2;
+explain select count(*) from t1 where exists (select /*+NO_SEMIJOIN(FIRSTMATCH) */ 1 from t2 where t2.bit_col = t1.bit_col and t1.bit_col > b'00001111');
+drop table t1;
+drop table t2;
