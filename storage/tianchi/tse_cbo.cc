@@ -621,7 +621,7 @@ double calc_density_one_table(uint16_t idx_id, tse_range_key *key,
       KEY_PART_INFO cur_index_part = cur_index.key_part[idx_col_num];
       col_id = cur_index_part.field->field_index();
       uint32_t offset = cur_index_part.field->is_nullable() ? 1 : 0;
-      if ((offset == 1) && *(key->min_key->key + offset) == 1 && key->max_key->key == nullptr) {
+      if ((offset == 1) && *(key->min_key->key + key_offset) == 1 && key->max_key->key == nullptr) {
         // select * from table where col is not null
         col_product = (double)1 - calc_equal_null_density(cbo_stats, col_id);
       } else if ((offset == 1) && *(key->min_key->key + key_offset) == 1 && *(key->max_key->key + key_offset) == 1) {
