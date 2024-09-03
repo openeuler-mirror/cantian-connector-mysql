@@ -4140,6 +4140,17 @@ int32_t ctc_get_shm_file_num(uint32_t *shm_file_num) {
   return ret;
 }
 
+extern uint32_t g_shm_file_num;
+int32_t ctc_get_shm_usage(uint32_t *ctc_shm_usage) {
+  uint32_t size = (g_shm_file_num + 1)  * MEM_CLASS_NUM * sizeof(uint32_t);
+  uint32_t *shm_usage = (uint32_t *)tse_alloc_buf(NULL, size);
+  memset(shm_usage, 0, size);
+  int ret = ctc_query_shm_usage(shm_usage);
+  memcpy(ctc_shm_usage, shm_usage, size);
+  tse_free_buf(nullptr, (uint8_t *)shm_usage);
+  return ret;
+}
+
 /**
   @brief
   The idea with handler::store_lock() is: The statement decides which locks
