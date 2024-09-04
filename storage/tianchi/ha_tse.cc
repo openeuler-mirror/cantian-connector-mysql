@@ -138,6 +138,10 @@
  * mysql> SHOW GLOBAL VARIABLES like'%ctc%'
  */
 
+#define CTC_MAX_SAMPLE_SIZE (4096)    // MB
+#define CTC_MIN_SAMPLE_SIZE (32)      // MB
+#define CTC_DEFAULT_SAMPLE_SIZE (128) // MB
+
 static void ctc_statistics_enabled_update(THD *, SYS_VAR *, void *var_ptr, const void *save) {
   bool val = *static_cast<bool *>(var_ptr) = *static_cast<const bool *>(save);
   ctc_stats::get_instance().set_statistics_enabled(val);
@@ -231,8 +235,20 @@ static MYSQL_SYSVAR_UINT(update_analyze_time, ctc_update_analyze_time, PLUGIN_VA
                          0, 900, 0);
 
 static mutex m_ctc_sample_size_mutex;
-/* 自动采样和手动采样的大小, 单位M, 默认128M, 最小32M, 最大4G */
-uint32_t ctc_sample_size = 0;
+uint32_t ctc_sample_size;
+static int check_sample_size(THD *, SYS_VAR *, void *save, struct st_mysql_value *value)
+{
+  longlong in_val;
+  value->val_int(value, &in_val);
+
+  if (in_val < CTC_MIN_SAMPLE_SIZE || in_val > CTC_MAX_SAMPLE_SIZE) {
+    return CT_ERROR;
+  }
+
+  *(longlong *)save = in_val;
+
+  return CT_SUCCESS;
+}
 static void update_sample_size(THD *, SYS_VAR *, void *, const void *save)
 {
   lock_guard<mutex> lock(m_ctc_sample_size_mutex);
@@ -241,8 +257,8 @@ static void update_sample_size(THD *, SYS_VAR *, void *, const void *save)
   }
 }
 static MYSQL_SYSVAR_UINT(sample_size, ctc_sample_size, PLUGIN_VAR_RQCMDARG,
-                         "The size of the sample used, in MB.", nullptr, update_sample_size, 128,
-                         32, 4096, 0);
+                         "The size of the sample used, in MB.", check_sample_size, update_sample_size, CTC_DEFAULT_SAMPLE_SIZE,
+                         CTC_MIN_SAMPLE_SIZE, CTC_MAX_SAMPLE_SIZE, 0);
 
 bool ctc_select_prefetch = true;
 static MYSQL_SYSVAR_BOOL(select_prefetch, ctc_select_prefetch, PLUGIN_VAR_RQCMDARG,
