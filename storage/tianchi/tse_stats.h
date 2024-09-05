@@ -24,6 +24,7 @@
 #include "../../sql/sql_profile.h"
 #include "my_config.h"
 #include "tse_srv.h"
+#include "ha_tse.h"
 
 class ctc_stats {
   private:
@@ -39,7 +40,8 @@ class ctc_stats {
     void set_statistics_enabled(const bool val);
     void gather_stats(const enum TSE_FUNC_TYPE& type, const uint64_t use_time);
     void print_stats(THD *thd, stat_print_fn *stat_print);
-  
+    void print_cost_times(std::string &ctc_srv_monitor_str);
+    void print_shm_usage(std::string &ctc_srv_monitor_str);
   private:
     bool m_statistics_enabled = false;
 

@@ -609,7 +609,7 @@ static int tse_check_set_opt(string &sql_str, MYSQL_THD thd, bool &need_forward)
       }
     }
 
-    tse_log_system("set option %s, need_forward: %d", sql_str.c_str(), need_forward);
+    tse_log_debug("set option %s, need_forward: %d", sql_str.c_str(), need_forward);
   }
   if (IS_METADATA_NORMALIZATION() && !contain_subselect) {
     need_forward = false;

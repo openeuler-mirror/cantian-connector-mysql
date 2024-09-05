@@ -1678,3 +1678,22 @@ int ctc_query_shm_file_num(uint32_t *shm_file_num)
   free_share_mem(shm_inst, req);
   return result;
 }
+
+extern uint32_t g_shm_file_num;
+int ctc_query_shm_usage(uint32_t *shm_usage)
+{
+  void *shm_inst = get_one_shm_inst(NULL);
+  query_shm_usage_request *req = (query_shm_usage_request *)alloc_share_mem(shm_inst, sizeof(query_shm_usage_request));
+  if (req == nullptr) {
+    tse_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, sizeof(query_shm_usage_request));
+    return ERR_ALLOC_MEMORY;
+  }
+  int result = ERR_CONNECTION_FAILED;
+  req->shm_usage = shm_usage;
+  int ret = tse_mq_deal_func(shm_inst, CTC_FUNC_QUERY_SHM_USAGE, req, nullptr);
+  if (ret == CT_SUCCESS) {
+    result = req->result;
+  }
+  free_share_mem(shm_inst, req);
+  return result;
+}
