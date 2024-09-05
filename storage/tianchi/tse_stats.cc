@@ -72,6 +72,7 @@ const char *ctc_interface_strs[] = {
   "TSE_FUNC_UNLOCK_INSTANCE",
   "TSE_FUNC_CHECK_TABLE_EXIST",
   "TSE_FUNC_SEARCH_METADATA_SWITCH",
+  "CTC_FUNC_QUERY_SHM_USAGE",
   "TSE_FUNC_QUERY_CLUSTER_ROLE",
   "TSE_FUNC_SET_CLUSTER_ROLE_BY_CANTIAN",
   "TSE_FUNC_PRE_CREATE_DB",
@@ -92,6 +93,41 @@ const char *ctc_interface_strs[] = {
   "TSE_FUNC_TYPE_INVALIDATE_ALL_OBJECTS",
   "TSE_FUNC_TYPE_UPDATE_DDCACHE",
 
+};
+
+typedef struct tag_mem_class_cfg_s {
+    uint32_t size; // align to 8 bytes
+    uint32_t num;
+} mem_class_cfg_t;
+
+mem_class_cfg_t g_mem_class_cfg[MEM_CLASS_NUM] = {
+    {4,      960},
+    {8,      780},
+    {24,     500},
+    {40,     8000},
+    {48,     9700},
+    {56,     10000},
+    {64,     20000},
+    {128,    8192},
+    {256,    20000},
+    {296,    400},
+    {312,    400},
+    {512,    400},
+    {1024,   400},
+    {2048,   400},
+    {4096,   400},
+    {8192,   400},
+    {40960,  8192},
+    {41008,  400},
+    {41144,  400},
+    {49200,  400},
+    {65536,  12000},
+    {66632,  20175},
+    {82224,  400},
+    {102400, 2000},
+    {204800, 1000},
+    {491520, 1000},
+    {8200000, 100},
 };
 
 ctc_stats& ctc_stats::get_instance() noexcept {
@@ -119,19 +155,13 @@ void ctc_stats::gather_stats(const enum TSE_FUNC_TYPE& type, const uint64_t use_
   m_use_time[type] += use_time;
 }
 
-void ctc_stats::print_stats(THD *thd, stat_print_fn *stat_print) {
-  char *ctc_srv_monitor;
-  std::string ctc_srv_monitor_str;
+void ctc_stats::print_cost_times(std::string &ctc_srv_monitor_str) {
   if ((sizeof(ctc_interface_strs) / sizeof(ctc_interface_strs[0])) != TSE_FUNC_TYPE_NUMBER) {
-    ctc_srv_monitor_str = "[CTC_STATS]: ctc_interface_strs number must be same as total ctc interfaces.";
-    ctc_srv_monitor = &ctc_srv_monitor_str[0];
-    stat_print(thd, "ctc",
-                       static_cast<uint>(strlen("ctc")),
-                       STRING_WITH_LEN(""), ctc_srv_monitor, (uint)ctc_srv_monitor_str.length());
+    ctc_srv_monitor_str += "[CTC_STATS]: ctc_interface_strs number must be same as total ctc interfaces.\n";
     return;
   }
 
-  ctc_srv_monitor_str = "\n======================================CTC_STATS=====================================\n";
+  ctc_srv_monitor_str += "\n======================================CTC_STATS=====================================\n";
   ctc_srv_monitor_str += "Interface:   Call counter    Used Time    Average Time\n";
   for (int i = 0; i < TSE_FUNC_TYPE_NUMBER; i++) {
     uint64_t calls = m_calls[i];
@@ -146,8 +176,50 @@ void ctc_stats::print_stats(THD *thd, stat_print_fn *stat_print) {
   }
 
   ctc_srv_monitor_str += "\n======================================CTC_STATS=====================================\n";
+}
+
+extern uint32_t g_shm_file_num;
+void ctc_stats::print_shm_usage(std::string &ctc_srv_monitor_str) {
+  uint32_t *ctc_shm_usage = (uint32_t *)my_malloc(PSI_NOT_INSTRUMENTED, (g_shm_file_num + 1) * MEM_CLASS_NUM * sizeof(uint32_t), MYF(MY_WME));
+  if (ctc_get_shm_usage(ctc_shm_usage) != CT_SUCCESS) {
+    my_free(ctc_shm_usage);
+    return;
+  }
+  ctc_srv_monitor_str += "\n=====================================SHARE MEMORY USAGE STATISTICS=====================================\n";
+  ctc_srv_monitor_str += "SIZE:\t" ;
+  for (uint32_t j = 0; j < MEM_CLASS_NUM; j++) {
+    ctc_srv_monitor_str += std::to_string(g_mem_class_cfg[j].size) + "\t" ;
+  }
+  ctc_srv_monitor_str += "\nNUM:\t";
+  for (uint32_t j = 0; j < MEM_CLASS_NUM; j++) {
+    ctc_srv_monitor_str += std::to_string(g_mem_class_cfg[j].num) + "\t" ;
+  }
+  ctc_srv_monitor_str += "\n------------------------------------------------------------------------------------------------------\n";
+
+  int idx = 0;
+  for (uint32_t i = 0; i < g_shm_file_num + 1; i++) {
+    ctc_srv_monitor_str += "FILE" + std::to_string(i)  + ":\t" ;
+    for (uint32_t j = 0; j < MEM_CLASS_NUM; j++) {
+      ctc_srv_monitor_str += std::to_string(ctc_shm_usage[idx++]) + "\t" ; // ctc_shm_usage[idx++] / g_mem_class_cfg[j].num
+    }
+    ctc_srv_monitor_str += "\n";
+  }
+  my_free(ctc_shm_usage);
+}
+
+void ctc_stats::print_stats(THD *thd, stat_print_fn *stat_print) {
+  char *ctc_srv_monitor;
+  std::string ctc_srv_monitor_str = "";
+
+  if (get_statistics_enabled()) {
+    print_cost_times(ctc_srv_monitor_str);
+  }
+
+  if (!is_single_run_mode()) {
+    print_shm_usage(ctc_srv_monitor_str);
+  }
+  
   ctc_srv_monitor = &ctc_srv_monitor_str[0];
-  stat_print(thd, "ctc",
-                       static_cast<uint>(strlen("ctc")),
-                       STRING_WITH_LEN(""), ctc_srv_monitor, (uint)ctc_srv_monitor_str.length());
+  stat_print(thd, "ctc", static_cast<uint>(strlen("ctc")), STRING_WITH_LEN(""), 
+             ctc_srv_monitor, (uint)ctc_srv_monitor_str.length());
 }
