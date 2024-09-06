@@ -218,10 +218,9 @@ void ctc_stats::print_stats(THD *thd, stat_print_fn *stat_print) {
   if (get_statistics_enabled()) {
     print_cost_times(ctc_srv_monitor_str);
   }
-
-  if (!is_single_run_mode()) {
-    print_shm_usage(ctc_srv_monitor_str);
-  }
+#ifndef WITH_DAAC
+  print_shm_usage(ctc_srv_monitor_str);
+#endif
   
   ctc_srv_monitor = &ctc_srv_monitor_str[0];
   stat_print(thd, "ctc", static_cast<uint>(strlen("ctc")), STRING_WITH_LEN(""), 
