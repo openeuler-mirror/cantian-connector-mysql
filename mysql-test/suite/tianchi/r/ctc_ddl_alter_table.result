@@ -753,7 +753,7 @@ ID	col1	col2
 1	1	2
 2	1	2
 ALTER TABLE DEMO ADD PRIMARY KEY (col1,col2);
-ERROR 23000: Duplicate entry for key 'DEMO.PRIMARY'
+ERROR 23000: Duplicate entry '1-2' for key 'DEMO.PRIMARY'
 UPDATE DEMO set col1 = 2 where ID = 2;
 ALTER TABLE DEMO ADD PRIMARY KEY (col1,col2);
 SELECT * FROM DEMO;
