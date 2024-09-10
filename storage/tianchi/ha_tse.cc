@@ -241,7 +241,15 @@ static int check_sample_size(THD *, SYS_VAR *, void *save, struct st_mysql_value
   longlong in_val;
   value->val_int(value, &in_val);
 
-  if (in_val < CTC_MIN_SAMPLE_SIZE || in_val > CTC_MAX_SAMPLE_SIZE) {
+  if (in_val < CTC_MIN_SAMPLE_SIZE || in_val >= CTC_MAX_SAMPLE_SIZE) {
+    std::stringstream error_str;
+    error_str << "The value " << in_val
+              << " is not within the range of accepted values for the option "
+              << "ctc_sample_size.The value must be between "
+              << CTC_MIN_SAMPLE_SIZE << " inclusive and "
+              << CTC_MAX_SAMPLE_SIZE << " exclusive.";
+    my_message(ER_WRONG_VALUE_FOR_VAR, error_str.str().c_str(), MYF(0));
+    
     return CT_ERROR;
   }
 
@@ -257,8 +265,9 @@ static void update_sample_size(THD *, SYS_VAR *, void *, const void *save)
   }
 }
 static MYSQL_SYSVAR_UINT(sample_size, ctc_sample_size, PLUGIN_VAR_RQCMDARG,
-                         "The size of the sample used, in MB.", check_sample_size, update_sample_size, CTC_DEFAULT_SAMPLE_SIZE,
-                         CTC_MIN_SAMPLE_SIZE, CTC_MAX_SAMPLE_SIZE, 0);
+                         "The size of the statistical sample data, measured in megabytes (MB).",
+                         check_sample_size, update_sample_size,
+                         CTC_DEFAULT_SAMPLE_SIZE, CTC_MIN_SAMPLE_SIZE, CTC_MAX_SAMPLE_SIZE, 0);
 
 bool ctc_select_prefetch = true;
 static MYSQL_SYSVAR_BOOL(select_prefetch, ctc_select_prefetch, PLUGIN_VAR_RQCMDARG,
