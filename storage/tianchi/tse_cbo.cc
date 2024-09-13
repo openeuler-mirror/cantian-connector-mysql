@@ -323,8 +323,15 @@ double calc_hist_equal_density(tse_cbo_stats_table_t *cbo_stats, cache_variant_t
   double density = col_stat->density;
   uint32 hist_count = col_stat->hist_count;
   if (hist_count == 0) {
+    tse_log_note("hist_count: 0, column id: %u", col_id);
     return density;
   }
+  if (hist_count > STATS_HISTGRAM_MAX_SIZE) {
+    tse_log_error("Error hist_count: %u, column id: %u", hist_count, col_id);
+    assert(0);
+    return col_stat->density;
+  }
+
   if (col_stat->hist_type == FREQUENCY_HIST) {
     // HISTOGRAM_FREQUENCY
     density = calc_frequency_hist_equal_density(col_stat, val, field, cs);
@@ -341,10 +348,6 @@ static double  calc_hist_between_frequency(tse_cbo_stats_table_t *cbo_stats, fie
   tse_cbo_stats_column_t *col_stat = &cbo_stats->columns[col_id];
   double density = col_stat->density;
   uint32 hist_count = col_stat->hist_count;
-  if (hist_count == 0) {
-      return density;
-  }
-
   tse_cbo_column_hist_t *hist_infos = col_stat->column_hist;
   uint32 end_pos = hist_count - 1;
   int64 total_nums = hist_infos[end_pos].ep_number;
@@ -523,10 +526,6 @@ static double calc_hist_between_balance(tse_cbo_stats_table_t *cbo_stats, field_
 {
   tse_cbo_stats_column_t *col_stat = &cbo_stats->columns[col_id];
   double density = col_stat->density;
-  uint32 hist_count = col_stat->hist_count;
-  if (hist_count == 0) {
-      return density;
-  }
   double percent = 0;
 
   int bucket_range = calc_hist_range_boundary(stats_val, field, col_stat, &percent, cs);
@@ -544,6 +543,15 @@ static double calc_hist_between_density(tse_cbo_stats_table_t *cbo_stats,
 {
   double density;
   tse_cbo_stats_column_t *col_stat = &cbo_stats->columns[col_id];
+  if (col_stat->hist_count == 0) {
+    tse_log_note("hist_count: 0, column id: %u", col_id);
+    return col_stat->density;
+  }
+  if (col_stat->hist_count > STATS_HISTGRAM_MAX_SIZE) {
+    tse_log_error("Error hist_count: %u, column id: %u", col_stat->hist_count, col_id);
+    assert(0);
+    return col_stat->density;
+  }
   if (col_stat->hist_type == FREQUENCY_HIST) {
     // HISTOGRAM_FREQUENCY
     density = calc_hist_between_frequency(cbo_stats, stats_val, field, col_id, cs);

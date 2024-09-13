@@ -5450,6 +5450,9 @@ int ha_tse::initialize_cbo_stats()
     tse_log_error("alloc mem failed, m_share->cbo_stats->tse_cbo_stats_table->columns size(%lu)", table->s->fields * sizeof(tse_cbo_stats_column_t));
     return ERR_ALLOC_MEMORY;
   }
+  for (uint col_id = 0; col_id < table->s->fields; col_id++) {
+    m_share->cbo_stats->tse_cbo_stats_table->columns[col_id].hist_count = 0;
+  }
   
   ct_errno_t ret = (ct_errno_t)alloc_str_mysql_mem(m_share->cbo_stats, 1, table);
   if (ret != CT_SUCCESS) {
