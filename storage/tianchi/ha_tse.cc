@@ -138,10 +138,6 @@
  * mysql> SHOW GLOBAL VARIABLES like'%ctc%'
  */
 
-#define CTC_MAX_SAMPLE_SIZE (4096)    // MB
-#define CTC_MIN_SAMPLE_SIZE (32)      // MB
-#define CTC_DEFAULT_SAMPLE_SIZE (128) // MB
-
 static void ctc_statistics_enabled_update(THD *, SYS_VAR *, void *var_ptr, const void *save) {
   bool val = *static_cast<bool *>(var_ptr) = *static_cast<const bool *>(save);
   ctc_stats::get_instance().set_statistics_enabled(val);
@@ -234,41 +230,6 @@ static MYSQL_SYSVAR_UINT(update_analyze_time, ctc_update_analyze_time, PLUGIN_VA
                          "CBO updating time by CTC. Unit is second.", nullptr, nullptr, CTC_ANALYZE_TIME_SEC,
                          0, 900, 0);
 
-static mutex m_ctc_sample_size_mutex;
-uint32_t ctc_sample_size;
-static int check_sample_size(THD *, SYS_VAR *, void *save, struct st_mysql_value *value)
-{
-  longlong in_val;
-  value->val_int(value, &in_val);
-
-  if (in_val < CTC_MIN_SAMPLE_SIZE || in_val >= CTC_MAX_SAMPLE_SIZE) {
-    std::stringstream error_str;
-    error_str << "The value " << in_val
-              << " is not within the range of accepted values for the option "
-              << "ctc_sample_size.The value must be between "
-              << CTC_MIN_SAMPLE_SIZE << " inclusive and "
-              << CTC_MAX_SAMPLE_SIZE << " exclusive.";
-    my_message(ER_WRONG_VALUE_FOR_VAR, error_str.str().c_str(), MYF(0));
-    
-    return CT_ERROR;
-  }
-
-  *(longlong *)save = in_val;
-
-  return CT_SUCCESS;
-}
-static void update_sample_size(THD *, SYS_VAR *, void *, const void *save)
-{
-  lock_guard<mutex> lock(m_ctc_sample_size_mutex);
-  if (ctc_update_sample_size(*static_cast<const uint32_t *>(save)) == CT_SUCCESS) {
-    ctc_sample_size = *static_cast<const uint32_t *>(save);
-  }
-}
-static MYSQL_SYSVAR_UINT(sample_size, ctc_sample_size, PLUGIN_VAR_RQCMDARG,
-                         "The size of the statistical sample data, measured in megabytes (MB).",
-                         check_sample_size, update_sample_size,
-                         CTC_DEFAULT_SAMPLE_SIZE, CTC_MIN_SAMPLE_SIZE, CTC_MAX_SAMPLE_SIZE, 0);
-
 bool ctc_select_prefetch = true;
 static MYSQL_SYSVAR_BOOL(select_prefetch, ctc_select_prefetch, PLUGIN_VAR_RQCMDARG,
                          "Indicates whether using prefetch in select.", nullptr, nullptr, true);
@@ -277,7 +238,6 @@ static MYSQL_SYSVAR_BOOL(select_prefetch, ctc_select_prefetch, PLUGIN_VAR_RQCMDA
 // use. This is done by constructing a NULL-terminated array of the variables
 // and linking to it in the plugin public interface.
 static SYS_VAR *tse_system_variables[] = {
-  MYSQL_SYSVAR(sample_size),
   MYSQL_SYSVAR(lock_wait_timeout),
   MYSQL_SYSVAR(instance_id),
   MYSQL_SYSVAR(sampling_ratio),
