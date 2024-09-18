@@ -3602,18 +3602,18 @@ EXTER_ATTACK int ha_tse::index_read(uchar *buf, const uchar *key, uint key_len, 
     reset_rec_buf();
   }
 
-  cnvrt_to_mysql_record = m_is_covering_index ? cantian_index_record_to_mysql_record : cantian_record_to_mysql_record;
   m_action = m_is_covering_index ? EXP_CURSOR_ACTION_INDEX_ONLY : EXP_CURSOR_ACTION_SELECT;
   if (m_select_lock == lock_mode::EXCLUSIVE_LOCK) {
     enum_sql_command sql_command = (enum_sql_command)thd_sql_command(ha_thd());
     if (sql_command == SQLCOM_DELETE) {
       m_action = EXP_CURSOR_ACTION_DELETE;
+      m_is_covering_index = false;
     } else if (sql_command != SQLCOM_ALTER_TABLE) {
       m_action = EXP_CURSOR_ACTION_UPDATE;
       m_is_covering_index = false;
-      cnvrt_to_mysql_record = cantian_record_to_mysql_record;
     }
   }
+  cnvrt_to_mysql_record = m_is_covering_index ? cantian_index_record_to_mysql_record : cantian_record_to_mysql_record;
 
   index_key_info_t index_key_info;
   memset(&index_key_info.key_info, 0, sizeof(index_key_info.key_info));
