@@ -164,12 +164,13 @@ static void ctc_init_thd(THD **thd, uint64_t thd_key) {
   if (g_tse_mdl_thd_map.find(thd_key) != g_tse_mdl_thd_map.end()) {
     (*thd) = g_tse_mdl_thd_map[thd_key];
     my_thread_init();
+    (*thd)->thread_stack = (char *)thd;
     (*thd)->store_globals();
   } else {
     THD* new_thd = new (std::nothrow) THD;
     my_thread_init();
     new_thd->set_new_thread_id();
-    new_thd->thread_stack = (char *)&new_thd;
+    new_thd->thread_stack = (char *)thd;
     new_thd->store_globals();
     new_thd->set_query("tse_mdl_thd_notify", 18);
     g_tse_mdl_thd_map[thd_key] = new_thd;
@@ -401,7 +402,7 @@ static typename std::enable_if<CHECK_HAS_MEMBER_FUNC(T, invalidates), int>::type
   ctc_init_thd(&thd, thd_key);
  
   if (broadcast_req->is_dcl == true) {
-    reload_acl_caches(thd, false);
+    error = reload_acl_caches(thd, false);
     tse_log_system("[TSE_INVALID_DD]: remote invalidate acl cache, mysql_inst_id=%u", broadcast_req->mysql_inst_id);
   } else {
     invalidate_obj_entry_t *obj = NULL;
