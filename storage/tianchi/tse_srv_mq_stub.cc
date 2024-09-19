@@ -745,7 +745,7 @@ void ctc_cbo_stats_columns_copy(tse_cbo_stats_column_t *dst_columns, tse_cbo_sta
     dst_columns[j].density = src_columns[j].density;
     dst_columns[j].hist_type = src_columns[j].hist_type;
     dst_columns[j].hist_count = src_columns[j].hist_count;
-    if (stats->col_type[j] == true) {
+    if (stats->is_str_col[j]) {
       memcpy(dst_columns[j].high_value.v_str,
              src_columns[j].high_value.v_str, CBO_STRING_MAX_LEN);
       memcpy(dst_columns[j].low_value.v_str,
@@ -759,7 +759,7 @@ void ctc_cbo_stats_columns_copy(tse_cbo_stats_column_t *dst_columns, tse_cbo_sta
     uint hist_count = src_columns[j].hist_count;
     for (uint k = 0; k < hist_count; k++) {
       dst_columns[j].column_hist[k].ep_number = src_columns[j].column_hist[k].ep_number;
-      if (stats->col_type[j] == true) {
+      if (stats->is_str_col[j]) {
         memcpy(dst_columns[j].column_hist[k].ep_value.v_str,
                src_columns[j].column_hist[k].ep_value.v_str, CBO_STRING_MAX_LEN);
       } else {
@@ -772,22 +772,18 @@ void ctc_cbo_stats_columns_copy(tse_cbo_stats_column_t *dst_columns, tse_cbo_sta
 
 void ctc_cbo_stats_copy_from_shm(tianchi_handler_t *tch, tse_cbo_stats_table_t *tse_cbo_stats_table,
                                  get_cbo_stats_request *req, tianchi_cbo_stats_t *stats) {
-  bool is_part_table = stats->part_cnt ? true : false;
   stats->is_updated = req->stats->is_updated;
   stats->records = req->stats->records;
   memcpy(stats->ndv_keys, req->stats->ndv_keys, stats->key_len);
   uint num_columns = req->stats->msg_len / sizeof(tse_cbo_stats_column_t);
-  if (!is_part_table) {
-      *tch = req->tch;
-      tse_cbo_stats_table->estimate_rows = req->tse_cbo_stats_table->estimate_rows;
-      ctc_cbo_stats_columns_copy(tse_cbo_stats_table->columns,
-                                 req->tse_cbo_stats_table->columns, stats, num_columns);
-  } else {
-    for (uint i = 0; i < req->num_part_fetch; i++) {
-      tse_cbo_stats_table[i].estimate_rows = req->tse_cbo_stats_table[i].estimate_rows;
-      ctc_cbo_stats_columns_copy(tse_cbo_stats_table[i].columns,
-                                 req->tse_cbo_stats_table[i].columns, stats, num_columns);
-    }
+  *tch = req->tch;
+  tse_cbo_stats_column_t *src_columns = req->stats->col_ptr;
+  tse_cbo_stats_column_t *dst_columns = stats->col_ptr;
+  for (uint i = 0; i < req->num_part_fetch; i++) {
+    tse_cbo_stats_table[i].estimate_rows = req->tse_cbo_stats_table[i].estimate_rows;
+    ctc_cbo_stats_columns_copy(dst_columns, src_columns, stats, num_columns);
+    src_columns += num_columns;
+    dst_columns += num_columns;
   }
 }
 
@@ -806,9 +802,8 @@ int tse_get_cbo_stats(tianchi_handler_t *tch, tianchi_cbo_stats_t *stats, tse_cb
     free_share_mem(shm_inst_4_req, req);
     return ERR_ALLOC_MEMORY;
   }
-
-  bool is_part_table = stats->part_cnt ? true : false;
   req->stats->msg_len = stats->msg_len;
+  uint num_columns = req->stats->msg_len / sizeof(tse_cbo_stats_column_t);
   req->stats->part_cnt = stats->part_cnt;
   req->first_partid = first_partid;
   req->num_part_fetch = num_part_fetch;
@@ -817,7 +812,6 @@ int tse_get_cbo_stats(tianchi_handler_t *tch, tianchi_cbo_stats_t *stats, tse_cb
   void *shm_inst_4_table = get_one_shm_inst(tch);
   void *shm_inst_4_str_stats = get_one_shm_inst(tch);
   char *shm_mem_4_str_stats_begin;
-  tse_cbo_stats_column_t* part_columns = nullptr;
   req->stats->ndv_keys = (uint32_t*)alloc_share_mem(shm_inst_4_keys, stats->key_len);
   if (req->stats->ndv_keys == NULL) {
     tse_log_error("alloc shm mem error, shm_inst(%p), size(%u)", shm_inst_4_keys, stats->key_len);
@@ -825,52 +819,7 @@ int tse_get_cbo_stats(tianchi_handler_t *tch, tianchi_cbo_stats_t *stats, tse_cb
     free_share_mem(shm_inst_4_req, req);
     return ERR_ALLOC_MEMORY;
   }
-  if (!is_part_table) {
-    req->tse_cbo_stats_table = 
-        (tse_cbo_stats_table_t*)alloc_share_mem(shm_inst_4_table, sizeof(tse_cbo_stats_table_t));
-    if (req->tse_cbo_stats_table == NULL) {
-      tse_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst_4_table, sizeof(tse_cbo_stats_table_t));
-      free_share_mem(shm_inst_4_keys, req->stats->ndv_keys);
-      free_share_mem(shm_inst_4_stats, req->stats);
-      free_share_mem(shm_inst_4_req, req);
-      return ERR_ALLOC_MEMORY;
-    }
-    req->tse_cbo_stats_table->columns = (tse_cbo_stats_column_t*)alloc_share_mem(shm_inst_4_columns, req->stats->msg_len);
-    if (req->tse_cbo_stats_table->columns == NULL) {
-      tse_log_error("alloc shm mem error, shm_inst(%p), size(%u)", shm_inst_4_columns, req->stats->msg_len);
-      free_share_mem(shm_inst_4_table, req->tse_cbo_stats_table);
-      free_share_mem(shm_inst_4_keys, req->stats->ndv_keys);
-      free_share_mem(shm_inst_4_stats, req->stats);
-      free_share_mem(shm_inst_4_req, req);
-      return ERR_ALLOC_MEMORY;
-    }
-    memset(req->tse_cbo_stats_table->columns, 0, req->stats->msg_len);
 
-    shm_mem_4_str_stats_begin = (char*)alloc_share_mem(shm_inst_4_str_stats,
-        stats->num_str_cols * (STATS_HISTGRAM_MAX_SIZE + 2) * CBO_STRING_MAX_LEN);
-    if (shm_mem_4_str_stats_begin == NULL) {
-      tse_log_error("alloc shm mem error, shm_inst(%p), size(%u)", shm_inst_4_str_stats,
-          stats->num_str_cols * (STATS_HISTGRAM_MAX_SIZE + 2) * CBO_STRING_MAX_LEN);
-      free_share_mem(shm_inst_4_columns, req->tse_cbo_stats_table->columns);
-      free_share_mem(shm_inst_4_table, req->tse_cbo_stats_table);
-      free_share_mem(shm_inst_4_keys, req->stats->ndv_keys);
-      free_share_mem(shm_inst_4_stats, req->stats);
-      free_share_mem(shm_inst_4_req, req);
-      return ERR_ALLOC_MEMORY;
-    }
-    char *shm_mem_4_str_stats = shm_mem_4_str_stats_begin;
-    for (uint i = 0; i < req->stats->msg_len / sizeof(tse_cbo_stats_column_t); i++) {
-      if (stats->col_type[i] == true) {
-        req->tse_cbo_stats_table->columns[i].high_value.v_str = shm_mem_4_str_stats;
-        req->tse_cbo_stats_table->columns[i].low_value.v_str = shm_mem_4_str_stats + CBO_STRING_MAX_LEN;
-        shm_mem_4_str_stats = shm_mem_4_str_stats + CBO_STRING_MAX_LEN * 2;
-        for (uint j = 0; j < STATS_HISTGRAM_MAX_SIZE; j++) {
-          req->tse_cbo_stats_table->columns[i].column_hist[j].ep_value.v_str = shm_mem_4_str_stats;
-          shm_mem_4_str_stats = shm_mem_4_str_stats + CBO_STRING_MAX_LEN;
-        }
-      }
-    }
-  } else {
     req->tse_cbo_stats_table = 
         (tse_cbo_stats_table_t*)alloc_share_mem(shm_inst_4_table, num_part_fetch * sizeof(tse_cbo_stats_table_t));
     if (req->tse_cbo_stats_table == NULL) {
@@ -880,8 +829,8 @@ int tse_get_cbo_stats(tianchi_handler_t *tch, tianchi_cbo_stats_t *stats, tse_cb
       free_share_mem(shm_inst_4_req, req);
       return ERR_ALLOC_MEMORY;
     }
-    part_columns = (tse_cbo_stats_column_t*)alloc_share_mem(shm_inst_4_columns, stats->msg_len * num_part_fetch);
-    if (part_columns == NULL) {
+    req->stats->col_ptr = (tse_cbo_stats_column_t *)alloc_share_mem(shm_inst_4_columns, stats->msg_len * num_part_fetch);
+    if (req->stats->col_ptr == NULL) {
       tse_log_error("alloc shm mem error, shm_inst(%p), size(%u)", shm_inst_4_columns, stats->msg_len * num_part_fetch);
       free_share_mem(shm_inst_4_table, req->tse_cbo_stats_table);
       free_share_mem(shm_inst_4_keys, req->stats->ndv_keys);
@@ -889,10 +838,7 @@ int tse_get_cbo_stats(tianchi_handler_t *tch, tianchi_cbo_stats_t *stats, tse_cb
       free_share_mem(shm_inst_4_req, req);
       return ERR_ALLOC_MEMORY;
     }
-    memset(part_columns, 0, stats->msg_len * num_part_fetch);
-    for (uint i = 0; i < num_part_fetch; i++) {
-      req->tse_cbo_stats_table[i].columns = part_columns + i * (stats->msg_len / sizeof(tse_cbo_stats_column_t));
-    }
+    memset(req->stats->col_ptr, 0, stats->msg_len * num_part_fetch);
 
     shm_mem_4_str_stats_begin = (char *)alloc_share_mem(shm_inst_4_str_stats,
         stats->num_str_cols * num_part_fetch * ((STATS_HISTGRAM_MAX_SIZE + 2) * CBO_STRING_MAX_LEN));
@@ -900,27 +846,25 @@ int tse_get_cbo_stats(tianchi_handler_t *tch, tianchi_cbo_stats_t *stats, tse_cb
       tse_log_error("alloc shm mem error, shm_inst(%p), size(%u)", shm_inst_4_str_stats,
                     stats->num_str_cols * num_part_fetch * ((STATS_HISTGRAM_MAX_SIZE + 2) * CBO_STRING_MAX_LEN));
       free_share_mem(shm_inst_4_table, req->tse_cbo_stats_table);
-      free_share_mem(shm_inst_4_columns, part_columns);
+      free_share_mem(shm_inst_4_columns, req->stats->col_ptr);
       free_share_mem(shm_inst_4_keys, req->stats->ndv_keys);
       free_share_mem(shm_inst_4_stats, req->stats);
       free_share_mem(shm_inst_4_req, req);
       return ERR_ALLOC_MEMORY;
     }
     char *shm_mem_4_str_stats = shm_mem_4_str_stats_begin;
-    for (uint i = 0; i < num_part_fetch; i++) {
-      for (uint j = 0; j < req->stats->msg_len / sizeof(tse_cbo_stats_column_t); j++) {
-        if (stats->col_type[j] == true) {
-          req->tse_cbo_stats_table[i].columns[j].high_value.v_str = shm_mem_4_str_stats;
-          req->tse_cbo_stats_table[i].columns[j].low_value.v_str = shm_mem_4_str_stats + CBO_STRING_MAX_LEN;
-          shm_mem_4_str_stats = shm_mem_4_str_stats + CBO_STRING_MAX_LEN * 2;
-          for (uint k = 0; k < STATS_HISTGRAM_MAX_SIZE; k++) {
-            req->tse_cbo_stats_table[i].columns[j].column_hist[k].ep_value.v_str = shm_mem_4_str_stats;
-            shm_mem_4_str_stats = shm_mem_4_str_stats + CBO_STRING_MAX_LEN;
-          }
+    for (uint i = 0; i < num_part_fetch * num_columns; i++) {
+      uint col_id = i % num_columns;
+      if (stats->is_str_col[col_id]) {
+        req->stats->col_ptr[i].high_value.v_str = shm_mem_4_str_stats;
+        req->stats->col_ptr[i].low_value.v_str = shm_mem_4_str_stats + CBO_STRING_MAX_LEN;
+        shm_mem_4_str_stats = shm_mem_4_str_stats + CBO_STRING_MAX_LEN * 2;
+        for (uint j = 0; j < STATS_HISTGRAM_MAX_SIZE; j++) {
+          req->stats->col_ptr[i].column_hist[j].ep_value.v_str = shm_mem_4_str_stats;
+          shm_mem_4_str_stats = shm_mem_4_str_stats + CBO_STRING_MAX_LEN;
         }
       }
     }
-  }
 
   req->tch = *tch;
   int result = ERR_CONNECTION_FAILED;
@@ -932,11 +876,7 @@ int tse_get_cbo_stats(tianchi_handler_t *tch, tianchi_cbo_stats_t *stats, tse_cb
     result = req->result;
   }
   free_share_mem(shm_inst_4_str_stats, shm_mem_4_str_stats_begin);
-  if (!is_part_table) {
-    free_share_mem(shm_inst_4_columns, req->tse_cbo_stats_table->columns);
-  } else {
-    free_share_mem(shm_inst_4_columns, part_columns);
-  }
+  free_share_mem(shm_inst_4_columns, req->stats->col_ptr);
   free_share_mem(shm_inst_4_keys, req->stats->ndv_keys);
   free_share_mem(shm_inst_4_table, req->tse_cbo_stats_table);
   free_share_mem(shm_inst_4_stats, req->stats);

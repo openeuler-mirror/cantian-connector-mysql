@@ -1011,7 +1011,7 @@ int ha_tsepart::initialize_cbo_stats() {
     tse_log_error("alloc mem failed, m_part_share->cbo_stats size(%lu)", sizeof(tianchi_cbo_stats_t));
     return ERR_ALLOC_MEMORY;
   }
-  *m_part_share->cbo_stats = {0, 0, 0, 0, 0, nullptr, 0, nullptr, nullptr};
+  *m_part_share->cbo_stats = {0, 0, 0, 0, 0, nullptr, 0, nullptr, nullptr, nullptr, nullptr};
 
   m_part_share->cbo_stats->part_cnt = part_num;
 
@@ -1027,16 +1027,30 @@ int ha_tsepart::initialize_cbo_stats() {
     tse_log_error("alloc mem failed, m_part_share->cbo_stats->ndv_keys size(%lu)", table->s->keys * sizeof(uint32_t) * MAX_KEY_COLUMNS);
     return ERR_ALLOC_MEMORY;
   }
+  uint32_t num_cols = table->s->fields - table->s->vfields;
+  m_part_share->cbo_stats->col_ptr = (tse_cbo_stats_column_t *)my_malloc(PSI_NOT_INSTRUMENTED, part_num * num_cols * sizeof(tse_cbo_stats_column_t), MYF(MY_WME));
+  if (m_part_share->cbo_stats->col_ptr == nullptr) {
+    tse_log_error("alloc mem failed, m_share->cbo_stats->tse_cbo_stats_table->columns size(%lu)", part_num * num_cols * sizeof(tse_cbo_stats_column_t));
+    return ERR_ALLOC_MEMORY;
+  }
+  
+  tse_cbo_stats_column_t *columns = m_part_share->cbo_stats->col_ptr;
   for (uint i = 0; i < part_num; i++) {
     m_part_share->cbo_stats->tse_cbo_stats_table[i].estimate_rows = 0;
     m_part_share->cbo_stats->tse_cbo_stats_table[i].columns =
-      (tse_cbo_stats_column_t*)my_malloc(PSI_NOT_INSTRUMENTED, table->s->fields * sizeof(tse_cbo_stats_column_t), MYF(MY_WME));
+      (tse_cbo_stats_column_t **)my_malloc(PSI_NOT_INSTRUMENTED, table->s->fields * sizeof(tse_cbo_stats_column_t *), MYF(MY_WME));
     if (m_part_share->cbo_stats->tse_cbo_stats_table[i].columns == nullptr) {
-    tse_log_error("alloc mem failed, m_part_share->cbo_stats->tse_cbo_stats_table size(%lu)", table->s->fields * sizeof(tse_cbo_stats_column_t));
-    return ERR_ALLOC_MEMORY;
+      tse_log_error("alloc mem failed, m_part_share->cbo_stats->tse_cbo_stats_table[i].columns size(%lu)", table->s->fields * sizeof(tse_cbo_stats_column_t *));
+      return ERR_ALLOC_MEMORY;
     }
     for (uint col_id = 0; col_id < table->s->fields; col_id++) {
-      m_part_share->cbo_stats->tse_cbo_stats_table[i].columns[col_id].hist_count = 0;
+      if (table->s->field[col_id]->is_virtual_gcol()) {
+        m_part_share->cbo_stats->tse_cbo_stats_table[i].columns[col_id] = nullptr;
+      } else {
+        m_part_share->cbo_stats->tse_cbo_stats_table[i].columns[col_id] = columns;
+        m_part_share->cbo_stats->tse_cbo_stats_table[i].columns[col_id]->hist_count = 0;
+        columns++;
+      }
     }
   }
   
@@ -1045,7 +1059,7 @@ int ha_tsepart::initialize_cbo_stats() {
     tse_log_error("m_part_share:tse alloc str mysql mem failed, ret:%d", ret);
   }
   
-  m_part_share->cbo_stats->msg_len = table->s->fields * sizeof(tse_cbo_stats_column_t);
+  m_part_share->cbo_stats->msg_len = num_cols * sizeof(tse_cbo_stats_column_t);
   m_part_share->cbo_stats->key_len = table->s->keys * sizeof(uint32_t) * MAX_KEY_COLUMNS;
 
   return CT_SUCCESS;
@@ -1110,15 +1124,18 @@ void ha_tsepart::free_cbo_stats() {
   uint32_t part_num = m_is_sub_partitioned ? table->part_info->num_parts * table->part_info->num_subparts : 
                       table->part_info->num_parts;
 
-  bool is_str_first_addr = true;
+  my_free(m_part_share->cbo_stats->str_ptr);
+  m_part_share->cbo_stats->str_ptr = nullptr;
   for (uint i = 0; i < part_num; i++) {
-    free_columns_cbo_stats(m_part_share->cbo_stats->tse_cbo_stats_table[i].columns, &is_str_first_addr, table);
+    my_free(m_part_share->cbo_stats->tse_cbo_stats_table[i].columns);
+    m_part_share->cbo_stats->tse_cbo_stats_table[i].columns = nullptr;
   }
-
+  my_free(m_part_share->cbo_stats->col_ptr);
+  m_part_share->cbo_stats->col_ptr = nullptr;
   my_free((m_part_share->cbo_stats->ndv_keys));
   m_part_share->cbo_stats->ndv_keys = nullptr;
-  my_free((m_part_share->cbo_stats->col_type));
-  m_part_share->cbo_stats->col_type = nullptr;
+  my_free((m_part_share->cbo_stats->is_str_col));
+  m_part_share->cbo_stats->is_str_col = nullptr;
   my_free(m_part_share->cbo_stats->tse_cbo_stats_table);
   m_part_share->cbo_stats->tse_cbo_stats_table = nullptr;
   my_free(m_part_share->cbo_stats);
