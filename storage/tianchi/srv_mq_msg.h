@@ -181,7 +181,7 @@ struct pre_create_db_request {
     bool ctc_db_datafile_autoextend;
     uint32_t ctc_db_datafile_extend_size;
     int error_code;
-    char error_message[SMALL_RECORD_SIZE];
+    char error_message[ERROR_MESSAGE_LEN];
     int result;
 };
 
@@ -192,7 +192,7 @@ struct drop_tablespace_and_user_request {
     char user_name[SMALL_RECORD_SIZE];
     char user_ip[SMALL_RECORD_SIZE];
     int error_code;
-    char error_message[SMALL_RECORD_SIZE];
+    char error_message[ERROR_MESSAGE_LEN];
     int result;
 };
 
