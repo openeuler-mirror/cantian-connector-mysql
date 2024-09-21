@@ -823,7 +823,8 @@ void ha_tsepart::info_low() {
   if (m_part_share->cbo_stats != nullptr) {
     uint part_num = m_is_sub_partitioned ? table->part_info->num_parts * table->part_info->num_subparts :
                                             table->part_info->num_parts;
-    for (uint part_id = 0; part_id < part_num; part_id++) {
+    for (uint part_id = m_part_info->get_first_used_partition(); part_id < part_num;
+        part_id = m_part_info->get_next_used_partition(part_id)) {
           stats.records += m_part_share->cbo_stats->tse_cbo_stats_table[part_id].estimate_rows;
     }
   }
