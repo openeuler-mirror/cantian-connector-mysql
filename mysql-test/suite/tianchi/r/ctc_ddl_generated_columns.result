@@ -108,6 +108,15 @@ dd	8	NULL	NULL
 dd	10	NULL	NULL
 ee	12	14	16
 ff	18	20	22
+alter table t_8114 add index idx(Column_5);
+analyze table t_8114;
+Table	Op	Msg_type	Msg_text
+test.t_8114	analyze	status	OK
+explain select * from t_8114 where Column_5 is not NULL;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t_8114	NULL	range	idx	idx	5	NULL	3	100.00	Using where; Using pushed condition (`test`.`t_8114`.`Column_5` is not null)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t_8114`.`Column_2` AS `Column_2`,`test`.`t_8114`.`Column_4` AS `Column_4`,`test`.`t_8114`.`Column_5` AS `Column_5`,`test`.`t_8114`.`Column_6` AS `Column_6` from `test`.`t_8114` where (`test`.`t_8114`.`Column_5` is not null)
 drop table t_8114;
 CREATE TABLE t1 (a6 VARCHAR(32));
 INSERT INTO t1 VALUES ('00:00:00.000000');
@@ -199,4 +208,30 @@ update t1 set c1 = 11, c2 = 12, c3 = 13, c4 = 14, c5 = 15, c6 = 16, c7 = 17, c8 
 select * from t1;
 c1	c2	c3	c4	c5	c6	c7	c8	c9	c10	c11	c12	gcol1
 11	12	13	14	15	16	17	18	19	ddd	eee	fff	29
+drop table t1;
+create table t1(
+pk int NOT NULL AUTO_INCREMENT,
+a1 smallint GENERATED ALWAYS AS (((0 <> `c1`) and ('22:33:44' <> `d1`))) VIRTUAL NOT SECONDARY,
+b1 char(8) DEFAULT NULL,
+c1 longblob NOT NULL NOT SECONDARY,
+d1 time NOT NULL,
+PRIMARY KEY (pk),
+KEY `idx_b1`(b1),
+KEY `functional index` ((radians(`c1`))) USING BTREE
+);
+insert into t1(b1,c1,d1) values ('a','s','11:11:11');
+insert into t1(b1,c1,d1) values ('b','s','11:11:11');
+insert into t1(b1,c1,d1) values ('c','s','11:11:11');
+insert into t1(b1,c1,d1) values ('d','s','11:11:11');
+insert into t1(b1,c1,d1) values ('e','s','11:11:11');
+insert into t1(b1,c1,d1) values ('f','s','11:11:11');
+insert into t1(b1,c1,d1) values ('g','s','11:11:11');
+analyze table t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+explain select * from t1 where b1 < 'c';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	idx_b1	idx_b1	33	NULL	2	100.00	Using where; Using pushed condition (`test`.`t1`.`b1` < 'c')
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk`,`test`.`t1`.`a1` AS `a1`,`test`.`t1`.`b1` AS `b1`,`test`.`t1`.`c1` AS `c1`,`test`.`t1`.`d1` AS `d1` from `test`.`t1` where (`test`.`t1`.`b1` < 'c')
 drop table t1;

@@ -79,6 +79,12 @@ bool check_data_file_name(const char *data_file_name) {
       return true;
   }
 
+  // the datafile name is too long (Maximum value: 128 byte).
+  if (strlen(data_file_name) > SMALL_RECORD_SIZE) {
+      my_printf_error(ER_WRONG_FILE_NAME, "The ADD DATAFILE filename is too long (Maximum value: 128 byte).", MYF(0));
+      return true;
+  }
+
   return false;
 }
 
