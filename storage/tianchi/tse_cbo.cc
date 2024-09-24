@@ -308,7 +308,7 @@ static double calc_balance_hist_equal_density(tse_cbo_stats_column_t *col_stat, 
 
 static double calc_equal_null_density(tse_cbo_stats_table_t *cbo_stats, uint32 col_id)
 {
-  tse_cbo_stats_column_t *col_stat = &cbo_stats->columns[col_id];
+  tse_cbo_stats_column_t *col_stat = cbo_stats->columns[col_id];
   double density = DEFAULT_RANGE_DENSITY;
   if (cbo_stats->estimate_rows > 0) {
     density = (double)col_stat->num_null / cbo_stats->estimate_rows;
@@ -319,7 +319,7 @@ static double calc_equal_null_density(tse_cbo_stats_table_t *cbo_stats, uint32 c
 double calc_hist_equal_density(tse_cbo_stats_table_t *cbo_stats, cache_variant_t *val,
                                uint32 col_id, Field *field, const CHARSET_INFO *cs)
 {
-  tse_cbo_stats_column_t *col_stat = &cbo_stats->columns[col_id];
+  tse_cbo_stats_column_t *col_stat = cbo_stats->columns[col_id];
   double density = col_stat->density;
   uint32 hist_count = col_stat->hist_count;
   if (hist_count == 0) {
@@ -345,7 +345,7 @@ double calc_hist_equal_density(tse_cbo_stats_table_t *cbo_stats, cache_variant_t
 static double  calc_hist_between_frequency(tse_cbo_stats_table_t *cbo_stats, field_stats_val stats_val,
                                            Field *field, uint32 col_id, const CHARSET_INFO *cs)
 {
-  tse_cbo_stats_column_t *col_stat = &cbo_stats->columns[col_id];
+  tse_cbo_stats_column_t *col_stat = cbo_stats->columns[col_id];
   double density = col_stat->density;
   uint32 hist_count = col_stat->hist_count;
   tse_cbo_column_hist_t *hist_infos = col_stat->column_hist;
@@ -524,7 +524,7 @@ static int calc_hist_range_boundary(field_stats_val stats_val, Field *field, tse
 static double calc_hist_between_balance(tse_cbo_stats_table_t *cbo_stats, field_stats_val stats_val,
                                         Field *field, uint32 col_id, const CHARSET_INFO *cs)
 {
-  tse_cbo_stats_column_t *col_stat = &cbo_stats->columns[col_id];
+  tse_cbo_stats_column_t *col_stat = cbo_stats->columns[col_id];
   double density = col_stat->density;
   double percent = 0;
 
@@ -542,7 +542,7 @@ static double calc_hist_between_density(tse_cbo_stats_table_t *cbo_stats,
                                         uint32 col_id, Field *field, field_stats_val stats_val, const CHARSET_INFO *cs)
 {
   double density;
-  tse_cbo_stats_column_t *col_stat = &cbo_stats->columns[col_id];
+  tse_cbo_stats_column_t *col_stat = cbo_stats->columns[col_id];
   if (col_stat->hist_count == 0) {
     tse_log_note("hist_count: 0, column id: %u", col_id);
     return col_stat->density;
@@ -573,8 +573,8 @@ double calc_density_by_cond(tse_cbo_stats_table_t *cbo_stats, KEY_PART_INFO cur_
   cache_variant_t *low_val;
   cache_variant_t *high_val;
 
-  low_val = &cbo_stats->columns[col_id].low_value;
-  high_val = &cbo_stats->columns[col_id].high_value;
+  low_val = &cbo_stats->columns[col_id]->low_value;
+  high_val = &cbo_stats->columns[col_id]->high_value;
 
   cache_variant_t min_key_val = { 0 };
   cache_variant_t max_key_val = { 0 };
@@ -628,6 +628,9 @@ double calc_density_one_table(uint16_t idx_id, tse_range_key *key,
     if (col_map & ((uint64_t)1 << idx_col_num)) {
       KEY_PART_INFO cur_index_part = cur_index.key_part[idx_col_num];
       col_id = cur_index_part.field->field_index();
+      if (cur_index_part.field->is_virtual_gcol()) {
+        continue;
+      }
       uint32_t offset = cur_index_part.field->is_nullable() ? 1 : 0;
       if ((offset == 1) && *(key->min_key->key + key_offset) == 1 && key->max_key->key == nullptr) {
         // select * from table where col is not null
@@ -672,10 +675,14 @@ void tse_index_stats_update(TABLE *table, tianchi_cbo_stats_t *cbo_stats)
     for (uint32 j = 0; j < sk.actual_key_parts; j++) {
       bool all_n_diff_is_zero = true;
       rec_per_key = 0.0f;
-      uint32 fld_idx = sk.key_part[j].field->field_index();
+      Field *field = sk.key_part[j].field;
+      if (field->is_virtual_gcol()) {
+        continue;
+      }
+      uint32 fld_idx = field->field_index();
       for (uint32 k = 0; k < table_part_num; k++) {
         records = cbo_stats->tse_cbo_stats_table[k].estimate_rows;
-        uint32 has_null = cbo_stats->tse_cbo_stats_table[k].columns[fld_idx].num_null ? 1 : 0;
+        uint32 has_null = cbo_stats->tse_cbo_stats_table[k].columns[fld_idx]->num_null ? 1 : 0;
         uint32 n_diff_part = *(n_diff + i * MAX_KEY_COLUMNS + j);
         do {
           if (!n_diff_part) {

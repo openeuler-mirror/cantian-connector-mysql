@@ -17,7 +17,8 @@ explain select * from t1 where upper(c3) = 'AAA';
 create index func_index_2 on t1 ((substr(c4, 1, 1)));
 select * from t1 where substr(c4, 1, 1) = 'a';
 explain select * from t1 where substr(c4, 1, 1) = 'a';
-
+analyze table t1;
+explain select * from t1 where substr(c4, 1, 1) = 'a';
 
 # 删除函数索引
 alter table t1 drop index func_index_1;
