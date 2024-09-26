@@ -136,11 +136,7 @@ int tse_write_row(tianchi_handler_t *tch, const record_info_t *record_info,
   req->flag = flag;
   int result = ERR_CONNECTION_FAILED;
   int ret = CT_SUCCESS;
-  if (req->flag.write_through) {
-    ret = tse_mq_deal_func(shm_inst, TSE_FUNC_TYPE_WRITE_THROUGH_ROW, req, tch->msg_buf);
-  } else {
-    ret = tse_mq_deal_func(shm_inst, TSE_FUNC_TYPE_WRITE_ROW, req, tch->msg_buf);
-  }
+  ret = tse_mq_deal_func(shm_inst, TSE_FUNC_TYPE_WRITE_ROW, req, tch->msg_buf);
   tch->sql_stat_start = req->tch.sql_stat_start;
   *tch = req->tch;
   if (ret == CT_SUCCESS) {
