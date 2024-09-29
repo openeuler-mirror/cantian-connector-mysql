@@ -5347,48 +5347,38 @@ tse_select_mode_t ha_tse::get_select_mode()
 
 int alloc_str_mysql_mem(tianchi_cbo_stats_t *cbo_stats, uint32_t part_num, TABLE *table)
 {
-  uint32_t num_cols = table->s->fields - table->s->vfields;
-  cbo_stats->is_str_col =(bool *)my_malloc(PSI_NOT_INSTRUMENTED, num_cols * sizeof(bool), MYF(MY_WME));
-  if (cbo_stats->is_str_col == nullptr) {
-    tse_log_error("alloc shm mem failed, cbo_stats->is_str_col(%lu)", num_cols * sizeof(bool));
+  cbo_stats->col_type =(bool *)my_malloc(PSI_NOT_INSTRUMENTED, table->s->fields * sizeof(bool), MYF(MY_WME));
+  if (cbo_stats->col_type == nullptr) {
+    tse_log_error("alloc shm mem failed, cbo_stats->col_type(%lu)", table->s->fields * sizeof(bool));
     return ERR_ALLOC_MEMORY;
   }
-  memset(cbo_stats->is_str_col, 0, num_cols * sizeof(bool));
+  memset(cbo_stats->col_type, 0, table->s->fields * sizeof(bool));
   cbo_stats->num_str_cols = 0;
-  uint col_id = 0;
   for (uint i = 0; i < table->s->fields; i++) {
     Field *field = table->field[i];
-    if (field->is_virtual_gcol()) {
-      continue;
-    }
     if (field->real_type() == MYSQL_TYPE_VARCHAR || field->real_type() == MYSQL_TYPE_VAR_STRING ||
         field->real_type() == MYSQL_TYPE_STRING) {
-      cbo_stats->is_str_col[col_id] = true;
+      cbo_stats->col_type[i] = true;
       cbo_stats->num_str_cols++;
     }
-    col_id++;
   }
   uint32_t str_stats_mem_size = part_num * cbo_stats->num_str_cols * (STATS_HISTGRAM_MAX_SIZE + 2) * CBO_STRING_MAX_LEN;
-  cbo_stats->str_ptr = (char *)my_malloc(PSI_NOT_INSTRUMENTED, str_stats_mem_size, MYF(MY_WME));
-  if (cbo_stats->str_ptr == nullptr) {
+  char *str_stats_mem = (char *)my_malloc(PSI_NOT_INSTRUMENTED, str_stats_mem_size, MYF(MY_WME));
+  if (str_stats_mem == nullptr) {
     tse_log_error("alloc shm mem failed, str_stats_mem size(%u)", str_stats_mem_size);
     return ERR_ALLOC_MEMORY;
   }
-  memset(cbo_stats->str_ptr, 0, str_stats_mem_size);
-  char *str_stats_mem = cbo_stats->str_ptr;
+  memset(str_stats_mem, 0, str_stats_mem_size);
   for (uint i = 0; i < part_num; i++) {
     for (uint j = 0; j < table->s->fields; j++) {
-      Field *field = table->field[j];      
-      if (field->is_virtual_gcol()) {
-        continue;
-      }
+      Field *field = table->field[j];
       if (field->real_type() == MYSQL_TYPE_VARCHAR || field->real_type() == MYSQL_TYPE_VAR_STRING ||
           field->real_type() == MYSQL_TYPE_STRING) {
-        cbo_stats->tse_cbo_stats_table[i].columns[j]->high_value.v_str = str_stats_mem;
-        cbo_stats->tse_cbo_stats_table[i].columns[j]->low_value.v_str = str_stats_mem + CBO_STRING_MAX_LEN;
+        cbo_stats->tse_cbo_stats_table[i].columns[j].high_value.v_str = str_stats_mem;
+        cbo_stats->tse_cbo_stats_table[i].columns[j].low_value.v_str = str_stats_mem + CBO_STRING_MAX_LEN;
         str_stats_mem = str_stats_mem + CBO_STRING_MAX_LEN * 2;
         for (uint k = 0; k < STATS_HISTGRAM_MAX_SIZE; k++) {
-          cbo_stats->tse_cbo_stats_table[i].columns[j]->column_hist[k].ep_value.v_str = str_stats_mem;
+          cbo_stats->tse_cbo_stats_table[i].columns[j].column_hist[k].ep_value.v_str = str_stats_mem;
           str_stats_mem = str_stats_mem + CBO_STRING_MAX_LEN;
         }
       }
@@ -5407,35 +5397,21 @@ int ha_tse::initialize_cbo_stats()
     tse_log_error("alloc mem failed, m_share->cbo_stats size(%lu)", sizeof(tianchi_cbo_stats_t));
     return ERR_ALLOC_MEMORY;
   }
-  *m_share->cbo_stats = {0, 0, 0, 0, 0, nullptr, 0, nullptr, nullptr, nullptr, nullptr};
+  *m_share->cbo_stats = {0, 0, 0, 0, 0, nullptr, 0, nullptr, nullptr};
   m_share->cbo_stats->tse_cbo_stats_table = 
         (tse_cbo_stats_table_t*)my_malloc(PSI_NOT_INSTRUMENTED, sizeof(tse_cbo_stats_table_t), MYF(MY_WME));
   if (m_share->cbo_stats->tse_cbo_stats_table == nullptr) {
     tse_log_error("alloc mem failed, m_share->cbo_stats->tse_cbo_stats_table(%lu)", sizeof(tse_cbo_stats_table_t));
     return ERR_ALLOC_MEMORY;
   } 
-  uint32_t num_cols = table->s->fields - table->s->vfields;
-  m_share->cbo_stats->col_ptr = (tse_cbo_stats_column_t*)my_malloc(PSI_NOT_INSTRUMENTED, num_cols * sizeof(tse_cbo_stats_column_t), MYF(MY_WME));
-  
-  if (m_share->cbo_stats->col_ptr == nullptr) {
-    tse_log_error("alloc mem failed,columns size(%lu)", num_cols * sizeof(tse_cbo_stats_column_t));
-    return ERR_ALLOC_MEMORY;
-  }
-  m_share->cbo_stats->tse_cbo_stats_table->columns = (tse_cbo_stats_column_t **)my_malloc(PSI_NOT_INSTRUMENTED, table->s->fields * sizeof(tse_cbo_stats_column_t *), MYF(MY_WME));
+  m_share->cbo_stats->tse_cbo_stats_table->columns =
+    (tse_cbo_stats_column_t*)my_malloc(PSI_NOT_INSTRUMENTED, table->s->fields * sizeof(tse_cbo_stats_column_t), MYF(MY_WME));
   if (m_share->cbo_stats->tse_cbo_stats_table->columns == nullptr) {
-    tse_log_error("alloc mem failed, m_share->cbo_stats->tse_cbo_stats_table->columns size(%lu)", table->s->fields * sizeof(tse_cbo_stats_column_t *));
+    tse_log_error("alloc mem failed, m_share->cbo_stats->tse_cbo_stats_table->columns size(%lu)", table->s->fields * sizeof(tse_cbo_stats_column_t));
     return ERR_ALLOC_MEMORY;
   }
-
-  tse_cbo_stats_column_t *columns = m_share->cbo_stats->col_ptr;
   for (uint col_id = 0; col_id < table->s->fields; col_id++) {
-    if (table->s->field[col_id]->is_virtual_gcol()) {
-      m_share->cbo_stats->tse_cbo_stats_table->columns[col_id] = nullptr;
-    } else {
-      m_share->cbo_stats->tse_cbo_stats_table->columns[col_id] = columns;
-      m_share->cbo_stats->tse_cbo_stats_table->columns[col_id]->hist_count = 0;
-      columns++;
-    }
+    m_share->cbo_stats->tse_cbo_stats_table->columns[col_id].hist_count = 0;
   }
   
   ct_errno_t ret = (ct_errno_t)alloc_str_mysql_mem(m_share->cbo_stats, 1, table);
@@ -5450,7 +5426,7 @@ int ha_tse::initialize_cbo_stats()
     return ERR_ALLOC_MEMORY;
   }
   
-  m_share->cbo_stats->msg_len = num_cols * sizeof(tse_cbo_stats_column_t);
+  m_share->cbo_stats->msg_len = table->s->fields * sizeof(tse_cbo_stats_column_t);
   m_share->cbo_stats->key_len = table->s->keys * sizeof(uint32_t) * MAX_KEY_COLUMNS;
   return CT_SUCCESS;
 }
@@ -5473,7 +5449,7 @@ int ha_tse::get_cbo_stats_4share()
       }
     }
     update_member_tch(m_tch, tse_hton, thd);
-    ret = tse_get_cbo_stats(&m_tch, m_share->cbo_stats, m_share->cbo_stats->tse_cbo_stats_table, 0, 1);
+    ret = tse_get_cbo_stats(&m_tch, m_share->cbo_stats, m_share->cbo_stats->tse_cbo_stats_table, 0, 0);
     update_sess_ctx_by_tch(m_tch, tse_hton, thd);
     if (ret == CT_SUCCESS && m_share->cbo_stats->is_updated) {
       m_share->need_fetch_cbo = false;
@@ -5485,6 +5461,27 @@ int ha_tse::get_cbo_stats_4share()
   return ret;
 }
 
+void free_columns_cbo_stats(tse_cbo_stats_column_t *tse_cbo_stats_columns, bool *is_str_first_addr, TABLE *table)
+{
+  for (uint j = 0; j < table->s->fields; j++) {
+    Field *field = table->field[j];
+    if (field->real_type() == MYSQL_TYPE_VARCHAR || field->real_type() == MYSQL_TYPE_VAR_STRING ||
+        field->real_type() == MYSQL_TYPE_STRING) {
+      if (*is_str_first_addr) {
+        my_free(tse_cbo_stats_columns[j].high_value.v_str);
+        *is_str_first_addr = false;
+      }
+      tse_cbo_stats_columns[j].high_value.v_str = nullptr;
+      tse_cbo_stats_columns[j].low_value.v_str = nullptr;
+      for (uint k = 0; k < STATS_HISTGRAM_MAX_SIZE; k++) {
+        tse_cbo_stats_columns[j].column_hist[k].ep_value.v_str = nullptr;
+      }
+    }
+  }
+  my_free(tse_cbo_stats_columns);
+  tse_cbo_stats_columns = nullptr;
+}
+
 void ha_tse::free_cbo_stats()
 {
   if (!m_share || m_share->cbo_stats == nullptr) {
@@ -5493,18 +5490,17 @@ void ha_tse::free_cbo_stats()
 
   my_free((m_share->cbo_stats->ndv_keys));
   m_share->cbo_stats->ndv_keys = nullptr;
-  my_free((m_share->cbo_stats->is_str_col));
-  m_share->cbo_stats->is_str_col = nullptr;
-  my_free(m_share->cbo_stats->str_ptr);
-  m_share->cbo_stats->str_ptr = nullptr;
-  my_free(m_share->cbo_stats->col_ptr);
-  m_share->cbo_stats->col_ptr = nullptr;
-  my_free(m_share->cbo_stats->tse_cbo_stats_table->columns);
-  m_share->cbo_stats->tse_cbo_stats_table->columns = nullptr;
+  my_free((m_share->cbo_stats->col_type));
+  m_share->cbo_stats->col_type = nullptr;
+
+  bool is_str_first_addr = true;
+  free_columns_cbo_stats(m_share->cbo_stats->tse_cbo_stats_table->columns, &is_str_first_addr, table);
+
   my_free(m_share->cbo_stats->tse_cbo_stats_table);
   m_share->cbo_stats->tse_cbo_stats_table = nullptr;
   my_free((uchar *)(m_share->cbo_stats));
   m_share->cbo_stats = nullptr;
+
 }
 
 /**
