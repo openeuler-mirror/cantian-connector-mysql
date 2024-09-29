@@ -107,7 +107,11 @@ void r_key2variant(tse_key *rKey, KEY_PART_INFO *cur_index_part, cache_variant_t
       ret_val->v_ubigint = bit_cnvt_mysql_cantian(key, field);
       break;
     case MYSQL_TYPE_TINY:
+      ret_val->v_int = *(int8_t *)const_cast<uchar *>(key);
+      break;
     case MYSQL_TYPE_SHORT:
+      ret_val->v_int = *(int16_t *)const_cast<uchar *>(key);
+      break;
     case MYSQL_TYPE_LONG:
       ret_val->v_int = *(int32_t *)const_cast<uchar *>(key);
       break;
