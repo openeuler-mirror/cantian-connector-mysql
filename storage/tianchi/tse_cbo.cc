@@ -12,7 +12,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
+   Foundation, Inc., 51 Franklin St, Fifth Floor, Bon, MA 02110-1301  USA 
 */
 #include "tse_cbo.h"
 #include "ha_tse.h"
@@ -563,10 +563,9 @@ static double calc_hist_between_density(tse_cbo_stats_table_t *cbo_stats,
 }
 
 double calc_density_by_cond(tse_cbo_stats_table_t *cbo_stats, KEY_PART_INFO cur_index_part, tse_range_key *key,
-                            uint32_t key_offset, const CHARSET_INFO *cs)
+                            uint32_t key_offset, uint32_t col_id, const CHARSET_INFO *cs)
 {
   double density = DEFAULT_RANGE_DENSITY;
-  uint32 col_id = cur_index_part.field->field_index();
   tse_key *min_key = key->min_key;
   tse_key *max_key = key->max_key;
 
@@ -607,6 +606,17 @@ double calc_density_by_cond(tse_cbo_stats_table_t *cbo_stats, KEY_PART_INFO cur_
   return density;
 }
 
+void calc_accumulate_gcol_num(uint num_fields, Field** field, uint32_t *acc_gcol_num)
+{
+  uint32_t count = 0;
+  for (uint i = 0; i < num_fields; i++) {
+    acc_gcol_num[i] = count;
+    if (field[i]->is_virtual_gcol()) {
+      count++;
+    }
+  }
+}
+
 double calc_density_one_table(uint16_t idx_id, tse_range_key *key,
                               tse_cbo_stats_table_t *cbo_stats, const TABLE &table)
 {
@@ -614,7 +624,10 @@ double calc_density_one_table(uint16_t idx_id, tse_range_key *key,
     return 0;
   }
   double density = 1.0;
-  uint32 col_id;
+  uint32_t my_col_id;
+  uint32_t ct_col_id;
+  uint32_t acc_gcol_num[TSE_MAX_COLUMNS] = {0};
+  calc_accumulate_gcol_num(table.s->fields, table.s->field, acc_gcol_num);
   uint32_t key_offset = 0;//列在索引中的偏移量
   uint64_t col_map = max(key->min_key->col_map, key->max_key->col_map);
   KEY cur_index = table.key_info[idx_id];
@@ -627,16 +640,20 @@ double calc_density_one_table(uint16_t idx_id, tse_range_key *key,
     double col_product = 1.0;
     if (col_map & ((uint64_t)1 << idx_col_num)) {
       KEY_PART_INFO cur_index_part = cur_index.key_part[idx_col_num];
-      col_id = cur_index_part.field->field_index();
+      if (cur_index_part.field->is_virtual_gcol()) {
+        continue;
+      }
+      my_col_id = cur_index_part.field->field_index();
+      ct_col_id = my_col_id - acc_gcol_num[my_col_id];
       uint32_t offset = cur_index_part.field->is_nullable() ? 1 : 0;
       if ((offset == 1) && *(key->min_key->key + key_offset) == 1 && key->max_key->key == nullptr) {
         // select * from table where col is not null
-        col_product = (double)1 - calc_equal_null_density(cbo_stats, col_id);
+        col_product = (double)1 - calc_equal_null_density(cbo_stats, ct_col_id);
       } else if ((offset == 1) && *(key->min_key->key + key_offset) == 1 && *(key->max_key->key + key_offset) == 1) {
         // select * from table where col is null
-        col_product = calc_equal_null_density(cbo_stats, col_id);
+        col_product = calc_equal_null_density(cbo_stats, ct_col_id);
       } else {
-        col_product = calc_density_by_cond(cbo_stats, cur_index_part, key, key_offset, table.field[col_id]->charset());
+        col_product = calc_density_by_cond(cbo_stats, cur_index_part, key, key_offset, ct_col_id, table.field[my_col_id]->charset());
       }
       col_product = eval_density_result(col_product);
       key_offset += (offset + cur_index_part.field->key_length());
@@ -662,7 +679,8 @@ void tse_index_stats_update(TABLE *table, tianchi_cbo_stats_t *cbo_stats)
   uint32_t *n_diff = cbo_stats->ndv_keys;
   uint32_t records;
   uint32_t table_part_num = cbo_stats->part_cnt == 0 ? 1 : cbo_stats->part_cnt;
-  
+  uint32_t acc_gcol_num[TSE_MAX_COLUMNS] = {0};
+  calc_accumulate_gcol_num(table->s->fields, table->s->field, acc_gcol_num);
   if (cbo_stats->records == 0) {
     return;
   }
@@ -673,6 +691,7 @@ void tse_index_stats_update(TABLE *table, tianchi_cbo_stats_t *cbo_stats)
       bool all_n_diff_is_zero = true;
       rec_per_key = 0.0f;
       uint32 fld_idx = sk.key_part[j].field->field_index();
+      fld_idx = fld_idx - acc_gcol_num[fld_idx];
       for (uint32 k = 0; k < table_part_num; k++) {
         records = cbo_stats->tse_cbo_stats_table[k].estimate_rows;
         uint32 has_null = cbo_stats->tse_cbo_stats_table[k].columns[fld_idx].num_null ? 1 : 0;

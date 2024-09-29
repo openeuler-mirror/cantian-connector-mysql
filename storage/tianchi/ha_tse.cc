@@ -5347,6 +5347,8 @@ tse_select_mode_t ha_tse::get_select_mode()
 
 int alloc_str_mysql_mem(tianchi_cbo_stats_t *cbo_stats, uint32_t part_num, TABLE *table)
 {
+  uint32_t acc_gcol_num[TSE_MAX_COLUMNS] = {0};
+  calc_accumulate_gcol_num(table->s->fields, table->s->field, acc_gcol_num);
   cbo_stats->col_type =(bool *)my_malloc(PSI_NOT_INSTRUMENTED, table->s->fields * sizeof(bool), MYF(MY_WME));
   if (cbo_stats->col_type == nullptr) {
     tse_log_error("alloc shm mem failed, cbo_stats->col_type(%lu)", table->s->fields * sizeof(bool));
@@ -5356,9 +5358,13 @@ int alloc_str_mysql_mem(tianchi_cbo_stats_t *cbo_stats, uint32_t part_num, TABLE
   cbo_stats->num_str_cols = 0;
   for (uint i = 0; i < table->s->fields; i++) {
     Field *field = table->field[i];
+    if (field->is_virtual_gcol()) {
+      continue;
+    }
+    uint32_t ct_col_id = i - acc_gcol_num[i];
     if (field->real_type() == MYSQL_TYPE_VARCHAR || field->real_type() == MYSQL_TYPE_VAR_STRING ||
         field->real_type() == MYSQL_TYPE_STRING) {
-      cbo_stats->col_type[i] = true;
+      cbo_stats->col_type[ct_col_id] = true;
       cbo_stats->num_str_cols++;
     }
   }
@@ -5372,13 +5378,17 @@ int alloc_str_mysql_mem(tianchi_cbo_stats_t *cbo_stats, uint32_t part_num, TABLE
   for (uint i = 0; i < part_num; i++) {
     for (uint j = 0; j < table->s->fields; j++) {
       Field *field = table->field[j];
+      if (field->is_virtual_gcol()) {
+        continue;
+      }
+      uint32_t ct_col_id = j - acc_gcol_num[j];
       if (field->real_type() == MYSQL_TYPE_VARCHAR || field->real_type() == MYSQL_TYPE_VAR_STRING ||
           field->real_type() == MYSQL_TYPE_STRING) {
-        cbo_stats->tse_cbo_stats_table[i].columns[j].high_value.v_str = str_stats_mem;
-        cbo_stats->tse_cbo_stats_table[i].columns[j].low_value.v_str = str_stats_mem + CBO_STRING_MAX_LEN;
+        cbo_stats->tse_cbo_stats_table[i].columns[ct_col_id].high_value.v_str = str_stats_mem;
+        cbo_stats->tse_cbo_stats_table[i].columns[ct_col_id].low_value.v_str = str_stats_mem + CBO_STRING_MAX_LEN;
         str_stats_mem = str_stats_mem + CBO_STRING_MAX_LEN * 2;
         for (uint k = 0; k < STATS_HISTGRAM_MAX_SIZE; k++) {
-          cbo_stats->tse_cbo_stats_table[i].columns[j].column_hist[k].ep_value.v_str = str_stats_mem;
+          cbo_stats->tse_cbo_stats_table[i].columns[ct_col_id].column_hist[k].ep_value.v_str = str_stats_mem;
           str_stats_mem = str_stats_mem + CBO_STRING_MAX_LEN;
         }
       }
@@ -5463,18 +5473,21 @@ int ha_tse::get_cbo_stats_4share()
 
 void free_columns_cbo_stats(tse_cbo_stats_column_t *tse_cbo_stats_columns, bool *is_str_first_addr, TABLE *table)
 {
+  uint32_t acc_gcol_num[TSE_MAX_COLUMNS] = {0};
+  calc_accumulate_gcol_num(table->s->fields, table->s->field, acc_gcol_num);
   for (uint j = 0; j < table->s->fields; j++) {
     Field *field = table->field[j];
+    uint32_t ct_col_id = j - acc_gcol_num[j];
     if (field->real_type() == MYSQL_TYPE_VARCHAR || field->real_type() == MYSQL_TYPE_VAR_STRING ||
         field->real_type() == MYSQL_TYPE_STRING) {
       if (*is_str_first_addr) {
-        my_free(tse_cbo_stats_columns[j].high_value.v_str);
+        my_free(tse_cbo_stats_columns[ct_col_id].high_value.v_str);
         *is_str_first_addr = false;
       }
-      tse_cbo_stats_columns[j].high_value.v_str = nullptr;
-      tse_cbo_stats_columns[j].low_value.v_str = nullptr;
+      tse_cbo_stats_columns[ct_col_id].high_value.v_str = nullptr;
+      tse_cbo_stats_columns[ct_col_id].low_value.v_str = nullptr;
       for (uint k = 0; k < STATS_HISTGRAM_MAX_SIZE; k++) {
-        tse_cbo_stats_columns[j].column_hist[k].ep_value.v_str = nullptr;
+        tse_cbo_stats_columns[ct_col_id].column_hist[k].ep_value.v_str = nullptr;
       }
     }
   }
