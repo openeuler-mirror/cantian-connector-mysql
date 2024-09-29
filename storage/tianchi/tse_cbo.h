@@ -72,6 +72,6 @@ typedef struct {
 
 double calc_density_one_table(uint16_t idx_id, tse_range_key *key,
                               tse_cbo_stats_table_t *cbo_stats, const TABLE &table);
-
+void calc_accumulate_gcol_num(uint num_fields, Field** field, uint32_t *acc_gcol_num);
 void tse_index_stats_update(TABLE *table, tianchi_cbo_stats_t *cbo_stats);
 #endif
