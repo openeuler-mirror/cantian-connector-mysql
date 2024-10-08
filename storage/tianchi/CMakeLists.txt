@@ -59,14 +59,14 @@ IF (WITH_DAAC)
             ${TSE_SOURCES}
             STORAGE_ENGINE 
             MANDATORY
-            LINK_LIBRARIES libzecommon.so libzeclient.so libzeprotocol.so libprotobuf-c.a pcre2-8 ctc_proxy daac
+            LINK_LIBRARIES libzecommon.so libzeclient.so libzeprotocol.so libprotobuf-c.a pcre2-8 ctc_proxy libcantian.so
         )
     ELSEIF (NOT WITHOUT_TSE_STORAGE_ENGINE)
         MYSQL_ADD_PLUGIN(ctc 
             ${TSE_SOURCES} 
             STORAGE_ENGINE 
             MODULE_ONLY
-            LINK_LIBRARIES libzecommon.so libzeclient.so libzeprotocol.so libprotobuf-c.a pcre2-8 ctc_proxy daac
+            LINK_LIBRARIES libzecommon.so libzeclient.so libzeprotocol.so libprotobuf-c.a pcre2-8 ctc_proxy libcantian.so
         )
     ENDIF ()
 ELSE ()
