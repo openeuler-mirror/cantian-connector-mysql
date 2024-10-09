@@ -39,6 +39,7 @@ add_compile_options(-fvisibility=hidden)
 SET(CMAKE_SKIP_RPATH TRUE)
 
 STRING_APPEND(CMAKE_CXX_FLAGS " -Wl,-z,now")
+STRING_APPEND(CMAKE_CXX_FLAGS " -Wl,-z,nodelete")
 SET(DAAC_LIB_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../../daac_lib)
 SET(MYSQL_CLIENT_STATIC_LIB_PATH ${CMAKE_BINARY_DIR}/archive_output_directory/)
 LINK_DIRECTORIES(${DAAC_LIB_PATH})
