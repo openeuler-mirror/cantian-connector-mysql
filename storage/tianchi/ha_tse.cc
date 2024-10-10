@@ -4207,6 +4207,11 @@ int ha_tse::external_lock(THD *thd, int lock_type) {
   if (IS_METADATA_NORMALIZATION() &&
     tse_check_if_log_table(table_share->db.str, table_share->table_name.str)) {
     is_log_table = true;  
+    if (!thd->in_sub_stmt) {
+      thd_sess_ctx_s *sess_ctx = get_or_init_sess_ctx(tse_hton, thd);
+      sess_ctx->sql_stat_start = 1;
+      m_tch.sql_stat_start = 1;
+    }
     return 0;
   }
 
