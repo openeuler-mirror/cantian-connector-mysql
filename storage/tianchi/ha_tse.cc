@@ -1614,7 +1614,7 @@ static void tse_register_trx(handlerton *hton, THD *thd) {
 template <typename T>
 static typename std::enable_if<CHECK_HAS_MEMBER_FUNC(T, is_empty), void>::type 
   commit_preprocess(T* thd, tianchi_handler_t *tch) {
-  if (is_work_flow() && !thd->is_empty()) {
+  if (is_work_flow() && !thd->is_empty() && !thd->is_attachable_transaction_active()) {
     (void)invalidate_remote_dd(thd, tch);
     thd->clear();
   }

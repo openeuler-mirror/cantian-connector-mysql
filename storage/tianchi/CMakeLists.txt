@@ -53,21 +53,20 @@ target_link_libraries(ctc_proxy libmysqlclient.a)
 # ctc_proxy link libmysqlclient.a function symbol rather than mysqld`s
 set_target_properties(ctc_proxy PROPERTIES COMPILE_FLAGS ${TSE_PROXY_CXX_FLAGS} LINK_FLAGS " -Wl,-Bsymbolic"
     LIBRARY_OUTPUT_DIRECTORY ${DAAC_LIB_PATH})
-
 IF (WITH_DAAC)
     IF (WITH_TSE_STORAGE_ENGINE AND NOT WITHOUT_TSE_STORAGE_ENGINE)
         MYSQL_ADD_PLUGIN(ctc 
             ${TSE_SOURCES}
             STORAGE_ENGINE 
             MANDATORY
-            LINK_LIBRARIES libzecommon.so libzeclient.so libzeprotocol.so libprotobuf-c.a pcre2-8 ctc_proxy libcantian.so
+            LINK_LIBRARIES libzecommon.so libzeclient.so libzeprotocol.so libprotobuf-c.a pcre2-8 ctc_proxy daac
         )
     ELSEIF (NOT WITHOUT_TSE_STORAGE_ENGINE)
         MYSQL_ADD_PLUGIN(ctc 
             ${TSE_SOURCES} 
             STORAGE_ENGINE 
             MODULE_ONLY
-            LINK_LIBRARIES libzecommon.so libzeclient.so libzeprotocol.so libprotobuf-c.a pcre2-8 ctc_proxy libcantian.so
+            LINK_LIBRARIES libzecommon.so libzeclient.so libzeprotocol.so libprotobuf-c.a pcre2-8 ctc_proxy daac
         )
     ENDIF ()
 ELSE ()
