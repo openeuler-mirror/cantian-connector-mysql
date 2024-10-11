@@ -432,3 +432,38 @@ drop trigger if exists trg_bug28502_bd;
 drop trigger if exists trg_bug28502_ad;
 drop table t1, t1_op_log;
 drop view v1;
+create database db_trigger;
+use db_trigger;
+SET @old_sql_mode := @@sql_mode ;
+set sql_mode = 'traditional';
+create table t1(f1 int);
+create table t2(f2 int);
+create table t3(f3 int);
+create table t4(f4 tinyint);
+insert into t1 values (1);
+create trigger tr1 after insert on t1
+for each row insert into t2(f2) values (new.f1 + 1);
+create trigger tr2 after insert on t2
+for each row insert into t3(f3) values (new.f2 + 1);
+create trigger tr3 after insert on t3
+for each row insert into t4(f4) values (new.f3 + 1000);
+SET @old_log_output=    @@global.log_output;
+SET @old_general_log=         @@global.general_log;
+SET GLOBAL general_log= 'ON';
+SET GLOBAL log_output = 'TABLE';
+set autocommit=0;
+start transaction;
+insert into t1 values (1);
+ERROR 22003: Out of range value for column 'f4' at row 1
+commit;
+select * from t1 order by f1;
+f1
+1
+select * from t2 order by f2;
+f2
+select * from t3 order by f3;
+f3
+drop database db_trigger;
+SET @@sql_mode := @old_sql_mode ;
+SET GLOBAL general_log=       @old_general_log;
+SET GLOBAL log_output=        @old_log_output;
