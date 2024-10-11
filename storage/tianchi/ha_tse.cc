@@ -1535,6 +1535,14 @@ static int tse_start_trx_and_assign_scn(
   return 0;
 }
 
+void broadcast_and_reload_buffer(tianchi_handler_t *tch, tse_invalidate_broadcast_request *req) {
+  if (req->buff_len + sizeof(invalidate_obj_entry_t) > DD_BROADCAST_RECORD_LENGTH) {
+    (void)tse_broadcast_mysql_dd_invalidate(tch, req);
+    memset(req->buff, 0, DD_BROADCAST_RECORD_LENGTH);
+    req->buff_len = 0;
+  }
+}
+
 template <typename T>
 static typename std::enable_if<CHECK_HAS_MEMBER_FUNC(T, invalidates), void>::type
   invalidate_remote_dd(T *thd, tianchi_handler_t *tch)
@@ -1552,6 +1560,7 @@ static typename std::enable_if<CHECK_HAS_MEMBER_FUNC(T, invalidates), void>::typ
       case T::OBJ_COLUMN_STATISTICS:
       case T::OBJ_RT_PROCEDURE:
       case T::OBJ_RT_FUNCTION:
+          broadcast_and_reload_buffer(tch, &req);
           obj = (invalidate_obj_entry_t *)((char *)req.buff + req.buff_len);
           obj->type = invalidate_it.second;
           strncpy(obj->first, invalidate_it.first.first.c_str(), SMALL_RECORD_SIZE - 1);
@@ -1565,6 +1574,7 @@ static typename std::enable_if<CHECK_HAS_MEMBER_FUNC(T, invalidates), void>::typ
       case T::OBJ_TABLESPACE:
       case T::OBJ_RESOURCE_GROUP:
       case T::OBJ_SPATIAL_REFERENCE_SYSTEM:
+          broadcast_and_reload_buffer(tch, &req);
           obj = (invalidate_obj_entry_t *)((char *)req.buff + req.buff_len);
           obj->type = invalidate_it.second;
           strncpy(obj->first, invalidate_it.first.first.c_str(), SMALL_RECORD_SIZE - 1);
@@ -1584,7 +1594,10 @@ static typename std::enable_if<CHECK_HAS_MEMBER_FUNC(T, invalidates), void>::typ
           break;
     }
   }
-  (void)tse_broadcast_mysql_dd_invalidate(tch, &req);
+
+  if (req.buff_len > 0) {
+    (void)tse_broadcast_mysql_dd_invalidate(tch, &req);
+  }
 }
 
 template <typename T>
@@ -4207,6 +4220,11 @@ int ha_tse::external_lock(THD *thd, int lock_type) {
   if (IS_METADATA_NORMALIZATION() &&
     tse_check_if_log_table(table_share->db.str, table_share->table_name.str)) {
     is_log_table = true;  
+    if (!thd->in_sub_stmt) {
+      thd_sess_ctx_s *sess_ctx = get_or_init_sess_ctx(tse_hton, thd);
+      sess_ctx->sql_stat_start = 1;
+      m_tch.sql_stat_start = 1;
+    }
     return 0;
   }
 

@@ -4,6 +4,11 @@ recreate_test_db.test
 help.test
 # ------ END TEST CASES ORIGIN MAIN ------
 
+# ------ BEGIN TEST CASES OF SLOW LOG ------
+slow_log
+slow_query_log_func
+# ------ END TEST CASES OF SLOW LOG ------
+
 # ------ BEGIN TEST CASES OF DML ------
 ctc_compressed_proxy_conn
 ctc_dml_ignore
