@@ -1566,9 +1566,7 @@ static typename std::enable_if<CHECK_HAS_MEMBER_FUNC(T, invalidates), void>::typ
           strncpy(obj->first, invalidate_it.first.first.c_str(), SMALL_RECORD_SIZE - 1);
           strncpy(obj->second, invalidate_it.first.second.c_str(), SMALL_RECORD_SIZE - 1);
           req.buff_len += sizeof(invalidate_obj_entry_t);
-          printf("\n\n----------------------------------------------\n");
-          printf("invalidate %d, %s, %s", invalidate_it.second, invalidate_it.first.first.c_str(), invalidate_it.first.second.c_str());
-          printf("\n----------------------------------------------\n\n");
+          printf("\n\n[invalidate_remote_dd] add to invalidate %d, %s, %s.\n\n", invalidate_it.second, invalidate_it.first.first.c_str(), invalidate_it.first.second.c_str()); fflush(stdout);
           break;
       case T::OBJ_SCHEMA:
       case T::OBJ_TABLESPACE:
@@ -1580,15 +1578,11 @@ static typename std::enable_if<CHECK_HAS_MEMBER_FUNC(T, invalidates), void>::typ
           strncpy(obj->first, invalidate_it.first.first.c_str(), SMALL_RECORD_SIZE - 1);
           strncpy(obj->second, "", SMALL_RECORD_SIZE - 1);
           req.buff_len += sizeof(invalidate_obj_entry_t);
-          printf("\n\n----------------------------------------------\n");
-          printf("invalidate %d, %s, %s", invalidate_it.second, invalidate_it.first.first.c_str(), invalidate_it.first.second.c_str());
-          printf("\n----------------------------------------------\n\n");
+          printf("\n\n[invalidate_remote_dd] add to invalidate %d, %s, %s.", invalidate_it.second, invalidate_it.first.first.c_str(), invalidate_it.first.second.c_str()); fflush(stdout);
           break;
       case T::OBJ_CHARSET:
       case T::OBJ_COLLATION:
-          printf("\n\n----------------------------------------------\n");
-          printf("invalidate %d, %s, %s", invalidate_it.second, invalidate_it.first.first.c_str(), invalidate_it.first.second.c_str());
-          printf("\n----------------------------------------------\n\n");
+          printf("\n\n[invalidate_remote_dd] add to invalidate %d, %s, %s.", invalidate_it.second, invalidate_it.first.first.c_str(), invalidate_it.first.second.c_str()); fflush(stdout);
           break;
       default:
           break;
