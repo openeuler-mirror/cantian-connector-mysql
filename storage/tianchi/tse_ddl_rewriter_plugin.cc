@@ -488,7 +488,7 @@ static int tse_set_var_meta(MYSQL_THD thd, uint32_t options, const char* base_na
     strncpy(broadcast_req.db_name, base_name, SMALL_RECORD_SIZE - 1);
   }
   broadcast_req.options |= options;
-  int ret = tse_execute_mysql_ddl_sql(&tch, &broadcast_req, false);
+  int ret = tse_execute_mysql_ddl_sql(&tch, &broadcast_req, true);
   update_sess_ctx_by_tch(tch, hton, thd);
 
   return ret;

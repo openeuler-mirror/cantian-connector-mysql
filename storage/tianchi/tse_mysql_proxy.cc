@@ -373,8 +373,7 @@ __attribute__((visibility("default"))) int tse_ddl_execute_update(uint32_t thd_i
     return 0;
   } else if (is_meta_normalization && broadcast_req->sql_command == SQLCOM_SET_OPTION 
               && (broadcast_req->options & TSE_SET_VARIABLE_WITH_SUBSELECT) == 0){
-    ctc_set_sys_var(broadcast_req);
-    return 0;
+    return ctc_set_sys_var(broadcast_req);
   }
 
   bool use_proxy = tse_use_proxy(broadcast_req->sql_command);

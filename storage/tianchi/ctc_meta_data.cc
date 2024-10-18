@@ -794,8 +794,10 @@ int ctc_set_sys_var(tse_ddl_broadcast_request *broadcast_req) {
   }
 
   sysvar = intern_find_sys_var(var_name.c_str(), var_name.length());
+  int ret = -1;
   if (sysvar == nullptr) {
-    assert(0);
+    tse_log_error("[ctc_set_sys_var]:sysvar is nullptr and var_name : %s", var_name.c_str());
+    return ret;
   }
   ctc_get_set_var_item(new_thd, sysvar, &res, var_value, is_null_value);
   
@@ -821,7 +823,7 @@ int ctc_set_sys_var(tse_ddl_broadcast_request *broadcast_req) {
   var = new (new_thd->mem_root) set_var(type, var_tracker, res);
 #endif
   tmp_var_list.push_back(var);
-  int ret = sql_set_variables(new_thd, &tmp_var_list, false);
+  ret = sql_set_variables(new_thd, &tmp_var_list, false);
   if (ret != 0) {
     tse_log_error("ctc_set_sys_var failed in sql_set_variables, error_code:%d", ret);
     if (ret != -1) {
