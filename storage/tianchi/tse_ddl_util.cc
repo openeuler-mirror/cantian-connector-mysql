@@ -136,7 +136,11 @@ const Create_field *tse_get_create_field_by_column_name(THD *thd, const char* fi
   Alter_info local_alter_info(thd->mem_root);
   const dd::Table *src_table = nullptr;
   Alter_table_ctx local_alter_ctx MY_ATTRIBUTE((unused));
+#ifdef FEATURE_X_FOR_MYSQL_32
+  Table_ref *table_list = thd->lex->query_tables->next_global;
+#elif defined(FEATURE_X_FOR_MYSQL_26)
   TABLE_LIST *table_list = thd->lex->query_tables->next_global;
+#endif
   if (table_list != nullptr && table_list->table != nullptr) {
     /* Fill HA_CREATE_INFO and Alter_info with description of source table. */
     HA_CREATE_INFO create_info;
