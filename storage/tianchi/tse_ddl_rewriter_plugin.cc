@@ -16,6 +16,7 @@
 */
 
 #include <string>
+#include <string_view>
 #include <functional>
 #include <ctype.h>
 #include <mysql/plugin.h>
@@ -55,6 +56,9 @@
 #include "sql/auth/sql_auth_cache.h"
 #include "sql/auth/auth_internal.h"
 #include "sql/sql_parse.h"
+#ifdef FEATURE_X_FOR_MYSQL_32
+#include "sql/sys_vars_shared.h"  // intern_find_sys_var
+#endif
 
 using namespace std;
 
@@ -514,14 +518,20 @@ static int tse_get_variables_value_string(MYSQL_THD thd, string &sql_str, set_va
     String* new_str;
     String str;
     tse_log_system("[TSE_DDL_REWRITE]:get system var value. %s", sql_str.c_str());
+#ifdef FEATURE_X_FOR_MYSQL_26
     if (itemFuncSys->bind(thd)) {
       need_forward = false;
       return -1;
     }
+#endif
     itemFuncSys->fixed = true;
-    if (!(new_str = itemFuncSys->val_str(&str))) {
+    new_str = itemFuncSys->val_str(&str);
+    if (!new_str) {
       is_null_value = true;
       val_str = "null";
+    } else if (new_str == itemFuncSys->error_str()) {
+      need_forward = false;
+      return -1;
     } else {
       val_str = new_str->c_ptr();
     }
@@ -576,9 +586,23 @@ static int tse_check_set_opt(string &sql_str, MYSQL_THD thd, bool &need_forward)
     set_var *setvar = dynamic_cast<set_var *>(var);
     bool is_set_default_value = false;
     bool is_null_value = false;
+#ifdef FEATURE_X_FOR_MYSQL_32
+    if (setvar) {
+      std::function<bool(const System_variable_tracker &, sys_var *)> f = [&thd, &need_forward, setvar]
+      (const System_variable_tracker &, sys_var *system_var) {
+        if (system_var) {
+          need_forward = !system_var->is_readonly() && setvar->is_global_persist();
+        }
+        return true;
+      };
+      setvar->m_var_tracker.access_system_variable<bool>(thd, f).value_or(true);
+      name_str = setvar->m_var_tracker.get_var_name();
+#elif defined(FEATURE_X_FOR_MYSQL_26)
     if (setvar && setvar->var) {
       need_forward = !setvar->var->is_readonly() && setvar->is_global_persist();
       name_str = setvar->var->name.str;
+#endif
+      
       if (!contain_subselect) {
         /* get user value (@xxxxx) as string */
         if (!setvar->value) {
@@ -602,7 +626,11 @@ static int tse_check_set_opt(string &sql_str, MYSQL_THD thd, bool &need_forward)
     if(IS_METADATA_NORMALIZATION() && !contain_subselect && need_forward && setvar) {
       if (setvar->check(thd) == 0) {
         uint32_t options = tse_set_var_option(is_null_value, is_set_default_value, setvar);
+#ifdef FEATURE_X_FOR_MYSQL_26
         ret = tse_set_var_meta(thd, options, setvar->base.str, name_str, val_str);
+#elif defined(FEATURE_X_FOR_MYSQL_32)
+        ret = tse_set_var_meta(thd, options, setvar->m_var_tracker.get_var_name(), name_str, val_str);
+#endif
       } else {
         thd->clear_error();
         need_forward = false;  // 值校验失败, ctc不进行广播并返回成功, 后续报错由MySQL完成 
@@ -706,9 +734,7 @@ static int tse_read_only_ddl(string &, MYSQL_THD thd, bool &need_forward) {
 }
 
 static int tse_lock_tables_ddl(string &, MYSQL_THD thd, bool &) {
-  TABLE_LIST *tables = thd->lex->query_tables;
   int ret = 0;
-
   vector<MDL_ticket*> ticket_list;
   int pre_lock_ret = tse_lock_table_pre(thd, ticket_list);
   if (pre_lock_ret != 0) {
@@ -716,8 +742,13 @@ static int tse_lock_tables_ddl(string &, MYSQL_THD thd, bool &) {
     my_printf_error(ER_LOCK_WAIT_TIMEOUT, "[TSE_DDL_REWRITE]: LOCK TABLE FAILED", MYF(0));
     return ER_LOCK_WAIT_TIMEOUT;
   }
-
+#ifdef FEATURE_X_FOR_MYSQL_32
+  Table_ref *tables = thd->lex->query_tables;
+  for (Table_ref *table = tables; table != NULL; table = table->next_global) {
+#elif defined(FEATURE_X_FOR_MYSQL_26)
+  TABLE_LIST *tables = thd->lex->query_tables;
   for (TABLE_LIST *table = tables; table != NULL; table = table->next_global) {
+#endif
     tianchi_handler_t tch;
     tch.inst_id = ctc_instance_id;
     handlerton* hton = get_tse_hton();
@@ -746,7 +777,11 @@ static int tse_lock_tables_ddl(string &, MYSQL_THD thd, bool &) {
   tse_lock_table_post(thd, ticket_list);
 
   if (ret != 0) {
-    for (TABLE_LIST *table = tables; table != NULL; table = table->next_global) {
+#ifdef FEATURE_X_FOR_MYSQL_32
+  for (Table_ref *table = tables; table != NULL; table = table->next_global) {
+#elif defined(FEATURE_X_FOR_MYSQL_26)
+  for (TABLE_LIST *table = tables; table != NULL; table = table->next_global) {
+#endif
       tianchi_handler_t tch;
       tch.inst_id = ctc_instance_id;
       handlerton* hton = get_tse_hton();
@@ -1097,7 +1132,6 @@ int ctc_record_sql(MYSQL_THD thd, bool need_select_db) {
 
   return ret;
 }
-
 
 bool plugin_ddl_block(MYSQL_THD thd, 
                       unordered_map<enum enum_sql_command, ddl_broadcast_cmd>::iterator &it,

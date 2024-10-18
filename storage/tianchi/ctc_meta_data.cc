@@ -733,6 +733,7 @@ static void ctc_get_set_var_item(THD* new_thd, sys_var* sysvar, Item** res MY_AT
   }
 }
 
+#ifdef FEATURE_X_FOR_MYSQL_26
 static void ctc_set_var_type(uint32_t option, set_var *var) {
   if ((option & TSE_SET_VARIABLE_PERSIST) > 0) {
     var->type = OPT_PERSIST;
@@ -741,6 +742,7 @@ static void ctc_set_var_type(uint32_t option, set_var *var) {
     var->type = OPT_PERSIST_ONLY;
   }
 }
+#endif
 
 static void ctc_init_thd_priv(THD** thd, Sctx_ptr<Security_context> *ctx) {
   my_thread_init();
@@ -803,9 +805,21 @@ int ctc_set_sys_var(tse_ddl_broadcast_request *broadcast_req) {
     }
     res = nullptr;
   }
-
+#ifdef FEATURE_X_FOR_MYSQL_26
   var = new (new_thd->mem_root) set_var(OPT_GLOBAL, sysvar, base_name, res);
   ctc_set_var_type(broadcast_req->options, var);
+#elif defined(FEATURE_X_FOR_MYSQL_32)
+  enum_var_type type = OPT_GLOBAL;
+  if ((broadcast_req->options & TSE_SET_VARIABLE_PERSIST) > 0) {
+    type = OPT_PERSIST;
+  }
+  if ((broadcast_req->options & TSE_SET_VARIABLE_PERSIST_ONLY) > 0) {
+    type = OPT_PERSIST_ONLY;
+  }
+  System_variable_tracker var_tracker =
+      System_variable_tracker::make_tracker(var_name.c_str());
+  var = new (new_thd->mem_root) set_var(type, var_tracker, res);
+#endif
   tmp_var_list.push_back(var);
   int ret = sql_set_variables(new_thd, &tmp_var_list, false);
   if (ret != 0) {
