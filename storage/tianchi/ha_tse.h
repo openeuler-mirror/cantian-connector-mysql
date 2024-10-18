@@ -33,10 +33,10 @@
 #include "datatype_cnvrtr.h"
 #include "tse_error.h"
 #include "tse_cbo.h"
-#include "sql/abstract_query_plan.h"
 #include "sql/dd/types/schema.h"
 #include "sql/dd/types/object_table_definition.h"
 #include "sql/dd/string_type.h"
+#include "clientbuild/include/mysql_version.h"
 
 #pragma GCC visibility push(default)
 
@@ -149,6 +149,16 @@ again. */
 #define IS_PRIMARY_ROLE() (tse_get_cluster_role() == (int32_t)dis_cluster_role::PRIMARY)
 #define IS_STANDBY_ROLE() (tse_get_cluster_role() == (int32_t)dis_cluster_role::STANDBY)
 bool is_single_run_mode();
+
+#ifdef LIBMYSQL_VERSION_ID
+    #if LIBMYSQL_VERSION_ID == 80026
+        #define FEATURE_X_FOR_MYSQL_26
+    #endif
+    #if LIBMYSQL_VERSION_ID == 80032
+        #define FEATURE_X_FOR_MYSQL_32
+    #endif
+#endif
+
 
 static const dd::String_type index_file_name_val_key("index_file_name");
 static const uint ROW_ID_LENGTH = sizeof(uint64_t);
@@ -858,13 +868,26 @@ public:
 
   virtual int get_cbo_stats_4share();
 
-  const Item *cond_push(const Item *cond, bool other_tbls_ok) override;
+  /** Pointer to Cond pushdown */
+  tse_conds *m_cond = nullptr;
+  Item *m_pushed_conds = nullptr;
+  Item *m_remainder_conds = nullptr;
 
+  void prep_cond_push(const Item *cond);
+  
+#ifdef FEATURE_X_FOR_MYSQL_32
+  const handlerton *hton_supporting_engine_pushdown() override;
+  const Item *cond_push(const Item *cond) override;
+#elif defined(FEATURE_X_FOR_MYSQL_26)
+  const Item *cond_push(const Item *cond, bool other_tbls_ok) override;
   int engine_push(AQP::Table_access *table) override;
+#endif
 
   bool get_se_private_data(dd::Table *dd_table, bool reset) override;
 
   bool is_replay_ddl(MYSQL_THD thd);
+
+  tianchi_handler_t *get_m_tch() { return &m_tch; }
 
  protected:
   /* fooling percona-server's gap lock detection on rr which blocks some SQL */
@@ -927,11 +950,6 @@ public:
 
   tse_select_mode_t get_select_mode();
 
-  /** Pointer to Cond pushdown */
-  tse_conds *m_cond = nullptr;
-  Item *m_pushed_conds = nullptr;
-  Item *m_remainder_conds = nullptr;
-
 private:
   int tse_alloc_tse_buf_4_read();
   int process_cantian_record(uchar *buf, record_info_t *record_info, ct_errno_t ct_ret, int rc_ret);
@@ -939,7 +957,6 @@ private:
   virtual int bulk_insert_low(dml_flag_t flag, uint *dup_offset);
   int convert_mysql_record_and_write_to_cantian(uchar *buf, int *cantian_record_buf_size,
                                                 uint16_t *serial_column_offset, dml_flag_t flag);
-  void prep_cond_push(const Item *cond);
   int handle_auto_increment(bool &has_explicit_autoinc);
   bool pre_check_for_cascade(bool is_update);
 };
@@ -983,7 +1000,8 @@ bool engine_ddl_passthru(MYSQL_THD thd);
 bool is_alter_table_copy(MYSQL_THD thd, const char *name = nullptr);
 bool is_alter_table_scan(bool m_error_if_not_empty);
 
-int tse_fill_conds(const Item *pushed_cond, Field **field, tse_conds *m_cond, bool no_backslash);
+int tse_fill_conds(tianchi_handler_t m_tch, const Item *pushed_cond, Field **field,
+                   tse_conds *m_cond, bool no_backslash);
 void free_m_cond(tianchi_handler_t m_tch, tse_conds **conds);
 void tse_set_metadata_switch();
 int32_t tse_get_metadata_switch();

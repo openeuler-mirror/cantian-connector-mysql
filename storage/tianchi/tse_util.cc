@@ -293,10 +293,15 @@ int tse_fill_cond_field_data_date(tianchi_handler_t m_tch, const field_cnvrt_aux
 
     case MYSQL_TYPE_TIMESTAMP: {
       if (!check_zero_time_ltime(ltime)) {
-        struct timeval tm = {0, 0};
         THD *thd = current_thd;
         int warnings = 0;
+#ifdef FEATURE_X_FOR_MYSQL_32
+        struct my_timeval tm = {0, 0};
+        datetime_with_no_zero_in_date_to_timeval(&ltime, *thd->time_zone(), &tm, &warnings);
+#elif defined(FEATURE_X_FOR_MYSQL_26)
+        struct timeval tm = {0, 0};
         tse_datetime_with_no_zero_in_date_to_timeval(&ltime, *thd->time_zone(), &tm, &warnings);
+#endif
         assert((warnings == EOK) || (warnings == MYSQL_TIME_WARN_TRUNCATED));
         my_tz_UTC->gmt_sec_to_TIME(&ltime, tm);
       }
@@ -770,16 +775,27 @@ int tse_check_unlock_instance(MYSQL_THD thd) {
   return 0;
 }
 
-static inline bool is_temporary_table_being_opened(const TABLE_LIST *table) {
+#ifdef FEATURE_X_FOR_MYSQL_32
+static inline bool is_temporary_table_being_opened(const Table_ref *table)
+#elif defined(FEATURE_X_FOR_MYSQL_26)
+static inline bool is_temporary_table_being_opened(const TABLE_LIST *table)
+#endif
+{
   return table->open_type == OT_TEMPORARY_ONLY ||
          (table->open_type == OT_TEMPORARY_OR_BASE &&
           is_temporary_table(table));
 }
 
 int tse_lock_table_pre(MYSQL_THD thd, vector<MDL_ticket*>& ticket_list) {
+#ifdef FEATURE_X_FOR_MYSQL_32
+  Table_ref *tables_start = thd->lex->query_tables;
+  Table_ref *tables_end = thd->lex->first_not_own_table();
+  Table_ref *table;
+#elif defined(FEATURE_X_FOR_MYSQL_26)
   TABLE_LIST *tables_start = thd->lex->query_tables;
   TABLE_LIST *tables_end = thd->lex->first_not_own_table();
   TABLE_LIST *table;
+#endif
   for (table = tables_start; table && table != tables_end;
        table = table->next_global) {
     if (is_temporary_table_being_opened(table)) {
