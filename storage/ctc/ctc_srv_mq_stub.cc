@@ -1659,6 +1659,152 @@ int ctc_record_sql_for_cantian(ctc_handler_t *tch, ctc_ddl_broadcast_request *br
   return result;
 }
 
+// convert mysql side data to ctc message queue accepted request type and return;
+int ctc_get_index_paral_schedule(ctc_handler_t *tch, uint64_t *query_scn, int *worker_count,
+                                 char* index_name, bool reverse, bool is_index_full,
+                                 ctc_scan_range_t *origin_scan_range, ctc_index_paral_range_t *index_paral_range)
+{
+  void *shm_inst = get_one_shm_inst(tch);
+
+  get_index_paral_schedule_request *req = (get_index_paral_schedule_request*)
+    alloc_share_mem(shm_inst, sizeof(get_index_paral_schedule_request));
+  if (req == NULL) {
+      ctc_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst,
+                    sizeof(get_index_paral_schedule_request));
+      return ERR_ALLOC_MEMORY;
+  }
+  memset(req, 0, sizeof(get_index_paral_schedule_request));
+
+  req->tch = *tch;
+  req->worker_count = *worker_count;
+  memcpy(&req->index_name, index_name, sizeof(char) * (CTC_MAX_KEY_NAME_LENGTH + 1));
+  req->scan_range = origin_scan_range;
+  req->query_scn = *query_scn;
+  req->reverse = reverse;
+  req->is_index_full = is_index_full;
+  // the index_paral_range is allocated outside this ctc_get_index_paral_schedule
+  //  to avoid multiple redundent malloc-free pair in mrr scan.
+  req->index_paral_range = index_paral_range;
+
+  int ret = ctc_mq_deal_func(shm_inst, CTC_FUNC_TYPE_GET_INDEX_PARAL_SCHEDULE, req, tch->msg_buf);
+  *tch = req->tch;
+  *query_scn = req->query_scn;
+  *worker_count = req->worker_count;
+
+  free_share_mem(shm_inst, req);
+  if (ret == CT_SUCCESS) {
+    return req->result;
+  }
+  return ret;
+}
+
+int ctc_pq_index_read(ctc_handler_t *tch, record_info_t *record_info, index_key_info_t *index_info,
+                      ctc_scan_range_t scan_range,
+                      ctc_select_mode_t mode, ctc_conds *cond, const bool is_replace, uint64_t query_scn)
+{
+  if (index_info == NULL) {
+    return ERR_GENERIC_INTERNAL_ERROR;
+  }
+
+  void *shm_inst = get_one_shm_inst(tch);
+  pq_index_read_request *req = (pq_index_read_request*)alloc_share_mem(shm_inst, sizeof(pq_index_read_request));
+  if (req == NULL) {
+    ctc_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, sizeof(pq_index_read_request));
+    return ERR_ALLOC_MEMORY;
+  }
+  memset(req, 0, sizeof(pq_index_read_request));
+
+  req->tch = *tch;
+  req->record = record_info->record;
+  req->record_len = 0;
+  req->mode = mode;
+  req->cond = cond;
+  req->is_replace = is_replace;
+  req->result = 0;
+  req->action = index_info->action;
+  req->need_init = index_info->need_init;
+  req->query_scn = query_scn;
+
+  // the pointer in req->scan_range.{l/r}_key.buf will point to invalid address in cantian side.
+  memcpy(&req->scan_range, &scan_range, sizeof(ctc_scan_range_t));
+  memcpy(&req->index_name, index_info->index_name, sizeof(char) * (CTC_MAX_KEY_NAME_LENGTH + 1));
+  int result = ERR_CONNECTION_FAILED;
+  int ret = ctc_mq_deal_func(shm_inst, CTC_FUNC_TYPE_PQ_INDEX_READ, req, tch->msg_buf);
+  *tch = req->tch;
+  tch->sql_stat_start = req->tch.sql_stat_start;
+  if (ret == CT_SUCCESS) {
+    if (req->result == CT_SUCCESS) {
+      record_info->record_len = req->record_len;
+      assert(record_info->record_len < BIG_RECORD_SIZE);
+    }
+    result = req->result;
+    index_info->need_init = req->need_init;
+  }
+
+  free_share_mem(shm_inst, req);
+
+  return result;
+}
+
+int ctc_pq_set_cursor_range(ctc_handler_t *tch, ctc_page_id_t l_page, ctc_page_id_t r_page,
+                            uint64_t query_scn, uint64_t ssn)
+{
+  void *shm_inst = get_one_shm_inst(tch);
+  set_cursor_range_requst *req = (set_cursor_range_requst*)alloc_share_mem(shm_inst, sizeof(set_cursor_range_requst));
+  if (req == NULL) {
+    ctc_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, sizeof(set_cursor_range_requst));
+    return ERR_ALLOC_MEMORY;
+  }
+
+  req->tch = *tch;
+  req->l_page = l_page;
+  req->r_page = r_page;
+  req->query_scn = query_scn;
+  req->ssn = ssn;
+  int ret = ctc_mq_deal_func(shm_inst, CTC_FUNC_TYPE_PQ_SET_CURSOR_RANGE, req, tch->msg_buf);
+  *tch = req->tch;
+  free_share_mem(shm_inst, req);
+  if (ret == CT_SUCCESS) {
+    return req->result;
+  }
+  return ret;
+}
+
+// this method call ct side for spliting a full table per-page scan to multi thread tasks
+// the arg *paral_range should pointing at a mem range within shared memory.
+int ctc_get_paral_schedule(ctc_handler_t *tch, uint64_t *query_scn, uint64_t *ssn, int *worker,
+                           ctc_index_paral_range_t *paral_range)
+{
+  void *shm_inst = get_one_shm_inst(tch);
+
+  get_paral_schedule_request *req = (get_paral_schedule_request*)
+    alloc_share_mem(shm_inst, sizeof(get_paral_schedule_request));
+  if (req == NULL) {
+      ctc_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, sizeof(get_paral_schedule_request));
+      return ERR_ALLOC_MEMORY;
+  }
+  memset(req, 0, sizeof(get_paral_schedule_request));
+
+  req->tch = *tch;
+  req->query_scn = *query_scn;
+  req->paral_range = paral_range;
+  req->worker_count = *worker;
+  req->ssn = *ssn;
+
+  int result = ERR_CONNECTION_FAILED;
+  int ret = ctc_mq_deal_func(shm_inst, CTC_FUNC_TYPE_GET_PARAL_SCHEDULE, req, tch->msg_buf);
+
+  *tch = req->tch;
+  *worker = req->worker_count;
+  *query_scn = req->query_scn;
+  *ssn = req->ssn;
+  if (ret == CT_SUCCESS) {
+    result = req->result;
+  }
+  free_share_mem(shm_inst, req);
+  return result;
+}
+
 int ctc_query_cluster_role(bool *is_slave, bool *cantian_cluster_ready) {
   void *shm_inst = get_one_shm_inst(NULL);
   query_cluster_role_request *req = (query_cluster_role_request*) alloc_share_mem(shm_inst, sizeof(query_cluster_role_request));

@@ -76,6 +76,7 @@
 #include "ha_ctc.h"
 #include "ha_ctc_ddl.h"
 #include "ha_ctcpart.h"
+#include "ha_ctc_pq.h"
 
 #include <errno.h>
 #include <limits.h>
@@ -244,6 +245,15 @@ bool ctc_select_prefetch = true;
 static MYSQL_SYSVAR_BOOL(select_prefetch, ctc_select_prefetch, PLUGIN_VAR_RQCMDARG,
                          "Indicates whether using prefetch in select.", nullptr, nullptr, true);
 
+int32_t parallel_read_threads = 4;
+static MYSQL_THDVAR_INT(parallel_read_threads, PLUGIN_VAR_OPCMDARG,
+                        "Degree of Parallel for turbo plugin for a single table in single session", nullptr, nullptr,
+                        4, 1, CT_MAX_PARAL_QUERY, 0);
+
+int32_t ctc_parallel_max_read_threads = 128;
+static MYSQL_SYSVAR_INT(parallel_max_read_threads, ctc_parallel_max_read_threads, PLUGIN_VAR_OPCMDARG,
+                        "Global Degree of Parallel for turbo plugin", nullptr, nullptr, 128, 1, CT_MAX_PARAL_QUERY, 0);
+
 // All global and session system variables must be published to mysqld before
 // use. This is done by constructing a NULL-terminated array of the variables
 // and linking to it in the plugin public interface.
@@ -265,6 +275,8 @@ static SYS_VAR *ctc_system_variables[] = {
   MYSQL_SYSVAR(update_analyze_time),
   MYSQL_SYSVAR(stats_auto_recalc),
   MYSQL_SYSVAR(select_prefetch),
+  MYSQL_SYSVAR(parallel_read_threads),
+  MYSQL_SYSVAR(parallel_max_read_threads),
   nullptr
 };
 
@@ -3396,6 +3408,132 @@ EXTER_ATTACK int ha_ctc::rnd_pos(uchar *buf, uchar *pos) {
   return ret;
 }
 
+EXTER_ATTACK int ha_ctc::split_rnd_scan(uint32_t part_id, uint32_t subpart_id, ctc_index_paral_range_t* paral_range,
+                                        int expected_parallel_degree, uint64_t *query_scn, uint64_t *ssn)
+{
+  THD *thd = ha_thd();
+  update_member_tch(m_tch, ctc_hton, thd);
+  m_tch.part_id = part_id;
+  m_tch.subpart_id = subpart_id;
+  paral_range->workers = 0;
+  // as we may have more than one partition in a table, which means dop guidance
+  //   from single ctc_get_paral_schedule don't make sense anymore.
+  int worker_count_placeholder = expected_parallel_degree;
+  int ret = CT_SUCCESS;
+  ret = ctc_get_paral_schedule(&m_tch, query_scn, ssn, &worker_count_placeholder, paral_range);
+  update_sess_ctx_by_tch(m_tch, ctc_hton, thd);
+  return ret;
+}
+
+ParallelReaderHandler* ha_ctc::create_parallel_reader_handler(Parallel_reader_handler_config_t *prh_config)
+{
+  auto tprh = (CtcParallelReaderHandler *)
+    my_malloc(PSI_NOT_INSTRUMENTED, sizeof(CtcParallelReaderHandler), MYF(MY_WME | MY_ZEROFILL));
+  if (tprh == nullptr) {
+    // out of memory scenario;
+    return nullptr;
+  }
+
+  tprh = new (tprh) CtcParallelReaderHandler;
+  // currently not passing all prh_config to CtcParallelReaderHandler side for following reason:
+  //   1. the config eversql side provided (m_thread_count, m_thread_count)
+  //     is literally all zero for now
+  //   2. the m_buf_size is fixed to 64k since the adjustable prefetch buffer size
+  //     is not configuable due to kernel capability
+  int ret = tprh->initialize(table, prh_config->m_thread_count, m_tch,
+                             THDVAR(ha_thd(), parallel_read_threads), ctc_parallel_max_read_threads);
+  if (ret != CT_SUCCESS) {
+    // CT_ERROR indicates failure in my_malloc during tprh->initialize()
+    tprh->deinitialize();
+    tprh->~CtcParallelReaderHandler();
+    my_free(tprh);
+    return nullptr;
+  }
+
+  uint64_t query_scn;
+  uint64_t ssn;
+  // paral_range is the scratchpad shared among multiple calls to ct side.
+  auto paral_range = (ctc_index_paral_range_t *)
+    ctc_alloc_buf(&m_tch, sizeof(ctc_index_paral_range_t));
+  // allocate multiple item in one run
+  ctc_scan_range_t *scan_range_base = (ctc_scan_range_t *)
+    ctc_alloc_buf(&m_tch, sizeof(ctc_scan_range_t) * CT_MAX_PARAL_QUERY);
+  if (paral_range == nullptr || scan_range_base == nullptr) {
+    tprh->deinitialize();
+    tprh->~CtcParallelReaderHandler();
+    my_free(tprh);
+    ctc_free_buf(&m_tch, (uint8_t *) scan_range_base);
+    ctc_free_buf(&m_tch, (uint8_t *) paral_range);
+    return nullptr;
+  }
+
+  for (int i = 0 ; i < CT_MAX_PARAL_QUERY; i++) {
+    paral_range->range[i] = scan_range_base + i;
+    paral_range->range[i]->l_key.buf = paral_range->range[i]->l_buf;
+    paral_range->range[i]->r_key.buf = paral_range->range[i]->r_buf;
+    paral_range->range[i]->org_key.buf = paral_range->range[i]->org_buf;
+  }
+
+  // a. split each partition, or each sub-partition if there are any, with
+  //   the degree of the m_worker_count
+  // b. and save all work into CtcParallelReaderHandler, which comes with an
+  //   extra partition field in the data part of LIST
+  int result = CT_SUCCESS;
+  if (table->part_info == nullptr) {
+    // not partitioned table scenario, using two INVALID_PART_ID as partition id
+    // just do a task-splitting for once and we are all set.
+    memset(scan_range_base, 0, sizeof(ctc_scan_range_t) * CT_MAX_PARAL_QUERY);
+    result = split_rnd_scan(INVALID_PART_ID, INVALID_PART_ID, paral_range,
+      tprh->m_worker_count, &query_scn, &ssn);
+    if (result == CT_SUCCESS) {
+      result = tprh->save_task(paral_range, INVALID_PART_ID, INVALID_PART_ID, query_scn, ssn);
+    }
+  } else {
+    uint32_t used_parts;
+    uint32_t *part_ids = nullptr;
+    uint32_t *subpart_ids = nullptr;
+    bool ret = get_used_partitions(table->part_info, &part_ids, &subpart_ids, &used_parts);
+    if (!ret) {
+      ctc_log_error("Failed to allocate memory when trying to get used partitions");
+      // in this scenario, we act as if there is no valid split task and use the normal clean up route
+    } else {
+      for (uint i = 0; i < used_parts; i++) {
+        memset(scan_range_base, 0, sizeof(ctc_scan_range_t) * CT_MAX_PARAL_QUERY);
+        result = split_rnd_scan(part_ids[i], subpart_ids[i], paral_range,
+          tprh->m_worker_count, &query_scn, &ssn);
+        if (result != CT_SUCCESS) {
+          break;
+        }
+        result = tprh->save_task(paral_range, part_ids[i], subpart_ids[i], query_scn, ssn);
+        if (result != CT_SUCCESS) {
+          break;
+        }
+      }
+
+      my_free(subpart_ids);
+      my_free(part_ids);
+    }
+  }
+
+  ctc_free_buf(&m_tch, (uint8_t *) scan_range_base);
+  ctc_free_buf(&m_tch, (uint8_t *) paral_range);
+  if (result != CT_SUCCESS) {
+    tprh->deinitialize();
+    tprh->~CtcParallelReaderHandler();
+    my_free(tprh);
+    return nullptr;
+  }
+  return tprh;
+}
+
+void ha_ctc::close_parallel_reader_handler(ParallelReaderHandler* prh)
+{
+  CtcParallelReaderHandler *tprh = static_cast<CtcParallelReaderHandler *>(prh);
+  tprh->deinitialize();
+  tprh->~CtcParallelReaderHandler();
+  my_free(tprh);
+}
+
 double ha_ctc::scan_time() {
   DBUG_TRACE;
   double data_page_num = 1.0;
@@ -4940,8 +5078,45 @@ static typename std::enable_if<!CHECK_HAS_MEMBER(T, get_inst_id)>::type set_hton
   ctc_hton->binlog_log_query = ctc_binlog_log_query;
 }
 
+#if FEATURE_FOR_EVERSQL
+int ha_ctc_parallel_read_create_data_fetcher(parallel_read_create_data_fetcher_ctx_t &data_fetcher_ctx,
+                                             void *&data_fetcher) {
+  UNUSED_PARAM(data_fetcher_ctx);
+  UNUSED_PARAM(data_fetcher);
+  return 0;
+}
+
+int ha_ctc_parallel_read_destory_data_fetcher(void *&data_fetcher) {
+  UNUSED_PARAM(data_fetcher);
+  return 0;
+}
+
+int ha_ctc_parallel_read_start_data_fetch(parallel_read_start_data_fetch_ctx_t &start_data_fetch_ctx) {
+  UNUSED_PARAM(start_data_fetch_ctx);
+  return 0;
+}
+
+int ha_ctc_parallel_read_init_data_fetcher(parallel_read_init_data_fetcher_ctx_t &init_data_fetcher_ctx) {
+  UNUSED_PARAM(init_data_fetcher_ctx);
+  return 0;
+}
+
+int ha_ctc_parallel_read_add_target_to_data_fetcher(
+  parallel_read_add_target_to_data_fetcher_ctx_t &target_to_data_fetcher_ctx) {
+  UNUSED_PARAM(target_to_data_fetcher_ctx);
+  return 0;
+}
+
+int ha_ctc_parallel_read_end_data_fetch(parallel_read_end_data_fetch_ctx_t &end_data_fetch_ctx) {
+  UNUSED_PARAM(end_data_fetch_ctx);
+  return 0;
+}
+#endif
+
 extern int (*ctc_init)();
 extern int (*ctc_deinit)();
+
+int ctc_push_to_engine(THD *thd, AccessPath *root_path, JOIN *);
 
 static int ctc_init_func(void *p) {
   DBUG_TRACE;
@@ -4981,6 +5156,16 @@ static int ctc_init_func(void *p) {
   ctc_hton->is_dict_readonly = ctc_dict_readonly;
 #ifdef FEATURE_X_FOR_MYSQL_32
   ctc_hton->push_to_engine = ctc_push_to_engine;
+#endif
+
+#ifdef FEATURE_X_FOR_EVERSQL
+  ctc_hton->data_fetcher_interface.parallel_read_create_data_fetcher = ha_ctc_parallel_read_create_data_fetcher;
+  ctc_hton->data_fetcher_interface.parallel_read_destory_data_fetcher = ha_ctc_parallel_read_destory_data_fetcher;
+  ctc_hton->data_fetcher_interface.parallel_read_start_data_fetch = ha_ctc_parallel_read_start_data_fetch;
+  ctc_hton->data_fetcher_interface.parallel_read_init_data_fetcher = ha_ctc_parallel_read_init_data_fetcher;
+  ctc_hton->data_fetcher_interface.parallel_read_add_target_to_data_fetcher =
+    ha_ctc_parallel_read_add_target_to_data_fetcher;
+  ctc_hton->data_fetcher_interface.parallel_read_end_data_fetch = ha_ctc_parallel_read_end_data_fetch;
 #endif
   set_hton_members(ctc_hton);
   int ret = ctc_init();
@@ -5994,7 +6179,7 @@ TABLE *ctc_get_basic_table(const AccessPath *path) {
  *
  * @return Possible ret code, '0' if no errors.
  */
-static int ctc_push_to_engine(THD *thd, AccessPath *root_path, JOIN *) {
+int ctc_push_to_engine(THD *thd, AccessPath *root_path, JOIN *) {
   DBUG_TRACE;
 
   if (!thd->optimizer_switch_flag(OPTIMIZER_SWITCH_ENGINE_CONDITION_PUSHDOWN)) {

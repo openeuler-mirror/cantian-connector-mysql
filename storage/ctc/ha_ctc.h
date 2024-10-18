@@ -22,7 +22,6 @@
 
 #include <sys/types.h>
 #include <vector>
-
 #include "my_inttypes.h"
 #include "sql/handler.h"
 #include "sql/table.h"
@@ -66,6 +65,7 @@ using namespace std;
 #define DEFAULT_RANGE_DENSITY 0.5
 #define PREFER_RANGE_DENSITY 0.8
 #define CT_MAX_RECORD_LENGTH 64000
+#define INVALID_PART_ID (uint32)0xFFFFFFFF
 
 /* update if restraints changed in Cantian */
 #define CTC_MAX_KEY_PART_LENGTH 4095  // CT_MAX_KEY_SIZE
@@ -158,6 +158,73 @@ bool is_single_run_mode();
     #if LIBMYSQL_VERSION_ID == 80032
         #define FEATURE_X_FOR_MYSQL_32
     #endif
+#endif
+
+#if !(FEATURE_FOR_EVERSQL)
+// mock class specific for compiling EverSQL integration against MySQL
+struct parallel_reader_data_frame_t {
+  /** caller should not care about the following members */
+  uint64_t m_buf_size{0};
+  uint32_t m_buf_id{0};
+  /** caller can access the following members */
+  char *m_buf{nullptr};
+
+  /** actual data size is zero: means the data
+   * has been read out completely.
+   */
+  uint64_t m_actual_data_size{0};
+  uint64_t m_buf_partition_id{0};
+
+  void init()
+  {
+    m_buf_size = 0;
+    m_buf_id = 0;
+    m_buf = nullptr;
+    m_actual_data_size = 0;
+    m_buf_partition_id = 0;
+  }
+};
+
+struct Parallel_reader_handler_config_t {
+  /** the desired, parallel background thread count to read table */
+  uint32_t m_thread_count{4};
+  /** the maximum data chunk size(bytes) which bk thread will
+   *  fill with table data
+   */
+  uint64_t m_buffer_size{0};
+  /** the maximum row count per calling acquire table data */
+  uint64_t m_row_num;
+};
+
+class ParallelReaderHandler {
+public:
+  ParallelReaderHandler() = default;
+  ~ParallelReaderHandler() = default;
+
+  struct mysql_row_desc_t {
+    ulong m_ncols{0};
+    ulong m_row_len{0};
+    const ulong *m_col_offsets{nullptr};
+    const ulong *m_null_byte_offsets{nullptr};
+    const ulong *m_null_bitmasks{nullptr};
+  };
+
+  virtual mysql_row_desc_t get_row_info_for_parse() = 0;
+  virtual void reset_data_frame(parallel_reader_data_frame_t *data_frame) = 0;
+
+  virtual int rnd_init() = 0;
+  virtual int rnd_next_block(parallel_reader_data_frame_t *data_frame) = 0;
+  virtual int rnd_end() = 0;
+
+  virtual int read_range_init(uint keynr, key_range *min_key, key_range *max_key) = 0;
+  virtual int read_range_next_block(parallel_reader_data_frame_t *data_frame) = 0;
+  virtual int read_range_end() = 0;
+  virtual int condition_pushdown(Item *cond, Item *left) = 0;
+
+  virtual int index_init(int keyno, bool asc) = 0;
+  virtual int index_next_block(parallel_reader_data_frame_t *data_frame) = 0;
+  virtual int index_end() = 0;
+};
 #endif
 
 
@@ -598,6 +665,19 @@ public:
     filesort.cc, records.cc, sql_insert.cc, sql_select.cc and sql_update.cc
   */
   int rnd_pos(uchar *buf, uchar *pos) override;  ///< required
+
+#if FEATURE_FOR_EVERSQL
+  // for the integration with the new framework for parallel query from EverSQL side
+  ParallelReaderHandler* create_parallel_reader_handler(Parallel_reader_handler_config_t *prh_config) override;
+  void close_parallel_reader_handler(ParallelReaderHandler* prh) override;
+#else
+  // for build with MySQL
+  ParallelReaderHandler* create_parallel_reader_handler(Parallel_reader_handler_config_t *prh_config);
+  void close_parallel_reader_handler(ParallelReaderHandler* prh);
+#endif
+
+  int split_rnd_scan(uint32_t part_id, uint32_t subpart_id, ctc_index_paral_range_t* paral_range,
+    int expected_parallel_degree, uint64_t *query_scn, uint64_t *ssn);
 
   int prefetch_and_fill_record_buffer(uchar *buf, ctc_prefetch_fn);
   void fill_record_to_rec_buffer();
