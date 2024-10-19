@@ -1544,7 +1544,7 @@ void broadcast_and_reload_buffer(tianchi_handler_t *tch, tse_invalidate_broadcas
   if (req->buff_len + sizeof(invalidate_obj_entry_t) > DD_BROADCAST_RECORD_LENGTH) {
     (void)tse_broadcast_mysql_dd_invalidate(tch, req);
     memset(req->buff, 0, DD_BROADCAST_RECORD_LENGTH);
-    req->buff_len = 0;
+    req->buff_len = 1;
   }
 }
 
@@ -1554,7 +1554,7 @@ static typename std::enable_if<CHECK_HAS_MEMBER_FUNC(T, invalidates), void>::typ
 {
   tse_invalidate_broadcast_request req;
   req.mysql_inst_id = ctc_instance_id;
-  req.buff_len = 0;
+  req.buff_len = 1;
   req.is_dcl = false;
   invalidate_obj_entry_t *obj = NULL;
  
@@ -1571,7 +1571,7 @@ static typename std::enable_if<CHECK_HAS_MEMBER_FUNC(T, invalidates), void>::typ
           strncpy(obj->first, invalidate_it.first.first.c_str(), SMALL_RECORD_SIZE - 1);
           strncpy(obj->second, invalidate_it.first.second.c_str(), SMALL_RECORD_SIZE - 1);
           req.buff_len += sizeof(invalidate_obj_entry_t);
-          printf("\n\n[invalidate_remote_dd] add to invalidate %d, %s, %s.\n\n", invalidate_it.second, invalidate_it.first.first.c_str(), invalidate_it.first.second.c_str()); fflush(stdout);
+          printf("\n[invalidate_remote_dd] add to invalidate %d, %s, %s.\n", invalidate_it.second, invalidate_it.first.first.c_str(), invalidate_it.first.second.c_str()); fflush(stdout);
           break;
       case T::OBJ_SCHEMA:
       case T::OBJ_TABLESPACE:
@@ -1583,20 +1583,18 @@ static typename std::enable_if<CHECK_HAS_MEMBER_FUNC(T, invalidates), void>::typ
           strncpy(obj->first, invalidate_it.first.first.c_str(), SMALL_RECORD_SIZE - 1);
           strncpy(obj->second, "", SMALL_RECORD_SIZE - 1);
           req.buff_len += sizeof(invalidate_obj_entry_t);
-          printf("\n\n[invalidate_remote_dd] add to invalidate %d, %s, %s.", invalidate_it.second, invalidate_it.first.first.c_str(), invalidate_it.first.second.c_str()); fflush(stdout);
+          printf("\n[invalidate_remote_dd] add to invalidate %d, %s, %s.\n", invalidate_it.second, invalidate_it.first.first.c_str(), invalidate_it.first.second.c_str()); fflush(stdout);
           break;
       case T::OBJ_CHARSET:
       case T::OBJ_COLLATION:
-          printf("\n\n[invalidate_remote_dd] add to invalidate %d, %s, %s.", invalidate_it.second, invalidate_it.first.first.c_str(), invalidate_it.first.second.c_str()); fflush(stdout);
+          printf("\n[invalidate_remote_dd] add to invalidate %d, %s, %s.\n", invalidate_it.second, invalidate_it.first.first.c_str(), invalidate_it.first.second.c_str()); fflush(stdout);
           break;
       default:
           break;
     }
   }
-
-  if (req.buff_len > 0) {
-    (void)tse_broadcast_mysql_dd_invalidate(tch, &req);
-  }
+  req.buff[0] = '1';
+  (void)tse_broadcast_mysql_dd_invalidate(tch, &req);
 }
 
 template <typename T>
