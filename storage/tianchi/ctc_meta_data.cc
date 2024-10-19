@@ -63,7 +63,10 @@ extern uint32_t ctc_instance_id;
 static map<uint64_t, THD*> g_tse_mdl_thd_map;
 static mutex m_tse_mdl_thd_mutex;
 static map<THD *, map<string, MDL_ticket *> *> g_tse_mdl_ticket_maps;
+static map<THD *, vector<invalidate_obj_entry_t *> *> g_tse_invalidate_routine_maps;
+static map<THD *, vector<invalidate_obj_entry_t *> *> g_tse_invalidate_schema_maps;
 static mutex m_tse_mdl_ticket_mutex;
+static mutex m_tse_invalidate_dd_cache_mutex;
 bool no_create_dir = true;
 
 class Release_all_ctc_explicit_locks : public MDL_release_locks_visitor {
@@ -90,6 +93,8 @@ static void release_ctc_thd_and_explicit_locks(THD *thd) {
  
   my_thread_end();
 }
+
+static void release_routine_and_schema(THD *thd, bool *error);
 
 static void release_ctc_thd_tickets(THD *thd) {
   lock_guard<mutex> lock(m_tse_mdl_ticket_mutex);
@@ -119,6 +124,8 @@ static void release_tse_mdl_thd_by_key(uint64_t mdl_thd_key) {
 
   THD *thd = g_tse_mdl_thd_map[mdl_thd_key];
   assert(thd);
+  bool error = 0;
+  release_routine_and_schema(thd, &error);
   release_ctc_thd_tickets(thd);
   release_ctc_thd_and_explicit_locks(thd);
  
@@ -133,6 +140,8 @@ static void release_tse_mdl_thd_by_cantian_id(uint16_t cantian_inst_id) {
     if (tse_get_cantian_id_from_conn_key(iter->first) == cantian_inst_id) {
       THD *thd = iter->second;
       assert(thd);
+      bool error = 0;
+      release_routine_and_schema(thd, &error);
       release_ctc_thd_tickets(thd);
       release_ctc_thd_and_explicit_locks(thd);
       tse_log_system("[TSE_MDL_THD]: Close mdl thd by cantian_id:%u", cantian_inst_id);
@@ -149,6 +158,8 @@ static void release_tse_mdl_thd_by_inst_id(uint32_t mysql_inst_id) {
     if (tse_get_inst_id_from_conn_key(iter->first) == mysql_inst_id) {
       THD *thd = iter->second;
       assert(thd);
+      bool error = 0;
+      release_routine_and_schema(thd, &error);
       release_ctc_thd_tickets(thd);
       release_ctc_thd_and_explicit_locks(thd);
       tse_log_system("[TSE_MDL_THD]: Close mdl thd by inst_id:%u", mysql_inst_id);
@@ -176,6 +187,30 @@ static void ctc_init_thd(THD **thd, uint64_t thd_key) {
     g_tse_mdl_thd_map[thd_key] = new_thd;
     (*thd) = new_thd;
   }
+}
+
+static void tse_insert_schema(THD *thd, invalidate_obj_entry_t *obj) {
+  lock_guard<mutex> lock(m_tse_invalidate_dd_cache_mutex);
+  auto it = g_tse_invalidate_schema_maps.find(thd);
+  vector<invalidate_obj_entry_t *> *invalidate_schema_list = nullptr;
+  if (it == g_tse_invalidate_schema_maps.end()) {
+    invalidate_schema_list = new vector<invalidate_obj_entry_t *>;
+    assert(invalidate_schema_list);
+    g_tse_invalidate_schema_maps[thd] = invalidate_schema_list;
+  }
+  g_tse_invalidate_schema_maps[thd]->emplace_back(obj);
+}
+
+static void tse_insert_routine(THD *thd, invalidate_obj_entry_t *obj) {
+  lock_guard<mutex> lock(m_tse_invalidate_dd_cache_mutex);
+  auto it = g_tse_invalidate_routine_maps.find(thd);
+  vector<invalidate_obj_entry_t *> *invalidate_routine_list = nullptr;
+  if (it == g_tse_invalidate_routine_maps.end()) {
+    invalidate_routine_list = new vector<invalidate_obj_entry_t *>;
+    assert(invalidate_routine_list);
+    g_tse_invalidate_routine_maps[thd] = invalidate_routine_list;
+  }
+  g_tse_invalidate_routine_maps[thd]->emplace_back(obj);
 }
 
 template <typename T>
@@ -406,28 +441,30 @@ static typename std::enable_if<CHECK_HAS_MEMBER_FUNC(T, invalidates), int>::type
     tse_log_system("[TSE_INVALID_DD]: remote invalidate acl cache, mysql_inst_id=%u", broadcast_req->mysql_inst_id);
   } else {
     invalidate_obj_entry_t *obj = NULL;
-    uint32_t offset = 0;
+    uint32_t offset = 1;
     char *buff = broadcast_req->buff;
     uint32_t buff_len = broadcast_req->buff_len;
-
-    vector<invalidate_obj_entry_t *> invalidate_routine_list;
-    vector<invalidate_obj_entry_t *> invalidate_schema_list;
+    bool is_end = (buff[0] == '1');
     while (offset < buff_len) {
-      obj = (invalidate_obj_entry_t *)(buff + offset);
-      printf("\n\n\ntype: %u, first: %s, second: %s\n\n\n", obj->type, obj->first, obj->second);
+      obj = (invalidate_obj_entry_t *)my_malloc(PSI_NOT_INSTRUMENTED, sizeof(invalidate_obj_entry_t), MYF(MY_WME));
+      assert(obj);
+      memcpy(obj, buff + offset, sizeof(invalidate_obj_entry_t));
+      printf("\n[tse_invalidate_mysql_dd_cache_impl] type: %u, first: %s, second: %s\n", obj->type, obj->first, obj->second); fflush(stdout);
       switch (obj->type) {
         case T::OBJ_ABSTRACT_TABLE:
             error = invalidate_table(thd, obj->first, obj->second);
+            my_free(obj);
             break;
         case T::OBJ_RT_PROCEDURE:
         case T::OBJ_RT_FUNCTION:
-            invalidate_routine_list.emplace_back(obj);
+            tse_insert_routine(thd, obj);
             break;
         case T::OBJ_SCHEMA:
-            invalidate_schema_list.emplace_back(obj);
+            tse_insert_schema(thd, obj);
             break;
         case T::OBJ_TABLESPACE:
             error = invalidate_tablespace(thd, obj->first);
+            my_free(obj);
             break;
         case T::OBJ_EVENT:
         case T::OBJ_COLUMN_STATISTICS:
@@ -440,11 +477,9 @@ static typename std::enable_if<CHECK_HAS_MEMBER_FUNC(T, invalidates), int>::type
       }
       offset += sizeof(invalidate_obj_entry_t);
     }
-    for (auto invalidate_it : invalidate_routine_list) {
-      error = invalidate_routine(thd, invalidate_it->first, invalidate_it->second, invalidate_it->type);
-    }
-    for (auto invalidate_it : invalidate_schema_list) {
-      error = invalidate_schema(thd, invalidate_it->first);
+
+    if (is_end) {
+      release_routine_and_schema(thd, &error);
     }
   }
  
@@ -455,6 +490,46 @@ static typename std::enable_if<CHECK_HAS_MEMBER_FUNC(T, invalidates), int>::type
   return error;
 }
 
+static void release_routine_and_schema(THD *thd, bool *error) {
+  lock_guard<mutex> lock(m_tse_invalidate_dd_cache_mutex);
+  auto it_routine = g_tse_invalidate_routine_maps.find(thd);
+  auto it_schema = g_tse_invalidate_schema_maps.find(thd);
+  if (it_routine != g_tse_invalidate_routine_maps.end()) {
+    vector<invalidate_obj_entry_t *> *invalidate_routine_list = it_schema->second;
+    if (invalidate_routine_list != nullptr) {
+      for (auto invalidate_it : *invalidate_routine_list) {
+        *error = invalidate_routine(thd, invalidate_it->first, invalidate_it->second, invalidate_it->type);
+        if (*error) {
+          printf("\n[invalidate_routine] error.type: %u, first: %s, second: %s\n", invalidate_it->type, invalidate_it->first, invalidate_it->second); fflush(stdout);
+        }
+        my_free(invalidate_it);
+        invalidate_it = nullptr;
+      }
+      invalidate_routine_list->clear();
+      delete invalidate_routine_list;
+      invalidate_routine_list = nullptr;
+    }
+    g_tse_invalidate_routine_maps.erase(thd);
+  }
+  
+  if (it_schema != g_tse_invalidate_schema_maps.end()) {
+    vector<invalidate_obj_entry_t *> *invalidate_schema_list = it_schema->second;
+    if (invalidate_schema_list != nullptr) {
+      for (auto invalidate_it : *invalidate_schema_list) {
+        *error = invalidate_schema(thd, invalidate_it->first);
+        if (*error) {
+          printf("\n[invalidate_schema] error.type: %u, first: %s, second: %s\n", invalidate_it->type, invalidate_it->first, invalidate_it->second); fflush(stdout);
+        }
+        my_free(invalidate_it);
+        invalidate_it = nullptr;
+      }
+      invalidate_schema_list->clear();
+      delete invalidate_schema_list;
+      invalidate_schema_list = nullptr;
+    }
+    g_tse_invalidate_schema_maps.erase(thd);
+  }
+}
 
 template <typename T>
 static typename std::enable_if<!CHECK_HAS_MEMBER_FUNC(T, invalidates), int>::type
