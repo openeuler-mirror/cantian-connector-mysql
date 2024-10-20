@@ -322,6 +322,23 @@ static inline bool is_create_table_check(MYSQL_THD thd) {
   return false;
 }
 
+static inline bool ctc_support_instant_add_column(
+    const Alter_inplace_info *ha_alter_info) {
+  if (!(ha_alter_info->handler_flags & ~CTC_INPLACE_IGNORE)) {
+    return true;
+  }
+
+  Alter_inplace_info::HA_ALTER_FLAGS alter_inplace_flags =
+      ha_alter_info->handler_flags & ~CTC_INPLACE_IGNORE;
+
+  // 如果添加新的存储字段且不需要更改已有的存储字段的顺序
+  if (alter_inplace_flags == Alter_inplace_info::ADD_STORED_BASE_COLUMN) {
+    return true;
+  }
+
+  return false;
+}
+
 bool user_var_set(MYSQL_THD thd, string target_str) {
   user_var_entry *var_entry;
   var_entry = find_or_nullptr(thd->user_vars, target_str);
@@ -3886,6 +3903,18 @@ enum_alter_inplace_result ha_tse::check_if_supported_inplace_alter(
       ha_alter_info->unsupported_reason = "INPLACE is not supported for this operation.";
       return HA_ALTER_INPLACE_NOT_SUPPORTED;
   }
+
+  ha_alter_info->handler_trivial_ctx = 0;
+
+  if ((ha_alter_info->handler_flags & PARTITION_OPERATIONS) == 0 &&
+      (!ha_alter_info->error_if_not_empty) &&
+      ha_alter_info->alter_info->requested_algorithm ==
+          Alter_info::ALTER_TABLE_ALGORITHM_INSTANT) {
+    ha_alter_info->handler_trivial_ctx =
+        ctc_support_instant_add_column(ha_alter_info);
+    return HA_ALTER_INPLACE_INSTANT;
+  }
+
   return HA_ALTER_INPLACE_EXCLUSIVE_LOCK;
 }
 

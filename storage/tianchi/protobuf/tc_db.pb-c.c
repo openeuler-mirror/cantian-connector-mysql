@@ -2628,7 +2628,7 @@ const ProtobufCMessageDescriptor tc_db__tse_ddlalter_table_alter_column__descrip
   (ProtobufCMessageInit) tc_db__tse_ddlalter_table_alter_column__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor tc_db__tse_ddlalter_table_def__field_descriptors[20] =
+static const ProtobufCFieldDescriptor tc_db__tse_ddlalter_table_def__field_descriptors[21] =
 {
   {
     "action",
@@ -2870,6 +2870,18 @@ static const ProtobufCFieldDescriptor tc_db__tse_ddlalter_table_def__field_descr
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
+  {
+    "handler_trivial_ctx",
+    21,
+    PROTOBUF_C_LABEL_NONE,
+    PROTOBUF_C_TYPE_INT32,
+    0,   /* quantifier_offset */
+    offsetof(TcDb__TseDDLAlterTableDef, handler_trivial_ctx),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
 };
 static const unsigned tc_db__tse_ddlalter_table_def__field_indices_by_name[] = {
   0,   /* field[0] = action */
@@ -2883,6 +2895,7 @@ static const unsigned tc_db__tse_ddlalter_table_def__field_indices_by_name[] = {
   9,   /* field[9] = drop_key_list */
   4,   /* field[4] = drop_list */
   15,   /* field[15] = drop_partition_names */
+  20,   /* field[20] = handler_trivial_ctx */
   17,   /* field[17] = hash_coalesce_count */
   3,   /* field[3] = name */
   11,   /* field[11] = new_auto_increment_value */
@@ -2896,7 +2909,7 @@ static const unsigned tc_db__tse_ddlalter_table_def__field_indices_by_name[] = {
 static const ProtobufCIntRange tc_db__tse_ddlalter_table_def__number_ranges[1 + 1] =
 {
   { 1, 0 },
-  { 0, 20 }
+  { 0, 21 }
 };
 const ProtobufCMessageDescriptor tc_db__tse_ddlalter_table_def__descriptor =
 {
@@ -2906,7 +2919,7 @@ const ProtobufCMessageDescriptor tc_db__tse_ddlalter_table_def__descriptor =
   "TcDb__TseDDLAlterTableDef",
   "tc_db",
   sizeof(TcDb__TseDDLAlterTableDef),
-  20,
+  21,
   tc_db__tse_ddlalter_table_def__field_descriptors,
   tc_db__tse_ddlalter_table_def__field_indices_by_name,
   1,  tc_db__tse_ddlalter_table_def__number_ranges,

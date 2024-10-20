@@ -368,10 +368,11 @@ struct  TcDb__TseDDLAlterTableDef
   uint32_t hash_coalesce_count;
   int64_t systimestamp;
   int32_t tz_offset_utc;
+  int32_t handler_trivial_ctx;
 };
 #define TC_DB__TSE_DDLALTER_TABLE_DEF__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&tc_db__tse_ddlalter_table_def__descriptor) \
-    , 0, 0, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0,NULL, 0,NULL, 0,NULL, NULL, 0,NULL, 0,NULL, 0,NULL, 0, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0,NULL, 0,NULL, 0,NULL, 0, 0, 0 }
+    , 0, 0, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0,NULL, 0,NULL, 0,NULL, NULL, 0,NULL, 0,NULL, 0,NULL, 0, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0,NULL, 0,NULL, 0,NULL, 0, 0, 0, 0 }
 
 
 struct  TcDb__TseDDLTruncateTableDef
