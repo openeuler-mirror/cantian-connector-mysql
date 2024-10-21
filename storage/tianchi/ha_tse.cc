@@ -5493,6 +5493,9 @@ void free_columns_cbo_stats(tse_cbo_stats_column_t *tse_cbo_stats_columns, bool 
   for (uint j = 0; j < table->s->fields; j++) {
     Field *field = table->field[j];
     uint32_t ct_col_id = j - acc_gcol_num[j];
+    if (field->is_virtual_gcol()) {
+      continue;
+    }
     if (field->real_type() == MYSQL_TYPE_VARCHAR || field->real_type() == MYSQL_TYPE_VAR_STRING ||
         field->real_type() == MYSQL_TYPE_STRING) {
       if (*is_str_first_addr) {
