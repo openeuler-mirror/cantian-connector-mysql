@@ -189,12 +189,6 @@ static void ctc_init_thd(THD **thd, uint64_t thd_key) {
   }
 }
 
-#ifndef METADATA_NORMALIZED
-static void tse_insert_schema(THD *thd MY_ATTRIBUTE((unused)), invalidate_obj_entry_t *obj MY_ATTRIBUTE((unused))) {
-  return;
-}
-#endif
-
 #ifdef METADATA_NORMALIZED
 static void tse_insert_schema(THD *thd, invalidate_obj_entry_t *obj) {
   lock_guard<mutex> lock(m_tse_invalidate_dd_cache_mutex);
@@ -206,12 +200,6 @@ static void tse_insert_schema(THD *thd, invalidate_obj_entry_t *obj) {
     g_tse_invalidate_schema_maps[thd] = invalidate_schema_list;
   }
   g_tse_invalidate_schema_maps[thd]->emplace_back(obj);
-}
-#endif
-
-#ifndef METADATA_NORMALIZED
-static void tse_insert_routine(THD *thd MY_ATTRIBUTE((unused)), invalidate_obj_entry_t *obj MY_ATTRIBUTE((unused))) {
-  return;
 }
 #endif
 
