@@ -506,7 +506,7 @@ static void release_routine_and_schema(THD *thd, bool *error) {
   auto it_routine = g_tse_invalidate_routine_maps.find(thd);
   auto it_schema = g_tse_invalidate_schema_maps.find(thd);
   if (it_routine != g_tse_invalidate_routine_maps.end()) {
-    vector<invalidate_obj_entry_t *> *invalidate_routine_list = it_schema->second;
+    vector<invalidate_obj_entry_t *> *invalidate_routine_list = it_routine->second;
     if (invalidate_routine_list != nullptr) {
       for (auto invalidate_it : *invalidate_routine_list) {
         *error = invalidate_routine(thd, invalidate_it->first, invalidate_it->second, invalidate_it->type);
