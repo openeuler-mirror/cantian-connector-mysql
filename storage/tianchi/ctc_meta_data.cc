@@ -189,6 +189,13 @@ static void ctc_init_thd(THD **thd, uint64_t thd_key) {
   }
 }
 
+#ifndef METADATA_NORMALIZED
+static void tse_insert_schema(THD *thd MY_ATTRIBUTE((unused)), invalidate_obj_entry_t *obj MY_ATTRIBUTE((unused))) {
+  return;
+}
+#endif
+
+#ifdef METADATA_NORMALIZED
 static void tse_insert_schema(THD *thd, invalidate_obj_entry_t *obj) {
   lock_guard<mutex> lock(m_tse_invalidate_dd_cache_mutex);
   auto it = g_tse_invalidate_schema_maps.find(thd);
@@ -200,7 +207,15 @@ static void tse_insert_schema(THD *thd, invalidate_obj_entry_t *obj) {
   }
   g_tse_invalidate_schema_maps[thd]->emplace_back(obj);
 }
+#endif
 
+#ifndef METADATA_NORMALIZED
+static void tse_insert_routine(THD *thd MY_ATTRIBUTE((unused)), invalidate_obj_entry_t *obj MY_ATTRIBUTE((unused))) {
+  return;
+}
+#endif
+
+#ifdef METADATA_NORMALIZED
 static void tse_insert_routine(THD *thd, invalidate_obj_entry_t *obj) {
   lock_guard<mutex> lock(m_tse_invalidate_dd_cache_mutex);
   auto it = g_tse_invalidate_routine_maps.find(thd);
@@ -212,6 +227,7 @@ static void tse_insert_routine(THD *thd, invalidate_obj_entry_t *obj) {
   }
   g_tse_invalidate_routine_maps[thd]->emplace_back(obj);
 }
+#endif
 
 template <typename T>
 typename std::enable_if<CHECK_HAS_MEMBER_FUNC(T, invalidates), bool>::type
@@ -490,6 +506,13 @@ static typename std::enable_if<CHECK_HAS_MEMBER_FUNC(T, invalidates), int>::type
   return error;
 }
 
+#ifndef METADATA_NORMALIZED
+static void release_routine_and_schema(THD *thd MY_ATTRIBUTE((unused)), bool *error MY_ATTRIBUTE((unused))) {
+  return;
+}
+#endif
+
+#ifdef METADATA_NORMALIZED
 static void release_routine_and_schema(THD *thd, bool *error) {
   lock_guard<mutex> lock(m_tse_invalidate_dd_cache_mutex);
   auto it_routine = g_tse_invalidate_routine_maps.find(thd);
@@ -530,6 +553,7 @@ static void release_routine_and_schema(THD *thd, bool *error) {
     g_tse_invalidate_schema_maps.erase(thd);
   }
 }
+#endif
 
 template <typename T>
 static typename std::enable_if<!CHECK_HAS_MEMBER_FUNC(T, invalidates), int>::type
