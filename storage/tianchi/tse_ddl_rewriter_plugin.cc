@@ -469,7 +469,7 @@ static uint32_t tse_set_var_option(bool is_null_value, bool is_set_default_value
 }
 
 static int tse_set_var_meta(MYSQL_THD thd, uint32_t options, const char* base_name,
-                            string var_name, string var_value) {
+                            string var_name, string var_value, bool var_real_type) {
   tianchi_handler_t tch;
   tch.inst_id = ctc_instance_id;
   handlerton* hton = get_tse_hton();
@@ -480,17 +480,19 @@ static int tse_set_var_meta(MYSQL_THD thd, uint32_t options, const char* base_na
   broadcast_req.options |= TSE_NOT_NEED_CANTIAN_EXECUTE;
   broadcast_req.options |= (thd->lex->contains_plaintext_password ? TSE_CURRENT_SQL_CONTAIN_PLAINTEXT_PASSWORD : 0);
   string sql = string(thd->query().str).substr(0, thd->query().length);
-
+  if (var_real_type) {
+    // actual value of the variable type int
+    broadcast_req.user_ip[0] |= 1;
+  }
   // user_name存变量名，user_ip存变量值
-  FILL_BROADCAST_BASE_REQ(broadcast_req, sql.c_str(), var_name.c_str(),
-                          var_value.c_str(), ctc_instance_id, SQLCOM_SET_OPTION);
+  FILL_BROADCAST_BASE_REQ(broadcast_req, var_value.c_str(), var_name.c_str(),
+                          broadcast_req.user_ip, ctc_instance_id, SQLCOM_SET_OPTION);
   if(base_name != nullptr) {
     strncpy(broadcast_req.db_name, base_name, SMALL_RECORD_SIZE - 1);
   }
   broadcast_req.options |= options;
   int ret = tse_execute_mysql_ddl_sql(&tch, &broadcast_req, true);
   update_sess_ctx_by_tch(tch, hton, thd);
-
   return ret;
 }
 
@@ -599,7 +601,8 @@ static int tse_check_set_opt(string &sql_str, MYSQL_THD thd, bool &need_forward)
       name_str = setvar->m_var_tracker.get_var_name();
 #elif defined(FEATURE_X_FOR_MYSQL_26)
     if (setvar && setvar->var) {
-      need_forward = !setvar->var->is_readonly() && setvar->is_global_persist();
+      need_forward = !setvar->var->is_readonly() && setvar->is_global_persist()
+	      && setvar->var->check_scope(OPT_GLOBAL);
       name_str = setvar->var->name.str;
 #endif
       
@@ -625,11 +628,16 @@ static int tse_check_set_opt(string &sql_str, MYSQL_THD thd, bool &need_forward)
 
     if(IS_METADATA_NORMALIZATION() && !contain_subselect && need_forward && setvar) {
       if (setvar->check(thd) == 0) {
+	bool var_real_type = false;
+        if (setvar->value && setvar->value->result_type() == INT_RESULT) {
+          var_real_type = true;
+        }
         uint32_t options = tse_set_var_option(is_null_value, is_set_default_value, setvar);
 #ifdef FEATURE_X_FOR_MYSQL_26
-        ret = tse_set_var_meta(thd, options, setvar->base.str, name_str, val_str);
+        ret = tse_set_var_meta(thd, options, setvar->base.str, name_str, val_str, var_real_type);
 #elif defined(FEATURE_X_FOR_MYSQL_32)
-        ret = tse_set_var_meta(thd, options, setvar->m_var_tracker.get_var_name(), name_str, val_str);
+        ret = tse_set_var_meta(thd, options, setvar->m_var_tracker.get_var_name()
+		       	name_str, val_str, var_real_type);
 #endif
       } else {
         thd->clear_error();

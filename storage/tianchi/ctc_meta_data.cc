@@ -769,7 +769,7 @@ int close_tse_mdl_thd(uint32_t thd_id, uint32_t mysql_inst_id) {
 }
 
 static void ctc_get_set_var_item(THD* new_thd, sys_var* sysvar, Item** res MY_ATTRIBUTE((unused)), string& var_value,
-                                 bool is_null_value) {
+                                 bool is_null_value, bool var_is_int) {
   switch (sysvar->show_type()) {
     case SHOW_INT:
     case SHOW_LONG:
@@ -799,9 +799,14 @@ static void ctc_get_set_var_item(THD* new_thd, sys_var* sysvar, Item** res MY_AT
       break;
     case SHOW_CHAR:
     case SHOW_LEX_STRING:
-      *res = new (new_thd->mem_root)
+      if (var_is_int) {
+	*res = new (new_thd->mem_root)
+          Item_int(var_value.c_str(), (uint)var_value.length());
+      } else {
+        *res = new (new_thd->mem_root)
           Item_string(var_value.c_str(), var_value.length(),
                       &my_charset_utf8mb4_bin);
+      }
       break;
     case SHOW_CHAR_PTR:
       if (is_null_value)
@@ -843,7 +848,7 @@ static void ctc_init_thd_priv(THD** thd, Sctx_ptr<Security_context> *ctx) {
  
   const std::vector<std::string> priv_list = {
       "ENCRYPTION_KEY_ADMIN", "ROLE_ADMIN", "SYSTEM_VARIABLES_ADMIN",
-      "AUDIT_ADMIN"};
+      "AUDIT_ADMIN", "PERSIST_RO_VARIABLES_ADMIN"};
   const ulong static_priv_list = (SUPER_ACL | FILE_ACL);
  
   Security_context_factory default_factory(
@@ -869,12 +874,20 @@ int ctc_set_sys_var(tse_ddl_broadcast_request *broadcast_req) {
   sys_var *sysvar = nullptr;
   string base_name_src = broadcast_req->db_name;
   string var_name = broadcast_req->user_name;
-  string var_value = broadcast_req->user_ip;
+  // variable value is too long and exceeds the range of user_ip
+  string var_value = broadcast_req->sql_str;
   List<set_var_base> tmp_var_list;
   
   bool is_default_value = ((broadcast_req->options) & (TSE_SET_VARIABLE_TO_DEFAULT)) > 0;
   bool is_null_value = ((broadcast_req->options) & (TSE_SET_VARIABLE_TO_NULL)) > 0;
-
+  bool var_is_int = ((broadcast_req->user_ip[0] & 1) != 0);
+  enum_var_type type = OPT_GLOBAL;
+  if ((broadcast_req->options & TSE_SET_VARIABLE_PERSIST) > 0) {
+    type = OPT_PERSIST;
+  }
+  if ((broadcast_req->options & TSE_SET_VARIABLE_PERSIST_ONLY) > 0) {
+    type = OPT_PERSIST_ONLY;
+  }
   LEX_CSTRING base_name = {nullptr, 0};
   if (strlen(base_name_src.c_str())) {
     base_name = {base_name_src.c_str(), strlen(base_name_src.c_str())};
@@ -886,7 +899,7 @@ int ctc_set_sys_var(tse_ddl_broadcast_request *broadcast_req) {
     tse_log_error("[ctc_set_sys_var]:sysvar is nullptr and var_name : %s", var_name.c_str());
     return ret;
   }
-  ctc_get_set_var_item(new_thd, sysvar, &res, var_value, is_null_value);
+  ctc_get_set_var_item(new_thd, sysvar, &res, var_value, is_null_value, var_is_int);
   
   if (is_default_value) {
     if (res) {
@@ -895,16 +908,9 @@ int ctc_set_sys_var(tse_ddl_broadcast_request *broadcast_req) {
     res = nullptr;
   }
 #ifdef FEATURE_X_FOR_MYSQL_26
-  var = new (new_thd->mem_root) set_var(OPT_GLOBAL, sysvar, base_name, res);
+  var = new (new_thd->mem_root) set_var(type, sysvar, base_name, res);
   ctc_set_var_type(broadcast_req->options, var);
 #elif defined(FEATURE_X_FOR_MYSQL_32)
-  enum_var_type type = OPT_GLOBAL;
-  if ((broadcast_req->options & TSE_SET_VARIABLE_PERSIST) > 0) {
-    type = OPT_PERSIST;
-  }
-  if ((broadcast_req->options & TSE_SET_VARIABLE_PERSIST_ONLY) > 0) {
-    type = OPT_PERSIST_ONLY;
-  }
   System_variable_tracker var_tracker =
       System_variable_tracker::make_tracker(var_name.c_str());
   var = new (new_thd->mem_root) set_var(type, var_tracker, res);
@@ -912,10 +918,9 @@ int ctc_set_sys_var(tse_ddl_broadcast_request *broadcast_req) {
   tmp_var_list.push_back(var);
   ret = sql_set_variables(new_thd, &tmp_var_list, false);
   if (ret != 0) {
-    tse_log_error("ctc_set_sys_var failed in sql_set_variables, error_code:%d", ret);
-    if (ret != -1) {
-      assert(ret == 0);
-    }
+    tse_log_error("[ctc_set_sys_var]:set global opt faili;var_name : %s, var_value: %s",
+		    var_name.c_str(), var_value.c_str());
+    return ret;
   }
 
   tmp_var_list.clear();
