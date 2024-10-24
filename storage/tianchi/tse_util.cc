@@ -786,7 +786,7 @@ static inline bool is_temporary_table_being_opened(const TABLE_LIST *table)
           is_temporary_table(table));
 }
 
-int tse_lock_table_pre(MYSQL_THD thd, vector<MDL_ticket*>& ticket_list) {
+int tse_lock_table_pre(MYSQL_THD thd, vector<MDL_ticket*>& ticket_list, enum_mdl_type mdl_type) {
 #ifdef FEATURE_X_FOR_MYSQL_32
   Table_ref *tables_start = thd->lex->query_tables;
   Table_ref *tables_end = thd->lex->first_not_own_table();
@@ -803,7 +803,7 @@ int tse_lock_table_pre(MYSQL_THD thd, vector<MDL_ticket*>& ticket_list) {
     }
     MDL_request req;
     MDL_REQUEST_INIT(&req, MDL_key::TABLE, table->db, table->table_name,
-                     MDL_SHARED_NO_READ_WRITE, MDL_EXPLICIT);
+                     mdl_type, MDL_EXPLICIT);
     if (thd->mdl_context.acquire_lock(&req, 1)) {
       return 1;
     }
