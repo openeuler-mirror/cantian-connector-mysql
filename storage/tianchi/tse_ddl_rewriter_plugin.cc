@@ -736,7 +736,7 @@ static int tse_read_only_ddl(string &, MYSQL_THD thd, bool &need_forward) {
 static int tse_lock_tables_ddl(string &, MYSQL_THD thd, bool &) {
   int ret = 0;
   vector<MDL_ticket*> ticket_list;
-  int pre_lock_ret = tse_lock_table_pre(thd, ticket_list);
+  int pre_lock_ret = tse_lock_table_pre(thd, ticket_list, MDL_SHARED_NO_READ_WRITE);
   if (pre_lock_ret != 0) {
     tse_lock_table_post(thd, ticket_list);
     my_printf_error(ER_LOCK_WAIT_TIMEOUT, "[TSE_DDL_REWRITE]: LOCK TABLE FAILED", MYF(0));
@@ -1028,7 +1028,7 @@ int ddl_broadcast_and_wait(MYSQL_THD thd, string &query_str,
   
   vector<MDL_ticket*> ticket_list;
   if (sql_cmd == SQLCOM_LOCK_TABLES) {
-    int pre_lock_ret = tse_lock_table_pre(thd, ticket_list);
+    int pre_lock_ret = tse_lock_table_pre(thd, ticket_list, MDL_SHARED_NO_READ_WRITE);
     if (pre_lock_ret != 0) {
       tse_lock_table_post(thd, ticket_list);
       my_printf_error(ER_LOCK_WAIT_TIMEOUT, "[TSE_DDL_REWRITE]: LOCK TABLE FAILED", MYF(0));

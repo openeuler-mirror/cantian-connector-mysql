@@ -70,7 +70,7 @@ void tse_print_cantian_err_msg(const ddl_ctrl_t *ddl_ctrl, ct_errno_t ret);
 int tse_check_lock_instance(MYSQL_THD thd, bool &need_forward);
 int tse_check_unlock_instance(MYSQL_THD thd);
 int ctc_record_sql(MYSQL_THD thd, bool need_select_db);
-int tse_lock_table_pre(MYSQL_THD thd, vector<MDL_ticket*>& ticket_list);
+int tse_lock_table_pre(MYSQL_THD thd, vector<MDL_ticket*>& ticket_list, enum_mdl_type mdl_type);
 void tse_lock_table_post(MYSQL_THD thd, vector<MDL_ticket*>& ticket_list);
 
 #pragma GCC visibility push(default)

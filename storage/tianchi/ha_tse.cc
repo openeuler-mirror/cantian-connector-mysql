@@ -2101,7 +2101,7 @@ static bool tse_notify_alter_table(THD *thd, const MDL_key *mdl_key,
                                    ha_notification_type notification_type) {
   vector<MDL_ticket*> ticket_list;
   if (IS_METADATA_NORMALIZATION() && notification_type == HA_NOTIFY_PRE_EVENT) {
-    int pre_lock_ret = tse_lock_table_pre(thd, ticket_list);
+    int pre_lock_ret = tse_lock_table_pre(thd, ticket_list, MDL_SHARED_UPGRADABLE);
     if (pre_lock_ret != 0) {
       tse_lock_table_post(thd, ticket_list);
       my_printf_error(ER_LOCK_WAIT_TIMEOUT, "[tse_notify_alter_table]: LOCK TABLE FAILED", MYF(0));
