@@ -160,6 +160,7 @@ my $opt_valgrind_mysqltest = 0;
 # Options used when connecting to an already running server
 my %opts_extern;
 
+my $ctest_parallel;         # Number of parallel jobs to run unit tests
 my $auth_plugin;            # The path to the authentication test plugin
 my $baseport;
 my $ctest_report;           # Unit test report stored here for delayed printing
@@ -267,12 +268,12 @@ our @DEFAULT_SUITES = qw(
   test_services
   x
   component_keyring_file
+  parallel_query
 );
 
 our $DEFAULT_SUITES = join ',', @DEFAULT_SUITES;
 
 # End of list of default suites
-
 our $opt_big_test                  = 0;
 our $opt_check_testcases           = 1;
 our $opt_clean_vardir              = $ENV{'MTR_CLEAN_VARDIR'};
@@ -358,6 +359,8 @@ use constant { MYSQLTEST_PASS        => 0,
                MYSQLTEST_SKIPPED     => 62,
                MYSQLTEST_NOSKIP_PASS => 63,
                MYSQLTEST_NOSKIP_FAIL => 64 };
+
+use constant DEFAULT_WORKER_ID => 1;
 
 sub check_timeout ($) { return testcase_timeout($_[0]) / 10; }
 
@@ -624,6 +627,7 @@ sub main {
   my $tests = collect_test_cases($opt_reorder, $opt_suites,
                                  \@opt_cases,  $opt_skip_test_list);
   mark_time_used('collect');
+  my @tests_list = @{$tests};
 
   check_secondary_engine_option($tests) if $secondary_engine_support;
 
@@ -638,6 +642,18 @@ sub main {
                               template_path => "include/default_my.cnf",);
     unshift(@$tests, $tinfo);
   }
+  my $secondary_engine_suite = 0;
+  if (defined $::secondary_engine and $secondary_engine_support) {
+    foreach(@$tests) {
+      if ($_->{name} =~ /^$::secondary_engine/) {
+        $secondary_engine_suite = 1;
+        last;
+      }
+    }
+  }
+  if (!$secondary_engine_suite) {
+    $secondary_engine_support = 0;
+  }
 
   my $num_tests = @$tests;
   if ($num_tests == 0) {
@@ -646,6 +662,7 @@ sub main {
   }
 
   initialize_servers();
+  $ctest_parallel = $opt_parallel;
 
   # Limit parallel workers to number of tests to avoid idle workers
   $opt_parallel = $num_tests if $opt_parallel > $num_tests;
@@ -695,6 +712,7 @@ sub main {
 
   if ($secondary_engine_support) {
     secondary_engine_offload_count_report_init();
+    create_virtual_env($bindir);
   }
 
   if ($opt_summary_report) {
@@ -800,6 +818,20 @@ sub main {
     mtr_error("Not all tests completed");
   }
 
+  my $aggregated_shutdown_report = '';
+  my $aggregated_valgrind_report = '';
+  foreach my $t (@$completed) {
+    if ($t->{name} eq "shutdown_report") {
+      if (defined $t->{comment} && $t->{comment} ne '') {
+        $aggregated_shutdown_report .= $t->{comment};
+      }
+      if (($opt_valgrind || $opt_sanitize) && defined $t->{valgrind_comment}
+            && $t->{valgrind_comment} ne '') {
+        $aggregated_valgrind_report .= $t->{valgrind_comment};
+      }
+    }
+  }
+
   mark_time_used('init');
 
   push @$completed, run_ctest() if $opt_ctest;
@@ -810,7 +842,7 @@ sub main {
 
   # Set dummy worker id to align report with normal tests
   $tinfo->{worker} = 0 if $opt_parallel > 1;
-  if ($shutdown_report) {
+  if ($shutdown_report && $aggregated_shutdown_report ne '') {
     $tinfo->{result}   = 'MTR_RES_FAILED';
     $tinfo->{comment}  = "Mysqld reported failures at shutdown, see above";
     $tinfo->{failures} = 1;
@@ -832,7 +864,7 @@ sub main {
     $tinfo->{worker} = 0 if $opt_parallel > 1;
     if ($valgrind_reports) {
       $tinfo->{result} = 'MTR_RES_FAILED';
-      if ($opt_valgrind_mysqld) {
+      if ($aggregated_valgrind_report) {
         $tinfo->{comment} = "Valgrind reported failures at shutdown, see above";
       } else {
         $tinfo->{comment} =
@@ -3527,7 +3559,11 @@ sub check_ndbcluster_support ($) {
 
   my $ndbcluster_supported = 0;
   if ($mysqld_variables{'ndb-connectstring'}) {
-    $ndbcluster_supported = 1;
+    $exe_ndbd =
+      my_find_bin($bindir,
+                  [ "runtime_output_directory", "libexec", "sbin", "bin" ],
+                  "ndbd", NOT_REQUIRED);
+    $ndbcluster_supported = $exe_ndbd ? 1 : 0;
   }
 
   if ($opt_skip_ndbcluster && $opt_include_ndbcluster) {
@@ -4004,6 +4040,7 @@ sub default_mysqld {
                                     baseport      => 0,
                                     user          => $opt_user,
                                     password      => '',
+                                    worker        => DEFAULT_WORKER_ID,
                                   });
 
   my $mysqld = $config->group('mysqld.1') or
@@ -4794,6 +4831,8 @@ sub run_testcase ($) {
                            tmpdir              => $opt_tmpdir,
                            user                => $opt_user,
                            vardir              => $opt_vardir,
+                           worker              => $tinfo->{worker} ||
+                                                    DEFAULT_WORKER_ID
                          });
 
       # Write the new my.cnf
@@ -5162,6 +5201,10 @@ sub run_testcase ($) {
       report_failure_and_restart($tinfo);
       return 1;
     }
+
+    my $driver_ret = check_secondary_driver_crash($tinfo, $proc, $test)
+      if $tinfo->{'secondary-engine'};
+    return 1 if $driver_ret;
 
     # Check if it was a server that died
     if (grep($proc eq $_, started(all_servers()))) {

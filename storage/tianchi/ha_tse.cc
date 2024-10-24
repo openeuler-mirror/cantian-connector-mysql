@@ -104,7 +104,6 @@
 #include "sql/sql_plugin.h"
 #include "sql/sql_initialize.h"                // opt_initialize_insecure
 #include "sql/dd/upgrade/server.h"             // UPGRADE_FORCE
-#include "sql/abstract_query_plan.h"
 
 #include "sql/dd/properties.h"
 #include "sql/dd/types/partition.h"
@@ -127,8 +126,14 @@
 #include "sql/sql_backup_lock.h"
 #include "ctc_meta_data.h"
 #include "sql/mysqld.h"
-#include "sql/opt_range.h" // QUICK_SELECT_I
 #include "sql/sql_executor.h" // class QEP_TAB
+#ifdef FEATURE_X_FOR_MYSQL_32
+#include "sql/join_optimizer/access_path.h"
+#elif defined(FEATURE_X_FOR_MYSQL_26)
+#include "sql/abstract_query_plan.h"
+#include "sql/opt_range.h" // QUICK_SELECT_I
+#endif
+
 
 //------------------------------------------------------------------------------//
 //                        SYSTEM VARIABLES //
@@ -1539,7 +1544,7 @@ void broadcast_and_reload_buffer(tianchi_handler_t *tch, tse_invalidate_broadcas
   if (req->buff_len + sizeof(invalidate_obj_entry_t) > DD_BROADCAST_RECORD_LENGTH) {
     (void)tse_broadcast_mysql_dd_invalidate(tch, req);
     memset(req->buff, 0, DD_BROADCAST_RECORD_LENGTH);
-    req->buff_len = 0;
+    req->buff_len = 1;
   }
 }
 
@@ -1549,7 +1554,7 @@ static typename std::enable_if<CHECK_HAS_MEMBER_FUNC(T, invalidates), void>::typ
 {
   tse_invalidate_broadcast_request req;
   req.mysql_inst_id = ctc_instance_id;
-  req.buff_len = 0;
+  req.buff_len = 1;
   req.is_dcl = false;
   invalidate_obj_entry_t *obj = NULL;
  
@@ -1566,9 +1571,7 @@ static typename std::enable_if<CHECK_HAS_MEMBER_FUNC(T, invalidates), void>::typ
           strncpy(obj->first, invalidate_it.first.first.c_str(), SMALL_RECORD_SIZE - 1);
           strncpy(obj->second, invalidate_it.first.second.c_str(), SMALL_RECORD_SIZE - 1);
           req.buff_len += sizeof(invalidate_obj_entry_t);
-          printf("\n\n----------------------------------------------\n");
-          printf("invalidate %d, %s, %s", invalidate_it.second, invalidate_it.first.first.c_str(), invalidate_it.first.second.c_str());
-          printf("\n----------------------------------------------\n\n");
+          printf("\n[invalidate_remote_dd] add to invalidate %d, %s, %s.\n", invalidate_it.second, invalidate_it.first.first.c_str(), invalidate_it.first.second.c_str()); fflush(stdout);
           break;
       case T::OBJ_SCHEMA:
       case T::OBJ_TABLESPACE:
@@ -1580,24 +1583,18 @@ static typename std::enable_if<CHECK_HAS_MEMBER_FUNC(T, invalidates), void>::typ
           strncpy(obj->first, invalidate_it.first.first.c_str(), SMALL_RECORD_SIZE - 1);
           strncpy(obj->second, "", SMALL_RECORD_SIZE - 1);
           req.buff_len += sizeof(invalidate_obj_entry_t);
-          printf("\n\n----------------------------------------------\n");
-          printf("invalidate %d, %s, %s", invalidate_it.second, invalidate_it.first.first.c_str(), invalidate_it.first.second.c_str());
-          printf("\n----------------------------------------------\n\n");
+          printf("\n[invalidate_remote_dd] add to invalidate %d, %s, %s.\n", invalidate_it.second, invalidate_it.first.first.c_str(), invalidate_it.first.second.c_str()); fflush(stdout);
           break;
       case T::OBJ_CHARSET:
       case T::OBJ_COLLATION:
-          printf("\n\n----------------------------------------------\n");
-          printf("invalidate %d, %s, %s", invalidate_it.second, invalidate_it.first.first.c_str(), invalidate_it.first.second.c_str());
-          printf("\n----------------------------------------------\n\n");
+          printf("\n[invalidate_remote_dd] add to invalidate %d, %s, %s.\n", invalidate_it.second, invalidate_it.first.first.c_str(), invalidate_it.first.second.c_str()); fflush(stdout);
           break;
       default:
           break;
     }
   }
-
-  if (req.buff_len > 0) {
-    (void)tse_broadcast_mysql_dd_invalidate(tch, &req);
-  }
+  req.buff[0] = '1';
+  (void)tse_broadcast_mysql_dd_invalidate(tch, &req);
 }
 
 template <typename T>
@@ -2267,7 +2264,6 @@ int ha_tse::prefetch_and_fill_record_buffer(uchar *buf, tse_prefetch_fn prefetch
   
   return 0;
 }
-
 
 void ha_tse::fill_record_to_rec_buffer() {
   m_rec_buf->clear();
@@ -3637,13 +3633,18 @@ EXTER_ATTACK int ha_tse::index_read(uchar *buf, const uchar *key, uint key_len, 
   index_key_info.need_init = !m_tch.cursor_valid;
   int len = strlen(table->key_info[active_index].name);
   memcpy(index_key_info.index_name, table->key_info[active_index].name, len + 1);
-
   index_key_info.index_skip_scan = false;
+#ifdef FEATURE_X_FOR_MYSQL_32
+  if (table->reginfo.qep_tab && table->reginfo.qep_tab->range_scan() &&
+      table->reginfo.qep_tab->range_scan()->type == AccessPath::INDEX_SKIP_SCAN) {
+    index_key_info.index_skip_scan = true;
+  }
+#elif defined(FEATURE_X_FOR_MYSQL_26)
   if (table->reginfo.qep_tab && table->reginfo.qep_tab->quick_optim() &&
       table->reginfo.qep_tab->quick_optim()->get_type() == QUICK_SELECT_I::QS_TYPE_SKIP_SCAN) {
     index_key_info.index_skip_scan = true;
   }
-
+#endif
   int ret = tse_fill_index_key_info(table, key, key_len, end_range, &index_key_info, index_key_info.index_skip_scan);
   if (ret != CT_SUCCESS) {
       tse_log_error("ha_tse::index_read: fill index key info failed, ret(%d).", ret);
@@ -4807,14 +4808,10 @@ static int tse_init_func(void *p) {
   tse_hton->dict_cache_reset = tse_dict_cache_reset;
   tse_hton->dict_cache_reset_tables_and_tablespaces = tse_dict_cache_reset_tables_and_tablespaces;
   tse_hton->is_dict_readonly = tse_dict_readonly;
+#ifdef FEATURE_X_FOR_MYSQL_32
+  tse_hton->push_to_engine = tse_push_to_engine;
+#endif
   set_hton_members(tse_hton);
-
-  if (strcmp(MYSQL_SERVER_VERSION, "8.0.26") != 0) {
-    tse_log_error("[CTC_INIT]:server version mismatch, expected v8.0.26, but current v%s, CTC plugin register failed!", 
-                  MYSQL_SERVER_VERSION);
-    return HA_ERR_INITIALIZATION;
-  }
-
   int ret = tse_init();
   if (ret != 0) {
     tse_log_error("[CTC_INIT]: ctc storage engine plugin init failed:%d", ret);
@@ -5496,6 +5493,9 @@ void free_columns_cbo_stats(tse_cbo_stats_column_t *tse_cbo_stats_columns, bool 
   for (uint j = 0; j < table->s->fields; j++) {
     Field *field = table->field[j];
     uint32_t ct_col_id = j - acc_gcol_num[j];
+    if (field->is_virtual_gcol()) {
+      continue;
+    }
     if (field->real_type() == MYSQL_TYPE_VARCHAR || field->real_type() == MYSQL_TYPE_VAR_STRING ||
         field->real_type() == MYSQL_TYPE_STRING) {
       if (*is_str_first_addr) {
@@ -5544,8 +5544,11 @@ void ha_tse::free_cbo_stats()
           sum of boolean terms which could not be pushed. A nullptr
           is returned if entire condition was supported.
 */
-const Item *ha_tse::cond_push(const Item *cond, bool other_tbls_ok MY_ATTRIBUTE((unused)))
-{
+#ifdef FEATURE_X_FOR_MYSQL_32
+const Item *ha_tse::cond_push(const Item *cond) {
+#elif defined(FEATURE_X_FOR_MYSQL_26)
+const Item *ha_tse::cond_push(const Item *cond, bool other_tbls_ok MY_ATTRIBUTE((unused))) {
+#endif
   assert(m_cond == nullptr);
   assert(pushed_cond == nullptr);
   assert(cond != nullptr);
@@ -5613,6 +5616,7 @@ const Item *ha_tse::cond_push(const Item *cond, bool other_tbls_ok MY_ATTRIBUTE(
  * @param table_aqp The specific table in the join plan to examine.
  * @return Possible error code, '0' if no errors.
  */
+#ifdef FEATURE_X_FOR_MYSQL_26
 int ha_tse::engine_push(AQP::Table_access *table_aqp)
 {
   DBUG_TRACE;
@@ -5665,3 +5669,179 @@ int ha_tse::engine_push(AQP::Table_access *table_aqp)
   table_aqp->set_condition(const_cast<Item *>(m_remainder_conds));
   return 0;
 }
+#endif
+
+
+#ifdef FEATURE_X_FOR_MYSQL_32
+TABLE *get_base_table(const AccessPath *path) {
+  switch (path->type) {
+    // Basic access paths (those with no children, at least nominally).
+    case AccessPath::TABLE_SCAN:
+      return path->table_scan().table;
+    case AccessPath::INDEX_SCAN:
+      return path->index_scan().table;
+    case AccessPath::REF:
+      return path->ref().table;
+    case AccessPath::REF_OR_NULL:
+      return path->ref_or_null().table;
+    case AccessPath::EQ_REF:
+      return path->eq_ref().table;
+    case AccessPath::PUSHED_JOIN_REF:
+      return path->pushed_join_ref().table;
+    case AccessPath::FULL_TEXT_SEARCH:
+      return path->full_text_search().table;
+    case AccessPath::CONST_TABLE:
+      return path->const_table().table;
+    case AccessPath::MRR:
+      return path->mrr().table;
+    case AccessPath::FOLLOW_TAIL:
+      return path->follow_tail().table;
+    case AccessPath::INDEX_RANGE_SCAN:
+      return path->index_range_scan().used_key_part[0].field->table;
+    case AccessPath::INDEX_MERGE:
+      return path->index_merge().table;
+    case AccessPath::ROWID_INTERSECTION:
+      return path->rowid_intersection().table;
+    case AccessPath::ROWID_UNION:
+      return path->rowid_union().table;
+    case AccessPath::INDEX_SKIP_SCAN:
+      return path->index_skip_scan().table;
+    case AccessPath::GROUP_INDEX_SKIP_SCAN:
+      return path->group_index_skip_scan().table;
+    case AccessPath::DYNAMIC_INDEX_RANGE_SCAN:
+      return path->dynamic_index_range_scan().table;
+    default:
+      return nullptr;
+  }
+}
+
+TABLE *ctc_get_basic_table(const AccessPath *path) {
+  switch (path->type) {
+    case AccessPath::TABLE_SCAN:
+    case AccessPath::INDEX_SCAN:
+    case AccessPath::REF:
+    case AccessPath::REF_OR_NULL:
+    case AccessPath::EQ_REF:
+    case AccessPath::PUSHED_JOIN_REF:
+    case AccessPath::FULL_TEXT_SEARCH:
+    case AccessPath::CONST_TABLE:
+    case AccessPath::MRR:
+    case AccessPath::FOLLOW_TAIL:
+    case AccessPath::INDEX_RANGE_SCAN:
+    case AccessPath::DYNAMIC_INDEX_RANGE_SCAN:
+    case AccessPath::INDEX_MERGE:
+      return get_base_table(path);
+    case AccessPath::FILTER:
+      return ctc_get_basic_table(path->filter().child);
+    case AccessPath::TABLE_VALUE_CONSTRUCTOR:
+    case AccessPath::FAKE_SINGLE_ROW:
+    case AccessPath::ZERO_ROWS:
+    case AccessPath::ZERO_ROWS_AGGREGATED:
+    case AccessPath::MATERIALIZED_TABLE_FUNCTION:
+    case AccessPath::UNQUALIFIED_COUNT:
+    case AccessPath::NESTED_LOOP_JOIN:
+    case AccessPath::BKA_JOIN:
+    case AccessPath::HASH_JOIN:
+    case AccessPath::NESTED_LOOP_SEMIJOIN_WITH_DUPLICATE_REMOVAL:
+    case AccessPath::SORT:
+    case AccessPath::LIMIT_OFFSET:
+    case AccessPath::AGGREGATE:
+    case AccessPath::TEMPTABLE_AGGREGATE:
+    case AccessPath::STREAM:
+    case AccessPath::MATERIALIZE:
+    case AccessPath::MATERIALIZE_INFORMATION_SCHEMA_TABLE:
+    case AccessPath::APPEND:
+    case AccessPath::WINDOW:
+    case AccessPath::WEEDOUT:
+    case AccessPath::REMOVE_DUPLICATES_ON_INDEX:
+    case AccessPath::REMOVE_DUPLICATES:
+    case AccessPath::ALTERNATIVE:
+    case AccessPath::CACHE_INVALIDATOR:
+    case AccessPath::DELETE_ROWS:
+    case AccessPath::UPDATE_ROWS:
+    case AccessPath::ROWID_INTERSECTION:
+    case AccessPath::ROWID_UNION:
+    case AccessPath::INDEX_SKIP_SCAN:
+    case AccessPath::GROUP_INDEX_SKIP_SCAN:
+      break;
+    default:
+      break;
+  }
+  return nullptr;
+}
+
+/**
+ * Try to find parts of queries which can be pushed down to
+ * storage engines for faster execution. This is typically
+ * conditions which can filter out result rows on the SE,
+ * and/or entire joins between tables.
+ *
+ * @param  thd         Thread context
+ * @param  root_path   The AccessPath for the entire query.
+ * @param  join        The JOIN struct built for the main query.
+ *
+ * @return Possible ret code, '0' if no errors.
+ */
+static int tse_push_to_engine(THD *thd, AccessPath *root_path, JOIN *) {
+  DBUG_TRACE;
+
+  if (!thd->optimizer_switch_flag(OPTIMIZER_SWITCH_ENGINE_CONDITION_PUSHDOWN)) {
+    return 0;
+  }
+  
+  if (thd->lex->all_query_blocks_list && thd->lex->all_query_blocks_list->is_recursive()) {
+    return 0;
+  }
+
+  TABLE *table = ctc_get_basic_table(root_path);
+  if (table == nullptr) {
+    return 0;
+  }
+  
+  const Item *cond = root_path->type == AccessPath::FILTER ? root_path->filter().condition : nullptr;
+  if (cond == nullptr) {
+        return 0;
+  }
+
+  ha_tse *const tse_handler = dynamic_cast<ha_tse *>(table->file);
+  if (tse_handler == nullptr) {
+    tse_log_warning("[tse_push_to_engine] tse_handler is nullptr.");
+    return 0;
+  }
+
+  tse_handler->prep_cond_push(cond);
+  if (tse_handler->m_pushed_conds == nullptr) {
+    return 0;
+  }
+
+  tianchi_handler_t *tch = tse_handler->get_m_tch();
+  tse_handler->m_cond = (tse_conds *)tse_alloc_buf(tch, sizeof(tse_conds));
+  if (tse_handler->m_cond == nullptr) {
+    tse_log_warning("[tse_push_to_engine] alloc mem failed, m_cond size(%lu), pushdown cond is null.",
+                   sizeof(tse_conds));
+    return 0;
+  }
+
+  bool no_backslash = false;
+  if (thd->variables.sql_mode & MODE_NO_BACKSLASH_ESCAPES) {
+    no_backslash = true;
+  }
+  Field **field = table->field;
+  if (tse_fill_conds(*tch, tse_handler->m_pushed_conds, field, tse_handler->m_cond, no_backslash) != CT_SUCCESS) {
+    free_m_cond(*tch, &tse_handler->m_cond);
+    tse_handler->m_pushed_conds = nullptr;
+    tse_handler->m_remainder_conds = nullptr;
+    tse_log_warning("[tse_push_to_engine] tse_fill_conds failed.");
+    return 0;
+  }
+
+  tse_handler->pushed_cond = tse_handler->m_pushed_conds;
+  tse_handler->m_remainder_conds = const_cast<Item *>(cond);
+
+  return 0;
+}
+
+const handlerton *ha_tse::hton_supporting_engine_pushdown() {
+  return tse_hton;
+}
+#endif

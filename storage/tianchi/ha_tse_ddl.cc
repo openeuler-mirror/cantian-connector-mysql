@@ -2396,7 +2396,11 @@ static int fill_tse_alter_create_list(THD *thd, TABLE *altered_table, Alter_inpl
 static void fill_sys_cur_timestamp(THD *thd, TcDb__TseDDLAlterTableDef *req) {
   date_detail_t date_detail;
   MYSQL_TIME ltime;
+#ifdef FEATURE_X_FOR_MYSQL_32
+  my_timeval tm = thd->query_start_timeval_trunc(0);
+#elif defined(FEATURE_X_FOR_MYSQL_26)
   timeval tm = thd->query_start_timeval_trunc(0);
+#endif
   my_tz_UTC->gmt_sec_to_TIME(&ltime, tm);
   assign_mysql_date_detail(MYSQL_TYPE_TIMESTAMP, ltime, &date_detail);
   cm_encode_date(&date_detail, &req->systimestamp);

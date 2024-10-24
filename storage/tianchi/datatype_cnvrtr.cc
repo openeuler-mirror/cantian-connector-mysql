@@ -27,7 +27,11 @@
 #include "tse_log.h"
 #include "decimal_convert.h"
 #include "tse_srv.h"
+#ifdef FEATURE_X_FOR_MYSQL_26
 #include "sql/json_dom.h"
+#elif defined(FEATURE_X_FOR_MYSQL_32)
+#include "sql-common/json_dom.h"
+#endif
 
 #define LOWER_LENGTH_BYTES  (uint8)0x01 // Bytes that are used to represent the length of variable length data
 
@@ -876,11 +880,19 @@ static void decode_mysql_datetime_type(MYSQL_TIME& ltime, const uchar *mysql_ptr
 static void decode_mysql_timestamp_type(MYSQL_TIME& ltime, const uchar *mysql_ptr, Field *mysql_field)
 {
   uint dec = mysql_field->decimals();
+#ifdef FEATURE_X_FOR_MYSQL_32
+  struct my_timeval tm;
+  my_timestamp_from_binary(&tm, mysql_ptr, dec);
+  if (tm.m_tv_sec == 0) {
+    return;
+  }
+#elif defined(FEATURE_X_FOR_MYSQL_26)
   struct timeval tm;
   my_timestamp_from_binary(&tm, mysql_ptr, dec);
   if (tm.tv_sec == 0) {
     return;
   }
+#endif
   my_tz_UTC->gmt_sec_to_TIME(&ltime, tm);
 }
 
