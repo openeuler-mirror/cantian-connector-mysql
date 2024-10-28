@@ -1,5 +1,5 @@
 diff --git a/sql/auth/acl_table_user.cc b/sql/auth/acl_table_user.cc
-index f9846bd..fda3f0e 100644
+index f9846bd5..fda3f0ef 100644
 --- a/sql/auth/acl_table_user.cc
 +++ b/sql/auth/acl_table_user.cc
 @@ -1393,9 +1393,14 @@ void Acl_table_user_reader::read_account_name(ACL_USER &user) {
@@ -21,7 +21,7 @@ index f9846bd..fda3f0e 100644
      LogErr(ERROR_LEVEL, ER_AUTHCACHE_USER_TABLE_DODGY);
      return true;
 diff --git a/sql/auth/dynamic_privilege_table.cc b/sql/auth/dynamic_privilege_table.cc
-index a4216d0..f8c4c1e 100644
+index a4216d06..f8c4c1ef 100644
 --- a/sql/auth/dynamic_privilege_table.cc
 +++ b/sql/auth/dynamic_privilege_table.cc
 @@ -228,7 +228,7 @@ bool modify_dynamic_privileges_in_table(THD *thd, TABLE *table,
@@ -34,7 +34,7 @@ index a4216d0..f8c4c1e 100644
      DBUG_PRINT("note",
                 ("Insert dynamic privilege %s for `%s`@`%s` %s", privilege.str,
 diff --git a/sql/auth/sql_user_table.cc b/sql/auth/sql_user_table.cc
-index 112d255..9c166bd 100644
+index 112d255a..9c166bd0 100644
 --- a/sql/auth/sql_user_table.cc
 +++ b/sql/auth/sql_user_table.cc
 @@ -1060,7 +1060,7 @@ int replace_proxies_priv_table(THD *thd, TABLE *table, const LEX_USER *user,
@@ -47,7 +47,7 @@ index 112d255..9c166bd 100644
             error != HA_ERR_LOCK_DEADLOCK);
      assert(table->file->ht->db_type == DB_TYPE_NDBCLUSTER ||
 diff --git a/sql/bootstrap.cc b/sql/bootstrap.cc
-index 785fa78..fb5be6f 100644
+index 785fa782..fb5be6fc 100644
 --- a/sql/bootstrap.cc
 +++ b/sql/bootstrap.cc
 @@ -198,6 +198,7 @@ static int process_iterator(THD *thd, Command_iterator *it,
@@ -59,7 +59,7 @@ index 785fa78..fb5be6f 100644
      if (rc == READ_BOOTSTRAP_EOF) {
        break;
 diff --git a/sql/composite_iterators.cc b/sql/composite_iterators.cc
-index 43c59a1..4f6b8d4 100644
+index 43c59a11..4f6b8d4e 100644
 --- a/sql/composite_iterators.cc
 +++ b/sql/composite_iterators.cc
 @@ -859,7 +859,9 @@ bool MaterializeIterator::MaterializeQueryBlock(const QueryBlock &query_block,
@@ -74,7 +74,7 @@ index 43c59a1..4f6b8d4 100644
        }
      } else {
 diff --git a/sql/dd/cache/dictionary_client.h b/sql/dd/cache/dictionary_client.h
-index dbd6c18..4666753 100644
+index dbd6c18e..46667539 100644
 --- a/sql/dd/cache/dictionary_client.h
 +++ b/sql/dd/cache/dictionary_client.h
 @@ -471,6 +471,9 @@ class Dictionary_client {
@@ -110,7 +110,7 @@ index dbd6c18..4666753 100644
    /**
      Remove table statistics entries from mysql.table_stats and
 diff --git a/sql/dd/dd_resource_group.cc b/sql/dd/dd_resource_group.cc
-index ab99cee..8a842d4 100644
+index ab99ceec..8a842d49 100644
 --- a/sql/dd/dd_resource_group.cc
 +++ b/sql/dd/dd_resource_group.cc
 @@ -112,6 +112,7 @@ bool create_resource_group(THD *thd,
@@ -122,7 +122,7 @@ index ab99cee..8a842d4 100644
  
    dd::cache::Dictionary_client::Auto_releaser releaser(thd->dd_client());
 diff --git a/sql/dd/dd_table.cc b/sql/dd/dd_table.cc
-index 7bf60f4..7be1743 100644
+index 7bf60f42..7be17433 100644
 --- a/sql/dd/dd_table.cc
 +++ b/sql/dd/dd_table.cc
 @@ -2322,7 +2322,7 @@ static std::unique_ptr<dd::Table> create_dd_system_table(
@@ -135,7 +135,7 @@ index 7bf60f4..7be1743 100644
    ddse->dict_register_dd_table_id(tab_obj->se_private_id());
  
 diff --git a/sql/dd/dd_tablespace.cc b/sql/dd/dd_tablespace.cc
-index 2c97cb3..0d5b05b 100644
+index 2c97cb35..0d5b05b8 100644
 --- a/sql/dd/dd_tablespace.cc
 +++ b/sql/dd/dd_tablespace.cc
 @@ -53,6 +53,7 @@
@@ -155,7 +155,7 @@ index 2c97cb3..0d5b05b 100644
      // If this is the DD tablespace id, then we use its name.
      *name = MYSQL_TABLESPACE_NAME.str;
 diff --git a/sql/dd/dd_utility.cc b/sql/dd/dd_utility.cc
-index 7f9b9df..1d5575d 100644
+index 7f9b9dfa..1d5575d8 100644
 --- a/sql/dd/dd_utility.cc
 +++ b/sql/dd/dd_utility.cc
 @@ -62,7 +62,7 @@ bool check_if_server_ddse_readonly(THD *thd, const char *schema_name_abbrev) {
@@ -168,7 +168,7 @@ index 7f9b9df..1d5575d 100644
      LogErr(WARNING_LEVEL, ER_SKIP_UPDATING_METADATA_IN_SE_RO_MODE,
             schema_name_abbrev);
 diff --git a/sql/dd/impl/bootstrap/bootstrapper.cc b/sql/dd/impl/bootstrap/bootstrapper.cc
-index d08718a..e7d00b2 100644
+index d08718a1..e7d00b24 100644
 --- a/sql/dd/impl/bootstrap/bootstrapper.cc
 +++ b/sql/dd/impl/bootstrap/bootstrapper.cc
 @@ -81,7 +81,7 @@ namespace {
@@ -279,7 +279,7 @@ index d08718a..e7d00b2 100644
      if (ddse->dict_set_server_version == nullptr ||
          ddse->dict_set_server_version()) {
 diff --git a/sql/dd/impl/cache/dictionary_client.cc b/sql/dd/impl/cache/dictionary_client.cc
-index 8063806..c649fa5 100644
+index 80638063..c649fa53 100644
 --- a/sql/dd/impl/cache/dictionary_client.cc
 +++ b/sql/dd/impl/cache/dictionary_client.cc
 @@ -93,6 +93,7 @@
@@ -638,7 +638,7 @@ index 8063806..c649fa5 100644
  /**
   @endcond
 diff --git a/sql/dd/impl/dictionary_impl.cc b/sql/dd/impl/dictionary_impl.cc
-index 7115491..790403f 100644
+index 71154915..790403ff 100644
 --- a/sql/dd/impl/dictionary_impl.cc
 +++ b/sql/dd/impl/dictionary_impl.cc
 @@ -693,7 +693,7 @@ bool drop_native_table(THD *thd, const char *schema_name,
@@ -651,7 +651,7 @@ index 7115491..790403f 100644
    // Acquire transactional metadata locks and evict all cached objects.
    if (dd::cache::Shared_dictionary_cache::reset_tables_and_tablespaces(thd.thd))
 diff --git a/sql/dd/impl/sdi.cc b/sql/dd/impl/sdi.cc
-index ef5b920..276a34f 100644
+index ef5b920d..276a34f7 100644
 --- a/sql/dd/impl/sdi.cc
 +++ b/sql/dd/impl/sdi.cc
 @@ -608,6 +608,7 @@ bool store(THD *thd, const Table *tp) {
@@ -672,7 +672,7 @@ index ef5b920..276a34f 100644
      return false;  // SDI api not supported
    }
 diff --git a/sql/dd/impl/tables/table_partitions.cc b/sql/dd/impl/tables/table_partitions.cc
-index da7a46e..1555449 100644
+index da7a46e6..1555449e 100644
 --- a/sql/dd/impl/tables/table_partitions.cc
 +++ b/sql/dd/impl/tables/table_partitions.cc
 @@ -88,7 +88,7 @@ Table_partitions::Table_partitions() {
@@ -685,7 +685,7 @@ index da7a46e..1555449 100644
    m_target_def.add_index(INDEX_K_TABLESPACE_ID, "INDEX_K_TABLESPACE_ID",
                           "KEY(tablespace_id)");
 diff --git a/sql/dd/impl/tables/tables.cc b/sql/dd/impl/tables/tables.cc
-index 77372a2..4ea7850 100644
+index 77372a27..4ea78508 100644
 --- a/sql/dd/impl/tables/tables.cc
 +++ b/sql/dd/impl/tables/tables.cc
 @@ -168,7 +168,8 @@ Tables::Tables() {
@@ -699,7 +699,7 @@ index 77372a2..4ea7850 100644
    m_target_def.add_index(INDEX_K_COLLATION_ID, "INDEX_K_COLLATION_ID",
                           "KEY(collation_id)");
 diff --git a/sql/dd/impl/transaction_impl.h b/sql/dd/impl/transaction_impl.h
-index f21b82a..86f9e59 100644
+index f21b82ab..86f9e592 100644
 --- a/sql/dd/impl/transaction_impl.h
 +++ b/sql/dd/impl/transaction_impl.h
 @@ -133,9 +133,13 @@ class Transaction_ro {
@@ -718,7 +718,7 @@ index f21b82a..86f9e59 100644
    Open_dictionary_tables_ctx otx;
  
 diff --git a/sql/dd/impl/types/object_table_impl.cc b/sql/dd/impl/types/object_table_impl.cc
-index 4b2b7ba..fde262d 100644
+index 4b2b7bab..fde262df 100644
 --- a/sql/dd/impl/types/object_table_impl.cc
 +++ b/sql/dd/impl/types/object_table_impl.cc
 @@ -37,7 +37,7 @@ Object_table_impl::Object_table_impl()
@@ -731,7 +731,7 @@ index 4b2b7ba..fde262d 100644
                            "DEFAULT CHARSET=utf8");
    m_target_def.add_option(static_cast<int>(Common_option::COLLATION),
 diff --git a/sql/dd/impl/types/tablespace_impl.cc b/sql/dd/impl/types/tablespace_impl.cc
-index 8880468..9cd1727 100644
+index 88804681..9cd17272 100644
 --- a/sql/dd/impl/types/tablespace_impl.cc
 +++ b/sql/dd/impl/types/tablespace_impl.cc
 @@ -179,14 +179,14 @@ bool Tablespace_impl::restore_attributes(const Raw_record &r) {
@@ -758,7 +758,7 @@ index 8880468..9cd1727 100644
  
    // Store engine_attributes and secondary_engine_attributes only if
 diff --git a/sql/dd/impl/upgrade/dd.cc b/sql/dd/impl/upgrade/dd.cc
-index 065400f..da58b04 100644
+index 065400f1..da58b045 100644
 --- a/sql/dd/impl/upgrade/dd.cc
 +++ b/sql/dd/impl/upgrade/dd.cc
 @@ -1155,7 +1155,7 @@ bool upgrade_tables(THD *thd) {
@@ -771,7 +771,7 @@ index 065400f..da58b04 100644
  
    for (System_tables::Const_iterator it =
 diff --git a/sql/dd/impl/upgrade/server.cc b/sql/dd/impl/upgrade/server.cc
-index 1e3ce91..4812569 100644
+index 1e3ce91c..48125691 100644
 --- a/sql/dd/impl/upgrade/server.cc
 +++ b/sql/dd/impl/upgrade/server.cc
 @@ -518,12 +518,12 @@ static void create_upgrade_file() {
@@ -791,7 +791,7 @@ index 1e3ce91..4812569 100644
        return true;
      }
 diff --git a/sql/dd/info_schema/metadata.cc b/sql/dd/info_schema/metadata.cc
-index 4c9a38f..3f1488b 100644
+index 4c9a38fa..3f1488bf 100644
 --- a/sql/dd/info_schema/metadata.cc
 +++ b/sql/dd/info_schema/metadata.cc
 @@ -629,7 +629,19 @@ bool store_server_I_S_metadata(THD *thd) {
@@ -816,7 +816,7 @@ index 4c9a38f..3f1488b 100644
  
  /*
 diff --git a/sql/dd/info_schema/table_stats.cc b/sql/dd/info_schema/table_stats.cc
-index cc1041d..b69b7b7 100644
+index cc1041d6..b69b7b7a 100644
 --- a/sql/dd/info_schema/table_stats.cc
 +++ b/sql/dd/info_schema/table_stats.cc
 @@ -69,7 +69,7 @@ namespace {
@@ -829,7 +829,7 @@ index cc1041d..b69b7b7 100644
  
    return (thd->variables.information_schema_stats_expiry &&
 diff --git a/sql/dd/upgrade_57/upgrade.cc b/sql/dd/upgrade_57/upgrade.cc
-index ebda371..6310acc 100644
+index ebda371e..6310acc5 100644
 --- a/sql/dd/upgrade_57/upgrade.cc
 +++ b/sql/dd/upgrade_57/upgrade.cc
 @@ -845,12 +845,13 @@ bool do_pre_checks_and_initialize_dd(THD *thd) {
@@ -866,7 +866,7 @@ index ebda371..6310acc 100644
    // Read stage of upgrade from the file.
    Upgrade_status upgrade_status;
 diff --git a/sql/handler.cc b/sql/handler.cc
-index 217a0c1..fe900eb 100644
+index 217a0c19..fe900ebd 100644
 --- a/sql/handler.cc
 +++ b/sql/handler.cc
 @@ -769,11 +769,13 @@ int ha_initialize_handlerton(st_plugin_int *plugin) {
@@ -986,7 +986,7 @@ index 217a0c1..fe900eb 100644
    if (unlikely(error)) return error;
  
 diff --git a/sql/handler.h b/sql/handler.h
-index 0530ca1..bab9b08 100644
+index 0530ca15..bab9b083 100644
 --- a/sql/handler.h
 +++ b/sql/handler.h
 @@ -662,7 +662,8 @@ enum legacy_db_type {
@@ -1108,7 +1108,7 @@ index 0530ca1..bab9b08 100644
                           size_t query_length, const char *db,
                           const char *table_name);
 diff --git a/sql/log.cc b/sql/log.cc
-index 4da945a..fc6f9c5 100644
+index 4da945ac..fc6f9c5b 100644
 --- a/sql/log.cc
 +++ b/sql/log.cc
 @@ -906,11 +906,7 @@ bool Log_to_csv_event_handler::log_general(
@@ -1158,7 +1158,7 @@ index 4da945a..fc6f9c5 100644
      goto err;
    }
 diff --git a/sql/mdl.cc b/sql/mdl.cc
-index da9ff9e..410b686 100644
+index da9ff9ed..410b686d 100644
 --- a/sql/mdl.cc
 +++ b/sql/mdl.cc
 @@ -1654,6 +1654,25 @@ bool MDL_lock::needs_hton_notification(
@@ -1374,7 +1374,7 @@ index da9ff9e..410b686 100644
    Release all explicit locks in the context which correspond to the
    same name/object as this lock request.
 diff --git a/sql/mdl.h b/sql/mdl.h
-index f1f49f0..0127906 100644
+index f1f49f06..0127906c 100644
 --- a/sql/mdl.h
 +++ b/sql/mdl.h
 @@ -1444,6 +1444,14 @@ class MDL_context {
@@ -1393,7 +1393,7 @@ index f1f49f0..0127906 100644
    bool owns_equal_or_stronger_lock(const MDL_key *mdl_key,
                                     enum_mdl_type mdl_type);
 diff --git a/sql/mysqld.cc b/sql/mysqld.cc
-index 50b76e2..080fdf9 100644
+index 50b76e2f..080fdf93 100644
 --- a/sql/mysqld.cc
 +++ b/sql/mysqld.cc
 @@ -1216,6 +1216,7 @@ handlerton *heap_hton;
@@ -1431,7 +1431,7 @@ index 50b76e2..080fdf9 100644
    /*
      Set opt_super_readonly here because if opt_super_readonly is set
 diff --git a/sql/mysqld.h b/sql/mysqld.h
-index 0d7d41c..b3f86eb 100644
+index 0d7d41c4..b3f86eb6 100644
 --- a/sql/mysqld.h
 +++ b/sql/mysqld.h
 @@ -358,6 +358,7 @@ extern handlerton *myisam_hton;
@@ -1443,7 +1443,7 @@ index 0d7d41c..b3f86eb 100644
  extern ulong opt_server_id_mask;
  extern const char *load_default_groups[];
 diff --git a/sql/mysqld_thd_manager.cc b/sql/mysqld_thd_manager.cc
-index 902fe2b..2fad578 100644
+index 902fe2b2..2fad578e 100644
 --- a/sql/mysqld_thd_manager.cc
 +++ b/sql/mysqld_thd_manager.cc
 @@ -48,6 +48,7 @@
@@ -1467,7 +1467,7 @@ index 902fe2b..2fad578 100644
    } while (!thread_ids.insert_unique(new_id).second);
    return new_id;
 diff --git a/sql/resourcegroups/resource_group_mgr.cc b/sql/resourcegroups/resource_group_mgr.cc
-index a90b15d..309763d 100644
+index a90b15d8..309763d5 100644
 --- a/sql/resourcegroups/resource_group_mgr.cc
 +++ b/sql/resourcegroups/resource_group_mgr.cc
 @@ -119,7 +119,7 @@ Resource_group_mgr *Resource_group_mgr::instance() {
@@ -1507,7 +1507,7 @@ index a90b15d..309763d 100644
  }
  
 diff --git a/sql/rpl_gtid_persist.cc b/sql/rpl_gtid_persist.cc
-index e16b39c..efdfba2 100644
+index e16b39c4..efdfba2c 100644
 --- a/sql/rpl_gtid_persist.cc
 +++ b/sql/rpl_gtid_persist.cc
 @@ -771,6 +771,8 @@ static void *compress_gtid_table(void *p_thd) {
@@ -1520,7 +1520,7 @@ index e16b39c..efdfba2 100644
        /* Compressing the gtid_executed table. */
        if (gtid_state->compress(thd)) {
 diff --git a/sql/sql_class.cc b/sql/sql_class.cc
-index c171f0b..a34904d 100644
+index c171f0bb..a34904db 100644
 --- a/sql/sql_class.cc
 +++ b/sql/sql_class.cc
 @@ -2890,6 +2890,17 @@ void THD::update_slow_query_status() {
@@ -1542,7 +1542,7 @@ index c171f0b..a34904d 100644
    Initialize the transactional ddl context when executing CREATE TABLE ...
    SELECT command with engine which supports atomic DDL.
 diff --git a/sql/sql_class.h b/sql/sql_class.h
-index 9f68530..c7004b4 100644
+index 9f68530b..c7004b47 100644
 --- a/sql/sql_class.h
 +++ b/sql/sql_class.h
 @@ -841,6 +841,7 @@ class THD : public MDL_context_owner,
@@ -1584,7 +1584,7 @@ index 9f68530..c7004b4 100644
  
  /**
 diff --git a/sql/sql_db.cc b/sql/sql_db.cc
-index 662f522..975e017 100644
+index 662f5222..68e3ddd2 100644
 --- a/sql/sql_db.cc
 +++ b/sql/sql_db.cc
 @@ -120,6 +120,7 @@ static bool rm_dir_w_symlink(const char *org_path, bool send_error);
@@ -1721,8 +1721,26 @@ index 662f522..975e017 100644
        error = (error || sp_drop_db_routines(thd, *schema));
      }
      thd->pop_internal_handler();
+@@ -850,6 +864,8 @@ bool mysql_rm_db(THD *thd, const LEX_CSTRING &db, bool if_exists) {
+     */
+     if (!error) error = write_db_cmd_to_binlog(thd, db.str, true);
+ 
++    fk_invalidator.invalidate(thd);
++
+     if (!error) error = trans_commit_stmt(thd) || trans_commit(thd);
+ 
+     /*
+@@ -874,8 +890,6 @@ bool mysql_rm_db(THD *thd, const LEX_CSTRING &db, bool if_exists) {
+     */
+     for (handlerton *hton : post_ddl_htons) hton->post_ddl(thd);
+ 
+-    fk_invalidator.invalidate(thd);
+-
+     /*
+       Now we can try removing database directory.
+ 
 diff --git a/sql/sql_insert.cc b/sql/sql_insert.cc
-index 70d9c1f..02e6bc6 100644
+index 70d9c1ff..b98e6ecb 100644
 --- a/sql/sql_insert.cc
 +++ b/sql/sql_insert.cc
 @@ -2681,8 +2681,8 @@ static TABLE *create_table_from_items(THD *thd, HA_CREATE_INFO *create_info,
@@ -1736,8 +1754,25 @@ index 70d9c1f..02e6bc6 100644
    tmp_table.set_not_started();
  
    if (!thd->variables.explicit_defaults_for_timestamp)
+@@ -3188,6 +3188,7 @@ bool Query_result_create::send_eof(THD *thd) {
+     bool commit_error = false;
+ 
+     DBUG_EXECUTE_IF("crash_after_create_select_insert", DBUG_SUICIDE(););
++    fk_invalidator.invalidate(thd);
+     /*
+       Do an implicit commit at end of statement for non-temporary tables.
+       This can fail in which case rollback will be done automatically.
+@@ -3222,8 +3223,6 @@ bool Query_result_create::send_eof(THD *thd) {
+     }
+ 
+     if (m_post_ddl_ht) m_post_ddl_ht->post_ddl(thd);
+-
+-    fk_invalidator.invalidate(thd);
+   }
+   return error;
+ }
 diff --git a/sql/sql_plugin.cc b/sql/sql_plugin.cc
-index 3860d34..e89ca4c 100644
+index 3860d342..e89ca4c0 100644
 --- a/sql/sql_plugin.cc
 +++ b/sql/sql_plugin.cc
 @@ -358,6 +358,7 @@ const LEX_CSTRING plugin_type_names[MYSQL_MAX_PLUGIN_TYPE_NUM] = {
@@ -1839,7 +1874,7 @@ index 3860d34..e89ca4c 100644
        if (test_plugin_options(&tmp_root, &tmp, argc, argv))
          tmp.state = PLUGIN_IS_DISABLED;
 diff --git a/sql/sql_rename.cc b/sql/sql_rename.cc
-index 7bd705b..ace7923 100644
+index 7bd705b4..17c49cea 100644
 --- a/sql/sql_rename.cc
 +++ b/sql/sql_rename.cc
 @@ -35,6 +35,7 @@
@@ -1850,7 +1885,24 @@ index 7bd705b..ace7923 100644
  #include "mysqld_error.h"
  #include "sql/dd/cache/dictionary_client.h"  // dd::cache::Dictionary_client
  #include "sql/dd/dd_table.h"                 // dd::table_storage_engine
-@@ -718,6 +719,7 @@ static bool do_rename(THD *thd, TABLE_LIST *ren_table, const char *new_db,
+@@ -385,8 +386,6 @@ bool mysql_rename_tables(THD *thd, TABLE_LIST *table_list) {
+   }
+ 
+   if (!error && !int_commit_done) {
+-    error = (trans_commit_stmt(thd) || trans_commit_implicit(thd));
+-
+     if (!error) {
+       /*
+         Don't try to invalidate foreign key parents on error,
+@@ -394,6 +393,7 @@ bool mysql_rename_tables(THD *thd, TABLE_LIST *table_list) {
+       */
+       fk_invalidator.invalidate(thd);
+     }
++    error = (trans_commit_stmt(thd) || trans_commit_implicit(thd));
+   }
+ 
+   if (error) {
+@@ -718,6 +718,7 @@ static bool do_rename(THD *thd, TABLE_LIST *ren_table, const char *new_db,
            }
          }
  
@@ -1858,7 +1910,7 @@ index 7bd705b..ace7923 100644
          if (collect_and_lock_fk_tables_for_rename_table(
                  thd, ren_table->db, old_alias, from_table, new_db, new_alias,
                  hton, fk_invalidator)) {
-@@ -732,13 +734,17 @@ static bool do_rename(THD *thd, TABLE_LIST *ren_table, const char *new_db,
+@@ -732,13 +733,17 @@ static bool do_rename(THD *thd, TABLE_LIST *ren_table, const char *new_db,
              happen. So it is safe to clear invalidator.
            */
            fk_invalidator->clear();
@@ -1877,7 +1929,7 @@ index 7bd705b..ace7923 100644
  
        /*
          We commit changes to data-dictionary immediately after renaming
-@@ -777,8 +783,10 @@ static bool do_rename(THD *thd, TABLE_LIST *ren_table, const char *new_db,
+@@ -777,8 +782,10 @@ static bool do_rename(THD *thd, TABLE_LIST *ren_table, const char *new_db,
            */
            fk_invalidator->clear();
          }
@@ -1889,7 +1941,7 @@ index 7bd705b..ace7923 100644
        /*
          If RENAME TABLE is non-atomic but we have not committed the above
 diff --git a/sql/sql_select.cc b/sql/sql_select.cc
-index 5963cf6..3218795 100644
+index 5963cf6e..3218795f 100644
 --- a/sql/sql_select.cc
 +++ b/sql/sql_select.cc
 @@ -2755,7 +2755,7 @@ void QEP_TAB::push_index_cond(const JOIN_TAB *join_tab, uint keyno,
@@ -1902,10 +1954,74 @@ index 5963cf6..3218795 100644
      return;
  
 diff --git a/sql/sql_table.cc b/sql/sql_table.cc
-index 04bc666..7230fda 100644
+index 04bc666a..76602d92 100644
 --- a/sql/sql_table.cc
 +++ b/sql/sql_table.cc
-@@ -8670,7 +8670,7 @@ static bool create_table_impl(
+@@ -3218,6 +3218,15 @@ bool mysql_rm_table_no_locks(THD *thd, TABLE_LIST *tables, bool if_exists,
+           if (built_query.write_bin_log()) goto err_with_rollback;
+         }
+ 
++        if (!drop_ctx.drop_database) {
++          /*
++            Unless this is DROP DATABASE removal of tables in SEs
++            supporting foreign keys is already committed at this point.
++            So we can invalidate cache entries for parent tables.
++          */
++          fk_invalidator->invalidate(thd);
++        }
++
+         if (drop_ctx.has_no_gtid_single_table_group() ||
+             drop_ctx.has_gtid_single_table_group()) {
+           /*
+@@ -3378,6 +3387,15 @@ bool mysql_rm_table_no_locks(THD *thd, TABLE_LIST *tables, bool if_exists,
+ 
+       if (built_query.write_bin_log()) goto err_with_rollback;
+ 
++      if (!drop_ctx.drop_database) {
++        /*
++          Unless this is DROP DATABASE removal of tables in SEs
++          supporting foreign keys is already committed at this point.
++          So we can invalidate cache entries for parent tables.
++        */
++        fk_invalidator->invalidate(thd);
++      }
++
+       if (drop_ctx.has_no_gtid_single_table_group() ||
+           drop_ctx.has_gtid_single_table_group()) {
+         /*
+@@ -3455,6 +3473,15 @@ bool mysql_rm_table_no_locks(THD *thd, TABLE_LIST *tables, bool if_exists,
+ 
+     if (built_query.write_bin_log()) goto err_with_rollback;
+ 
++    if (!drop_ctx.drop_database) {
++      /*
++        Unless this is DROP DATABASE removal of tables in SEs
++        supporting foreign keys is already committed at this point.
++        So we can invalidate cache entries for parent tables.
++      */
++      fk_invalidator->invalidate(thd);
++    }
++
+     /*
+       Commit our changes to the binary log (if any) and mark GTID
+       as executed. This also commits removal of tables in SEs
+@@ -3471,15 +3498,6 @@ bool mysql_rm_table_no_locks(THD *thd, TABLE_LIST *tables, bool if_exists,
+                                   safe_to_release_mdl_atomic.end());
+   }
+ 
+-  if (!drop_ctx.drop_database) {
+-    /*
+-      Unless this is DROP DATABASE removal of tables in SEs
+-      supporting foreign keys is already committed at this point.
+-      So we can invalidate cache entries for parent tables.
+-    */
+-    fk_invalidator->invalidate(thd);
+-  }
+-
+   /*
+     Dropping of temporary tables cannot be rolled back. On the other hand it
+     can't fail at this stage. So to get nice error handling behavior
+@@ -8670,7 +8688,7 @@ static bool create_table_impl(
        (create_info->options & HA_LEX_CREATE_TMP_TABLE) !=
            HA_LEX_CREATE_TMP_TABLE &&
        (thd->is_server_upgrade_thread() ||
@@ -1914,7 +2030,7 @@ index 04bc666..7230fda 100644
        (dd::get_dictionary()->is_dd_table_name(db, error_table_name) ||
         dd::get_dictionary()->is_system_table_name(db, error_table_name));
    if (is_whitelisted_table) thd->push_internal_handler(&error_handler);
-@@ -9398,6 +9398,10 @@ static bool adjust_fk_child_after_parent_def_change(
+@@ -9398,6 +9416,10 @@ static bool adjust_fk_child_after_parent_def_change(
  
    if (!check_only && thd->dd_client()->update(child_table_def)) return true;
  
@@ -1925,7 +2041,36 @@ index 04bc666..7230fda 100644
    return false;
  }
  
-@@ -11624,7 +11628,7 @@ static bool fill_alter_inplace_info(THD *thd, TABLE *table,
+@@ -9947,6 +9969,13 @@ bool mysql_create_table(THD *thd, TABLE_LIST *create_table,
+                                     create_info->db_type);
+     }
+ 
++    if (!result) {
++      /*
++        Don't try to invalidate on error as it might be caused by
++        failure to acquire locks needed for invalidation.
++      */
++      fk_invalidator.invalidate(thd);
++    }
+     /*
+       Unless we are executing CREATE TEMPORARY TABLE we need to commit
+       changes to the data-dictionary, SE and binary log and possibly run
+@@ -9979,14 +10008,6 @@ bool mysql_create_table(THD *thd, TABLE_LIST *create_table,
+     */
+     if (!create_info->m_transactional_ddl && post_ddl_ht)
+       post_ddl_ht->post_ddl(thd);
+-
+-    if (!result) {
+-      /*
+-        Don't try to invalidate on error as it might be caused by
+-        failure to acquire locks needed for invalidation.
+-      */
+-      fk_invalidator.invalidate(thd);
+-    }
+   }
+ 
+ end:
+@@ -11624,7 +11645,7 @@ static bool fill_alter_inplace_info(THD *thd, TABLE *table,
          Note: strcmp branch is to be removed in future when we fix it
          in InnoDB.
        */
@@ -1934,8 +2079,42 @@ index 04bc666..7230fda 100644
            ha_alter_info->create_info->db_type->db_type == DB_TYPE_NDBCLUSTER)
          field_renamed = strcmp(field->field_name, new_field->field_name);
        else
+@@ -13311,6 +13332,8 @@ static bool mysql_inplace_alter_table(
+     */
+     Implicit_substatement_state_guard guard(thd, mode);
+ 
++    fk_invalidator->invalidate(thd);
++
+     /*
+       Commit ALTER TABLE. Needs to be done here and not in the callers
+       (which do it anyway) to be able notify SE about changed table.
+@@ -15376,14 +15399,13 @@ static bool simple_rename_or_index_change(
+       }
+     }
+ 
++    if (!error) fk_invalidator.invalidate(thd);
+     /*
+       Commit changes to data-dictionary, SE and binary log if it was not done
+       earlier. We need to do this before releasing/downgrading MDL.
+     */
+     if (!error && atomic_ddl)
+       error = (trans_commit_stmt(thd) || trans_commit_implicit(thd));
+-
+-    if (!error) fk_invalidator.invalidate(thd);
+   }
+ 
+   if (error) {
+@@ -17648,8 +17670,6 @@ end_inplace_noop:
+ 
+ end_inplace:
+ 
+-  fk_invalidator.invalidate(thd);
+-
+   if (alter_ctx.is_table_renamed())
+     thd->locked_tables_list.rename_locked_table(
+         table_list, alter_ctx.new_db, alter_ctx.new_name,
 diff --git a/sql/sql_tmp_table.cc b/sql/sql_tmp_table.cc
-index 2063261..1c71f77 100644
+index 2063261b..1c71f772 100644
 --- a/sql/sql_tmp_table.cc
 +++ b/sql/sql_tmp_table.cc
 @@ -558,12 +558,15 @@ class Cache_temp_engine_properties {
@@ -2075,7 +2254,7 @@ index 2063261..1c71f77 100644
    // Per the explanation above, the wanted InnoDB row has PK=row_num.
    uchar rowid_bytes[6];
 diff --git a/sql/sys_vars.cc b/sql/sys_vars.cc
-index 1012337..62d2c4b 100644
+index 10123375..62d2c4b1 100644
 --- a/sql/sys_vars.cc
 +++ b/sql/sys_vars.cc
 @@ -7256,3 +7256,11 @@ static Sys_var_enum Sys_terminology_use_previous(
@@ -2091,7 +2270,7 @@ index 1012337..62d2c4b 100644
 +    "using meta data in CANTIAN.",
 +    GLOBAL_VAR(srv_stats_auto_recalc_substitite), CMD_LINE(OPT_ARG), DEFAULT(false));
 diff --git a/sql/transaction.cc b/sql/transaction.cc
-index 9f955ad..178d46e 100644
+index 9f955ad4..178d46e1 100644
 --- a/sql/transaction.cc
 +++ b/sql/transaction.cc
 @@ -240,6 +240,14 @@ bool trans_commit(THD *thd, bool ignore_global_read_lock) {
@@ -2125,7 +2304,7 @@ index 9f955ad..178d46e 100644
        (thd->variables.option_bits & OPTION_TABLE_LOCK)) {
      /* Safety if one did "drop table" on locked tables */
 diff --git a/sql/window_iterators.cc b/sql/window_iterators.cc
-index cb0f140..a6da724 100644
+index cb0f1409..a6da7249 100644
 --- a/sql/window_iterators.cc
 +++ b/sql/window_iterators.cc
 @@ -159,7 +159,7 @@ bool buffer_record_somewhere(THD *thd, Window *w, int64 rowno) {
@@ -2147,7 +2326,7 @@ index cb0f140..a6da724 100644
            w->m_frame_buffer_positions[first_in_partition].m_position,
            t->file->ref_length, w->frame_buffer_partition_offset());
 diff --git a/storage/archive/ha_archive.cc b/storage/archive/ha_archive.cc
-index ac21c57..345fae9 100644
+index ac21c573..345fae9c 100644
 --- a/storage/archive/ha_archive.cc
 +++ b/storage/archive/ha_archive.cc
 @@ -780,7 +780,7 @@ unsigned int ha_archive::pack_row(uchar *record, azio_stream *writer) {
@@ -2160,7 +2339,7 @@ index ac21c57..345fae9 100644
    uchar *read_buf = nullptr;
    ulonglong temp_auto;
 diff --git a/storage/archive/ha_archive.h b/storage/archive/ha_archive.h
-index 4f6bc3a..a777454 100644
+index 4f6bc3a5..a7774547 100644
 --- a/storage/archive/ha_archive.h
 +++ b/storage/archive/ha_archive.h
 @@ -139,7 +139,7 @@ class ha_archive : public handler {
@@ -2173,7 +2352,7 @@ index 4f6bc3a..a777454 100644
    int truncate(dd::Table *table_def) override;
    int rnd_init(bool scan = true) override;
 diff --git a/storage/blackhole/ha_blackhole.cc b/storage/blackhole/ha_blackhole.cc
-index ff5ac51..60633eb 100644
+index ff5ac51a..60633ebc 100644
 --- a/storage/blackhole/ha_blackhole.cc
 +++ b/storage/blackhole/ha_blackhole.cc
 @@ -94,7 +94,7 @@ int ha_blackhole::create(const char *, TABLE *, HA_CREATE_INFO *, dd::Table *) {
@@ -2186,7 +2365,7 @@ index ff5ac51..60633eb 100644
    return table->next_number_field ? update_auto_increment() : 0;
  }
 diff --git a/storage/blackhole/ha_blackhole.h b/storage/blackhole/ha_blackhole.h
-index 951ed39..c236a20 100644
+index 951ed394..c236a209 100644
 --- a/storage/blackhole/ha_blackhole.h
 +++ b/storage/blackhole/ha_blackhole.h
 @@ -106,7 +106,7 @@ class ha_blackhole : public handler {
@@ -2199,7 +2378,7 @@ index 951ed39..c236a20 100644
    int delete_row(const uchar *buf) override;
  };
 diff --git a/storage/csv/ha_tina.cc b/storage/csv/ha_tina.cc
-index e3998ce..3e74761 100644
+index e3998ce1..3e747618 100644
 --- a/storage/csv/ha_tina.cc
 +++ b/storage/csv/ha_tina.cc
 @@ -931,7 +931,7 @@ int ha_tina::close(void) {
@@ -2212,7 +2391,7 @@ index e3998ce..3e74761 100644
    DBUG_TRACE;
  
 diff --git a/storage/csv/ha_tina.h b/storage/csv/ha_tina.h
-index df63b48..8bcef46 100644
+index df63b488..8bcef46d 100644
 --- a/storage/csv/ha_tina.h
 +++ b/storage/csv/ha_tina.h
 @@ -143,7 +143,7 @@ class ha_tina : public handler {
@@ -2225,7 +2404,7 @@ index df63b48..8bcef46 100644
    int delete_row(const uchar *buf) override;
    int rnd_init(bool scan = true) override;
 diff --git a/storage/example/ha_example.cc b/storage/example/ha_example.cc
-index e773501..9ef9c99 100644
+index e773501e..9ef9c995 100644
 --- a/storage/example/ha_example.cc
 +++ b/storage/example/ha_example.cc
 @@ -274,7 +274,7 @@ int ha_example::close(void) {
@@ -2238,7 +2417,7 @@ index e773501..9ef9c99 100644
    /*
      Example of a successful write_row. We don't store the data
 diff --git a/storage/example/ha_example.h b/storage/example/ha_example.h
-index c0515b2..a52c408 100644
+index c0515b25..a52c408d 100644
 --- a/storage/example/ha_example.h
 +++ b/storage/example/ha_example.h
 @@ -195,7 +195,7 @@ class ha_example : public handler {
@@ -2251,7 +2430,7 @@ index c0515b2..a52c408 100644
    /** @brief
      We implement this in ha_example.cc. It's not an obligatory method;
 diff --git a/storage/federated/ha_federated.cc b/storage/federated/ha_federated.cc
-index 05f151e..023b64c 100644
+index 05f151e7..023b64cd 100644
 --- a/storage/federated/ha_federated.cc
 +++ b/storage/federated/ha_federated.cc
 @@ -1706,7 +1706,7 @@ bool ha_federated::append_stmt_insert(String *query) {
@@ -2264,7 +2443,7 @@ index 05f151e..023b64c 100644
    char insert_field_value_buffer[STRING_BUFFER_USUAL_SIZE];
    Field **field;
 diff --git a/storage/federated/ha_federated.h b/storage/federated/ha_federated.h
-index 75b29e4..99df51b 100644
+index 75b29e47..99df51b3 100644
 --- a/storage/federated/ha_federated.h
 +++ b/storage/federated/ha_federated.h
 @@ -218,7 +218,7 @@ class ha_federated : public handler {
@@ -2277,7 +2456,7 @@ index 75b29e4..99df51b 100644
    int delete_row(const uchar *buf) override;
    int index_init(uint keynr, bool sorted) override;
 diff --git a/storage/heap/ha_heap.cc b/storage/heap/ha_heap.cc
-index 0d71f25..4178081 100644
+index 0d71f25c..4178081c 100644
 --- a/storage/heap/ha_heap.cc
 +++ b/storage/heap/ha_heap.cc
 @@ -204,7 +204,7 @@ void ha_heap::update_key_stats() {
@@ -2290,7 +2469,7 @@ index 0d71f25..4178081 100644
    ha_statistic_increment(&System_status_var::ha_write_count);
    if (table->next_number_field && buf == table->record[0]) {
 diff --git a/storage/heap/ha_heap.h b/storage/heap/ha_heap.h
-index e1fb36c..85f3ec2 100644
+index e1fb36cc..85f3ec25 100644
 --- a/storage/heap/ha_heap.h
 +++ b/storage/heap/ha_heap.h
 @@ -81,7 +81,7 @@ class ha_heap : public handler {
@@ -2303,7 +2482,7 @@ index e1fb36c..85f3ec2 100644
    int delete_row(const uchar *buf) override;
    void get_auto_increment(ulonglong offset, ulonglong increment,
 diff --git a/storage/innobase/handler/ha_innodb.cc b/storage/innobase/handler/ha_innodb.cc
-index e041606..a7fcecb 100644
+index e0416060..a7fcecb2 100644
 --- a/storage/innobase/handler/ha_innodb.cc
 +++ b/storage/innobase/handler/ha_innodb.cc
 @@ -8707,7 +8707,7 @@ void innobase_get_multi_value(const TABLE *mysql_table, ulint f_idx,
@@ -2316,7 +2495,7 @@ index e041606..a7fcecb 100644
    dberr_t error;
    int error_result = 0;
 diff --git a/storage/innobase/handler/ha_innodb.h b/storage/innobase/handler/ha_innodb.h
-index 6844bbf..d7b74c6 100644
+index 6844bbf0..d7b74c68 100644
 --- a/storage/innobase/handler/ha_innodb.h
 +++ b/storage/innobase/handler/ha_innodb.h
 @@ -127,10 +127,11 @@ class ha_innobase : public handler {
@@ -2333,7 +2512,7 @@ index 6844bbf..d7b74c6 100644
  
    /** Delete all rows from the table.
 diff --git a/storage/innobase/handler/ha_innopart.h b/storage/innobase/handler/ha_innopart.h
-index 5163227..9dacf52 100644
+index 5163227f..9dacf525 100644
 --- a/storage/innobase/handler/ha_innopart.h
 +++ b/storage/innobase/handler/ha_innopart.h
 @@ -996,7 +996,7 @@ class ha_innopart : public ha_innobase,
@@ -2346,7 +2525,7 @@ index 5163227..9dacf52 100644
      auto trx = m_prebuilt->trx;
  
 diff --git a/storage/innobase/handler/i_s.cc b/storage/innobase/handler/i_s.cc
-index 9b56731..9218f11 100644
+index 9b56731b..9218f11d 100644
 --- a/storage/innobase/handler/i_s.cc
 +++ b/storage/innobase/handler/i_s.cc
 @@ -72,6 +72,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
@@ -3285,7 +3464,7 @@ index 9b56731..9218f11 100644
  INFORMATION_SCHEMA.INNODB_SESSION_TEMPORARY_TABLESPACES
  @param[in,out]	p	table schema object
 diff --git a/storage/myisam/ha_myisam.cc b/storage/myisam/ha_myisam.cc
-index d05f758..cc4ebfc 100644
+index d05f7589..cc4ebfce 100644
 --- a/storage/myisam/ha_myisam.cc
 +++ b/storage/myisam/ha_myisam.cc
 @@ -825,7 +825,7 @@ int ha_myisam::close(void) {
@@ -3307,7 +3486,7 @@ index d05f758..cc4ebfc 100644
  #ifndef _WIN32
    if (my_enable_symlinks) {
 diff --git a/storage/myisam/ha_myisam.h b/storage/myisam/ha_myisam.h
-index 98ca35d..c00f71d 100644
+index 98ca35d9..c00f71d8 100644
 --- a/storage/myisam/ha_myisam.h
 +++ b/storage/myisam/ha_myisam.h
 @@ -114,7 +114,7 @@ class ha_myisam : public handler {
@@ -3320,7 +3499,7 @@ index 98ca35d..c00f71d 100644
    int delete_row(const uchar *buf) override;
    int index_read_map(uchar *buf, const uchar *key, key_part_map keypart_map,
 diff --git a/storage/myisammrg/ha_myisammrg.cc b/storage/myisammrg/ha_myisammrg.cc
-index 2107967..cc4f0a7 100644
+index 2107967c..cc4f0a71 100644
 --- a/storage/myisammrg/ha_myisammrg.cc
 +++ b/storage/myisammrg/ha_myisammrg.cc
 @@ -982,7 +982,7 @@ int ha_myisammrg::close(void) {
@@ -3333,7 +3512,7 @@ index 2107967..cc4f0a7 100644
    assert(this->file->children_attached);
    ha_statistic_increment(&System_status_var::ha_write_count);
 diff --git a/storage/myisammrg/ha_myisammrg.h b/storage/myisammrg/ha_myisammrg.h
-index 11c0fc0..42050e1 100644
+index 11c0fc0d..42050e19 100644
 --- a/storage/myisammrg/ha_myisammrg.h
 +++ b/storage/myisammrg/ha_myisammrg.h
 @@ -123,7 +123,7 @@ class ha_myisammrg : public handler {
@@ -3346,7 +3525,7 @@ index 11c0fc0..42050e1 100644
    int delete_row(const uchar *buf) override;
    int index_read_map(uchar *buf, const uchar *key, key_part_map keypart_map,
 diff --git a/storage/ndb/plugin/ha_ndbcluster.cc b/storage/ndb/plugin/ha_ndbcluster.cc
-index c29d260..9d13607 100644
+index c29d2605..9d136076 100644
 --- a/storage/ndb/plugin/ha_ndbcluster.cc
 +++ b/storage/ndb/plugin/ha_ndbcluster.cc
 @@ -12045,7 +12045,7 @@ static int drop_database_impl(THD *thd,
@@ -3382,7 +3561,7 @@ index c29d260..9d13607 100644
  
  /**
 diff --git a/storage/ndb/plugin/ha_ndbcluster_binlog.cc b/storage/ndb/plugin/ha_ndbcluster_binlog.cc
-index c310cf6..9dec5d4 100644
+index c310cf66..9dec5d4f 100644
 --- a/storage/ndb/plugin/ha_ndbcluster_binlog.cc
 +++ b/storage/ndb/plugin/ha_ndbcluster_binlog.cc
 @@ -496,7 +496,7 @@ static int ndbcluster_binlog_index_purge_file(THD *thd, const char *filename) {
@@ -3463,7 +3642,7 @@ index c310cf6..9dec5d4 100644
  
  static void ndbcluster_acl_notify(THD *thd,
 diff --git a/storage/perfschema/ha_perfschema.cc b/storage/perfschema/ha_perfschema.cc
-index a27da72..75f7e14 100644
+index a27da728..75f7e149 100644
 --- a/storage/perfschema/ha_perfschema.cc
 +++ b/storage/perfschema/ha_perfschema.cc
 @@ -1581,7 +1581,7 @@ int ha_perfschema::close(void) {
@@ -3476,7 +3655,7 @@ index a27da72..75f7e14 100644
  
    DBUG_TRACE;
 diff --git a/storage/perfschema/ha_perfschema.h b/storage/perfschema/ha_perfschema.h
-index 6efd57e..f8d03e3 100644
+index 6efd57eb..f8d03e35 100644
 --- a/storage/perfschema/ha_perfschema.h
 +++ b/storage/perfschema/ha_perfschema.h
 @@ -153,7 +153,7 @@ class ha_perfschema : public handler {
@@ -3489,7 +3668,7 @@ index 6efd57e..f8d03e3 100644
    void use_hidden_primary_key() override;
  
 diff --git a/storage/temptable/include/temptable/handler.h b/storage/temptable/include/temptable/handler.h
-index b9213f8..97bab4b 100644
+index b9213f80..97bab4b7 100644
 --- a/storage/temptable/include/temptable/handler.h
 +++ b/storage/temptable/include/temptable/handler.h
 @@ -317,7 +317,7 @@ class Handler : public ::handler {
@@ -3502,7 +3681,7 @@ index b9213f8..97bab4b 100644
    /** Update a row.
     * @return 0 on success or HA_ERR_* error code */
 diff --git a/storage/temptable/src/handler.cc b/storage/temptable/src/handler.cc
-index e949235..d46fca8 100644
+index e949235a..d46fca83 100644
 --- a/storage/temptable/src/handler.cc
 +++ b/storage/temptable/src/handler.cc
 @@ -639,7 +639,7 @@ void Handler::position(const uchar *) {
