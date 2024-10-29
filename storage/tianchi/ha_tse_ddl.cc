@@ -2088,6 +2088,7 @@ static int init_tse_ddl_alter_table_def(TcDb__TseDDLAlterTableDef *req, Alter_in
       (*rename_cols)++;
     }
   }
+  req->handler_trivial_ctx = ha_alter_info->handler_trivial_ctx;
   req->n_alter_list = (uint32_t)ha_alter_info->alter_info->alter_list.size() + *rename_cols;
   req->n_create_list = create_fields;
   req->n_add_key_list = ha_alter_info->index_add_count;
