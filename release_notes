@@ -1,0 +1,74 @@
+2024-10-30 xicoding release cantian24.9
+    !330 fix foreign key patch 
+    !347 双节点set global opt枚举类型失败
+    !346 fix inplace lock
+    !343 修复存储过程失效core问题
+    !342 fix free virtual cbo
+    !340 删除非归一无效函数
+    !336 非归一隔离
+    !334 drop database 失效问题修改
+    !332 增加DD_BROADCAST_RECORD_LENGTH
+    !329 双节点mysql安部分装插件导致set global opt core
+    Merge pull request !329 from qiuyang19960521/dev_qy_pulginOpt
+    !237 mysql26版本和32版本适配
+    !327 fix invalidate dd log
+    !325 alter invalidate remote broadcast
+    !324 fix query latest slow_log
+    !320 alter invalidate judge
+    !322 独立出包回退
+    !319 fix shutdown
+    !317 cantian独立出包
+    !314 解决执行计划预估行数不准的问题
+    !313 fix generated columns no stats
+    !309 单进程适配写 general log 和 slow log
+    !299 generated columns no stats
+    !304 add datafile name check
+    !306 Revert "partition table stats"
+    !303 fix DDL length
+    !301 单双进程下库名过长error信息不一致问题
+    !300 grant 权限不同步问题
+    !297 fix index only select
+    !293 fix index only delete
+    !294 revert sample_size
+    !290 part table init stats rows
+    !287 修改 ctc_sample_size 相关的错误提示信息
+    !285 partition table stats
+    !284 fix shm size
+    !254 修复MTR result
+    !282 问题单修复
+    !280 fix single shm code
+    !278 【共享内存】分片使用情况统计
+    !271 限制set opt时大量打印system日志
+    !276 增加检验 ctc_sample_size 合法性的函数
+    !275 print stats fix
+    !273 Fix default value of system variable ctc_gather_change_stats
+    !272 解决core问题
+    !270 fix calculation of rec_per_key
+    !265 MTR is no null 查询语句 core
+    !267 fix mem leak in single run mode
+    !262 单进程mtr适配
+    !261 单进程性能优化
+    !251 mysql 对接自动统计开关
+    !255 MySQL增加ctc_sample_size系统变量
+    !259 alter varchar to blob judge
+    !257 Revert Add verstion stats
+    !252 共享内存oom
+    !249 add histgram string
+    !248 修复MySQL的bit类型
+    !244 对接MySQL的enum和set类型
+    !239 单进程适配
+    !8 单进程适配
+    !234 对接update histogram on colname语句
+    !242 删除num_buckets
+    !236 补充analyze MTR用例
+    !223 对接MySQL的bit类型
+    !231 移除无用变量
+    !229 直方图信息获取降频，以提高性能
+    !226 删除total_rows字段，修复null值计算错误
+    !224 MySQL RR映射为RC
+    !220 maintain ctc variables
+
+    dev stats:
+    - 56 files changed,18953 insertions(+),838 deletions(-)
+    - contributors:Jiachen1018,fuxiaofeng,hewenxun,hezijian,hezijian1111,hwx,lijiachen,liuzifeng,qichang,qiuyang19960521,
+wangbowen,xicoding,yuanyazhi,zhangxuan_hw,珞珈山的猫
