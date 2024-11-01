@@ -1,0 +1,52 @@
+# 忽略建库建表过程中执行出错引起中断执行及相关的错误日志输出.result文件，影响结果比较，我们核心只关注DML语句
+-- disable_result_log
+-- disable_abort_on_error
+-- disable_query_log
+
+# 设置默认存储引擎 (自动生成.result的时候，需要使用InnoDB，执行DML测试的时候，要使用CTC引擎，我们的策略是比较InnoDB和CTC引擎执行结果的差异来校验CTC引擎是否存在BUG)
+
+#注意，测试用例要保证不破坏执行环境，所以测试用例产生的数据(包括表，数据库等等)，测试用例执行完毕后，原则上是要把产生的数据删除的，避免影响别的测试用例
+drop table IF EXISTS PERSONS;
+drop table IF EXISTS ORDERS;
+
+# create table
+create table PERSONS (ID integer not null, LastName varchar(25), FirstName varchar(25), Address varchar(25), City varchar(25));
+create table ORDERS (ID integer not null, OrderNo integer, ID_P integer);
+
+#后面可以开启相关日志了
+-- enable_query_log
+-- enable_abort_on_error
+-- enable_result_log
+
+
+INSERT INTO PERSONS VALUES (1,'Gates', 'Bill', 'Xuanwumen 10', 'Beijing');
+INSERT INTO PERSONS VALUES (2,'Adams', 'John', 'Oxford Street', 'London');
+INSERT INTO PERSONS VALUES (3,'Bush', 'George', 'Fifth Avenue', 'New York');
+INSERT INTO PERSONS VALUES (4,'Carter', 'Thomas', 'Changan Street', 'Beijing');
+
+INSERT INTO ORDERS VALUES (1,77895,3);
+INSERT INTO ORDERS VALUES (2,44678,3);
+INSERT INTO ORDERS VALUES (3,22456,1);
+INSERT INTO ORDERS VALUES (4,24562,1);
+INSERT INTO ORDERS VALUES (5,34764,65);
+
+SELECT * FROM PERSONS;
+SELECT * FROM ORDERS;
+SELECT PERSONS.LastName, PERSONS.FirstName, ORDERS.OrderNo FROM PERSONS, ORDERS WHERE PERSONS.ID = ORDERS.ID_P;
+SELECT * FROM PERSONS, ORDERS WHERE PERSONS.ID = ORDERS.ID_P;
+SELECT PERSONS.LastName, ORDERS.OrderNo FROM PERSONS, ORDERS WHERE PERSONS.ID >= 3 AND ORDERS.ID <= 1;
+SELECT PERSONS.LastName, ORDERS.OrderNo FROM PERSONS, ORDERS WHERE PERSONS.ID < 3 AND ORDERS.ID > 1;
+SELECT PERSONS.LastName, ORDERS.OrderNo FROM PERSONS, ORDERS WHERE PERSONS.FirstName = 'John' OR ORDERS.OrderNo < 30000;
+SELECT PERSONS.LastName, ORDERS.OrderNo FROM PERSONS, ORDERS WHERE (PERSONS.LastName Like '%s' AND ORDERS.OrderNo < 30000) OR PERSONS.FirstName IN ('Bill','Thomas');
+
+UPDATE PERSONS SET LastName="OMG", FirstName="GMO" where ID=3;
+UPDATE ORDERS SET OrderNo=99 where ID=3;
+DELETE FROM ORDERS where ID=1;
+SELECT PERSONS.LastName, PERSONS.FirstName, ORDERS.OrderNo FROM PERSONS, ORDERS WHERE PERSONS.ID = ORDERS.ID_P;
+
+SELECT PERSONS.LastName, PERSONS.FirstName, ORDERS.OrderNo FROM PERSONS INNER JOIN ORDERS ON PERSONS.ID=ORDERS.ID_P ORDER BY PERSONS.LastName;
+SELECT PERSONS.LastName, PERSONS.FirstName, ORDERS.OrderNo FROM PERSONS LEFT JOIN ORDERS ON PERSONS.ID=ORDERS.ID_P ORDER BY PERSONS.LastName;
+SELECT PERSONS.LastName, PERSONS.FirstName, ORDERS.OrderNo FROM PERSONS RIGHT JOIN ORDERS ON PERSONS.ID=ORDERS.ID_P ORDER BY PERSONS.LastName;
+
+DROP TABLE PERSONS;
+DROP TABLE ORDERS;

@@ -12,8 +12,8 @@ slow_query_log_func
 # ------ BEGIN TEST CASES OF DML ------
 ctc_compressed_proxy_conn
 ctc_dml_ignore
-tianchi.ctc_dml_two_table
-tianchi.ctc_link_and_migr_row
+ctc.ctc_dml_two_table
+ctc.ctc_link_and_migr_row
 #test_services
 ctc_datetime_analyze
 ctc_set_analyze
@@ -27,50 +27,50 @@ binlog_transaction_write_set_savepoint_basic
 binlog_transaction_write_set_savepoint_clear_identifiers
 binlog_transaction_write_set_savepoint_insert_overwrite_identifier
 # current rc isolation level lock mode is not same as innodb, already record
-#tianchi.ctc_dc_reuse
+#ctc.ctc_dc_reuse
 
 
 # ------ END TEST CASES OF TRANSACTION ------
 
 # ------ BEGIN TEST CASES OF INDEX ------
 
-tianchi.ctc_index_functions_base
+ctc.ctc_index_functions_base
 innodb.multi_value_basic
 #update_delete_number
 # ------ END TEST CASES OF INDEX ------
 
 # ------ BEGIN TEST CASES OF DATATYPE ------
-tianchi.ctc_datatype
-tianchi.ctc_datatype_blob
-tianchi.ctc_datatype_adapt
+ctc.ctc_datatype
+ctc.ctc_datatype_blob
+ctc.ctc_datatype_adapt
 lob_double_purge
 json_small_partial_update_04
-# tianchi.ctc_json_value.test
+# ctc.ctc_json_value.test
 # ------ END TEST CASES OF DATATYPE ------
 
 # ------ BEGIN TEST CASES OF PARTITION ------
-tianchi.ctc_partition_update
+ctc.ctc_partition_update
 # ------ END TEST CASES OF PARTITION ------
 
 # ------ BEGIN TEST CASES OF DDL ------
-tianchi.ctc_ddl_func_index
-tianchi.ctc_ddl_trigger
-tianchi.ctc_ddl_view
-tianchi.ctc_ddl_index
-tianchi.ctc_ddl_partition
-tianchi.ctc_ddl_max_reclength
-tianchi.ctc_ddl_func_proc
-tianchi.ctc_ddl_foreign_key
-tianchi.ctc_ddl_foreign_key_set_enum
-tianchi.ctc_ddl_multi_db
-tianchi.ctc_ddl_temporary_table
-# tianchi.ctc_ddl_engine
-tianchi.ctc_ddl_func_index
-tianchi.ctc_ddl_create_table_check
-tianchi.ctc_ddl_generated_columns
-tianchi.ctc_ddl_character_set
-tianchi.ctc_dcl
-# tianchi.ctc_lcov   #增加覆盖率的测试用例
+ctc.ctc_ddl_func_index
+ctc.ctc_ddl_trigger
+ctc.ctc_ddl_view
+ctc.ctc_ddl_index
+ctc.ctc_ddl_partition
+ctc.ctc_ddl_max_reclength
+ctc.ctc_ddl_func_proc
+ctc.ctc_ddl_foreign_key
+ctc.ctc_ddl_foreign_key_set_enum
+ctc.ctc_ddl_multi_db
+ctc.ctc_ddl_temporary_table
+# ctc.ctc_ddl_engine
+ctc.ctc_ddl_func_index
+ctc.ctc_ddl_create_table_check
+ctc.ctc_ddl_generated_columns
+ctc.ctc_ddl_character_set
+ctc.ctc_dcl
+# ctc.ctc_lcov   #增加覆盖率的测试用例
 # ------ END TEST CASES OF DDL ------
 
 # ------ BEGIN TEST CASES OF CHARSET ------
@@ -83,19 +83,19 @@ ctc_ddl_default_index.test
 
 delete_decimal
 # update_decimal
-tianchi.ctc_crud_for_drop_column.test
+ctc.ctc_crud_for_drop_column.test
 ctc_select_early_return.test
 
 # ------ TEST CASES for cond pushdown ------
 ctc_cond_pushdown.test
 ctc_cond_pushdown_explain.test
-tianchi.ctc_varchar
+ctc.ctc_varchar
 
 # ------ TEST CASES for handler operation ------
 ctc_handler_operation.test
-tianchi.ctc_ddl_unsupport_command
+ctc.ctc_ddl_unsupport_command
 
-tianchi.ctc_read_only
+ctc.ctc_read_only
 subselect.test
 
 # ------ TEST CASES FROM suite/engines/funcs ------
@@ -105,10 +105,10 @@ ctc_delete_time
 # ------ END TEST CASES ------
 
 ctc_dml_decimal_table.test
-tianchi.ctc_ddl
-tianchi.ctc_ddl_cascade
-tianchi.ctc_ddl_create_table
-tianchi.ctc_ddl_alter_table
-tianchi.ctc_ddl_analyze
-tianchi.ctc_ddl_auto_inc
+ctc.ctc_ddl
+ctc.ctc_ddl_cascade
+ctc.ctc_ddl_create_table
+ctc.ctc_ddl_alter_table
+ctc.ctc_ddl_analyze
+ctc.ctc_ddl_auto_inc
 ctc_atomic_ddl.test

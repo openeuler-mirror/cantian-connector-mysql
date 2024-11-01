@@ -1,0 +1,153 @@
+#
+# Simple test for the CTC storage engine
+# with blob data and null / not null
+#
+
+--disable_warnings
+drop table if exists t1;
+--enable_warnings
+
+-- echo # test with text data
+create table t1 (IDA text, IDB text) ENGINE=CTC;
+insert into t1 values (43, 7889);
+insert into t1 values ('',555);
+insert into t1 values (444,'');
+insert into t1 values (4343, 'here');
+insert into t1 values ('where',777);
+insert into t1 values (null, null);
+select * from t1;
+drop table t1;
+
+-- echo # test with text data length
+create table t1 (IDA text) ENGINE=CTC;
+insert into t1 (IDA) values (REPEAT('a',1024));
+insert into t1 (IDA) values (REPEAT('a',10000));
+insert into t1 (IDA) values (REPEAT('a',32768));
+select length(IDA) from t1;
+drop table t1;
+
+-- echo # test with longtext data
+create table t1 (IDA LONGTEXT, IDB LONGTEXT) ENGINE=CTC;
+insert into t1 values (43, 7889);
+insert into t1 values ('',555);
+insert into t1 values (444,'');
+insert into t1 values (4343, 'here');
+insert into t1 values ('where',777);
+insert into t1 values (null, null);
+select * from t1;
+drop table t1;
+
+-- echo # test with longtext data length
+create table t1 (IDA LONGTEXT) ENGINE=CTC;
+insert into t1 (IDA) values (REPEAT('a',1024));
+insert into t1 (IDA) values (REPEAT('a',10000));
+insert into t1 (IDA) values (REPEAT('a',65536));
+insert into t1 (IDA) values (REPEAT('a',1024*1024));
+insert into t1 values (null);
+select length(IDA) from t1;
+drop table t1;
+
+-- echo # test with blob data
+create table t1 (IDA blob, IDB blob) ENGINE=CTC;
+insert into t1 values (43, 7889);
+insert into t1 values ('',555);
+insert into t1 values (444,'');
+insert into t1 values (4343, 'here');
+insert into t1 values ('where',777);
+insert into t1 values (null, null);
+select * from t1;
+drop table t1;
+
+-- echo # test with blob data length   
+create table t1 (IDA blob) ENGINE=CTC;
+insert into t1 (IDA) values (REPEAT('a',1024));
+insert into t1 (IDA) values (REPEAT('a',10000));
+insert into t1 (IDA) values (REPEAT('a',32768));
+insert into t1 values (null);
+select length(IDA) from t1;
+drop table t1;
+
+-- echo # test with MediumBlob data
+create table t1 (IDA MediumBlob, IDB MediumBlob) ENGINE=CTC;
+insert into t1 values (43, 7889);
+insert into t1 values ('',555);
+insert into t1 values (444,'');
+insert into t1 values (4343, 'here');
+insert into t1 values ('where',777);
+insert into t1 values (null, null);
+select * from t1;
+drop table t1;
+
+-- echo # test with MediumBlob data length  
+create table t1 (IDA MediumBlob) ENGINE=CTC;
+insert into t1 (IDA) values (REPEAT('a',1024));
+insert into t1 (IDA) values (REPEAT('a',10000));
+insert into t1 (IDA) values (REPEAT('a',1024*1024));
+insert into t1 values (null);
+select length(IDA) from t1;
+drop table t1;
+
+-- echo # test with LongBlob data
+create table t1 (IDA LongBlob, IDB LongBlob) ENGINE=CTC;
+insert into t1 values (43, 7889);
+insert into t1 values ('',555);
+insert into t1 values (444,'');
+insert into t1 values (4343, 'here');
+insert into t1 values ('where',777);
+insert into t1 values (null, null);
+select * from t1;
+drop table t1;
+
+-- echo # test with LongBlob data length   
+create table t1 (IDA LongBlob) ENGINE=CTC;
+insert into t1 (IDA) values (REPEAT('a',1024));
+insert into t1 (IDA) values (REPEAT('a',10000));
+insert into t1 (IDA) values (REPEAT('a',1024 * 1000));
+insert into t1 (IDA) values (REPEAT('a',1024 * 1024));
+insert into t1 (IDA) values (REPEAT('a',1024 * 1024 * 4));
+insert into t1 (IDA) values (REPEAT('a',1024 * 1024 * 8));
+insert into t1 values (null);
+select length(IDA) from t1;
+drop table t1;
+
+-- echo # test blob with replace / on duplicate key update
+create table t1 (IDA int primary key, IDB LongBlob, IDC LongText) ENGINE=CTC;
+insert into t1 values (1, 'idb', 'idc');
+--disable_warnings
+insert into t1 values (1, REPEAT('a',5000), REPEAT('b',5000)) on duplicate key update IDB=VALUES(IDB), IDC=VALUES(IDC);
+insert into t1 values (1, REPEAT('c',5000), REPEAT('d',5000)) on duplicate key update IDB=VALUES(IDB), IDC=VALUES(IDC);
+insert into t1 values (1, REPEAT('e',4000), REPEAT('f',4000)) on duplicate key update IDB=VALUES(IDB), IDC=VALUES(IDC);
+insert into t1 values (1, 'idb1', 'idc1') on duplicate key update IDB=VALUES(IDB), IDC=VALUES(IDC);
+--enable_warnings
+replace into t1 values (1, REPEAT('g',5000), REPEAT('h',5000));
+replace into t1 values (1, REPEAT('i',4000), REPEAT('j',4000));
+replace into t1 values (1, 'idb2', 'idc2');
+select IDA, length(IDB), IDC from t1;
+drop table t1;
+
+CREATE TABLE t1(col1 INT PRIMARY KEY, col2 int, col3 varchar(64), col4 BLOB) PARTITION BY KEY(col1) PARTITIONS 5;
+INSERT INTO t1 VALUES(1,1,'Clone Test Row - ',REPEAT('Large Column Data ', 2048));
+INSERT INTO t1 VALUES(2,2,'Clone Test Row2 - ',REPEAT('Large Column Data2 ', 2048));
+DELETE FROM t1 WHERE col1 = 1;
+UPDATE t1 set col4 = REPEAT('Large Column Data2 ', 1024) where col1 = 2;
+select length(col4) from t1;
+drop table t1;
+
+CREATE TABLE t1(
+`a` BLOB,
+`b` BLOB,
+`c` BLOB GENERATED ALWAYS AS (CONCAT(a,b)) VIRTUAL,
+`h` VARCHAR(10) DEFAULT NULL,
+`col2` int primary key,
+`col3` int,
+gcol1 INTEGER GENERATED ALWAYS AS (col3 + col3) VIRTUAL,
+gcol2 INTEGER GENERATED ALWAYS AS (col2 + col2) VIRTUAL,
+gcol3 INTEGER GENERATED ALWAYS AS (gcol2 / gcol2) VIRTUAL
+);
+
+INSERT INTO t1 VALUES (REPEAT('g', 16000), REPEAT('x', 16000), DEFAULT, "kk", 1, 1, DEFAULT, DEFAULT, DEFAULT);
+INSERT INTO t1 VALUES (REPEAT('m', 16000), REPEAT('n', 16000), DEFAULT, "aa", 2, 2, DEFAULT, DEFAULT, DEFAULT);
+INSERT INTO t1 VALUES (REPEAT('p', 16000), REPEAT('q', 16000), DEFAULT, "bb", 3, 3, DEFAULT, DEFAULT, DEFAULT);
+INSERT INTO t1 VALUES (REPEAT('x', 16000), REPEAT('y', 16000), DEFAULT, "cc", 4, 4, DEFAULT, DEFAULT, DEFAULT);
+select length(a), length(b), length(c) from t1;
+drop table t1;
