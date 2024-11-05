@@ -1,0 +1,73 @@
+--disable_warnings
+drop table if exists DEMO;
+drop table if exists DEMO_TRIGGER_LOG;
+--enable_warnings
+
+# create a table.
+create table DEMO (ID integer not null, NAME varchar(20), AGE integer, GRADE real);
+create table DEMO_TRIGGER_LOG (ACTION varchar(20), NAME varchar(20));
+
+DELIMITER |;
+create TRIGGER TRIGGER_CTC1 AFTER INSERT ON DEMO FOR EACH ROW
+BEGIN
+    IF NEW.AGE <= 0 THEN
+        INSERT INTO DEMO_TRIGGER_LOG VALUES('insert', NEW.NAME);
+    END IF;
+END|
+
+create TRIGGER TRIGGER_CTC2 BEFORE UPDATE ON DEMO FOR EACH ROW
+BEGIN
+    IF NEW.AGE < 0 THEN
+        SET NEW.AGE = 0;
+    ELSEIF new.AGE > 100 THEN
+        SET new.AGE = 100;
+    END IF;
+    INSERT INTO DEMO_TRIGGER_LOG VALUES('update', NEW.NAME);
+END|
+
+create TRIGGER TRIGGER_CTC3 AFTER DELETE ON DEMO FOR EACH ROW
+BEGIN
+    IF old.AGE > 0 THEN
+        INSERT INTO DEMO_TRIGGER_LOG VALUES('delete', old.NAME);
+    END IF;
+END|
+DELIMITER ;|
+--replace_column 6 #
+SHOW TRIGGERS;
+
+# insert some data to table.
+insert into DEMO values (1, 'LIOR', -1, 6.9);  
+insert into DEMO values (4, 'MIKE', 55, 99.92);  
+insert into DEMO values (8, 'ROMAN', 40, 94.1);  
+insert into DEMO values (16, 'DAN', 60, 1234567890);  
+insert into DEMO values (32, 'ZVI', 35, 777.666);
+
+select * from DEMO;
+select * from DEMO_TRIGGER_LOG;
+
+UPDATE DEMO SET AGE=200 where ID=4;
+UPDATE DEMO SET AGE=-50 where ID=8;
+
+select * from DEMO;
+select * from DEMO_TRIGGER_LOG;
+
+DELETE FROM DEMO WHERE ID=1;
+DELETE FROM DEMO WHERE ID=16; 
+
+select * from DEMO;
+select * from DEMO_TRIGGER_LOG;
+--replace_column 6 #
+SHOW TRIGGERS;
+--error 1360
+DROP TRIGGER TRIGGER_CTC;
+
+DROP TRIGGER IF EXISTS TRIGGER_CTC;
+DROP TRIGGER IF EXISTS TRIGGER_CTC1;
+DROP TRIGGER IF EXISTS TRIGGER_CTC2;
+DROP TRIGGER IF EXISTS TRIGGER_CTC3;
+--replace_column 6 #
+SHOW TRIGGERS;
+
+drop table DEMO;
+drop table DEMO_TRIGGER_LOG;
+

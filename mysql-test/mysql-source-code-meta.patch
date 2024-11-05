@@ -452,7 +452,7 @@ index 80638063..c649fa53 100644
    m_registry_committed.get(id_key, &element);
  
    if (element) {
-+    if (m_thd->query().str && std::string(m_thd->query().str) == "tse_mdl_thd_notify") {
++    if (m_thd->query().str && std::string(m_thd->query().str) == "ctc_mdl_thd_notify") {
 +    } else {
 +      MDL_checker::add_to_invalidate(m_thd, element->object());
 +    }
@@ -531,7 +531,7 @@ index 80638063..c649fa53 100644
 +}
 +
 +void Dictionary_client::add_modified_objects_before_commit() {
-+  if (m_thd->query().str && std::string(m_thd->query().str) == "tse_mdl_thd_notify") {
++  if (m_thd->query().str && std::string(m_thd->query().str) == "ctc_mdl_thd_notify") {
 +    return;
 +  }
 +  add_modified_objects<Abstract_table>();
@@ -779,14 +779,14 @@ index 1e3ce91c..48125691 100644
  static bool get_shared_tablespace_names(
      THD *thd, std::set<dd::String_type> *shared_spaces) {
 -  assert(innodb_hton != nullptr && innodb_hton->get_tablespace_type);
-+  assert(tse_hton != nullptr && tse_hton->get_tablespace_type);
++  assert(ctc_hton != nullptr && ctc_hton->get_tablespace_type);
    auto process_spaces = [&](std::unique_ptr<dd::Tablespace> &space) {
 -    if (my_strcasecmp(system_charset_info, space->engine().c_str(), "InnoDB"))
 +    if (my_strcasecmp(system_charset_info, space->engine().c_str(), "CTC"))
        return false;
      Tablespace_type space_type;
 -    if (innodb_hton->get_tablespace_type(*space, &space_type)) {
-+    if (tse_hton->get_tablespace_type(*space, &space_type)) {
++    if (ctc_hton->get_tablespace_type(*space, &space_type)) {
        LogErr(ERROR_LEVEL, ER_UNKNOWN_TABLESPACE_TYPE, space->name().c_str());
        return true;
      }
@@ -892,7 +892,7 @@ index 217a0c19..fe900ebd 100644
        innodb_hton = hton;
        break;
 +    case DB_TYPE_CTC:
-+      tse_hton = hton;
++      ctc_hton = hton;
 +      break;
      default:
        break;
@@ -1400,7 +1400,7 @@ index 50b76e2f..080fdf93 100644
  handlerton *temptable_hton;
  handlerton *myisam_hton;
  handlerton *innodb_hton;
-+handlerton *tse_hton;
++handlerton *ctc_hton;
  
  char *opt_disabled_storage_engines;
  uint opt_server_id_bits = 0;
@@ -1438,7 +1438,7 @@ index 0d7d41c4..b3f86eb6 100644
  extern handlerton *heap_hton;
  extern handlerton *temptable_hton;
  extern handlerton *innodb_hton;
-+extern handlerton *tse_hton;
++extern handlerton *ctc_hton;
  extern uint opt_server_id_bits;
  extern ulong opt_server_id_mask;
  extern const char *load_default_groups[];
@@ -1460,8 +1460,8 @@ index 902fe2b2..2fad578e 100644
    do {
 +    if (thread_id_counter == 0) {
 +      handlerton *hton = ha_resolve_by_legacy_type(current_thd, DB_TYPE_CTC);
-+      my_thread_id tse_inst_id = hton->get_inst_id ? (my_thread_id)hton->get_inst_id() : 0;
-+      thread_id_counter = tse_inst_id << 16;
++      my_thread_id ctc_inst_id = hton->get_inst_id ? (my_thread_id)hton->get_inst_id() : 0;
++      thread_id_counter = ctc_inst_id << 16;
 +    }
      new_id = thread_id_counter++;
    } while (!thread_ids.insert_unique(new_id).second);
@@ -1750,7 +1750,7 @@ index 70d9c1ff..b98e6ecb 100644
 -  tmp_table.s->db_low_byte_first = (create_info->db_type == myisam_hton ||
 -                                    create_info->db_type == heap_hton);
 +  tmp_table.s->db_low_byte_first =
-+      (create_info->db_type == myisam_hton || create_info->db_type == heap_hton || create_info->db_type == tse_hton);
++      (create_info->db_type == myisam_hton || create_info->db_type == heap_hton || create_info->db_type == ctc_hton);
    tmp_table.set_not_started();
  
    if (!thd->variables.explicit_defaults_for_timestamp)
@@ -1949,7 +1949,7 @@ index 5963cf6e..3218795f 100644
  
    // Disable ICP for Innodb intrinsic temp table because of performance
 -  if (tbl->s->db_type() == innodb_hton && tbl->s->tmp_table != NO_TMP_TABLE &&
-+  if ((tbl->s->db_type() == innodb_hton || tbl->s->db_type() == tse_hton) && tbl->s->tmp_table != NO_TMP_TABLE &&
++  if ((tbl->s->db_type() == innodb_hton || tbl->s->db_type() == ctc_hton) && tbl->s->tmp_table != NO_TMP_TABLE &&
        tbl->s->tmp_table != TRANSACTIONAL_TMP_TABLE)
      return;
  
@@ -2139,9 +2139,9 @@ index 2063261b..1c71f772 100644
    plugin_unlock(nullptr, db_plugin);
 +
 +  // Cache CTC engine's
-+  db_plugin = ha_lock_engine(nullptr, tse_hton);
++  db_plugin = ha_lock_engine(nullptr, ctc_hton);
 +  handler = get_new_handler((TABLE_SHARE *)nullptr, false, thd->mem_root,
-+                            tse_hton);
++                            ctc_hton);
 +  CTC_MAX_KEY_LENGTH = handler->max_key_length();
 +  CTC_MAX_KEY_PART_LENGTH = handler->max_key_parts();
 +  CTC_MAX_KEY_PARTS = handler->max_key_parts();
@@ -2186,7 +2186,7 @@ index 2063261b..1c71f772 100644
                                      force_disk_table, mem_engine)) {
 -      hton = innodb_hton;
 +      //hton = innodb_hton;
-+      hton = tse_hton;
++      hton = ctc_hton;
      } else {
        switch (mem_engine) {
          case TMP_TABLE_TEMPTABLE:
@@ -2197,7 +2197,7 @@ index 2063261b..1c71f772 100644
 -         table->s->db_type() == innodb_hton);
 +         table->s->db_type() == innodb_hton ||
 +         table->s->db_type() == myisam_hton ||
-+         table->s->db_type() == tse_hton);
++         table->s->db_type() == ctc_hton);
  
    int error;
    if ((error = table->file->ha_open(table, table->s->table_name.str, O_RDWR,
@@ -2206,7 +2206,7 @@ index 2063261b..1c71f772 100644
        table->s->db_type() == temptable_hton) {
      table->file = get_new_handler(
 -        table->s, false, share->alloc_for_tmp_file_handler, innodb_hton);
-+        table->s, false, share->alloc_for_tmp_file_handler, tse_hton);
++        table->s, false, share->alloc_for_tmp_file_handler, ctc_hton);
      error = table->file->create(share->table_name.str, table, &create_info,
                                  nullptr);
    }
@@ -2214,7 +2214,7 @@ index 2063261b..1c71f772 100644
        trace_tmp.add_alnum("record_format", "fixed");
    } else if (table->s->db_type() == temptable_hton) {
      trace_tmp.add_alnum("location", "TempTable");
-+  } else if (table->s->db_type() == tse_hton) {
++  } else if (table->s->db_type() == ctc_hton) {
 +    trace_tmp.add_alnum("location", "CTC");
    } else {
      assert(s->db_type() == heap_hton);
@@ -2223,7 +2223,7 @@ index 2063261b..1c71f772 100644
      if (create_tmp_table_with_fallback(thd, table)) return true;
      // Make empty record so random data is not written to disk
      empty_record(table);
-+  } else if (share->db_type() == tse_hton) {
++  } else if (share->db_type() == ctc_hton) {
 +    if (create_tmp_table_with_fallback(thd, table)) return true;
 +    // Make empty record so random data is not written to disk
 +    empty_record(table);
@@ -2238,7 +2238,7 @@ index 2063261b..1c71f772 100644
  
 -  share.db_plugin = ha_lock_engine(thd, innodb_hton);
 +  //share.db_plugin = ha_lock_engine(thd, innodb_hton);
-+  share.db_plugin = ha_lock_engine(thd, tse_hton);
++  share.db_plugin = ha_lock_engine(thd, ctc_hton);
  
    TABLE_LIST *const wtable_list = wtable->pos_in_table_list;
    Derived_refs_iterator ref_it(wtable_list);
@@ -2247,7 +2247,7 @@ index 2063261b..1c71f772 100644
  */
  bool reposition_innodb_cursor(TABLE *table, ha_rows row_num) {
 -  assert(table->s->db_type() == innodb_hton);
-+  assert(table->s->db_type() == tse_hton);
++  assert(table->s->db_type() == ctc_hton);
 +  my_error(ER_FEATURE_UNSUPPORTED, MYF(0), "reposition_innodb_cursor", "by CTC");
 +  return true;
    if (table->file->ha_rnd_init(false)) return true; /* purecov: inspected */
@@ -2312,7 +2312,7 @@ index cb0f1409..a6da7249 100644
        return true;
  
 -    assert(t->s->db_type() == innodb_hton);
-+    assert(t->s->db_type() == tse_hton);
++    assert(t->s->db_type() == ctc_hton);
      if (t->file->ha_rnd_init(true)) return true; /* purecov: inspected */
  
      if (!w->m_frame_buffer_positions.empty()) {
