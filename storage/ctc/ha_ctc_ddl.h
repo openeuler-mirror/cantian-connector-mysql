@@ -138,7 +138,7 @@ typedef enum {
     COLLATE_LATIN2_GENERAL_CI = 309
 } enum_ctc_ddl_collate_type;
 
-// mysql字符序和daac的参数对接
+// mysql字符序和cantian的参数对接
 static map<const int, const int> mysql_collate_num_to_ctc_type = {
   {3, COLLATE_DEC8_SWEDISH_CI},
   {4, COLLATE_CP850_GENERAL_CI},

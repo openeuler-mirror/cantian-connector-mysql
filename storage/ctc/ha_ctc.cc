@@ -193,7 +193,7 @@ static MYSQL_THDVAR_DOUBLE(sampling_ratio, PLUGIN_VAR_RQCMDARG,
 
 __attribute__((visibility("default"))) uint32_t ctc_instance_id = 0;
 static MYSQL_SYSVAR_UINT(instance_id, ctc_instance_id, PLUGIN_VAR_READONLY,
-                         "mysql instance id which is used for daac", nullptr,
+                         "mysql instance id which is used for cantian", nullptr,
                          nullptr, 0, 0, UINT32_MAX, 0);
 
 static void ctc_gather_change_stats_update(THD *, SYS_VAR *, void *var_ptr, const void *save) {
@@ -1331,7 +1331,7 @@ int get_tch_in_handler_data(handlerton *hton, THD *thd, ctc_handler_t &tch, bool
   tch.query_id = thd->query_id;
   tch.sql_stat_start = sess_ctx->sql_stat_start;
   tch.pre_sess_addr = 0;
-#ifndef WITH_DAAC
+#ifndef WITH_CANTIAN
   tch.msg_buf = sess_ctx->msg_buf;
 
   if (sess_ctx->msg_buf == nullptr && alloc_msg_buf) {
@@ -1448,7 +1448,7 @@ void update_member_tch(ctc_handler_t &tch, handlerton *hton, THD *thd, bool allo
   tch.query_id = thd->query_id;
   tch.sql_stat_start = sess_ctx->sql_stat_start;
   tch.pre_sess_addr = 0;
-#ifndef WITH_DAAC
+#ifndef WITH_CANTIAN
   tch.msg_buf = sess_ctx->msg_buf;
 
   if (sess_ctx->msg_buf == nullptr && alloc_msg_buf) {
@@ -1474,7 +1474,7 @@ void release_sess_ctx(thd_sess_ctx_s *sess_ctx, handlerton *hton, THD *thd) {
     delete sess_ctx->invalid_cursors;
     sess_ctx->invalid_cursors = nullptr;
   }
-#ifndef WITH_DAAC
+#ifndef WITH_CANTIAN
   if (sess_ctx->msg_buf != nullptr) {
     sem_destroy(&(((dsw_message_block_t*)(sess_ctx->msg_buf))->head.sem));
     shm_free(nullptr, sess_ctx->msg_buf);
@@ -3843,7 +3843,7 @@ int ha_ctc::delete_all_rows() {
   max_supported_keys() is called when create indexes;
 
   @details
-  To get the the maximum number of indexes per table of DAAC
+  To get the the maximum number of indexes per table of CANTIAN
 */
 uint ha_ctc::max_supported_keys() const {
   return CTC_MAX_KEY_NUM;
@@ -3854,7 +3854,7 @@ uint ha_ctc::max_supported_keys() const {
   max_supported_key_length() is called when create indexes;
 
   @details
-  To get the max possible key length of DAAC
+  To get the max possible key length of CANTIAN
 */
 uint ha_ctc::max_supported_key_length() const {
   return CTC_MAX_KEY_LENGTH;
@@ -4177,8 +4177,8 @@ THR_LOCK_DATA **ha_ctc::store_lock(THD *, THR_LOCK_DATA **to,
     This method should not be called for internal temporary tables
     as they don't have properly initialized THR_LOCK and THR_LOCK_DATA
     structures.
-    daac engine dose not need mysql lock type, need long testing on this.
-    May need map mysql lock type to daac lock type in the future after figure
+    cantian engine dose not need mysql lock type, need long testing on this.
+    May need map mysql lock type to cantian lock type in the future after figure
     out they lock meaning.
   */
   DBUG_TRACE;
@@ -4482,7 +4482,7 @@ int ctc_set_cluster_role_by_cantian(bool is_slave) {
 
 bool is_single_run_mode()
 {
-#ifndef WITH_DAAC
+#ifndef WITH_CANTIAN
   return false;
 #else
   return true;

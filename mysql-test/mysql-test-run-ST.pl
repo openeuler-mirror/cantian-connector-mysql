@@ -6139,7 +6139,7 @@ sub mysqld_arguments ($$$) {
   return $args;
 }
 
-sub daac_start {
+sub cantian_start {
   my $ret = run_sh_script("start_cantiand_ST.sh start");
   return $ret;
 }
@@ -6258,8 +6258,8 @@ sub mysqld_start ($$$$) {
   # Remember data dir for gmon.out files if using gprof
   $gprof_dirs{ $mysqld->value('datadir') } = 1 if $opt_gprof;
 
-#   if (daac_start()) {
-#     mtr_error("Failed to start daac.");
+#   if (cantian_start()) {
+#     mtr_error("Failed to start cantian.");
 #   }
   if (defined $exe) {
     $mysqld->{'proc'} =

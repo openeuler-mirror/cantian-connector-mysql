@@ -72,7 +72,7 @@ chmod 777 ./mysql-test-run-meta-single.pl
 su - cantiandba
 cd /usr/local/mysql/mysql-test
 export RUN_MODE=cantiand_with_mysql
-export LD_LIBRARY_PATH=/usr/local/mysql/lib:/home/regress/cantian-connector-mysql/mysql-source/daac_lib:/usr/local/mysql/lib:/home/regress/cantian-connector-mysql/mysql-source/daac_lib:/usr/local/mysql/lib/private:/home/cantiandba/install/lib:/home/cantiandba/install/add-ons::/home/regress/cantian-connector-mysql/bld_debug/library_output_directory
+export LD_LIBRARY_PATH=/usr/local/mysql/lib:/home/regress/cantian-connector-mysql/mysql-source/cantian_lib:/usr/local/mysql/lib:/home/regress/cantian-connector-mysql/mysql-source/cantian_lib:/usr/local/mysql/lib/private:/home/cantiandba/install/lib:/home/cantiandba/install/add-ons::/home/regress/cantian-connector-mysql/bld_debug/library_output_directory
 export CANTIAND_MODE=open
 export CANTIAND_HOME_DIR=/home/cantiandba/data
 ```

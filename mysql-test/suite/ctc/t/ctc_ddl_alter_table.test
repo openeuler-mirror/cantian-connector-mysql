@@ -448,7 +448,7 @@ INSERT INTO DEMO (col1,col2) values(4,4);
 --error 1062 
 UPDATE DEMO set col1 = 2 where ID = 1;
 SELECT * FROM DEMO;
-#没有修改成功，但是也没执行报错， TODODDL 后面需要来审视 innodb能够修改成功，daac没有修改成功
+#没有修改成功，但是也没执行报错， TODODDL 后面需要来审视 innodb能够修改成功，cantian没有修改成功
 UPDATE DEMO set col1 = 100 where ID = 1;
 SELECT * FROM DEMO;
 desc DEMO;
@@ -493,7 +493,7 @@ desc DEMO;
 show create table DEMO;
 show index from DEMO;
 --error 1048
-#这个地方modify了以后感觉丢失了自增属性，但是唯一属性daac还在
+#这个地方modify了以后感觉丢失了自增属性，但是唯一属性cantian还在
 INSERT INTO DEMO values(null, 'insert6',1,1.2); #1048 (23000): Column 'ID' cannot be null
 --error 1062 
 INSERT INTO DEMO values(7, 'insert6',1,1.2);#ERROR 1062 (23000): Duplicate entry '7' for key 'DEMO.PRIMARY'

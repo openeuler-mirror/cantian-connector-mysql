@@ -41,8 +41,8 @@
 #include "ha_ctc.h"
 #include "decimal_convert.h"
 
-struct mysql_daac_context {
-  my_thread_handle daac_startup_thread;
+struct mysql_cantian_context {
+  my_thread_handle cantian_startup_thread;
 };
 
 extern "C" {
@@ -75,10 +75,10 @@ static std::string get_cantiand_home_dir() {
   return home_dir;
 }
 
-static void *mysql_daac_startup_thread(void *p) {
+static void *mysql_cantian_startup_thread(void *p) {
   DBUG_TRACE;
-  struct mysql_daac_context *con = (struct mysql_daac_context *)p;
-  if(con->daac_startup_thread.thread == 0) {
+  struct mysql_cantian_context *con = (struct mysql_cantian_context *)p;
+  if(con->cantian_startup_thread.thread == 0) {
     ctc_log_error("please create the nomont thread first!");
     return nullptr;
   }
@@ -95,20 +95,20 @@ static void *mysql_daac_startup_thread(void *p) {
                           home_dir.c_str()};
     ret = cantiand_lib_main(3, const_cast<char **>(argv));
   }
-  ctc_log_system("init daac mode:%s,home_dir:%s, ret:%d", mode.c_str(),
+  ctc_log_system("init cantian mode:%s,home_dir:%s, ret:%d", mode.c_str(),
                  home_dir.c_str(), ret);
   return nullptr;
 }
 
-struct mysql_daac_context *daac_context = NULL;
-int daemon_daac_plugin_init() {
+struct mysql_cantian_context *cantian_context = NULL;
+int daemon_cantian_plugin_init() {
   DBUG_TRACE;
 
   // mysql with nometa does not need to start cantian startup thread in multiple process when initializing
   // but single process needs to start up cantian thread in both meat and nometa when initializing
   if (!is_single_run_mode())  {
     if (opt_initialize_insecure) {
-      ctc_log_warning("initialize-insecure mode no need start the daac startup thread.");
+      ctc_log_warning("initialize-insecure mode no need start the cantian startup thread.");
       return 0;
     }
 
@@ -120,45 +120,45 @@ int daemon_daac_plugin_init() {
     }
   }
   
-  if (daac_context != NULL) {
-    ctc_log_error("daemon_daac_plugin_init daac_context:%p not NULL", daac_context);
+  if (cantian_context != NULL) {
+    ctc_log_error("daemon_cantian_plugin_init cantian_context:%p not NULL", cantian_context);
     return 0;
   }
 
-  daac_context = (struct mysql_daac_context *)my_malloc(
+  cantian_context = (struct mysql_cantian_context *)my_malloc(
     PSI_NOT_INSTRUMENTED,
-    sizeof(struct mysql_daac_context), MYF(0));
-  if (daac_context == nullptr) {
-    ctc_log_error("alloc mem failed, daac_context size(%lu)", sizeof(struct mysql_daac_context));
+    sizeof(struct mysql_cantian_context), MYF(0));
+  if (cantian_context == nullptr) {
+    ctc_log_error("alloc mem failed, cantian_context size(%lu)", sizeof(struct mysql_cantian_context));
     return -1;
   }
   my_thread_attr_t startup_attr; /* Thread attributes */
   my_thread_attr_init(&startup_attr);
   my_thread_attr_setdetachstate(&startup_attr, MY_THREAD_CREATE_JOINABLE);
   /* now create the startup thread */
-  if (my_thread_create(&daac_context->daac_startup_thread, &startup_attr, mysql_daac_startup_thread,
-                       (void *)daac_context) != 0) {
-    ctc_log_error("Could not create daac startup thread!");
+  if (my_thread_create(&cantian_context->cantian_startup_thread, &startup_attr, mysql_cantian_startup_thread,
+                       (void *)cantian_context) != 0) {
+    ctc_log_error("Could not create cantian startup thread!");
     return -1;
   }
   return 0;
 }
 
-int daemon_daac_plugin_deinit() {
+int daemon_cantian_plugin_deinit() {
   DBUG_TRACE;
   void *dummy_retval;
 
-  if (daac_context == nullptr || daac_context->daac_startup_thread.thread == 0) {
+  if (cantian_context == nullptr || cantian_context->cantian_startup_thread.thread == 0) {
     ctc_log_system("startup thread not started");
     return 0;
   }
 
   ct_singlep_shutdown();
-  my_thread_join(&daac_context->daac_startup_thread, &dummy_retval);
-  my_free(daac_context);
-  daac_context = NULL;
+  my_thread_join(&cantian_context->cantian_startup_thread, &dummy_retval);
+  my_free(cantian_context);
+  cantian_context = NULL;
   return 0;
 }
 
-int (*ctc_init)() = daemon_daac_plugin_init;
-int (*ctc_deinit)() = daemon_daac_plugin_deinit;
+int (*ctc_init)() = daemon_cantian_plugin_init;
+int (*ctc_deinit)() = daemon_cantian_plugin_deinit;

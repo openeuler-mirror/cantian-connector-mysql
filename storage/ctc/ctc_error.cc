@@ -30,11 +30,11 @@ static std::unordered_map<ct_errno_t, int> err_code_lookup_map = {
   tell it also to MySQL so that MySQL knows to empty the
   cached binlog for this transaction */
   {ERR_DEAD_LOCK, HA_ERR_LOCK_DEADLOCK},
-  /* The DAAC serialization isolation level is stricter than the MySQL
+  /* The CANTIAN serialization isolation level is stricter than the MySQL
   repeatable read isolation level. If two transactions conflict:
-  - The daac is locked, including lock timeout and transaction area conflict.
+  - The cantian is locked, including lock timeout and transaction area conflict.
   - MySQL will be locked, including lock timeout and success.
-  Therefore, the daac transaction conflict error code is temporarily
+  Therefore, the cantian transaction conflict error code is temporarily
   classified as lock timeout. */
   {ERR_SERIALIZE_ACCESS, HA_ERR_RECORD_CHANGED},
   /* Starting from 5.0.13, we let MySQL just roll back the
