@@ -492,6 +492,11 @@ static int ctc_set_var_meta(MYSQL_THD thd, uint32_t options, const char* base_na
   }
   broadcast_req.options |= options;
   int ret = ctc_execute_mysql_ddl_sql(&tch, &broadcast_req, true);
+  if (ret != 0 && broadcast_req.err_code != 0) {
+    string err_msg = broadcast_req.err_msg;
+    my_printf_error(broadcast_req.err_code, "%s", MYF(0), err_msg.c_str());
+    return ret;
+  }
   update_sess_ctx_by_tch(tch, hton, thd);
   return ret;
 }
