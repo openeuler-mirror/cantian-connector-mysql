@@ -142,7 +142,7 @@ int ctc_convert_key_from_mysql_to_cantian(Field *field, uint8_t **mysql_ptr, dec
 {
   int ret = CT_SUCCESS;
   const field_cnvrt_aux_t *mysql_info = get_auxiliary_for_field_convert(field, field->type());
-  // 针对tiny和short类型，对应到daac是int类型，所以key length需要按照daac大小的存储
+  // 针对tiny和short类型，对应到cantian是int类型，所以key length需要按照cantian大小的存储
   if (mysql_info->mysql_field_type == MYSQL_TYPE_TINY || mysql_info->mysql_field_type == MYSQL_TYPE_SHORT ||
       mysql_info->mysql_field_type == MYSQL_TYPE_INT24) {
     ctc_index_make_up_key_length(reinterpret_cast<int *>(cantian_ptr), mysql_ptr, len, sizeof(int));

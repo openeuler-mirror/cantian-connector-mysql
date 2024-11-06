@@ -316,7 +316,7 @@ static void ctc_log_reg_error_by_code(int error_code)
 {
   switch(error_code) {
     case ERR_CONNECTION_FAILED:
-#ifdef WITH_DAAC
+#ifdef WITH_CANTIAN
       ctc_log_error("connection failed");
 #else
       ctc_log_error("shm connection failed");

@@ -164,7 +164,7 @@ typedef struct st_lob_text {
 typedef enum en_isolation_level {
   ISOLATION_READ_COMMITTED = 1,  // read committed isolation level(default)
   ISOLATION_SERIALIZABLE = 3,    // serializable isolation level
-  // value 2 is internal isolation level of daac, ignore for now
+  // value 2 is internal isolation level of cantian, ignore for now
 } isolation_level_t;
 
 typedef struct st_mysql_to_cantian_field_convert {
