@@ -93,7 +93,7 @@ const char *ctc_interface_strs[] = {
 
 };
 
-#ifndef WITH_DAAC
+#ifndef WITH_CANTIAN
 typedef struct tag_mem_class_cfg_s {
     uint32_t size; // align to 8 bytes
     uint32_t num;
@@ -178,7 +178,7 @@ void ctc_stats::print_cost_times(std::string &ctc_srv_monitor_str) {
   ctc_srv_monitor_str += "\n======================================CTC_STATS=====================================\n";
 }
 
-#ifndef WITH_DAAC
+#ifndef WITH_CANTIAN
 extern uint32_t g_shm_file_num;
 void ctc_stats::print_shm_usage(std::string &ctc_srv_monitor_str) {
   uint32_t *ctc_shm_usage = (uint32_t *)my_malloc(PSI_NOT_INSTRUMENTED, (g_shm_file_num + 1) * MEM_CLASS_NUM * sizeof(uint32_t), MYF(MY_WME));
@@ -216,7 +216,7 @@ void ctc_stats::print_stats(THD *thd, stat_print_fn *stat_print) {
   if (get_statistics_enabled()) {
     print_cost_times(ctc_srv_monitor_str);
   }
-#ifndef WITH_DAAC
+#ifndef WITH_CANTIAN
   print_shm_usage(ctc_srv_monitor_str);
 #endif
   

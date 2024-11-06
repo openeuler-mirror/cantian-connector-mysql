@@ -28,9 +28,9 @@ ALTER TABLE DEMO ADD PRIMARY KEY (ID);
 
 #创建用户
 #CREATE USER zd1 IDENTIFIED BY "Zd1-123456";
-#GRANT ALL PRIVILEGES  ON *.*  TO zd1; #daac里面需要把 ON *.*删除掉，DAAC不支持此语法
+#GRANT ALL PRIVILEGES  ON *.*  TO zd1; #cantian里面需要把 ON *.*删除掉，CANTIAN不支持此语法
 #CREATE USER zd2 IDENTIFIED BY "Zd1-123456";
-#GRANT SELECT,INSERT,UPDATE, DELETE ON demo_db.DEMO TO zd2; #这里只支持db.table语法，daac不支持db,发到daac侧需要把db删掉
+#GRANT SELECT,INSERT,UPDATE, DELETE ON demo_db.DEMO TO zd2; #这里只支持db.table语法，cantian不支持db,发到cantian侧需要把db删掉
 
 #Adding a foreign key constraint
 create table DEMO_A (ID integer not null, NAME varchar(19) not null, SCORE float, CONSTRAINT id_fk FOREIGN KEY (ID) REFERENCES DEMO(ID));

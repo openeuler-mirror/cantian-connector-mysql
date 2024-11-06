@@ -251,7 +251,7 @@ bool get_ctc_key_algorithm(ha_key_alg algorithm, int32_t *ret_algorithm) {
     default:
       break;
   }
-  // mysql字符序和daac的参数对接
+  // mysql字符序和cantian的参数对接
   static map<const ha_key_alg, const ctc_ha_key_alg>
       g_ctc_key_algorithm_map = {
           {HA_KEY_ALG_SE_SPECIFIC, CTC_HA_KEY_ALG_SE_SPECIFIC},

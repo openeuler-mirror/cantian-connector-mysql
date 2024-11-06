@@ -1,4 +1,4 @@
-#### test case come from daac codebase gs_row_chain.sql, only part of it pick up to here
+#### test case come from cantian codebase gs_row_chain.sql, only part of it pick up to here
 #### remember if table column is too long or column size to big, to pick new case from gs_row_chain.sql
 #### 链接行：
 ####      1、当行数据大于PCRH_MAX_ROW_SIZE:8050(pcrh表)或者HEAP_MAX_ROW_SIZE:8040(堆表)，插入时会产生链接行
