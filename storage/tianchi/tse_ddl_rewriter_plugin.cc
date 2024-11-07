@@ -636,7 +636,7 @@ static int tse_check_set_opt(string &sql_str, MYSQL_THD thd, bool &need_forward)
 #ifdef FEATURE_X_FOR_MYSQL_26
         ret = tse_set_var_meta(thd, options, setvar->base.str, name_str, val_str, var_real_type);
 #elif defined(FEATURE_X_FOR_MYSQL_32)
-        ret = tse_set_var_meta(thd, options, setvar->m_var_tracker.get_var_name()
+        ret = tse_set_var_meta(thd, options, setvar->m_var_tracker.get_var_name(),
 		       	name_str, val_str, var_real_type);
 #endif
       } else {
