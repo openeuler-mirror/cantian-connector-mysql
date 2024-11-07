@@ -357,6 +357,175 @@ static inline uint32_t read_from_2_little_endian(const uint8_t *buf)
   return ((uint32_t)(buf[0]) | ((uint32_t)(buf[1]) << 8));
 }
 
+static inline void record_digital(uint8 *digits, int32 val, int start, int step)
+{
+  int end = start + step - 1;
+  while (val != 0 && end >= start) {
+    digits[end] = val % 10;
+    val /= 10;
+    end--;
+  }
+}
+
+// [start, end]  left-closed, right-closed
+int32 restore_digital(uint8 *digits, int start, int end, int step)
+{
+  int32 val = 0;
+  int newEnd = start + step - 1;
+  while (start <= end) {
+    val = val * 10 + digits[start];
+    start++;
+  }
+  while (start <= newEnd) {
+    val = val * 10;
+    start++;
+  }
+  return val;
+}
+
+void remove_leading_zero(uint8 *digits, int &start, int &point, int &end)
+{
+  while (end > point && digits[end] == 0) {
+    end--;
+  }
+  start = 0;
+  while (start < point && digits[start] == 0) {
+    start++;
+  }
+}
+
+#define DIG_PER_MYDEC 9
+#define DIG_PER_DEC4 4
+void convert_mydec_to_digital(my_decimal *myd, uint8 *digits, int &start, int &point, int &end)
+{
+  // integer part
+  int i = 0;
+  int my_point_loc = (myd->intg + DIG_PER_MYDEC - 1) / DIG_PER_MYDEC;
+  while (i < my_point_loc) {
+    record_digital(digits, (int32)myd->buf[i], i * DIG_PER_MYDEC, DIG_PER_MYDEC);
+    i++;
+  }
+
+  if (myd->frac != 0) {
+    int my_frac_loc = (myd->frac + DIG_PER_MYDEC - 1) / DIG_PER_MYDEC + my_point_loc;
+    while (i < my_frac_loc) {
+      record_digital(digits, (int32)myd->buf[i], i * DIG_PER_MYDEC, DIG_PER_MYDEC);
+      i++;
+    }
+  }
+  point = my_point_loc * DIG_PER_MYDEC;  // the first fraction index
+  end = point + myd->frac - 1; // the last fraction index
+  remove_leading_zero(digits, start, point, end);
+}
+
+void convert_digital_to_dec4(dec4_t *d4, uint8 *digits, bool sign, int start, int point, int end)
+{
+  int expn = point - start;
+  int cell0_num = 0;  // number of digits in cells[0]
+  d4->sign = sign ? 1 : 0;
+  if (expn > 0) {
+    cell0_num = expn % DIG_PER_DEC4;
+    if (cell0_num == 0 && expn >= DIG_PER_DEC4) {
+      expn -= DIG_PER_DEC4;
+    }
+  } else {
+    cell0_num = DIG_PER_DEC4 + (expn % DIG_PER_DEC4);
+    expn -= cell0_num;
+  }
+  d4->expn = expn / DIG_PER_DEC4;
+  // record digital to cell of dec4
+   int cell_idx = 0, digidx = start;
+  // cells[0]
+  if (cell0_num != 0) {
+    d4->cells[cell_idx] = 0;
+    while (digidx < start + cell0_num) {
+      d4->cells[cell_idx] = d4->cells[cell_idx] * 10 + digits[digidx];
+      digidx++;
+    }
+    cell_idx++;
+  }
+  // remaining numbers
+  while (digidx <= end) {
+    d4->cells[cell_idx] = 0;
+    if (digidx + DIG_PER_DEC4 <= end) {
+      d4->cells[cell_idx] = restore_digital(digits, digidx, digidx + DIG_PER_DEC4 - 1, DIG_PER_DEC4);
+    } else {
+      d4->cells[cell_idx] = restore_digital(digits, digidx, end, DIG_PER_DEC4);
+    }
+      digidx += DIG_PER_DEC4;
+      cell_idx++;
+  }
+  d4->ncells = cell_idx;
+}
+
+void convert_dec4_to_digital(dec4_t *dec4, uint8 *digits, int &start, int &point, int &end)
+{
+  if (dec4->cells == 0) {
+    start = point = end = 0;
+    return;
+  }
+  // only fraction
+  int i = 0, j = 0;
+  if (dec4->expn >= 0) {
+    point = (dec4->expn + 1) * DIG_PER_DEC4; // the first fraction index
+  } else if (dec4->expn < 0) {
+    point = 0;
+    i = -(dec4->expn + 1);
+  }
+  start = i * DIG_PER_DEC4;
+  while (j < dec4->ncells) {
+    record_digital(digits, (int32)dec4->cells[j], i * DIG_PER_DEC4, DIG_PER_DEC4);
+    i++;
+    j++;
+  }
+  end = i * DIG_PER_DEC4 - 1; // the last fraction index
+  remove_leading_zero(digits, start, point, end);
+}
+
+void convert_digital_to_mydec(my_decimal *mydec, uint8 *digits, bool sign, int start, int point, int end)
+{
+  mydec->sign(sign);
+  mydec->intg = point - start;
+  mydec->frac = end - point + 1;
+  int buf_idx = 0, digidx = start, buf0_num = mydec->intg % DIG_PER_MYDEC;
+  // buf[0]
+  if (buf0_num != 0) {
+    mydec->buf[0] = 0;
+    while (digidx < start + buf0_num) {
+      mydec->buf[0] = mydec->buf[0] * 10 + digits[digidx];
+      digidx++;
+    }
+    buf_idx = 1;
+  }
+  // remaining numbers
+  while (digidx <= end) {
+    mydec->buf[buf_idx] = 0;
+    if (digidx + DIG_PER_MYDEC <= end) {
+      mydec->buf[buf_idx] = restore_digital(digits, digidx, digidx + DIG_PER_MYDEC - 1, DIG_PER_MYDEC);
+    } else {
+      mydec->buf[buf_idx] = restore_digital(digits, digidx, end, DIG_PER_MYDEC);
+    }
+    digidx += DIG_PER_MYDEC;
+    buf_idx++;
+  }
+}
+
+void convert_mydec_to_dec4(my_decimal *from, dec4_t *to)
+{
+  uint8 digits[DECIMAL_MAX_STR_LENGTH] = {0};
+  int start = 0, point = 0, end = 0;
+  convert_mydec_to_digital(from, digits, start, point, end);
+  convert_digital_to_dec4(to, digits, from->sign(), start, point, end);
+}
+
+void convert_dec4_to_mydec(dec4_t *from, my_decimal *to)
+{
+  uint8 digits[DECIMAL_MAX_STR_LENGTH] = {0};
+  int start = 0, point = 0, end = 0;
+  convert_dec4_to_digital(from, digits, start, point, end);
+  convert_digital_to_mydec(to, digits, from->sign != 0, start, point, end);
+}
+
 /**
   @brief
   decimal is stored by my_decimal struct in mysql , and stored by dec4_t in cantian;
@@ -377,42 +546,17 @@ int decimal_mysql_to_cantian(const uint8_t *mysql_ptr, uchar *cantian_ptr, Field
     ctc_log_error("[mysql2cantians]Decimal data type convert binary to my_decimal failed!");
     return ret;
   }
-  char buff[DECIMAL_MAX_STR_LENGTH + 1];
-  int len = sizeof(buff);
-  ret = decimal2string(&d, buff, &len);
-  if (ret != E_DEC_OK) {
-    ctc_log_error("[mysql2cantian]Decimal data type convert my_decimal to string failed!");
-    return ret;
-  }
-  dec8_t d8;
-  if (ct_cm_str_to_dec8(buff, &d8) != CT_SUCCESS_STATUS) {
-    ctc_log_error("[mysql2cantian]Decimal data type convert str to dec8 failed!");
-    assert(0);
-  }
-  cm_dec_8_to_4((dec4_t *)cantian_ptr, &d8);
+  dec4_t *d4 = (dec4_t *)cantian_ptr;
+  convert_mydec_to_dec4(&d, d4);
   *length = (uint32)cm_dec4_stor_sz((dec4_t *)cantian_ptr);
   return ret;
 }
 
 void decimal_cantian_to_mysql(uint8_t *mysql_ptr, uchar *cantian_ptr, Field *mysql_field)
 {
-  dec8_t dec;
+  my_decimal mydec;
   dec4_t *d4 = (dec4_t *)cantian_ptr;
-  ct_cm_dec_4_to_8(&dec, d4, (uint32)cm_dec4_stor_sz(d4));
-  char str[DEC_MAX_NUM_SAVING_PREC];
-  if (ct_cm_dec8_to_str(&dec, DEC_MAX_NUM_SAVING_PREC, str) != CT_SUCCESS_STATUS) {
-    ctc_log_error("[cantian2mysql]Decimal data type convert dec8 to str failed!");
-    assert(0);
-  }
-
-  my_decimal decimal_value;
-  const char *decimal_data = str;
-  const char *end = strend(decimal_data);
-  if (string2decimal(decimal_data, &decimal_value, &end) != E_DEC_OK) {
-    ctc_log_error("[cantian2mysql]Decimal data type convert str to my_decimal failed!");
-    assert(0);
-  }
-
+  convert_dec4_to_mydec(d4, &mydec);
   Field_new_decimal *f = dynamic_cast<Field_new_decimal *>(mysql_field);
   if (f == nullptr) {
     ctc_log_error("[cantian2mysql]Decimal data type convert my_decimal to binary failed!");
@@ -421,7 +565,7 @@ void decimal_cantian_to_mysql(uint8_t *mysql_ptr, uchar *cantian_ptr, Field *mys
 
   const int prec = f->precision;
   const int scale = mysql_field->decimals();
-  if (my_decimal2binary(E_DEC_FATAL_ERROR, &decimal_value, mysql_ptr, prec, scale) != E_DEC_OK) {
+  if (my_decimal2binary(E_DEC_FATAL_ERROR, &mydec, mysql_ptr, prec, scale) != E_DEC_OK) {
     ctc_log_error("[cantian2mysql]Decimal data type convert my_decimal to binary failed!");
     assert(0);
   }
