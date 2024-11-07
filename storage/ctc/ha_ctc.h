@@ -191,6 +191,12 @@ enum class mysql_run_mode {
   DOUBLE
 };
 
+enum set_opt_flag {
+  CTC_DDL_LOCAL_ENABLED = 1 << 0,
+  CTC_DDL_ENABLED = 1 << 1,
+  CTC_REPLAY_DDL = 1 << 2
+};
+
 typedef int (*ctc_prefetch_fn)(ctc_handler_t *tch, uint8_t *records, uint16_t *record_lens,
                                uint32_t *recNum, uint64_t *rowids, int32 max_row_size);
 
@@ -977,6 +983,7 @@ typedef struct {
   std::unordered_map<ctc_handler_t *, uint64_t> *cursors_map;
   std::vector<uint64_t> *invalid_cursors;
   void* msg_buf;
+  uint set_flag;
 } thd_sess_ctx_s;
 #pragma pack()
 

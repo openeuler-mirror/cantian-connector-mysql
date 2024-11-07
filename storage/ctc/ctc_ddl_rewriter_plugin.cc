@@ -436,20 +436,6 @@ static int ctc_check_flush(string &, MYSQL_THD thd, bool &need_forward) {
   return 0;
 }
 
-static unordered_set<string> set_variable_not_broadcast{"ctc_ddl_local_enabled", "ctc_ddl_enabled"};
-static bool ctc_check_ddl_local_enable(string sql_str, bool &need_forwar) {
-  transform(sql_str.begin(), sql_str.end(), sql_str.begin(), ::tolower);
-
-  for (auto it : set_variable_not_broadcast) {
-    if (sql_str.find(it) != sql_str.npos) {
-      need_forwar = false;
-      return true;
-    }
-  }
-
-  return false;
-}
-
 static uint32_t ctc_set_var_option(bool is_null_value, bool is_set_default_value,
                                    set_var *setvar) {
   uint32_t options = 0;
@@ -565,29 +551,74 @@ static int ctc_check_set_opt_rule(set_var *setvar, string& name_str, string& use
   return ret;
 }
 
-/* 参考set_var.cc: sql_set_variables */
-static int ctc_check_set_opt(string &sql_str, MYSQL_THD thd, bool &need_forward) {
-  if (ctc_check_ddl_local_enable(sql_str, need_forward)) {
+static int ctc_set_user_var_flag(MYSQL_THD thd, string name, string value) {
+  handlerton* hton = get_ctc_hton();
+  thd_sess_ctx_s *sess_ctx = get_or_init_sess_ctx(hton, thd);
+  if (sess_ctx == nullptr) {
+    return HA_ERR_OUT_OF_MEM;
+  }
+  bool is_flag_set = (value == "1") || (value == "true");
+  bool is_flag_unset = (value == "0") || (value == "false") || (value == "NULL");
+  auto it = user_var_flag_map.find(name);
+  if (it != user_var_flag_map.end()) {
+    if (is_flag_set) {
+      sess_ctx->set_flag |= it->second;
+    } else if (is_flag_unset) {
+      sess_ctx->set_flag &= ~it->second;
+    } else {
+      my_printf_error(ER_UNKNOWN_COM_ERROR, "Invalid variable value for '%s': '%s'", MYF(0),
+                      name.c_str(), value.c_str());
+      return -1;
+    }
+  }
+  return 0;
+}
+
+static int check_non_system_var(set_var_base *var, bool& need_forward, MYSQL_THD thd) {
+  need_forward = false;
+  if (typeid(*var) != typeid(set_var_user)) {
     return 0;
   }
 
-  List_iterator_fast<set_var_base> var_it(thd->lex->var_list);
+  set_var_user *setvar_user = dynamic_cast<set_var_user *>(var);
+  String set_str;
+  string var_name;
+  string var_value;
+  // 参考set_var.cc: set_var_user::print
+  // set_str由print函数追加"@"和":="生成
+  setvar_user->print(thd, &set_str);
+  if (set_str.ptr() == nullptr || set_str.length() == 0) {
+    my_printf_error(ER_NOT_ALLOWED_COMMAND, "%s", MYF(0), "The used command is not allowed");
+    return -1;
+  }
+  string str(set_str.ptr(), set_str.length());
+  size_t pos = str.find("@");
+  if (pos != str.npos) {
+      size_t end_pos = str.find(":=", pos);
+      if (end_pos != str.npos) {
+          size_t name_start = pos + 1;
+          size_t name_len = end_pos - name_start;
+          var_name = str.substr(name_start, name_len);
+      }
+  }
+  size_t value_pos = str.find(":=");
+  if (value_pos != str.npos) {
+      size_t value_start = value_pos + 2;
+      size_t value_len = str.length() - value_start;
+      var_value = str.substr(value_start, value_len);
+  }
 
-  set_var_base *var = nullptr;
+  return ctc_set_user_var_flag(thd, var_name, var_value);
+}
+
+static int check_system_var(set_var_base *var, string &sql_str, MYSQL_THD thd,
+                            bool& need_forward, bool& contain_subselect) {
+  set_var *setvar = dynamic_cast<set_var *>(var);
+  bool is_set_default_value = false;
+  bool is_null_value = false;
   int ret = 0;
   string name_str;
   string val_str;
-
-  // broadcast SET_OPTION query with subselect item
-  bool contain_subselect = false;
-  if (thd->lex->query_tables) {
-    contain_subselect = true;
-  }
-  var_it.rewind();
-  while ((var = var_it++)) {
-    set_var *setvar = dynamic_cast<set_var *>(var);
-    bool is_set_default_value = false;
-    bool is_null_value = false;
 #ifdef FEATURE_X_FOR_MYSQL_32
     if (setvar) {
       std::function<bool(const System_variable_tracker &, sys_var *)> f = [&thd, &need_forward, setvar]
@@ -616,19 +647,16 @@ static int ctc_check_set_opt(string &sql_str, MYSQL_THD thd, bool &need_forward)
         }
         ret |= ctc_check_set_opt_rule(setvar, name_str, val_str, need_forward);
       }
-    } else {
-      // There's no need to broadcast non-set_var SET_OPTION cmds.
-      need_forward = false;
     }
-
     if (need_forward && allow_sqlcmd(thd, "ctc_setopt_disabled") != 0) {
-      my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0), "Set global variable query is not allowed (ctc_setopt_disabled = true)");
+      my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
+                      "Set global variable query is not allowed (ctc_setopt_disabled = true)");
       return -1;
     }
 
-    if(IS_METADATA_NORMALIZATION() && !contain_subselect && need_forward && setvar) {
+    if (IS_METADATA_NORMALIZATION() && !contain_subselect && need_forward && setvar) {
       if (setvar->check(thd) == 0) {
-	bool var_real_type = false;
+        bool var_real_type = false;
         if (setvar->value && setvar->value->result_type() == INT_RESULT) {
           var_real_type = true;
         }
@@ -636,15 +664,36 @@ static int ctc_check_set_opt(string &sql_str, MYSQL_THD thd, bool &need_forward)
 #ifdef FEATURE_X_FOR_MYSQL_26
         ret = ctc_set_var_meta(thd, options, setvar->base.str, name_str, val_str, var_real_type);
 #elif defined(FEATURE_X_FOR_MYSQL_32)
-        ret = ctc_set_var_meta(thd, options, setvar->m_var_tracker.get_var_name()
+        ret = ctc_set_var_meta(thd, options, setvar->m_var_tracker.get_var_name(),
 		       	name_str, val_str, var_real_type);
 #endif
       } else {
         thd->clear_error();
-        need_forward = false;  // 值校验失败, ctc不进行广播并返回成功, 后续报错由MySQL完成 
+        need_forward = false;  // 值校验失败, ctc不进行广播并返回成功, 后续报错由MySQL完成
       }
     }
+    return ret;
+}
 
+/* 参考set_var.cc: sql_set_variables */
+static int ctc_check_set_opt(string &sql_str, MYSQL_THD thd, bool &need_forward) {
+  List_iterator_fast<set_var_base> var_it(thd->lex->var_list);
+
+  set_var_base *var = nullptr;
+  int ret = 0;
+
+  // broadcast SET_OPTION query with subselect item
+  bool contain_subselect = false;
+  if (thd->lex->query_tables) {
+    contain_subselect = true;
+  }
+  var_it.rewind();
+  while ((var = var_it++)) {
+    if (typeid(*var) != typeid(set_var)) {
+      ret = check_non_system_var(var, need_forward, thd);
+    } else {
+      ret = check_system_var(var, sql_str, thd, need_forward, contain_subselect);
+    }
     ctc_log_debug("set option %s, need_forward: %d", sql_str.c_str(), need_forward);
   }
   if (IS_METADATA_NORMALIZATION() && !contain_subselect) {
