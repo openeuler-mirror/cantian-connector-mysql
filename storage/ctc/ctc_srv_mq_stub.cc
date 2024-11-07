@@ -1346,6 +1346,7 @@ int ctc_execute_mysql_ddl_sql(ctc_handler_t *tch, ctc_ddl_broadcast_request *bro
   int ret = ctc_mq_deal_func(shm_inst, CTC_FUNC_TYPE_EXCUTE_MYSQL_DDL_SQL, req, tch->msg_buf);
   *tch = req->tch;
   broadcast_req->err_code = req->broadcast_req.err_code;
+  strncpy(broadcast_req->err_msg, req->broadcast_req.err_msg, ERROR_MESSAGE_LEN - 1);
   if (ret == CT_SUCCESS) {
     result = req->result;
   }
@@ -1389,7 +1390,7 @@ int ctc_broadcast_rewrite_sql(ctc_handler_t *tch, ctc_ddl_broadcast_request *bro
   int ret = ctc_mq_deal_func(shm_inst, CTC_FUNC_TYPE_BROADCAST_REWRITE_SQL, req, tch->msg_buf);
   *tch = req->tch;
   broadcast_req->err_code = req->broadcast_req.err_code;
-  strncpy(broadcast_req->err_msg, req->broadcast_req.err_msg, ERROR_MESSAGE_LEN);
+  strncpy(broadcast_req->err_msg, req->broadcast_req.err_msg, ERROR_MESSAGE_LEN - 1);
   if (ret == CT_SUCCESS) {
     result = req->result;
   }
@@ -1607,7 +1608,7 @@ int ctc_record_sql_for_cantian(ctc_handler_t *tch, ctc_ddl_broadcast_request *br
   int ret = ctc_mq_deal_func(shm_inst, CTC_FUNC_TYPE_RECORD_SQL, req, tch->msg_buf);
   *tch = req->tch;
   broadcast_req->err_code = req->broadcast_req.err_code;
-  strncpy(broadcast_req->err_msg, req->broadcast_req.err_msg, ERROR_MESSAGE_LEN);
+  strncpy(broadcast_req->err_msg, req->broadcast_req.err_msg, ERROR_MESSAGE_LEN - 1);
   if (ret == CT_SUCCESS) {
     result = req->result;
   }

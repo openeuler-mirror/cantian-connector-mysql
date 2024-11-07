@@ -894,10 +894,11 @@ int ctc_set_sys_var(ctc_ddl_broadcast_request *broadcast_req) {
   }
 
   sysvar = intern_find_sys_var(var_name.c_str(), var_name.length());
-  int ret = -1;
   if (sysvar == nullptr) {
+    my_error(ER_UNKNOWN_SYSTEM_VARIABLE, MYF(0), var_name.c_str());
+    strncpy(broadcast_req->err_msg, new_thd->get_stmt_da()->message_text(), ERROR_MESSAGE_LEN - 1);
     ctc_log_error("[ctc_set_sys_var]:sysvar is nullptr and var_name : %s", var_name.c_str());
-    return ret;
+    return ER_UNKNOWN_SYSTEM_VARIABLE;
   }
   ctc_get_set_var_item(new_thd, sysvar, &res, var_value, is_null_value, var_is_int);
   
@@ -916,11 +917,13 @@ int ctc_set_sys_var(ctc_ddl_broadcast_request *broadcast_req) {
   var = new (new_thd->mem_root) set_var(type, var_tracker, res);
 #endif
   tmp_var_list.push_back(var);
-  ret = sql_set_variables(new_thd, &tmp_var_list, false);
+  int ret = sql_set_variables(new_thd, &tmp_var_list, false);
   if (ret != 0) {
-    ctc_log_error("[ctc_set_sys_var]:set global opt faili;var_name : %s, var_value: %s",
-		    var_name.c_str(), var_value.c_str());
-    return ret;
+    uint err_code = new_thd->get_stmt_da()->mysql_errno();
+    strncpy(broadcast_req->err_msg, new_thd->get_stmt_da()->message_text(), ERROR_MESSAGE_LEN - 1);
+    ctc_log_error("[ctc_set_sys_var]:set global opt fail; err_code: %u, var_name: %s, var_value: %s",
+		    err_code, var_name.c_str(), var_value.c_str());
+    return err_code;
   }
 
   tmp_var_list.clear();

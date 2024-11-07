@@ -492,6 +492,11 @@ static int ctc_set_var_meta(MYSQL_THD thd, uint32_t options, const char* base_na
   }
   broadcast_req.options |= options;
   int ret = ctc_execute_mysql_ddl_sql(&tch, &broadcast_req, true);
+  if (ret != 0 && broadcast_req.err_code != 0) {
+    string err_msg = broadcast_req.err_msg;
+    my_printf_error(broadcast_req.err_code, "%s", MYF(0), err_msg.c_str());
+    return ret;
+  }
   update_sess_ctx_by_tch(tch, hton, thd);
   return ret;
 }
@@ -636,7 +641,7 @@ static int ctc_check_set_opt(string &sql_str, MYSQL_THD thd, bool &need_forward)
 #ifdef FEATURE_X_FOR_MYSQL_26
         ret = ctc_set_var_meta(thd, options, setvar->base.str, name_str, val_str, var_real_type);
 #elif defined(FEATURE_X_FOR_MYSQL_32)
-        ret = ctc_set_var_meta(thd, options, setvar->m_var_tracker.get_var_name()
+        ret = ctc_set_var_meta(thd, options, setvar->m_var_tracker.get_var_name(),
 		       	name_str, val_str, var_real_type);
 #endif
       } else {
