@@ -45,6 +45,52 @@ static unordered_set<string> mysql_system_db{"information_schema", "mysql", "per
 #define SESSION_VARIABLE_VALUE_MAX_CREATE_INDEX_PARALLELISM 10
 #define SESSION_VARIABLE_VALUE_DEFAULT_CREATE_INDEX_PARALLELISM -1
 
+#define ROWID_FILE_BITS   10
+#define ROWID_PAGE_BITS   30
+#define ROWID_SLOT_BITS   12
+#define ROWID_UNUSED_BITS 12
+#define ROWID_VALUE_BITS  52
+#pragma pack(4)
+// cantian Row ID type identify a physical position of a row
+typedef union st_rowid {
+  struct {
+    uint64_t value : ROWID_VALUE_BITS;
+    uint64_t unused1 : ROWID_UNUSED_BITS;
+  };
+
+  struct {
+    uint64_t file : ROWID_FILE_BITS;  // file
+    uint64_t page : ROWID_PAGE_BITS;  // page
+    uint64_t slot : ROWID_SLOT_BITS;  // slot number
+    uint64_t unused2 : ROWID_UNUSED_BITS;
+  };
+
+  struct {
+    uint64_t vmid : 32;     // virtual memory page id, dynamic view item, ...
+    uint64_t vm_slot : 16;  // slot of virtual memory page, sub item
+    uint64_t vm_tag : 16;
+  };
+
+  struct {
+    uint32_t tenant_id : 16;
+    uint32_t curr_ts_num : 16;
+    uint32_t ts_id;
+  };
+
+  struct {
+    uint32_t group_id;
+    uint32_t attr_id;
+  };
+
+  struct {
+    uint32_t pos;
+    uint32_t bucket_id : 16;
+    uint32_t sub_id : 16;
+  };
+} rowid_t;
+#pragma pack()
+
+int32_t ctc_cmp_cantian_rowid(const rowid_t *rowid1, const rowid_t *rowid2);
 void ctc_split_normalized_name(const char *file_name, char db[], size_t db_buf_len,
                                char name[], size_t name_buf_len, bool *is_tmp_table);
 void ctc_copy_name(char to_name[], const char from_name[], size_t to_buf_len);

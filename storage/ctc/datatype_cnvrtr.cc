@@ -1760,7 +1760,10 @@ void copy_column_data_to_mysql(field_info_t *field_info, const field_cnvrt_aux_t
 {
   if (!bitmap_is_set(field_info->field->table->read_set, field_info->field->field_index()) &&
       tch.sql_command == SQLCOM_SELECT) {
-    return;
+    ha_ctc *const ctc_handler = dynamic_cast<ha_ctc *>(field_info->field->table->file);
+    if (!ctc_handler->m_ror_intersect) {
+      return;
+    }
   }
   uchar *src = NULL;
   uint16_t src_len = 0;
