@@ -340,16 +340,6 @@ static inline bool is_create_table_check(MYSQL_THD thd) {
   return (thd->lex->sql_command == SQLCOM_CREATE_TABLE && thd->lex->is_exec_started());
 }
 
-bool user_var_set(MYSQL_THD thd, string target_str) {
-  user_var_entry *var_entry;
-  var_entry = find_or_nullptr(thd->user_vars, target_str);
-  if (var_entry != nullptr && var_entry->ptr() != nullptr) {
-    ctc_log_debug("thd (%d) has user variable %s", thd->thread_id(), target_str.data());
-    return true;
-  }
-  return false;
-}
-
 dml_flag_t ctc_get_dml_flag(THD *thd, bool is_replace, bool auto_inc_used,
                             bool has_explicit_autoinc, bool dup_update) {
   dml_flag_t flag;
@@ -412,13 +402,22 @@ bool is_alter_table_scan(bool m_error_if_not_empty) {
 }
 
 bool ddl_enabled_normal(MYSQL_THD thd) {
-  return !user_var_set(thd, "ctc_ddl_local_enabled") &&
-         (ctc_concurrent_ddl == true || user_var_set(thd, "ctc_ddl_enabled"));
+  handlerton* hton = get_ctc_hton();
+  thd_sess_ctx_s *sess_ctx = get_or_init_sess_ctx(hton, thd);
+  assert(sess_ctx != nullptr);
+  // 1.CTC_DDL_LOCAL_ENABLED被设置：不能从rewrite插件下发任何SQL语句
+  // 2.CTC_DDL_LOCAL_ENABLED没被设置，ctc_concurrent_ddl=true，允许运行到判断是否广播的逻辑中
+  // 3.CTC_DDL_LOCAL_ENABLED没被设置，ctc_concurrent_ddl=false，若CTC_DDL_ENABLED被设置，允许运行到判断是否广播的逻辑中
+  return !(sess_ctx->set_flag & CTC_DDL_LOCAL_ENABLED) &&
+         (ctc_concurrent_ddl == true || (sess_ctx->set_flag & CTC_DDL_ENABLED));
 }
 
 bool engine_skip_ddl(MYSQL_THD thd) {
+  handlerton* hton = get_ctc_hton();
+  thd_sess_ctx_s *sess_ctx = get_or_init_sess_ctx(hton, thd);
+  assert(sess_ctx != nullptr);
   // 接口流程不需要走到参天: 用于参天SYS库操作
-  return user_var_set(thd, "ctc_ddl_local_enabled") && ctc_concurrent_ddl == true;
+  return (sess_ctx->set_flag & CTC_DDL_LOCAL_ENABLED) && ctc_concurrent_ddl == true;
 }
 
 bool engine_ddl_passthru(MYSQL_THD thd) {
@@ -426,7 +425,10 @@ bool engine_ddl_passthru(MYSQL_THD thd) {
   if (is_initialize() || is_meta_version_upgrading_force()) {
     return false;
   }
-  bool is_mysql_local = user_var_set(thd, "ctc_ddl_local_enabled");
+  handlerton* hton = get_ctc_hton();
+  thd_sess_ctx_s *sess_ctx = get_or_init_sess_ctx(hton, thd);
+  assert(sess_ctx != nullptr);
+  bool is_mysql_local = (sess_ctx->set_flag & CTC_DDL_LOCAL_ENABLED);
   return is_initialize() || !mysqld_server_started || is_mysql_local;
 }
 
@@ -437,12 +439,13 @@ bool ha_ctc::is_replay_ddl(MYSQL_THD thd) {
   if (mysql_system_db.find(db_name) != mysql_system_db.end()) {
     return false;
   }
+  
+  handlerton* hton = get_ctc_hton();
+  thd_sess_ctx_s *sess_ctx = get_or_init_sess_ctx(hton, thd);
+  assert(sess_ctx != nullptr);
 
-  if (user_var_set(thd, "ctc_ddl_local_enabled") && user_var_set(thd, "ctc_replay_ddl")) {
-    return true;
-  }
-
-  return false;
+  uint ctc_var_flag = (CTC_DDL_LOCAL_ENABLED | CTC_REPLAY_DDL);
+  return (sess_ctx->set_flag & ctc_var_flag) == ctc_var_flag;
 }
 
 static int ctc_reg_instance() {
@@ -1297,6 +1300,7 @@ thd_sess_ctx_s *get_or_init_sess_ctx(handlerton *hton, THD *thd) {
     sess_ctx->invalid_cursors = nullptr;
     assert(sess_ctx->cursors_map->size() == 0);
     sess_ctx->msg_buf = nullptr;
+    sess_ctx->set_flag = 0;
     thd_set_ha_data(thd, hton, sess_ctx);
   }
   return sess_ctx;
@@ -1528,7 +1532,7 @@ static int ctc_start_trx_and_assign_scn(
   int isolation_level = isolation_level_to_cantian(mysql_isolation);
   uint32_t lock_wait_timeout = THDVAR(thd, lock_wait_timeout);
   ctc_trx_context_t trx_context = {isolation_level, autocommit, lock_wait_timeout, false};
-  bool is_mysql_local = user_var_set(thd, "ctc_ddl_local_enabled");
+  bool is_mysql_local = (sess_ctx->set_flag & CTC_DDL_LOCAL_ENABLED);
   ct_errno_t ret = (ct_errno_t)ctc_trx_begin(&tch, trx_context, is_mysql_local);
   if (ret != CT_SUCCESS) {
     ctc_log_error("start trx failed with error code: %d", ret);
@@ -4294,7 +4298,7 @@ int ha_ctc::start_stmt(THD *thd, thr_lock_type) {
   
   ctc_trx_context_t trx_context = {isolation_level, autocommit, lock_wait_timeout, m_select_lock == lock_mode::EXCLUSIVE_LOCK};
   
-  bool is_mysql_local = user_var_set(thd, "ctc_ddl_local_enabled");
+  bool is_mysql_local = (sess_ctx->set_flag & CTC_DDL_LOCAL_ENABLED);
   ct_errno_t ret = (ct_errno_t)ctc_trx_begin(&m_tch, trx_context, is_mysql_local);
   
   check_error_code_to_mysql(ha_thd(), &ret);
