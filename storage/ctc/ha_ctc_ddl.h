@@ -177,6 +177,12 @@ static map<enum ts_alter_tablespace_type, ctc_altspace_action_t> g_ctc_alter_tab
   {ALTER_TABLESPACE_OPTIONS, CTC_ALTSPACE_SET_AUTOEXTEND}, // option 只有auto extend适配
 };
 
+static const std::unordered_map<string, set_opt_flag> user_var_flag_map = {
+    {"ctc_ddl_local_enabled", CTC_DDL_LOCAL_ENABLED},
+    {"ctc_ddl_enabled", CTC_DDL_ENABLED},
+    {"ctc_replay_ddl", CTC_REPLAY_DDL}
+};
+
 class ctc_ddl_stack_mem {
  public:
   ctc_ddl_stack_mem(size_t mem_size):buf_obj(nullptr) {
