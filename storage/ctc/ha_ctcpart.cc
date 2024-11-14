@@ -818,14 +818,41 @@ enum row_type ha_ctcpart::get_partition_row_type(const dd::Table *partition_tabl
   return ROW_TYPE_NOT_USED;
 }
 
+double ha_ctcpart::scan_time() {
+  DBUG_TRACE;
+  double sum_data_page = 0.0;
+
+  if (m_part_share != nullptr && m_part_share->cbo_stats != nullptr) {
+    uint part_num = m_is_sub_partitioned ? table->part_info->num_parts * table->part_info->num_subparts :
+                                           table->part_info->num_parts;
+    for (uint i = m_part_info->get_first_used_partition(); i < part_num; 
+         i = m_part_info->get_next_used_partition(i)) {
+         sum_data_page += m_part_share->cbo_stats->ctc_cbo_stats_table[i].blocks;
+    }
+  }
+  return sum_data_page;
+}
+
 void ha_ctcpart::info_low() {
   stats.records = 0;
+  uint total_row_len = 0;
   if (m_part_share->cbo_stats != nullptr) {
-    uint part_num = m_is_sub_partitioned ? table->part_info->num_parts * table->part_info->num_subparts :
+    uint total_part_num = m_is_sub_partitioned ? table->part_info->num_parts * table->part_info->num_subparts :
                                             table->part_info->num_parts;
-    for (uint part_id = m_part_info->get_first_used_partition(); part_id < part_num;
+    uint curr_part_num = 0;
+    stats.block_size =  m_part_share->cbo_stats->page_size;
+
+    for (uint part_id = m_part_info->get_first_used_partition(); part_id < total_part_num;
         part_id = m_part_info->get_next_used_partition(part_id)) {
           stats.records += m_part_share->cbo_stats->ctc_cbo_stats_table[part_id].estimate_rows;
+          if (m_part_share->cbo_stats->ctc_cbo_stats_table[part_id].avg_row_len != 0) {
+            total_row_len += m_part_share->cbo_stats->ctc_cbo_stats_table[part_id].avg_row_len;
+            curr_part_num++;
+          }
+    }
+    
+    if (curr_part_num > 0) {
+      stats.mean_rec_length = total_row_len / curr_part_num;
     }
   }
 }
@@ -1012,7 +1039,7 @@ int ha_ctcpart::initialize_cbo_stats() {
     ctc_log_error("alloc mem failed, m_part_share->cbo_stats size(%lu)", sizeof(ctc_cbo_stats_t));
     return ERR_ALLOC_MEMORY;
   }
-  *m_part_share->cbo_stats = {0, 0, 0, 0, 0, nullptr, 0, nullptr, nullptr};
+  *m_part_share->cbo_stats = {0, 0, 0, 0, 0, nullptr, 0, nullptr, nullptr, 0};
 
   m_part_share->cbo_stats->part_cnt = part_num;
 
@@ -1030,6 +1057,8 @@ int ha_ctcpart::initialize_cbo_stats() {
   }
   for (uint i = 0; i < part_num; i++) {
     m_part_share->cbo_stats->ctc_cbo_stats_table[i].estimate_rows = 0;
+    m_part_share->cbo_stats->ctc_cbo_stats_table[i].avg_row_len = 0;
+    m_part_share->cbo_stats->ctc_cbo_stats_table[i].blocks = 0;
     m_part_share->cbo_stats->ctc_cbo_stats_table[i].columns =
       (ctc_cbo_stats_column_t*)my_malloc(PSI_NOT_INSTRUMENTED, table->s->fields * sizeof(ctc_cbo_stats_column_t), MYF(MY_WME));
     if (m_part_share->cbo_stats->ctc_cbo_stats_table[i].columns == nullptr) {
