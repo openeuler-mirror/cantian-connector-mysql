@@ -89,6 +89,9 @@ bool check_data_file_name(const char *data_file_name) {
 }
 
 Field *ctc_get_field_by_name(TABLE *form, const char *name) {
+  if (name == nullptr) {
+    return nullptr;
+  }
   for (uint32_t i = 0; i < form->s->fields; i++) {
     if (strcasecmp(form->field[i]->field_name, name) == 0) {
       return form->field[i];
