@@ -12,7 +12,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
+   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 */
 
 // @file storage/ctc/ha_ctcpart.cc
@@ -90,7 +90,7 @@ static bool get_used_partitions(partition_info *part_info,
       my_free(*part_ids);
       return false;
     }
-    uint32_t part_id = part_info->get_first_used_partition(); 
+    uint32_t part_id = part_info->get_first_used_partition();
     if(part_id == MY_BIT_NONE){
       return true;
     }
@@ -193,7 +193,7 @@ void ha_ctcpart::set_partition(uint part_id) {
 void ha_ctcpart::reset_partition(uint part_id) {
   m_tch.part_id = INVALID_PART_ID;
   m_tch.subpart_id = INVALID_PART_ID;
-  m_last_part = part_id;   
+  m_last_part = part_id;
 }
 
 void ha_ctcpart::get_auto_increment(ulonglong, ulonglong, ulonglong,
@@ -350,7 +350,7 @@ int ha_ctcpart::rnd_init_in_part(uint part_id, bool scan) {
   return ret;
 }
 
-/** 
+/**
  Get next row during scan of a specific partition.
  @param[in]	 part_id Partition to read from.
  @param[out] buf	 Next row.
@@ -567,7 +567,7 @@ int ha_ctcpart::index_next_in_part(uint part_id, uchar *record) {
   return ret;
 }
 
-/** 
+/**
  Return next same record in index from a partition.
  This routine is used to read the next record, but only if the key is
  the same as supplied in the call.
@@ -637,7 +637,7 @@ int ha_ctcpart::index_read_last_map_in_part(uint part_id, uchar *record, const u
   return ret;
 }
 
-/** 
+/**
  Start index scan and return first record from a partition.
  This routine starts an index scan using a start key. The calling
  function will check the end key on its own.
@@ -711,7 +711,7 @@ bool ha_ctcpart::equal_range_on_part_field(const key_range *start_key, const key
   return true;
 }
 
-/** 
+/**
  Start index scan and return first record from a partition.
  This routine starts an index scan using a start and end key.
  @param[in]	 part_id   Partition to read from.
@@ -906,7 +906,7 @@ extern uint32_t ctc_instance_id;
 int ha_ctcpart::truncate_partition_low(dd::Table *dd_table) {
   THD *thd = ha_thd();
   if (engine_ddl_passthru(thd)) {
-    return 0;  
+    return 0;
   }
 
   ctc_ddl_stack_mem stack_mem(0);
@@ -1004,7 +1004,7 @@ int ha_ctcpart::initialize_cbo_stats() {
   if (m_part_share->cbo_stats != nullptr) {
     return CT_SUCCESS;
   }
-  uint32_t part_num = m_is_sub_partitioned ? table->part_info->num_parts * table->part_info->num_subparts : 
+  uint32_t part_num = m_is_sub_partitioned ? table->part_info->num_parts * table->part_info->num_subparts :
                       table->part_info->num_parts;
     
   m_part_share->cbo_stats = (ctc_cbo_stats_t*)my_malloc(PSI_NOT_INSTRUMENTED, sizeof(ctc_cbo_stats_t), MYF(MY_WME));
@@ -1016,7 +1016,7 @@ int ha_ctcpart::initialize_cbo_stats() {
 
   m_part_share->cbo_stats->part_cnt = part_num;
 
-  m_part_share->cbo_stats->ctc_cbo_stats_table = 
+  m_part_share->cbo_stats->ctc_cbo_stats_table =
       (ctc_cbo_stats_table_t*)my_malloc(PSI_NOT_INSTRUMENTED, part_num * sizeof(ctc_cbo_stats_table_t), MYF(MY_WME));
   if (m_part_share->cbo_stats->ctc_cbo_stats_table == nullptr) {
     ctc_log_error("alloc mem failed, m_part_share->cbo_stats->ctc_cbo_stats_table size(%lu)", part_num * sizeof(ctc_cbo_stats_table_t));
@@ -1108,7 +1108,7 @@ void ha_ctcpart::free_cbo_stats() {
   if (m_part_share->cbo_stats == nullptr) {
       return;
   }
-  uint32_t part_num = m_is_sub_partitioned ? table->part_info->num_parts * table->part_info->num_subparts : 
+  uint32_t part_num = m_is_sub_partitioned ? table->part_info->num_parts * table->part_info->num_subparts :
                       table->part_info->num_parts;
 
   bool is_str_first_addr = true;
@@ -1177,18 +1177,17 @@ bool ha_ctcpart::check_unsupported_indexdir(dd::Table *table_def) {
     if (!index_file_name.empty()) {
       my_error(ER_ILLEGAL_HA, MYF(0), table_share != nullptr ? table_share->table_name.str : " ");
       return true;
-    }  
+    }
   }
   return false;
 }
 
 EXTER_ATTACK int ha_ctcpart::create(const char *name, TABLE *form, HA_CREATE_INFO *create_info,
                    dd::Table *table_def) {
-  THD *thd = ha_thd();                  
+  THD *thd = ha_thd();
   if (table_def != nullptr && check_unsupported_indexdir(table_def)) {
     ctc_log_system("Unsupported operation. sql = %s", thd->query().str);
     return HA_ERR_WRONG_COMMAND;
-  }                 
-  return ha_ctc::create(name, form, create_info, table_def);                  
+  }
+  return ha_ctc::create(name, form, create_info, table_def);
 }
-

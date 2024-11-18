@@ -12,7 +12,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
+   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 */
 #include "sql/field.h"
 #include "typelib.h"
@@ -93,7 +93,7 @@ static void ctc_index_make_up_key_length(int *key, uint8_t **origin_key, uint32_
   return;
 }
 
-int ctc_fill_index_key_info(TABLE *table, const uchar *key, uint key_len, const key_range *end_range, 
+int ctc_fill_index_key_info(TABLE *table, const uchar *key, uint key_len, const key_range *end_range,
                             index_key_info_t *index_key_info, bool index_skip_scan) {
   const uchar *my_key = nullptr;
   const uchar *end_key = key + key_len;
@@ -104,7 +104,7 @@ int ctc_fill_index_key_info(TABLE *table, const uchar *key, uint key_len, const 
   index_key_info->key_num = 0;
   do {
     if (index_key_info->key_num >= table->key_info[index_key_info->active_index].actual_key_parts) {
-      ctc_log_error("ctc_fill_index_key_info: colunm id(%d) is bigger than table key parts(%d).", 
+      ctc_log_error("ctc_fill_index_key_info: colunm id(%d) is bigger than table key parts(%d).",
                     index_key_info->key_num, table->key_info[index_key_info->active_index].actual_key_parts);
       return ERR_GENERIC_INTERNAL_ERROR;
     }

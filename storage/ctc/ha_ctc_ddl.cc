@@ -12,7 +12,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
+   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 */
 #include "storage/ctc/ha_ctc.h"
 #include "storage/ctc/ha_ctc_ddl.h"
@@ -77,7 +77,7 @@ extern handlerton *ctc_hton;
 size_t ctc_ddl_stack_mem::ctc_ddl_req_msg_mem_max_size = 0;
 size_t ctc_ddl_stack_mem::ctc_ddl_req_msg_mem_use_heap_cnt = 0;
 
-int fill_delete_table_req(const char *full_path_name, const dd::Table *table_def, 
+int fill_delete_table_req(const char *full_path_name, const dd::Table *table_def,
   THD *thd, ddl_ctrl_t *ddl_ctrl, ctc_ddl_stack_mem *stack_mem) {
   TcDb__CtcDDLDropTableDef req;
 
@@ -415,7 +415,7 @@ static bool ctc_fill_column_precision_and_scale(TcDb__CtcDDLColumnDef *column, F
       }
       break;
     }
-    case MYSQL_TYPE_DECIMAL: 
+    case MYSQL_TYPE_DECIMAL:
     case MYSQL_TYPE_NEWDECIMAL: {
       Field_new_decimal *f = dynamic_cast<Field_new_decimal *>(field);
       column->datatype->precision = f->precision;
@@ -428,7 +428,7 @@ static bool ctc_fill_column_precision_and_scale(TcDb__CtcDDLColumnDef *column, F
       break;
     }
     case MYSQL_TYPE_TIME2:
-    case MYSQL_TYPE_DATETIME2: 
+    case MYSQL_TYPE_DATETIME2:
     case MYSQL_TYPE_TIMESTAMP2: {
       column->datatype->precision = field->decimals();
       break;
@@ -513,7 +513,7 @@ static int ctc_prepare_enum_field_impl(THD *thd, Create_field *sql_field, String
   return CTC_ENUM_DEFAULT_INVALID;
 }
 
-static bool ctc_prepare_set_field_impl(THD *thd, Create_field *sql_field, ulonglong *set_bitmap, 
+static bool ctc_prepare_set_field_impl(THD *thd, Create_field *sql_field, ulonglong *set_bitmap,
                                        String *def, TcDb__CtcDDLColumnDef *column) {
   DBUG_TRACE;
   assert(sql_field->sql_type == MYSQL_TYPE_SET);
@@ -555,15 +555,15 @@ static bool ctc_prepare_set_field_impl(THD *thd, Create_field *sql_field, ulongl
   const char *not_used;
   uint not_used2;
   bool not_found = false;
-  // SQL "NULL" maps to NULL  
+  // SQL "NULL" maps to NULL
   if (def == nullptr) {
     if ((sql_field->flags & NOT_NULL_FLAG) != 0) {
       my_error(ER_INVALID_DEFAULT, MYF(0), sql_field->field_name);
       return false;
     } else {
-      // else, NULL is an allowed value 
+      // else, NULL is an allowed value
       *set_bitmap = find_set(interval, nullptr, 0, sql_field->charset, &not_used, &not_used2, &not_found);
-    } 
+    }
   } else {
     // default not NULL */
     *set_bitmap = find_set(interval, def->ptr(), def->length(), sql_field->charset, &not_used, &not_used2, &not_found);
@@ -661,7 +661,7 @@ static bool ctc_get_datetime_default_value(
     TcDb__CtcDDLColumnDef *column, Field *field, const Create_field *fld, const dd::Column *col_obj,
     char **mem_start, char *mem_end, ctc_column_option_set_bit *option_set, bool is_expr_value) {
   if (field->has_insert_default_datetime_value_expression()) {
-    // current_timestamp (or with ON UPDATE CURRENT_TIMESTAMP) 
+    // current_timestamp (or with ON UPDATE CURRENT_TIMESTAMP)
     option_set->is_default_func =  1;
     option_set->is_curr_timestamp = 1;
     column->default_text = const_cast<char *>(col_obj->default_value_utf8().data());
@@ -710,7 +710,7 @@ static bool ctc_get_datetime_default_value(
       ctc_log_error("alloc mem for datetime default text failed.");
       return false;
     }
-    strncpy(column->default_text, tmp_zero_date, len + 1); 
+    strncpy(column->default_text, tmp_zero_date, len + 1);
     return true;
   }
 
@@ -775,7 +775,7 @@ static int ctc_prepare_enum_field(THD *thd, Field *field, const Create_field *fl
     def = sql_field->m_default_val_expr->expr_item->val_str(&default_str);
   }
   if (fld == nullptr) {
-    // 修改ENUM default带charset 
+    // 修改ENUM default带charset
     // 或设置了全局charset找不到enum_index
     // 判断当前charset与field charset是否一致
     if(field_cs == nullptr || strcmp(def->charset()->csname, field_cs->csname) != 0) {
@@ -852,7 +852,7 @@ static bool ctc_prepare_set_field(THD *thd, Field *field, const Create_field *fl
 }
 
 static bool ctc_get_set_default_value(
-    THD *thd, TcDb__CtcDDLColumnDef *column, Field *field, const Create_field *fld, char **mem_start, 
+    THD *thd, TcDb__CtcDDLColumnDef *column, Field *field, const Create_field *fld, char **mem_start,
     char *mem_end, const CHARSET_INFO *field_cs) {
   ulonglong set_bitmap;
   bool is_get_set_bitmap = false;
@@ -984,18 +984,18 @@ static bool ctc_check_expression_default_value(TcDb__CtcDDLColumnDef *column, Fi
                                             fld->m_default_val_expr->expr_item;
   //default expression
   if (!constant_default->const_for_execution() && constant_default->type() != Item::FUNC_ITEM) {
-    my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0), 
+    my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
                     "Current storage engine only support default expression without variable parameters");
-    return false; 
+    return false;
   } else if (constant_default->type() == Item::FUNC_ITEM) {
     // default function
     Item_func *item_func = dynamic_cast<Item_func *>(constant_default);
     column->default_func_name = const_cast<char *>(item_func->func_name());
     for (uint i = 0; i < item_func->arg_count; i++) {
       if (item_func->get_arg(i)->type() == Item::FIELD_ITEM) {
-        my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0), 
+        my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
                     "Current storage engine only support default function without variable parameters");
-        return false; 
+        return false;
       }
     }
   } else {
@@ -1084,7 +1084,7 @@ static void ctc_fill_column_option_set(TcDb__CtcDDLColumnDef *column, Field *fie
     option_set->nullable = false;
   }
   option_set->unique = field->is_flag_set(UNIQUE_KEY_FLAG);
-  column->cons_name = option_set->primary ? const_cast<char *>("PRIMARY") : 
+  column->cons_name = option_set->primary ? const_cast<char *>("PRIMARY") :
         (option_set->unique ? column->name : nullptr);
   option_set->is_serial = field->is_flag_set(AUTO_INCREMENT_FLAG);
   option_set->is_comment = field->comment.length > 0;
@@ -1125,7 +1125,7 @@ static bool ctc_ddl_fill_column_by_field(
       column->name = const_cast<char *>(fld->change);
       if (strcmp(fld->change, field->field_name) != 0) {
         column->new_name = const_cast<char *>(field->field_name);
-      } 
+      }
   } else {
       column->name = const_cast<char *>(field->field_name);
   }
@@ -1136,7 +1136,7 @@ static bool ctc_ddl_fill_column_by_field(
   ctc_fill_column_option_set(column, field, form, &option_set);
 
   if (ctc_is_with_default_value(field, col_obj)) {
-    CTC_RETURN_IF_ERROR(ctc_ddl_fill_column_default_value(thd, column, field, fld, col_obj, 
+    CTC_RETURN_IF_ERROR(ctc_ddl_fill_column_default_value(thd, column, field, fld, col_obj,
                                                           &option_set, mem_start, mem_end, field_cs), false);
   } else {
     option_set.is_default = 0;
@@ -1230,14 +1230,14 @@ static uint32_t ctc_fill_func_key_part(TABLE *form, THD *thd, TcDb__CtcDDLTableK
   Item_func *func_expr_item = dynamic_cast<Item_func *>(gcol_info->expr_item);
   if (func_expr_item == nullptr) {
     my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
-          "[CTC_CREATE_TABLE]: CTC do not support this functional index.");    
+          "[CTC_CREATE_TABLE]: CTC do not support this functional index.");
     return CT_ERROR;
   }
 
   uint32_t arg_count = func_expr_item->arg_count;
   if (arg_count == 0) {
     my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
-          "[CTC_CREATE_TABLE]: There is no functional index.");    
+          "[CTC_CREATE_TABLE]: There is no functional index.");
     return CT_ERROR;
   }
 
@@ -1325,7 +1325,7 @@ static bool ctc_ddl_create_table_fill_add_key(TcDb__CtcDDLCreateTableDef *req, T
           if (fld->is_virtual_gcol()) {
             my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
               "Cantian does not support index on virtual generated column.");
-            return false; 
+            return false;
           }
 
           uint prefix_len = get_prefix_index_len(fld, key_part->length);
@@ -1379,7 +1379,7 @@ static bool ctc_ddl_create_table_fill_add_key(TcDb__CtcDDLCreateTableDef *req, T
         if (fld->is_virtual_gcol()) {
           my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
             "Cantian does not support index on virtual generated column.");
-          return false; 
+          return false;
         }
 
         uint prefix_len = get_prefix_index_len(fld, key_part->length());
@@ -1406,7 +1406,7 @@ static bool ctc_ddl_create_table_fill_add_key(TcDb__CtcDDLCreateTableDef *req, T
 static int ctc_ddl_fill_partition_table_info(const dd::Partition *pt, char **mem_start, char *mem_end,
   TcDb__CtcDDLPartitionDef *part_def, uint32_t part_id)
 {
-  TcDb__CtcDDLPartitionTableDef *part_table = part_def->part_table_list[part_id]; 
+  TcDb__CtcDDLPartitionTableDef *part_table = part_def->part_table_list[part_id];
   part_table->name = const_cast<char *>(pt->name().data());
   part_table->n_subpart_table_list = pt->subpartitions().size();
   if (part_table->n_subpart_table_list > 0) {
@@ -1423,7 +1423,7 @@ static int ctc_ddl_fill_partition_table_info(const dd::Partition *pt, char **mem
         return HA_ERR_OUT_OF_MEM;
       }
       tc_db__ctc_ddlpartition_table_def__init(subpart_table_list[i]);
-      TcDb__CtcDDLPartitionTableDef *sub_part_table = part_table->subpart_table_list[i]; 
+      TcDb__CtcDDLPartitionTableDef *sub_part_table = part_table->subpart_table_list[i];
       sub_part_table->name = const_cast<char *>(sub_part_obj->name().data());
       i++;
     }
@@ -1652,7 +1652,7 @@ static int ctc_ddl_init_create_table_def(TcDb__CtcDDLCreateTableDef *req,
   if (table_def->partitions().size() > 0) {
     uint subpart_num_per_part = table_def->leaf_partitions().size() / table_def->partitions().size();
     if (subpart_num_per_part > MAX_SUBPART_NUM) {
-      my_printf_error(ER_TOO_MANY_PARTITIONS_ERROR, 
+      my_printf_error(ER_TOO_MANY_PARTITIONS_ERROR,
         "The number of subpartitions of one parent partition exceeds the maximum %d.", MYF(0), MAX_SUBPART_NUM);
       return -1;
     }
@@ -1770,7 +1770,7 @@ static int fill_create_table_req_columns_info(HA_CREATE_INFO *create_info, dd::T
         continue;
       }
       my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0), "Cantian does not support stored generated column.");
-      return HA_ERR_WRONG_COMMAND;  
+      return HA_ERR_WRONG_COMMAND;
     }
 
     TcDb__CtcDDLColumnDef *column = req->columns[ctc_col_idx];
@@ -1786,7 +1786,7 @@ static int fill_create_table_req_columns_info(HA_CREATE_INFO *create_info, dd::T
   /*prevent only virtual columns*/
   if (req->n_columns == 0) {
     my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0), "Cantian does not support all columns are generated.");
-    return HA_ERR_WRONG_COMMAND; 
+    return HA_ERR_WRONG_COMMAND;
   }
 
   return 0;
@@ -2122,7 +2122,7 @@ static int init_alter_index_list_4alter_table(TcDb__CtcDDLAlterTableDef *req, ch
   return 0;
 }
 
-static int init_ctc_ddl_alter_table_def(TcDb__CtcDDLAlterTableDef *req, Alter_inplace_info *ha_alter_info, 
+static int init_ctc_ddl_alter_table_def(TcDb__CtcDDLAlterTableDef *req, Alter_inplace_info *ha_alter_info,
   THD *thd, TABLE *altered_table, char **mem_start, char *mem_end, size_t *rename_cols) {
   tc_db__ctc_ddlalter_table_def__init(req);
   uint32_t create_fields = (uint32_t)ha_alter_info->alter_info->create_list.size();
@@ -2133,7 +2133,7 @@ static int init_ctc_ddl_alter_table_def(TcDb__CtcDDLAlterTableDef *req, Alter_in
     my_error(ER_TOO_MANY_FIELDS, MYF(0));
     return HA_ERR_TOO_MANY_FIELDS;
   }
-  req->n_drop_list = (uint32_t)ha_alter_info->alter_info->drop_list.size();   
+  req->n_drop_list = (uint32_t)ha_alter_info->alter_info->drop_list.size();
   for (size_t i = 0; i < ha_alter_info->alter_info->alter_list.size(); i++) {
     const Alter_column *alter_column = ha_alter_info->alter_info->alter_list.at((size_t)i);
     if (alter_column->change_type() == Alter_column::Type::RENAME_COLUMN) {
@@ -2172,7 +2172,7 @@ static int init_ctc_ddl_alter_table_def(TcDb__CtcDDLAlterTableDef *req, Alter_in
   tc_db__ctc_ddlalter_table_porp__init(req->table_def);
 
   // 添加索引
-  if ((ha_alter_info->handler_flags & Alter_inplace_info::ADD_STORED_BASE_COLUMN) && 
+  if ((ha_alter_info->handler_flags & Alter_inplace_info::ADD_STORED_BASE_COLUMN) &&
        thd->lex->sql_command == SQLCOM_ALTER_TABLE) {
     req->n_add_key_list = 0;
   }
@@ -2378,7 +2378,7 @@ static int fill_ctc_alter_create_list(THD *thd, TABLE *altered_table, Alter_inpl
     }
     const CHARSET_INFO *field_cs = get_sql_field_charset(fld, ha_alter_info->create_info);
     CTC_RETURN_IF_ERROR(ctc_ddl_fill_column_by_field(thd, req_create_column, altered_table->s->field[mysql_col_idx],
-                        ((const dd::Table *)new_table_def), altered_table, fld, alter_mode, mem_start, mem_end, field_cs), 
+                        ((const dd::Table *)new_table_def), altered_table, fld, alter_mode, mem_start, mem_end, field_cs),
                         CT_ERROR);
     ctc_col_idx++;
     mysql_col_idx++;
@@ -2387,7 +2387,7 @@ static int fill_ctc_alter_create_list(THD *thd, TABLE *altered_table, Alter_inpl
   //prevent only virtual columns
   if (req->n_create_list == 0) {
     my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0), "Cantian does not support all columns are generated.");
-    return HA_ERR_WRONG_COMMAND; 
+    return HA_ERR_WRONG_COMMAND;
   }
 
   return CT_SUCCESS;

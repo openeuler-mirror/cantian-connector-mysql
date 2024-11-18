@@ -12,7 +12,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
+   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 */
 #ifndef __HA_CTC_DDL_H__
 #define __HA_CTC_DDL_H__
@@ -21,7 +21,7 @@
 #include <string>
 #include <algorithm>
 #include "storage/ctc/ha_ctcpart.h"
-#define  UN_SUPPORT_DDL "ddl statement" 
+#define  UN_SUPPORT_DDL "ddl statement"
 /** Max table name length as defined in CT_MAX_NAME_LEN */
 #define CTC_MAX_TABLE_NAME_LEN 64
 #define CTC_MAX_CONS_NAME_LEN CTC_MAX_TABLE_NAME_LEN
@@ -217,7 +217,7 @@ public:
   void *buf_obj;
 };
 
-int fill_delete_table_req(const char *full_path_name, const dd::Table *table_def, 
+int fill_delete_table_req(const char *full_path_name, const dd::Table *table_def,
                           THD *thd, ddl_ctrl_t *ddl_ctrl, ctc_ddl_stack_mem *stack_mem);
 int ctcbase_alter_tablespace(handlerton *hton, THD *thd,
                              st_alter_tablespace *alter_info,
@@ -232,7 +232,7 @@ int fill_alter_table_req(TABLE *altered_table, Alter_inplace_info *ha_alter_info
                          dd::Table *new_table_def, THD *thd, ddl_ctrl_t *ddl_ctrl, ctc_ddl_stack_mem *stack_mem);
 int fill_rename_table_req(const char *from, const char *to, const dd::Table *from_table_def,
   dd::Table *to_table_def, THD *thd, ddl_ctrl_t *ddl_ctrl, ctc_ddl_stack_mem *stack_mem);
-int fill_truncate_partition_req(const char *full_name, partition_info *part_info, 
+int fill_truncate_partition_req(const char *full_name, partition_info *part_info,
                                 dd::Table *dd_table, THD *thd, ddl_ctrl_t *ddl_ctrl, ctc_ddl_stack_mem *stack_mem);
 int fill_rebuild_index_req(TABLE *table, THD *thd, ddl_ctrl_t *ddl_ctrl, ctc_ddl_stack_mem *stack_mem);
 bool get_ctc_key_type(const KEY *key_info, int32_t *ret_type);

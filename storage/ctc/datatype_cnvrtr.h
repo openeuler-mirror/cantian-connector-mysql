@@ -12,7 +12,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
+   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 */
 
 #include "ha_ctc.h"
@@ -68,7 +68,7 @@ typedef int64 date_t;
 longlong bit_cnvt_mysql_cantian(const uchar *ptr, Field *mysql_field);
 void bit_cnvt_cantian_mysql(const uchar *cantian_ptr, uchar *mysql_ptr, Field *mysql_field);
 enum enum_sql_data_types
-{ 
+{
   UNKNOW_DATA = 0,
   NUMERIC_DATA,
   DATETIME_DATA,
@@ -168,8 +168,8 @@ typedef enum en_isolation_level {
 } isolation_level_t;
 
 typedef struct st_mysql_to_cantian_field_convert {
-  enum_field_types mysql_field_type;  
-  uint8_t cantian_map_type;                 
+  enum_field_types mysql_field_type;
+  uint8_t cantian_map_type;
   enum_sql_data_types  sql_data_type;
   enum_ctc_ddl_field_types ddl_field_type;
 } field_cnvrt_aux_t;
@@ -177,13 +177,13 @@ typedef struct st_mysql_to_cantian_field_convert {
 typedef struct {
   Field *field;
   uchar *cantian_cur_field;
-  uchar *mysql_cur_field; 
+  uchar *mysql_cur_field;
   uint16_t field_len;
 } field_info_t;
 
 typedef struct {
   uint16_t *field_len;
-  uint16_t *aligned_field_len; 
+  uint16_t *aligned_field_len;
   uint *cantian_field_offset;
   uint *mysql_field_offset;
 } field_offset_and_len_t;

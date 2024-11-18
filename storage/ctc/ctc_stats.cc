@@ -12,7 +12,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
+   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 */
 #include "ctc_stats.h"
 #include "ctc_log.h"
@@ -221,6 +221,6 @@ void ctc_stats::print_stats(THD *thd, stat_print_fn *stat_print) {
 #endif
   
   ctc_srv_monitor = &ctc_srv_monitor_str[0];
-  stat_print(thd, "ctc", static_cast<uint>(strlen("ctc")), STRING_WITH_LEN(""), 
+  stat_print(thd, "ctc", static_cast<uint>(strlen("ctc")), STRING_WITH_LEN(""),
              ctc_srv_monitor, (uint)ctc_srv_monitor_str.length());
 }
