@@ -12,7 +12,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
+   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 */
 
 /* class for the the ctc part table handler */
@@ -237,8 +237,8 @@ class ha_ctcpart : public ha_ctc,
     return (Partition_helper::ph_rnd_next(record));
   }
 
-  int rnd_end() override { 
-    return (Partition_helper::ph_rnd_end()); 
+  int rnd_end() override {
+    return (Partition_helper::ph_rnd_end());
   }
 
   void position(const uchar *record) override {
@@ -274,7 +274,7 @@ class ha_ctcpart : public ha_ctc,
 
   int index_end() override;
 
-  int index_read(uchar *buf, const uchar *key, uint key_len, 
+  int index_read(uchar *buf, const uchar *key, uint key_len,
                  ha_rkey_function find_flag) override;
 
   int index_next(uchar *record) override {
@@ -371,7 +371,7 @@ class ha_ctcpart : public ha_ctc,
   int optimize(THD *thd, HA_CHECK_OPT *check_opt) override;
 
   int create(const char *name, TABLE *form, HA_CREATE_INFO *create_info,
-             dd::Table *table_def) override; 
+             dd::Table *table_def) override;
 
   /* Get partition row type
   @param[in] partition_table partition table

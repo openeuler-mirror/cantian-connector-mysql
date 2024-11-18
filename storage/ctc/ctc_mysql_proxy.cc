@@ -12,7 +12,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
+   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 */
 #include <mutex>
 #include <map>
@@ -111,7 +111,7 @@ static void ctc_drop_proxy_user(MYSQL *agent_conn, const string &proxy_user_name
   }
 }
 
-static int ctc_create_proxy_user(MYSQL *agent_conn, const char*user_name, const char*user_ip, 
+static int ctc_create_proxy_user(MYSQL *agent_conn, const char*user_name, const char*user_ip,
                                  string &proxy_user_name, string &proxy_user_password)
 {
   string create_user_sql = "CREATE USER '" + proxy_user_name + \
@@ -208,7 +208,7 @@ static void get_ctc_mysql_conn(uint64_t conn_map_key, MYSQL *&curr_conn) {
   }
 }
 
-int ctc_init_mysql_client(uint64_t conn_map_key, const char *db, MYSQL *&curr_conn, 
+int ctc_init_mysql_client(uint64_t conn_map_key, const char *db, MYSQL *&curr_conn,
                           const char *user_name, const char *user_ip, bool use_proxy) {
 
   if (opt_noacl && strcmp(user_name, "skip-grants user") == 0) {
@@ -257,7 +257,7 @@ int ctc_init_mysql_client(uint64_t conn_map_key, const char *db, MYSQL *&curr_co
 
   ret = ctc_select_db(curr_conn, db);
   if (ret != 0) {
-    ctc_log_error("ctc_init_mysql_client select db failed, err_code=%d, err_msg=%s.", 
+    ctc_log_error("ctc_init_mysql_client select db failed, err_code=%d, err_msg=%s.",
                   mysql_errno(curr_conn), mysql_error(curr_conn));
     ctc_close_mysql_conn(&curr_conn);
     return ret;
@@ -371,7 +371,7 @@ __attribute__((visibility("default"))) int ctc_ddl_execute_update(uint32_t thd_i
   bool is_meta_normalization = IS_METADATA_NORMALIZATION();
   if (is_meta_normalization && broadcast_req->sql_command != SQLCOM_SET_OPTION) {
     return 0;
-  } else if (is_meta_normalization && broadcast_req->sql_command == SQLCOM_SET_OPTION 
+  } else if (is_meta_normalization && broadcast_req->sql_command == SQLCOM_SET_OPTION
               && (broadcast_req->options & CTC_SET_VARIABLE_WITH_SUBSELECT) == 0){
     return ctc_set_sys_var(broadcast_req);
   }
@@ -550,7 +550,7 @@ __attribute__((visibility("default"))) int ctc_ddl_execute_lock_tables(ctc_handl
   }
 
   if (lock_info->sql_type == SQLCOM_CREATE_TABLE ||
-      lock_info->sql_type == SQLCOM_DROP_VIEW || 
+      lock_info->sql_type == SQLCOM_DROP_VIEW ||
       lock_info->sql_type == SQLCOM_CREATE_VIEW) {
     ctc_log_note("[CTC_LOCK_TABLE]:Skip lock_table. sql_cmd:%d", lock_info->sql_type);
     return 0;
@@ -665,7 +665,7 @@ __attribute__((visibility("default"))) int ctc_ddl_execute_unlock_tables(ctc_han
   return 0;
 }
 
-/* thd_id为0时，关闭实例id为mysql_inst_id的所有连接 
+/* thd_id为0时，关闭实例id为mysql_inst_id的所有连接
 *  mysql_inst_id:  高16位 --->  参天实例id
 *                  低16位 --->  mysqld实例id, 由当前节点参天分配，取值范围(2-19)
 *                  低16位全为1代表整个参天节点故障，清理与参天实例id相关的资源

@@ -12,7 +12,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
+   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 */
 
 #include "ctc_srv.h"
@@ -133,7 +133,7 @@ string sql_without_plaintext_password(ctc_ddl_broadcast_request* broadcast_req) 
 }
 
 int16_t ctc_get_column_by_field(Field **field, const char *col_name) {
-  int16_t col_id; 
+  int16_t col_id;
   for (col_id = 0; *field != nullptr; field++, col_id++) {
     if (my_strcasecmp(system_charset_info, (*field)->field_name, col_name) == 0) {
      return col_id;
@@ -449,7 +449,7 @@ int ctc_fill_cond_field(ctc_handler_t m_tch, Item *items, Field **field, ctc_con
   type = (type == MYSQL_TYPE_FLOAT) ? MYSQL_TYPE_DOUBLE : type;
   const field_cnvrt_aux_t *mysql_info = get_auxiliary_for_field_convert(mysql_field, type);
   cond->field_info.field_type = mysql_info->ddl_field_type;
-  // update field_no if there are gcol in tables 
+  // update field_no if there are gcol in tables
   uint16_t gcol_cnt = 0;
   for (uint16_t col_id = 0; col_id < cond->field_info.field_no; col_id++) {
     Field *pre_field = *(field + col_id);

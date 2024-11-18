@@ -290,14 +290,14 @@ bool set_column_datatype(size_t set_num, TcDb__CtcDDLColumnDef *column) {
     return true;
   } else if (set_num > 8 && set_num < 17) {
     column->datatype->datatype = CTC_DDL_TYPE_SHORT;
-    return true; 
+    return true;
   } else if (set_num > 16 && set_num < 33) {
     column->datatype->datatype = CTC_DDL_TYPE_INT24;
-    return true; 
+    return true;
   } else if (set_num > 32 && set_num < 65) {
     column->datatype->datatype = CTC_DDL_TYPE_LONGLONG;
-    return true; 
-  } 
+    return true;
+  }
 
   return false;
 }
@@ -431,7 +431,7 @@ bool ctc_ddl_get_create_key_algorithm(dd::Index::enum_index_algorithm algorithm,
     *ret_algorithm = (int32_t)it->second;
     return true;
   }
-  my_printf_error(ER_DISALLOWED_OPERATION, 
+  my_printf_error(ER_DISALLOWED_OPERATION,
         "get index algorithm failed, unsuported index algorithm", MYF(0));
   return false;
 }
@@ -456,7 +456,7 @@ uint16 get_prefix_index_len(const Field *field, const uint16 key_length) {
 int convert_ctc_part_type(dd::Table::enum_partition_type mysql_part_type, uint32_t *ctc_part_type) {
   *ctc_part_type = CTC_PART_TYPE_INVALID;
   switch (mysql_part_type) {
-    case dd::Table::PT_RANGE: 
+    case dd::Table::PT_RANGE:
     case dd::Table::PT_RANGE_COLUMNS:
       *ctc_part_type = CTC_PART_TYPE_RANGE;
       break;

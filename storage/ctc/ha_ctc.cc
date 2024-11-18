@@ -12,7 +12,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
+   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 */
 
 // @file storage/ctc/ha_ctc.cc
@@ -150,15 +150,15 @@ static void ctc_statistics_enabled_update(THD *, SYS_VAR *, void *var_ptr, const
 
 /* 创库的表空间datafile自动扩展, 默认开 */
 bool ctc_db_datafile_autoextend = true;
-static MYSQL_SYSVAR_BOOL(db_datafile_autoextend, ctc_db_datafile_autoextend, PLUGIN_VAR_NOCMDARG, 
+static MYSQL_SYSVAR_BOOL(db_datafile_autoextend, ctc_db_datafile_autoextend, PLUGIN_VAR_NOCMDARG,
   "Indicates whether to automatically extend the tablespace data files of the CTC database.", nullptr, nullptr, true);
 /* 创库的表空间datafile大小, 单位M, 默认32M, 最小1M, 最大8T */
 uint32_t ctc_db_datafile_size = 32;
-static MYSQL_SYSVAR_UINT(db_datafile_size, ctc_db_datafile_size, PLUGIN_VAR_RQCMDARG, 
+static MYSQL_SYSVAR_UINT(db_datafile_size, ctc_db_datafile_size, PLUGIN_VAR_RQCMDARG,
   "Size of the tablespace data file of the CTC database, in MB.", nullptr, nullptr, 32, 1,  8192 * 1024, 0);
 /* 创库的表空间datafile自动扩展大小, 单位M, 默认128M, 最小1M, 最大8T */
 uint32_t ctc_db_datafile_extend_size = 128;
-static MYSQL_SYSVAR_UINT(db_datafile_extend_size, ctc_db_datafile_extend_size, PLUGIN_VAR_RQCMDARG, 
+static MYSQL_SYSVAR_UINT(db_datafile_extend_size, ctc_db_datafile_extend_size, PLUGIN_VAR_RQCMDARG,
   "Size of the CTC database tablespace data file automatically extended, in MB.", nullptr, nullptr, 128, 1, 8192 * 1024, 0);
 
 bool ctc_concurrent_ddl = true;
@@ -485,7 +485,7 @@ static void ctc_unreg_instance() {
   }
 }
 
-/* 
+/*
 *  Check if the ALTER TABLE operations need table copy
 *  reference: is_inplace_alter_impossible()
 *  Alter_info::ALTER_TABLE_ALGORITHM_COPY tag set at ha_ctc::create or spcified by ALGORITHMY = COPY
@@ -636,7 +636,7 @@ static bool is_supported_func_item(Item *term) {
     return false;
   }
 
-  // filter unsupport datatype  
+  // filter unsupport datatype
   if (!is_supported_datatype_cond(item_field->field->real_type())) {
     return false;
   }
@@ -691,7 +691,7 @@ int create_and_conditions(Item_cond *cond, List<Item> pushed_list,
     pushed_cond = new Item_cond_and(pushed_list);
     if (pushed_cond == nullptr) {
       return 1;
-    } 
+    }
   }
 
   if (remainder_list.elements == 1) {
@@ -923,7 +923,7 @@ bool ha_ctc::get_se_private_data(dd::Table *dd_table, bool reset) {
   static uint n_pages = 4;
   
   DBUG_TRACE;
-  assert(dd_table != nullptr);  
+  assert(dd_table != nullptr);
  
   if (reset) {
     n_tables = 0;
@@ -1023,12 +1023,12 @@ static bool ctc_is_supported_system_table(const char *db MY_ATTRIBUTE((unused)),
   @param charset_coll: MySQL charset-collation code
 
   @return precise type, including the charset-collation code.
- */ 
+ */
 uint ctc_dtype_form_prtype(uint old_prtype, uint charset_coll) {
   return (old_prtype + (charset_coll << 16));
 }
 
-uint get_ctc_type_from_mysql_dd_type(uint *unsigned_flag, uint *binary_type, uint *charset_no, 
+uint get_ctc_type_from_mysql_dd_type(uint *unsigned_flag, uint *binary_type, uint *charset_no,
                                            dd::enum_column_types dd_type,
                                            const CHARSET_INFO *field_charset,
                                            bool is_unsigned) {
@@ -1155,7 +1155,7 @@ compatibility check from column description in Ha_fk_column_type form.
 
   @note dict_col_t which is produced by this call is not valid for general purposes.
   @param[out]	col		dict_col filled by this function
-  @param[in]	fk_col_type	foreign key type information 
+  @param[in]	fk_col_type	foreign key type information
 */
 static void ctc_fill_fake_column_struct(
     dict_col *col, const Ha_fk_column_type *fk_col_type) {
@@ -1193,7 +1193,7 @@ bool ctc_dtype_is_string_type(uint mtype)  {
  those DATA_BLOB columns this function currently returns FALSE.
   @param mtype main data type
   @param prtype precise type
-  @return true if binary string type 
+  @return true if binary string type
 */
 bool ctc_dtype_is_binary_string_type(uint mtype, uint prtype) {
   if ((mtype == DATA_FIXBINARY) || (mtype == DATA_BINARY) ||
@@ -1210,7 +1210,7 @@ bool ctc_dtype_is_binary_string_type(uint mtype, uint prtype) {
  For those DATA_BLOB columns this function currently returns TRUE.
  @param mtype main data type
  @param prtype precise type
- @return true if non-binary string type 
+ @return true if non-binary string type
  */
 bool ctc_dtype_is_non_binary_string_type(uint mtype, uint prtype) {
   if (ctc_dtype_is_string_type(mtype) == true &&
@@ -1266,7 +1266,7 @@ bool ctc_cmp_cols_are_equal(const dict_col *col1, const dict_col *col2,
 /** Check if types of child and parent columns in foreign key are compatible.
   @param[in]	check_charsets		Indicates whether we need to check that charsets of string columns
                                         match. Which is true in most cases.
-  @return True if types are compatible, False if not. 
+  @return True if types are compatible, False if not.
 */
 static bool ctc_check_fk_column_compat(const Ha_fk_column_type *child_column_type,
                                        const Ha_fk_column_type *parent_column_type, bool check_charsets) {
@@ -1278,7 +1278,7 @@ static bool ctc_check_fk_column_compat(const Ha_fk_column_type *child_column_typ
   return (ctc_cmp_cols_are_equal(&dict_child_col, &dict_parent_col, check_charsets));
 }
 
-/* 
+/*
   Return a session context for current thread.
   Initialize one if session context is not exists.
   A session context is one-to-one mapping of thread.
@@ -1626,7 +1626,7 @@ static void ctc_register_trx(handlerton *hton, THD *thd) {
 
 // 利用SFINAE特性，控制是否调用thd->is_empty()
 template <typename T>
-static typename std::enable_if<CHECK_HAS_MEMBER_FUNC(T, is_empty), void>::type 
+static typename std::enable_if<CHECK_HAS_MEMBER_FUNC(T, is_empty), void>::type
   commit_preprocess(T* thd, ctc_handler_t *tch) {
   if (is_work_flow() && !thd->is_empty() && !thd->is_attachable_transaction_active()) {
     (void)invalidate_remote_dd(thd, tch);
@@ -1761,7 +1761,7 @@ static int ctc_commit(handlerton *hton, THD *thd, bool commit_trx) {
   current statement only statement ended
   @return 0 or deadlock error if the transaction was aborted by another
          higher priority transaction.
-  @note: 
+  @note:
 */
 static int ctc_rollback(handlerton *hton, THD *thd, bool rollback_trx) {
   DBUG_TRACE;
@@ -2043,7 +2043,7 @@ static bool ctc_notify_exclusive_mdl(THD *thd, const MDL_key *mdl_key,
     return false;
   }
   /*
-    we can not check sql length while using prepare statement, 
+    we can not check sql length while using prepare statement,
     so we need to check the sql length before ddl sql again
   */
   size_t query_len = thd->query().length;
@@ -2196,7 +2196,7 @@ static int ctc_release_savepoint(handlerton *hton, THD *thd, void *savepoint) {
   /**
    * SQLCOM_SAVEPOINT命令如果发现之前已保存有重名的savepoint，mysql会触发调用ctc_release_savepoint，
    * 该种场景下就不需要再调用ctc_srv_release_savepoint了，knl_set_savepoint接口内部会去掉重名的savepoint；
-   * 
+   *
    * ctc_srv_release_savepoint底层调到knl_release_savepoint，会把当前savepoint及其之后的全都release掉，
    * 与innodb行为不一致，在某些场景下会引发缺陷
    */
@@ -2286,7 +2286,7 @@ void ha_ctc::fill_record_to_rec_buffer() {
   m_rec_buf->set_out_of_range(is_out_of_range);
 }
 
-void ha_ctc::reset_rec_buf(bool is_prefetch) { 
+void ha_ctc::reset_rec_buf(bool is_prefetch) {
   cur_pos_in_buf = INVALID_MAX_UINT32;
   if (is_prefetch) {
     cur_pos_in_buf = 0;
@@ -2750,7 +2750,7 @@ void ha_ctc::start_bulk_insert(ha_rows rows) {
     m_rec_buf_data = (uchar *)my_malloc(PSI_NOT_INSTRUMENTED, MAX_RECORD_BUFFER_SIZE_CTC, MYF(MY_WME));
   }
 
-  if (rows == 1 || m_is_insert_dup || m_is_replace || m_ignore_dup || table->s->blob_fields > 0 || 
+  if (rows == 1 || m_is_insert_dup || m_is_replace || m_ignore_dup || table->s->blob_fields > 0 ||
       table->next_number_field || m_rec_buf_data == nullptr) {
     m_rec_buf_4_writing = nullptr;
     return;
@@ -2925,7 +2925,7 @@ int ha_ctc::delete_row(const uchar *buf) {
   DBUG_TRACE;
   UNUSED_PARAM(buf);
   ha_statistic_increment(&System_status_var::ha_delete_count);
-  THD *thd = ha_thd(); 
+  THD *thd = ha_thd();
   m_is_replace = (thd->lex->sql_command == SQLCOM_REPLACE ||
                   thd->lex->sql_command == SQLCOM_REPLACE_SELECT) ? true : m_is_replace;
   // m_is_insert_dup for on duplicate key update in partiton table when new row is in different partition
@@ -3148,7 +3148,7 @@ int ha_ctc::rnd_init(bool) {
     enum_sql_command sql_command = (enum_sql_command)thd_sql_command(ha_thd());
     if (sql_command == SQLCOM_DELETE) {
       action = EXP_CURSOR_ACTION_DELETE;
-    } else if (sql_command != SQLCOM_ALTER_TABLE){ // action can't be set to update when alter operation using copy algorithm 
+    } else if (sql_command != SQLCOM_ALTER_TABLE){ // action can't be set to update when alter operation using copy algorithm
       action = EXP_CURSOR_ACTION_UPDATE;
     }
   }
@@ -3892,7 +3892,7 @@ enum_alter_inplace_result ha_ctc::check_if_supported_inplace_alter(
   DBUG_TRACE;
   THD *thd = ha_thd();
 
-  // remote node execute ALTER statement using default way 
+  // remote node execute ALTER statement using default way
   if (engine_ddl_passthru(thd)) {
     return HA_ALTER_INPLACE_EXCLUSIVE_LOCK;
   }
@@ -3982,7 +3982,7 @@ void ha_ctc::set_ctc_range_key(ctc_key *ctc_key, key_range *mysql_range_key, boo
     ctc_key->key = nullptr;
     ctc_key->cmp_type = CMP_TYPE_NULL;
     ctc_key->len = 0;
-    ctc_key->col_map = 0; 
+    ctc_key->col_map = 0;
     return;
   }
 
@@ -4188,7 +4188,7 @@ THR_LOCK_DATA **ha_ctc::store_lock(THD *, THR_LOCK_DATA **to,
   DBUG_TRACE;
 
   // SELECT FOR SHARE / SELECT FOR UPDATE use exclusive lock
-  if ((lock_type == TL_READ_WITH_SHARED_LOCKS && ctc_get_cluster_role() == (int32_t)dis_cluster_role::PRIMARY) || 
+  if ((lock_type == TL_READ_WITH_SHARED_LOCKS && ctc_get_cluster_role() == (int32_t)dis_cluster_role::PRIMARY) ||
       (lock_type >= TL_WRITE_ALLOW_WRITE && lock_type <= TL_WRITE_ONLY)) {
     m_select_lock = lock_mode::EXCLUSIVE_LOCK;
   } else {
@@ -4224,7 +4224,7 @@ int ha_ctc::external_lock(THD *thd, int lock_type) {
 
   if (IS_METADATA_NORMALIZATION() &&
     ctc_check_if_log_table(table_share->db.str, table_share->table_name.str)) {
-    is_log_table = true;  
+    is_log_table = true;
     if (!thd->in_sub_stmt) {
       thd_sess_ctx_s *sess_ctx = get_or_init_sess_ctx(ctc_hton, thd);
       sess_ctx->sql_stat_start = 1;
@@ -4464,7 +4464,7 @@ void ctc_set_mysql_read_only() {
   ctc_log_system("[Disaster Recovery] set super_read_only = true.");
 }
 
-void ctc_reset_mysql_read_only() { 
+void ctc_reset_mysql_read_only() {
   ctc_log_system("[Disaster Recovecy] starting or initializing");
   super_read_only = false;
   read_only = false;
@@ -5163,7 +5163,7 @@ EXTER_ATTACK int ha_ctc::create(const char *name, TABLE *form, HA_CREATE_INFO *c
     char *func_name = strtok_r(NULL, ",", &err_msg);
     if (func_name) {
       // func_name非空的情况对应default function
-      my_error(ER_DEFAULT_VAL_GENERATED_NAMED_FUNCTION_IS_NOT_ALLOWED, MYF(0), 
+      my_error(ER_DEFAULT_VAL_GENERATED_NAMED_FUNCTION_IS_NOT_ALLOWED, MYF(0),
                field_name, func_name);
       return CT_ERROR;
     }
@@ -5427,12 +5427,12 @@ int ha_ctc::initialize_cbo_stats()
     return ERR_ALLOC_MEMORY;
   }
   *m_share->cbo_stats = {0, 0, 0, 0, 0, nullptr, 0, nullptr, nullptr};
-  m_share->cbo_stats->ctc_cbo_stats_table = 
+  m_share->cbo_stats->ctc_cbo_stats_table =
         (ctc_cbo_stats_table_t*)my_malloc(PSI_NOT_INSTRUMENTED, sizeof(ctc_cbo_stats_table_t), MYF(MY_WME));
   if (m_share->cbo_stats->ctc_cbo_stats_table == nullptr) {
     ctc_log_error("alloc mem failed, m_share->cbo_stats->ctc_cbo_stats_table(%lu)", sizeof(ctc_cbo_stats_table_t));
     return ERR_ALLOC_MEMORY;
-  } 
+  }
   m_share->cbo_stats->ctc_cbo_stats_table->columns =
     (ctc_cbo_stats_column_t*)my_malloc(PSI_NOT_INSTRUMENTED, table->s->fields * sizeof(ctc_cbo_stats_column_t), MYF(MY_WME));
   if (m_share->cbo_stats->ctc_cbo_stats_table->columns == nullptr) {

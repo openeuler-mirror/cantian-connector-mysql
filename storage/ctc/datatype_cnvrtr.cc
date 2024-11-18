@@ -12,7 +12,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
+   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 */
 #include <map>
 #include "field_types.h"
@@ -622,8 +622,8 @@ static inline uint32_t get_blob_buffer_size(uint32_t remain_size)
   blob data is stored in mysql Field_blob struct, which is in one piece of continuous memory
   we can get the ptr and length from Field_blob get_blob_data and get_length interface,
   then invoke the Cantian ctc_knl_write_lob interface, write blob data to ctc storage engine
-  piece by piece. It's important to note that one piece of blob data preferably greater than 4000, 
-  because the ctc storage engine is store blob data inline when blob data length less than 4000, 
+  piece by piece. It's important to note that one piece of blob data preferably greater than 4000,
+  because the ctc storage engine is store blob data inline when blob data length less than 4000,
   otherwise the blob data store outline.
 */
 int convert_blob_to_cantian(uchar *cantian_ptr, uint32 &cantian_offset,
@@ -918,7 +918,7 @@ int convert_numeric_to_cantian(const field_cnvrt_aux_t *mysql_info, const uchar 
       break;
     case MYSQL_TYPE_FLOAT:
       *(double *)cantian_ptr = *(const float *)mysql_ptr;
-      break; 
+      break;
     case MYSQL_TYPE_DOUBLE:
       *(double *)cantian_ptr = *(const double *)mysql_ptr;
       break;
@@ -1047,7 +1047,7 @@ static void decode_mysql_timestamp_type(MYSQL_TIME& ltime, const uchar *mysql_pt
   For the value of hour in the CantianDB must range from 0 to 23, the ctc just support
   TIME type range from 00:00:00.000000 to 23:59:59.000000.
   @param[out]  ltime          The variable to convert to.
-  @param       mysql_info     mysql field type info. 
+  @param       mysql_info     mysql field type info.
   @param       mysql_ptr      The value to convert from, mysql data ptr.
   @param       mysql_field    mysql field class.
 */
@@ -1127,7 +1127,7 @@ bool check_datetime_vaild(const date_detail_t& date_detail)
 
 int assign_mysql_date_detail(enum_field_types mysql_field_type, MYSQL_TIME ltime, date_detail_t *date_detail)
 {
-  // Assigning Values for date_detail_t 
+  // Assigning Values for date_detail_t
   if (mysql_field_type == MYSQL_TYPE_TIME) {
     ltime.year = ltime.year == 0 ? 1900 : ltime.year;
     ltime.month = ltime.month == 0 ? 1 : ltime.month;
@@ -1238,7 +1238,7 @@ static void convert_numeric_to_mysql(const field_cnvrt_aux_t *mysql_info, uchar 
       break;
     case MYSQL_TYPE_FLOAT:
       *(float *)mysql_ptr = *(double *)cantian_ptr;
-      break; 
+      break;
     case MYSQL_TYPE_DOUBLE:
       *(double *)mysql_ptr = *(double *)cantian_ptr;
       break;
@@ -1248,7 +1248,7 @@ static void convert_numeric_to_mysql(const field_cnvrt_aux_t *mysql_info, uchar 
     case MYSQL_TYPE_LONGLONG:
       *(int64_t *)mysql_ptr = *(int64_t *)cantian_ptr;
       break;
-    case MYSQL_TYPE_NEWDECIMAL: 
+    case MYSQL_TYPE_NEWDECIMAL:
       decimal_cantian_to_mysql(mysql_ptr, cantian_ptr, mysql_field);
       break;
     default:
@@ -1557,7 +1557,7 @@ static void get_map_and_field_len(uint32_t &field_len, const field_cnvrt_aux_t* 
       // But when the type is MYSQL_TYPE_BLOB,the field_len need to calculate by lob_locator_t obj follow.
       // The value may greater than 65535 only when the data type is LOB_DATA.
       // Therefore, uint16_t is sufficient here.
-      // In addition, you do not need to worry that two bytes are insufficient because data larger than 4000 on the 
+      // In addition, you do not need to worry that two bytes are insufficient because data larger than 4000 on the
       // Cantian side is stored outside the row.
       if (mysql_info->sql_data_type != LOB_DATA) {
         uint8_t mysql_data_length_bytes = 0;
@@ -2079,7 +2079,7 @@ int get_cantian_record_length(const TABLE *table)
         int scale = mysql_field->decimals();
         Field_new_decimal *f = dynamic_cast<Field_new_decimal *>(mysql_field);
         CTC_RET_ERR_IF_NULL(f);
-        int prec = f->precision; 
+        int prec = f->precision;
         int ncells = ALIGN_UP(prec - scale, 4) + ALIGN_UP(scale, 4);
         field_len = ROUND_UP((1 + ncells) * sizeof(uint16_t) + sizeof(uint16_t), 4);
         }
