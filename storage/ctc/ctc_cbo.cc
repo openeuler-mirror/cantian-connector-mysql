@@ -12,7 +12,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 51 Franklin St, Fifth Floor, Bon, MA 02110-1301  USA 
+   Foundation, Inc., 51 Franklin St, Fifth Floor, Bon, MA 02110-1301  USA
 */
 #include "ctc_cbo.h"
 #include "ha_ctc.h"
@@ -117,7 +117,7 @@ void r_key2variant(ctc_key *rKey, KEY_PART_INFO *cur_index_part, cache_variant_t
       break;
     case MYSQL_TYPE_FLOAT:
       ret_val->v_real = *(float *)const_cast<uchar *>(key);
-      break; 
+      break;
     case MYSQL_TYPE_DOUBLE:
       ret_val->v_real = *(double *)const_cast<uchar *>(key);
       break;
@@ -244,15 +244,15 @@ static en_ctc_compare_type compare(cache_variant_t *right, cache_variant_t *left
 double eval_density_result(double density)
 {
   /*
-    * key range is beyond the actual index range, 
+    * key range is beyond the actual index range,
     * don't have any records in this range
     */
   if (density < 0) {
     return 0;
   }
-  /* 
-    * key range is larger than the actual index range, 
-    * any key with this range shoule be deemed as not selective 
+  /*
+    * key range is larger than the actual index range,
+    * any key with this range shoule be deemed as not selective
     */
   if (density > 1) {
     return 1;

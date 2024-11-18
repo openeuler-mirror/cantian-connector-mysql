@@ -12,7 +12,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
+   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 */
 #include <ctype.h>
 #include <fcntl.h>
@@ -21,9 +21,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include <iostream>  
-#include <fstream>  
-#include <stdlib.h>  
+#include <iostream>
+#include <fstream>
+#include <stdlib.h>
 #include <regex>
 
 #include "m_string.h"  // strlen

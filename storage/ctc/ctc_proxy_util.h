@@ -12,7 +12,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
+   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 */
 
 #ifndef __CTC_PROXY_UTIL_H__
@@ -37,7 +37,7 @@ void ctc_close_mysql_conn(MYSQL **curr_conn);
   |-----------------|---------------|32bits thd_id|
   |       32bits mysql_inst_id      |             |
   |---------------------------------|-------------|
-  |   64 bits conn_key (first bit is proxy mask)  | 
+  |   64 bits conn_key (first bit is proxy mask)  |
   |-----------------------------------------------|
   
   because cantiand_id ranges from [0, 1]

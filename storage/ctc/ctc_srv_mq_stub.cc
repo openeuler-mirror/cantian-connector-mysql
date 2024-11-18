@@ -12,7 +12,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
+   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 */
 
 #include "srv_mq_msg.h"
@@ -29,7 +29,7 @@
 #define OUTLINE_LOB_LOCATOR_SIZE 44  // 行外LOB数据结构体长度
 
 // 双进程模式在 ctc_init 中已经提前获取 inst_id
-int ctc_alloc_inst_id(uint32_t *inst_id) { 
+int ctc_alloc_inst_id(uint32_t *inst_id) {
   *inst_id = ha_ctc_get_inst_id();
   return ctc_mq_register_func();
 }
@@ -419,7 +419,7 @@ int ctc_delete_all_rows(ctc_handler_t *tch, dml_flag_t flag) {
   return result;
 }
 
-int ctc_index_end(ctc_handler_t *tch) { 
+int ctc_index_end(ctc_handler_t *tch) {
   void *shm_inst = get_one_shm_inst(tch);
   index_end_request *req = (index_end_request*)alloc_share_mem(shm_inst, sizeof(index_end_request));
   if (req == NULL) {
@@ -560,7 +560,7 @@ int ctc_trx_commit(ctc_handler_t *tch, uint64_t *cursors, int32_t csize, bool *i
 
   int result = ERR_CONNECTION_FAILED;
   int ret = ctc_mq_deal_func(shm_inst, CTC_FUNC_TYPE_TRX_COMMIT, req, tch->msg_buf);
-  *is_ddl_commit = req->is_ddl_commit; 
+  *is_ddl_commit = req->is_ddl_commit;
   if (ret == CT_SUCCESS) {
     result = req->result;
   }
@@ -822,7 +822,7 @@ int ctc_get_cbo_stats(ctc_handler_t *tch, ctc_cbo_stats_t *stats, ctc_cbo_stats_
     return ERR_ALLOC_MEMORY;
   }
   if (!is_part_table) {
-    req->ctc_cbo_stats_table = 
+    req->ctc_cbo_stats_table =
         (ctc_cbo_stats_table_t*)alloc_share_mem(shm_inst_4_table, sizeof(ctc_cbo_stats_table_t));
     if (req->ctc_cbo_stats_table == NULL) {
       ctc_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst_4_table, sizeof(ctc_cbo_stats_table_t));
@@ -867,7 +867,7 @@ int ctc_get_cbo_stats(ctc_handler_t *tch, ctc_cbo_stats_t *stats, ctc_cbo_stats_
       }
     }
   } else {
-    req->ctc_cbo_stats_table = 
+    req->ctc_cbo_stats_table =
         (ctc_cbo_stats_table_t*)alloc_share_mem(shm_inst_4_table, num_part_fetch * sizeof(ctc_cbo_stats_table_t));
     if (req->ctc_cbo_stats_table == NULL) {
       ctc_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst_4_table, num_part_fetch * sizeof(ctc_cbo_stats_table_t));

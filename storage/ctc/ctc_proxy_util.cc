@@ -12,7 +12,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
+   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 */
 
 #include "ctc_proxy_util.h"
@@ -138,7 +138,7 @@ int ctc_mysql_conn(MYSQL *&con, const char *host, const char *user, const char *
   // do init sql commands for new con.
   // for ddl do not go to ctc SE. this command should be first executed. it should be placed firstly at mysql_options MYSQL_INIT_COMMAND.
   (void)mysql_options(con, MYSQL_INIT_COMMAND, "set @ctc_ddl_local_enabled = true;");
-  /* proxy的连接强制解除只读属性 
+  /* proxy的连接强制解除只读属性
     proxy的连接应该永远都是没有只读状态才对的，因为如果发起端连接只读，ddl不会转到远端，
     但是如果发起端没有只读属性，远端proxy建立的连接有只读属性，远端执行ddl就会报错，节点被踢掉
   */
@@ -151,7 +151,7 @@ int ctc_mysql_conn(MYSQL *&con, const char *host, const char *user, const char *
   (void)mysql_options(con, MYSQL_OPT_WRITE_TIMEOUT, &opt_timeout);
 
   int retry_time = CTC_CONN_MAX_RETRY_TIMES;
-  int dec_conn_count = 0; 
+  int dec_conn_count = 0;
   while (!mysql_real_connect(con, host, user, passwd, NULL, mysqld_port, mysqld_unix_port, CLIENT_MULTI_STATEMENTS | CLIENT_MULTI_RESULTS | CLIENT_REMEMBER_OPTIONS | CLIENT_INTERACTIVE) && retry_time > 0) {
     int err = mysql_errno(con);
     if (err == ER_CON_COUNT_ERROR) {
@@ -206,11 +206,11 @@ int ctc_mysql_query(MYSQL *mysql, const char *query) {
     ctc_log_error("ctc_mysql_query: mysql server has gone. error_code:%d, reconnecting.", ret);
   }
 
-  /* 
+  /*
      SUCCESS:                 0
      CR_COMMANDS_OUT_OF_SYNC: 2014
-     CR_SERVER_GONE_ERROR:    2006 
-     CR_SERVER_LOST:          2013 
+     CR_SERVER_GONE_ERROR:    2006
+     CR_SERVER_LOST:          2013
      CR_UNKNOWN_ERROR:        2000
   */
 

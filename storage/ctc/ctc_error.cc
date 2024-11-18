@@ -12,7 +12,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
+   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 */
 #include <unordered_map>
 #include "ctc_error.h"
@@ -153,7 +153,7 @@ int convert_cantian_err_to_mysql(ct_errno_t error) {
 void ctc_alter_table_handle_fault(ct_errno_t error) {
   switch (error) {
     case ERR_CONSTRAINT_VIOLATED_NO_FOUND:
-      my_printf_error(ER_NO_REFERENCED_ROW_2, 
+      my_printf_error(ER_NO_REFERENCED_ROW_2,
         "Cannot add or update a child row: a foreign key constraint fails.", MYF(0));
       break;
     default:

@@ -12,7 +12,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
+   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 */
 
 #include <string>
@@ -210,22 +210,10 @@ int unsupport_tx_isolation_level(set_var *setvar, bool &need_forward MY_ATTRIBUT
   return -1;
 }
 
-int ctc_check_opt_forward(set_var *setvar MY_ATTRIBUTE((unused)), bool &need_forward,
-  string user_val_str MY_ATTRIBUTE((unused))) {
-  need_forward = false;
-  push_warning_printf(current_thd, Sql_condition::SL_WARNING, ER_DISALLOWED_OPERATION,
-                        "CTC: This parameter will not be broadcast to other nodes.");
-  return 0;
-}
-
 static std::unordered_map<std::string, check_variable_fn> set_variable_rules_map = {
   {"default_storage_engine",            check_default_engine},
   {"max_connections",                   check_session_pool_volume},
-  {"transaction_isolation",             unsupport_tx_isolation_level},
-  {"read_only",                         ctc_check_opt_forward},
-  {"super_read_only",                   ctc_check_opt_forward},
-  {"offline_mode",                      ctc_check_opt_forward},
-  {"gtid_next",                         ctc_check_opt_forward}
+  {"transaction_isolation",             unsupport_tx_isolation_level}
 };
 
 static int ctc_get_user_var_string(MYSQL_THD thd, Item_func_get_user_var *itemFunc, string &user_val_str) {
@@ -404,9 +392,9 @@ static int ctc_rewrite_setpasswd(MYSQL_THD thd, string &sql_str) {
     rw_query_sql = regex_replace(rw_query_sql, add_or_rewrite_for_pattern, user2host.c_str());
 
     // 为当前用户设置密码，为不报错不加replace
-    if (user_for_setpasswd->uses_replace_clause && 
+    if (user_for_setpasswd->uses_replace_clause &&
         !strcmp(thd->m_main_security_ctx.priv_user().str, user_for_setpasswd->user.str)) {
-      // check replacing old password is correct or not 
+      // check replacing old password is correct or not
       bool is_password_matched = false;
       if (ctc_verify_password4existed_user(thd, user_for_setpasswd, is_password_matched)) {
         return -1;
@@ -1012,11 +1000,11 @@ bool is_ddl_sql_cmd(enum_sql_command sql_cmd) {
 bool is_dcl_sql_cmd(enum_sql_command sql_cmd) {
 
   if (sql_cmd == SQLCOM_GRANT || sql_cmd == SQLCOM_REVOKE ||
-      sql_cmd == SQLCOM_CREATE_USER || sql_cmd == SQLCOM_DROP_USER || 
-      sql_cmd == SQLCOM_RENAME_USER || sql_cmd == SQLCOM_REVOKE_ALL || 
-      sql_cmd == SQLCOM_ALTER_USER || sql_cmd == SQLCOM_ALTER_USER_DEFAULT_ROLE || 
+      sql_cmd == SQLCOM_CREATE_USER || sql_cmd == SQLCOM_DROP_USER ||
+      sql_cmd == SQLCOM_RENAME_USER || sql_cmd == SQLCOM_REVOKE_ALL ||
+      sql_cmd == SQLCOM_ALTER_USER || sql_cmd == SQLCOM_ALTER_USER_DEFAULT_ROLE ||
       sql_cmd == SQLCOM_CREATE_ROLE || sql_cmd == SQLCOM_DROP_ROLE ||
-      sql_cmd == SQLCOM_SET_ROLE || sql_cmd ==SQLCOM_GRANT_ROLE || 
+      sql_cmd == SQLCOM_SET_ROLE || sql_cmd ==SQLCOM_GRANT_ROLE ||
       sql_cmd == SQLCOM_REVOKE_ROLE) {
     return true;
   }
@@ -1064,7 +1052,7 @@ static void ctc_ddl_rewrite_handle_error(MYSQL_THD thd, int ret, ctc_ddl_broadca
   return;
 }
 
-int ddl_broadcast_and_wait(MYSQL_THD thd, string &query_str, 
+int ddl_broadcast_and_wait(MYSQL_THD thd, string &query_str,
                                   uint8_t sql_cmd, ddl_broadcast_cmd &broadcast_cmd) {
   ctc_handler_t tch;
   memset(&tch, 0, sizeof(tch));
@@ -1195,7 +1183,7 @@ int ctc_record_sql(MYSQL_THD thd, bool need_select_db) {
   return ret;
 }
 
-bool plugin_ddl_block(MYSQL_THD thd, 
+bool plugin_ddl_block(MYSQL_THD thd,
                       unordered_map<enum enum_sql_command, ddl_broadcast_cmd>::iterator &it,
                       string &query_str,
                       bool &need_forward) {
@@ -1203,7 +1191,7 @@ bool plugin_ddl_block(MYSQL_THD thd,
   if (broadcast_cmd.pre_func != NULL) {
     int ret = broadcast_cmd.pre_func(query_str, thd, need_forward);
     if (ret != 0) {
-      ctc_log_system("pre_func execute failed,ret:%d,cmd:%d, sql:%s", 
+      ctc_log_system("pre_func execute failed,ret:%d,cmd:%d, sql:%s",
                    ret, it->first, query_str.c_str());
       return true;
     }

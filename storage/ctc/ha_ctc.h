@@ -12,7 +12,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
+   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 */
 
 /* class for the the ctc handler */
@@ -74,7 +74,7 @@ using namespace std;
 
 /* The 'MAIN TYPE' of a column */
 #define DATA_MISSING 0 /* missing column */
-#define DATA_VARCHAR 1 
+#define DATA_VARCHAR 1
 #define DATA_CHAR 2 /* fixed length character of the latin1_swedish_ci charset-collation */
 #define DATA_FIXBINARY 3 /* binary string of fixed length */
 #define DATA_BINARY 4 /* binary string */
