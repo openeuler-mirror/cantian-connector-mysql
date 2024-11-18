@@ -53,6 +53,7 @@
 #include "sql/dd/impl/cache/shared_dictionary_cache.h"
 #include "sql/dd/impl/utils.h"
 #include "sql/sql_reload.h"
+#include "sql/sql_plugin.h"
 #include "mysql_com.h"
 
 #include "sql/transaction.h"
@@ -861,6 +862,8 @@ static void ctc_init_thd_priv(THD** thd, Sctx_ptr<Security_context> *ctx) {
   /* attach this auth id to current security_context */
   new_thd->set_security_context(ctx->get());
   new_thd->real_id = my_thread_self();
+  // Initializing session system variables.
+  alloc_and_copy_thd_dynamic_variables(new_thd, true);
   (*thd) = new_thd;
 }
 
