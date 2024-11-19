@@ -18,78 +18,52 @@
 #include "ctc_log.h"
 #include <sstream>
 
-const char *ctc_interface_strs[] = {
-  "CTC_FUNC_TYPE_OPEN_TABLE",
-  "CTC_FUNC_TYPE_CLOSE_TABLE",
-  "CTC_FUNC_TYPE_CLOSE_SESSION",
-  "CTC_FUNC_TYPE_WRITE_ROW",
-  "CTC_FUNC_TYPE_UPDATE_JOB",
-  "CTC_FUNC_TYPE_UPDATE_ROW",
-  "CTC_FUNC_TYPE_DELETE_ROW",
-  "CTC_FUNC_TYPE_RND_INIT",
-  "CTC_FUNC_TYPE_RND_END",
-  "CTC_FUNC_TYPE_RND_NEXT",
-  "CTC_FUNC_TYPE_RND_PREFETCH",
-  "CTC_FUNC_TYPE_SCAN_RECORDS",
-  "CTC_FUNC_TYPE_TRX_COMMIT",
-  "CTC_FUNC_TYPE_TRX_ROLLBACK",
-  "CTC_FUNC_TYPE_TRX_BEGIN",
-  "CTC_FUNC_TYPE_LOCK_TABLE",
-  "CTC_FUNC_TYPE_UNLOCK_TABLE",
-  "CTC_FUNC_TYPE_INDEX_END",
-  "CTC_FUNC_TYPE_SRV_SET_SAVEPOINT",
-  "CTC_FUNC_TYPE_SRV_ROLLBACK_SAVEPOINT",
-  "CTC_FUNC_TYPE_SRV_RELEASE_SAVEPOINT",
-  "CTC_FUNC_TYPE_GENERAL_FETCH",
-  "CTC_FUNC_TYPE_GENERAL_PREFETCH",
-  "CTC_FUNC_TYPE_FREE_CURSORS",
-  "CTC_FUNC_TYPE_GET_INDEX_NAME",
-  "CTC_FUNC_TYPE_INDEX_READ",
-  "CTC_FUNC_TYPE_RND_POS",
-  "CTC_FUNC_TYPE_POSITION",
-  "CTC_FUNC_TYPE_DELETE_ALL_ROWS",
-  "CTC_FUNC_TYPE_GET_CBO_STATS",
-  "CTC_FUNC_TYPE_WRITE_LOB",
-  "CTC_FUNC_TYPE_READ_LOB",
-  "CTC_FUNC_TYPE_CREATE_TABLE",
-  "CTC_FUNC_TYPE_TRUNCATE_TABLE",
-  "CTC_FUNC_TYPE_TRUNCATE_PARTITION",
-  "CTC_FUNC_TYPE_RENAME_TABLE",
-  "CTC_FUNC_TYPE_ALTER_TABLE",
-  "CTC_FUNC_TYPE_GET_SERIAL_VALUE",
-  "CTC_FUNC_TYPE_DROP_TABLE",
-  "CTC_FUNC_TYPE_EXCUTE_MYSQL_DDL_SQL",
-  "CTC_FUNC_TYPE_BROADCAST_REWRITE_SQL",
-  "CTC_FUNC_TYPE_CREATE_TABLESPACE",
-  "CTC_FUNC_TYPE_ALTER_TABLESPACE",
-  "CTC_FUNC_TYPE_DROP_TABLESPACE",
-  "CTC_FUNC_TYPE_BULK_INSERT",
-  "CTC_FUNC_TYPE_ANALYZE",
-  "CTC_FUNC_TYPE_GET_MAX_SESSIONS",
-  "CTC_FUNC_LOCK_INSTANCE",
-  "CTC_FUNC_UNLOCK_INSTANCE",
-  "CTC_FUNC_CHECK_TABLE_EXIST",
-  "CTC_FUNC_SEARCH_METADATA_SWITCH",
-  "CTC_FUNC_QUERY_SHM_USAGE",
-  "CTC_FUNC_QUERY_CLUSTER_ROLE",
-  "CTC_FUNC_SET_CLUSTER_ROLE_BY_CANTIAN",
-  "CTC_FUNC_PRE_CREATE_DB",
-  "CTC_FUNC_TYPE_DROP_TABLESPACE_AND_USER",
-  "CTC_FUNC_DROP_DB_PRE_CHECK",
-  "CTC_FUNC_KILL_CONNECTION",
-  "CTC_FUNC_TYPE_INVALIDATE_OBJECT",
-  "CTC_FUNC_TYPE_RECORD_SQL",
-  "CTC_FUNC_TYPE_REGISTER_INSTANCE",
-  "CTC_FUNC_QUERY_SHM_FILE_NUM",
-  "CTC_FUNC_TYPE_WAIT_CONNETOR_STARTUPED",
-  "CTC_FUNC_TYPE_MYSQL_EXECUTE_UPDATE",
-  "CTC_FUNC_TYPE_CLOSE_MYSQL_CONNECTION",
-  "CTC_FUNC_TYPE_LOCK_TABLES",
-  "CTC_FUNC_TYPE_UNLOCK_TABLES",
-  "CTC_FUNC_TYPE_EXECUTE_REWRITE_OPEN_CONN",
-  "CTC_FUNC_TYPE_INVALIDATE_OBJECTS",
-  "CTC_FUNC_TYPE_INVALIDATE_ALL_OBJECTS",
-  "CTC_FUNC_TYPE_UPDATE_DDCACHE",
+ctc_stats *ctc_stats ::m_ctc_stats = NULL;
+
+const char *event_tracking_messages[] = {
+  //DATABASE
+  "EVENT_TYPE_PRE_CREATE_DB",
+  "EVENT_TYPE_DROP_DB",
+  //TABLE
+  "EVENT_TYPE_OPEN_TABLE",
+  "EVENT_TYPE_CLOSE_TABLE",
+  "EVENT_TYPE_CREATE_TABLE",
+  "EVENT_TYPE_RENAME_TABLE",
+  "EVENT_TYPE_DROP_TABLE",
+  "EVENT_TYPE_INPLACE_ALTER_TABLE",
+  //DML-FETCH
+  "EVENT_TYPE_RND_INIT",
+  "EVENT_TYPE_RND_NEXT",
+  "EVENT_TYPE_POSITION",
+  "EVENT_TYPE_RND_POS",
+  "EVENT_TYPE_RND_END",
+  //DML
+  "EVENT_TYPE_WRITE_ROW",
+  "EVENT_TYPE_UPDATE_ROW",
+  "EVENT_TYPE_DELETE_ROW",
+  "EVENT_TYPE_DELETE_ALL_ROWS",
+  //INDEX
+  "EVENT_TYPE_INDEX_INIT",
+  "EVENT_TYPE_INDEX_END",
+  "EVENT_TYPE_INDEX_READ",
+  "EVENT_TYPE_INDEX_FETCH",
+  //CBO
+  "EVENT_TYPE_INITIALIZE_DBO",
+  "EVENT_TYPE_FREE_CBO",
+  "EVENT_TYPE_GET_CBO",
+  "EVENT_TYPE_CBO_ANALYZE",
+  "EVENT_TYPE_CBO_RECORDS",
+  "EVENT_TYPE_CBO_RECORDS_IN_RANGE",
+  //TRANSCTIONS
+  "EVENT_TYPE_COMMIT",
+  "EVENT_TYPE_ROLLBACK",
+  "EVENT_TYPE_BEGIN_TRX",
+  "EVENT_TYPE_RELEASE_SAVEPOINT",
+  "EVENT_TYPE_SET_SAVEPOINT",
+  "EVENT_TYPE_ROLLBACK_SAVEPOINT",
+  //CONNECTION
+  "EVENT_TYPE_KILL_CONNECTION",
+  "EVENT_TYPE_CLOSE_CONNECTION",
 
 };
 
@@ -130,9 +104,13 @@ mem_class_cfg_t g_mem_class_cfg[MEM_CLASS_NUM] = {
 };
 #endif
 
-ctc_stats& ctc_stats::get_instance() noexcept {
-  static ctc_stats m_ctc_stats;
-  return m_ctc_stats;
+ctc_stats* ctc_stats::get_instance() noexcept {
+  if(m_ctc_stats == NULL) {
+      m_ctc_stats = new ctc_stats();
+      return m_ctc_stats; 
+    } else {   
+      return m_ctc_stats;
+    }
 }
 
 bool ctc_stats::get_statistics_enabled() {
@@ -146,36 +124,52 @@ void ctc_stats::set_statistics_enabled(const bool val) {
       m_use_time[i] = 0;
     }
   }
-  
+  initialize_clock_freq();
   m_statistics_enabled = val;
 }
 
-void ctc_stats::gather_stats(const enum CTC_FUNC_TYPE& type, const uint64_t use_time) {
+void ctc_stats::gather_stats(const enum EVENT_TRACKING type, const uint64_t use_time) {
+  if (clock_frequency == 0) {
+    ctc_log_error("[TSE STATS] clock frequency is not initialized.");
+    return;
+  }
   m_calls[type]++;
-  m_use_time[type] += use_time;
+  m_use_time[type] += (use_time * 1e6)/clock_frequency;
 }
 
 void ctc_stats::print_cost_times(std::string &ctc_srv_monitor_str) {
-  if ((sizeof(ctc_interface_strs) / sizeof(ctc_interface_strs[0])) != CTC_FUNC_TYPE_NUMBER) {
+  if ((sizeof(event_tracking_messages) / sizeof(event_tracking_messages[0])) != EVENT_TYPE_COUNT) {
     ctc_srv_monitor_str += "[CTC_STATS]: ctc_interface_strs number must be same as total ctc interfaces.\n";
     return;
   }
 
-  ctc_srv_monitor_str += "\n======================================CTC_STATS=====================================\n";
-  ctc_srv_monitor_str += "Interface:   Call counter    Used Time    Average Time\n";
-  for (int i = 0; i < CTC_FUNC_TYPE_NUMBER; i++) {
+  ctc_srv_monitor_str += "\n===================================================CTC_STATS===================================================\n";
+  size_t size = EVENT_TYPE_COUNT;
+  auto longestStr = std::max_element(event_tracking_messages, event_tracking_messages + size, 
+        [](const char* a, const char* b) {
+            return std::strlen(a) < std::strlen(b);
+        });
+  int interf_width = strlen(*longestStr);
+  ctc_srv_monitor_str += "Interface" + std::string(interf_width - strlen("Interface"), ' ');
+  ctc_srv_monitor_str += "Call counter             Used Time                Average Time\n";
+                                                                   
+  for (int i = 0; i < EVENT_TYPE_COUNT; i++) {
     uint64_t calls = m_calls[i];
     uint64_t use_time = m_use_time[i];
     if (calls == 0) {
       continue;
     }
 
-    double average_time = (double) use_time / calls;
-    ctc_srv_monitor_str += ctc_interface_strs[i];
-    ctc_srv_monitor_str += ":   " + std::to_string(calls) + "   " + std::to_string(use_time) + "   "+  std::to_string(average_time)+"\n";
+    uint64_t average_time = use_time / calls;
+    ctc_srv_monitor_str += event_tracking_messages[i];
+    std::string calls_str = std::to_string(calls);
+    std::string total_str = std::to_string(use_time);
+    std::string avg_str = std::to_string(average_time);
+    ctc_srv_monitor_str += std::string(interf_width - strlen(event_tracking_messages[i]), ' ') + calls_str + std::string(CTC_STATS_TABLE_COL_WIDTH - calls_str.size(), ' ') 
+          + total_str + std::string(CTC_STATS_TABLE_COL_WIDTH - total_str.size(), ' ')  +  avg_str + "\n";
   }
 
-  ctc_srv_monitor_str += "\n======================================CTC_STATS=====================================\n";
+  ctc_srv_monitor_str += "\n====================================================CTC_STATS================================================\n";
 }
 
 #ifndef WITH_CANTIAN
@@ -206,6 +200,50 @@ void ctc_stats::print_shm_usage(std::string &ctc_srv_monitor_str) {
     ctc_srv_monitor_str += "\n";
   }
   my_free(ctc_shm_usage);
+}
+#endif
+
+#if (defined __x86_64__)
+void ctc_stats::initialize_clock_freq()
+{
+    FILE *fp = fopen("/proc/cpuinfo", "r");
+    if (!fp) {
+        ctc_log_error("[IO RECORD] Failed to open 'proc/cpuinfo");
+        my_error(ER_INTERNAL_ERROR, MYF(0), "Clock frequency initialization failed: unable to open cpuinfo.");
+        return;
+    }
+    char line[100];
+    double freq = 0;
+    while (fgets(line, sizeof(line), fp)) {
+        if (sscanf(line, "cpu MHz : %lf", &freq) == 1) {
+            fclose(fp);
+            clock_frequency = freq * 1e6;
+            return;
+        }
+    }
+    ctc_log_error("[io record] failed to get cpu frequency.");
+    my_error(ER_INTERNAL_ERROR, MYF(0), "Clock frequency initialization failed: unable to get cpu frequency.");
+}
+#else
+void ctc_stats::initialize_clock_freq()
+{
+    uint64_t freq;
+    __asm__ volatile("mrs %0, cntfrq_el0" : "=r"(freq));
+    clock_frequency = freq;
+}
+#endif
+
+#if (defined __x86_64__)
+#include <x86intrin.h>
+uint64_t rdtsc(){
+    return __rdtsc();
+}
+#else
+uint64_t rdtsc()
+{
+    uint64_t tsc;
+    __asm__ volatile ("mrs %0, cntvct_el0" : "=r" (tsc));
+    return tsc;
 }
 #endif
 

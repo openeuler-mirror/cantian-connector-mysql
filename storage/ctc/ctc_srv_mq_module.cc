@@ -334,11 +334,6 @@ static void ctc_log_reg_error_by_code(int error_code)
 EXTER_ATTACK int ctc_mq_deal_func(void *shm_inst, CTC_FUNC_TYPE func_type,
                                   void *request, void* msg_buf, uint32_t server_id, uint32_t wait_sec)
 {
-  uint64_t start_time = 0;
-  if (ctc_stats::get_instance().get_statistics_enabled()) {
-    start_time = my_getsystime() / 10;
-  }
-
   shm_seg_s *seg = (shm_seg_s *)shm_inst;
   dsw_message_block_t *msg;
   bool is_alloc = false;
@@ -410,11 +405,6 @@ EXTER_ATTACK int ctc_mq_deal_func(void *shm_inst, CTC_FUNC_TYPE func_type,
       ctc_log_error("sem destory failed, ret:%d, func_type:%d.", ret, func_type);
     }
     shm_free(nullptr, msg);
-  }
-  
-
-  if (ctc_stats::get_instance().get_statistics_enabled()) {
-    ctc_stats::get_instance().gather_stats(func_type, my_getsystime() / 10 - start_time);
   }
 
   return result;

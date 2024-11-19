@@ -26,6 +26,70 @@
 #include "ctc_srv.h"
 #include "ha_ctc.h"
 
+#define BEGIN_RECORD_STATS    \
+  uint64_t start_clock = 0;   \
+  if (ctc_stats::get_instance()->get_statistics_enabled()) {     \
+    start_clock = rdtsc();    \
+  }
+
+#define END_RECORD_STATS(type)    \
+    if (ctc_stats::get_instance()->get_statistics_enabled()) {   \
+      ctc_stats::get_instance()->gather_stats(type, rdtsc() - start_clock);    \
+    }
+
+#define CTC_STATS_TABLE_COL_WIDTH 25
+
+
+enum EVENT_TRACKING {
+  //DATABASE
+  EVENT_TYPE_PRE_CREATE_DB,
+  EVENT_TYPE_DROP_DB,
+  //TABLE
+  EVENT_TYPE_OPEN_TABLE,
+  EVENT_TYPE_CLOSE_TABLE,
+  EVENT_TYPE_CREATE_TABLE,
+  EVENT_TYPE_RENAME_TABLE,
+  EVENT_TYPE_DROP_TABLE,
+  EVENT_TYPE_INPLACE_ALTER_TABLE,
+  //DML-FETCH
+  EVENT_TYPE_RND_INIT,
+  EVENT_TYPE_RND_NEXT,
+  EVENT_TYPE_POSITION,
+  EVENT_TYPE_RND_POS,
+  EVENT_TYPE_RND_END,
+  //DML
+  EVENT_TYPE_WRITE_ROW,
+  EVENT_TYPE_UPDATE_ROW,
+  EVENT_TYPE_DELETE_ROW,
+  EVENT_TYPE_DELETE_ALL_ROWS,
+  //INDEX
+  EVENT_TYPE_INDEX_INIT,
+  EVENT_TYPE_INDEX_END,
+  EVENT_TYPE_INDEX_READ,
+  EVENT_TYPE_INDEX_FETCH,
+  //CBO
+  EVENT_TYPE_INITIALIZE_DBO,
+  EVENT_TYPE_FREE_CBO,
+  EVENT_TYPE_GET_CBO,
+  EVENT_TYPE_CBO_ANALYZE,
+  EVENT_TYPE_CBO_RECORDS,
+  EVENT_TYPE_CBO_RECORDS_IN_RANGE,
+  //TRANSCTIONS
+  EVENT_TYPE_COMMIT,
+  EVENT_TYPE_ROLLBACK,
+  EVENT_TYPE_BEGIN_TRX,
+  EVENT_TYPE_RELEASE_SAVEPOINT,
+  EVENT_TYPE_SET_SAVEPOINT,
+  EVENT_TYPE_ROLLBACK_SAVEPOINT,
+  //CONNECTION
+  EVENT_TYPE_KILL_CONNECTION,
+  EVENT_TYPE_CLOSE_CONNECTION,
+  
+  EVENT_TYPE_COUNT,
+};
+
+uint64_t rdtsc();
+
 class ctc_stats {
   private:
     ctc_stats(void) = default;
@@ -35,18 +99,22 @@ class ctc_stats {
     ctc_stats& operator=(const ctc_stats&) = delete;
   
   public:
-    static ctc_stats& get_instance(void) noexcept;
+    static ctc_stats* get_instance(void) noexcept;
     bool get_statistics_enabled(void);
     void set_statistics_enabled(const bool val);
-    void gather_stats(const enum CTC_FUNC_TYPE& type, const uint64_t use_time);
+    void gather_stats(const enum EVENT_TRACKING type, const uint64_t use_time);
     void print_stats(THD *thd, stat_print_fn *stat_print);
     void print_cost_times(std::string &ctc_srv_monitor_str);
     void print_shm_usage(std::string &ctc_srv_monitor_str);
   private:
+    static ctc_stats *m_ctc_stats;
     bool m_statistics_enabled = false;
+    uint64_t clock_frequency = 0;
 
-    std::atomic_uint64_t m_calls[CTC_FUNC_TYPE_NUMBER];
-    std::atomic_uint64_t m_use_time[CTC_FUNC_TYPE_NUMBER];
+    void initialize_clock_freq();
+
+    std::atomic_uint64_t m_calls[EVENT_TYPE_COUNT];
+    std::atomic_uint64_t m_use_time[EVENT_TYPE_COUNT];
 };
 
 #endif
