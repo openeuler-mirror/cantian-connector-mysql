@@ -1359,6 +1359,44 @@ int ctc_execute_mysql_ddl_sql(ctc_handler_t *tch, ctc_ddl_broadcast_request *bro
   return result;
 }
 
+int ctc_execute_set_opt(ctc_handler_t *tch, ctc_set_opt_request *broadcast_req, bool allow_fail) {
+  void *shm_inst_req = get_one_shm_inst(tch);
+  void *shm_inst_info = get_one_shm_inst(tch);
+  execute_set_opt_request *req = (execute_set_opt_request *)
+                                 alloc_share_mem(shm_inst_req, sizeof(execute_set_opt_request));
+  DBUG_EXECUTE_IF("excute_general_ddl_shm_oom",
+  {
+    req = NULL; 
+  });
+  if (req == NULL) {
+      ctc_log_error("alloc shm mem error, shm_inst_req(%p), size(%lu)", shm_inst_req, sizeof(execute_set_opt_request));
+      return ERR_ALLOC_MEMORY;
+  }
+  memcpy(&req->broadcast_req, broadcast_req, sizeof(ctc_set_opt_request));
+  req->broadcast_req.set_opt_info = (set_opt_info_t *)alloc_share_mem(shm_inst_info,
+                                                                      broadcast_req->opt_num * sizeof(set_opt_info_t));
+  if (req->broadcast_req.set_opt_info == NULL) {
+      ctc_log_error("alloc shm mem error, shm_inst_info(%p), size(%lu)", shm_inst_info,
+                    broadcast_req->opt_num * sizeof(set_opt_info_t));
+      free_share_mem(shm_inst_req, req);
+      return ERR_ALLOC_MEMORY;
+  }
+  memcpy(req->broadcast_req.set_opt_info, broadcast_req->set_opt_info, broadcast_req->opt_num * sizeof(set_opt_info_t));
+  req->tch = *tch;
+  req->allow_fail = allow_fail;
+  int result = ERR_CONNECTION_FAILED;
+  int ret = ctc_mq_deal_func(shm_inst_req, CTC_FUNC_TYPE_SET_OPT, req, tch->msg_buf);
+  *tch = req->tch;
+  broadcast_req->err_code = req->broadcast_req.err_code;
+  strncpy(broadcast_req->err_msg, req->broadcast_req.err_msg, ERROR_MESSAGE_LEN - 1);
+  if (ret == CT_SUCCESS) {
+    result = req->result;
+  }
+  free_share_mem(shm_inst_info, req->broadcast_req.set_opt_info);
+  free_share_mem(shm_inst_req, req);
+  return result;
+}
+
 int ctc_broadcast_mysql_dd_invalidate(ctc_handler_t *tch, ctc_invalidate_broadcast_request *broadcast_req) {
   void *shm_inst = get_one_shm_inst(tch);
   invalidate_mysql_dd_request *req = (invalidate_mysql_dd_request *)alloc_share_mem(shm_inst, sizeof(invalidate_mysql_dd_request));
