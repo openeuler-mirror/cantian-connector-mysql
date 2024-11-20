@@ -95,4 +95,8 @@ create table t5 (c1 int, c2 int, c3 varchar(10), index func_idx_1 ((abs(c1))));
 drop table t5;
 create table t5 (c1 int, c2 int, c3 varchar(10), index func_idx_1 ((c1 + c2)));
 ERROR HY000: Cantian does not support function indexes with multiple columns of arguments.
+create table t6 (c1 int, c2 int);
+create index index_func_idx_1 on t6 ((if(c1 = 1, 1, 3)));
+ERROR HY000: Function if is not indexable
+drop table t6;
 drop database db1;
