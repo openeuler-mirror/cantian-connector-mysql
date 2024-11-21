@@ -1,0 +1,147 @@
+drop table if exists t1;
+CREATE TABLE IF NOT EXISTS t1 (
+a INT AUTO_INCREMENT PRIMARY KEY,
+b INT NOT NULL,
+c VARCHAR(20) DEFAULT NULL,
+d DECIMAL NOT NULL
+);
+CREATE INDEX idx_b ON t1(b);
+CREATE INDEX idx_c ON t1(c);
+CREATE INDEX idx_d ON t1(d);
+CREATE INDEX idx_bcd ON t1(b, c, d);
+DROP PROCEDURE IF EXISTS insert_data_to_t1;
+Warnings:
+Note	1305	PROCEDURE test.insert_data_to_t1 does not exist
+CREATE PROCEDURE insert_data_to_t1()
+BEGIN
+DECLARE i INT DEFAULT 0;
+WHILE i < 500 DO
+INSERT INTO t1 (b, c, d) VALUES (i, NULL, i + 2);
+INSERT INTO t1 (b, c, d) VALUES (i + 1, i + 2, i + 3);
+INSERT INTO t1 (b, c, d) VALUES (i + 2, i + 3, i + 4);
+INSERT INTO t1 (b, c, d) VALUES (111, NULL, i);
+INSERT INTO t1 (b, c, d) VALUES (121, 121, i);
+INSERT INTO t1 (b, c, d) VALUES (131, i + 4, i + 5);
+SET i = i + 1;
+END WHILE;
+END //
+CALL insert_data_to_t1();
+DROP PROCEDURE IF EXISTS insert_data_to_t1;
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+SELECT COUNT(1) FROM t1 WHERE b < 500;
+COUNT(1)
+2997
+SELECT COUNT(1) FROM t1 WHERE b >= 200;
+COUNT(1)
+903
+SELECT COUNT(1) FROM t1 WHERE b >= 200 AND c < 500;
+COUNT(1)
+598
+SELECT COUNT(1) FROM t1 WHERE c < '700';
+COUNT(1)
+1907
+SELECT COUNT(1) FROM t1 WHERE c <= '200';
+COUNT(1)
+837
+SELECT COUNT(1) FROM t1 WHERE c >= '100';
+COUNT(1)
+1997
+SELECT COUNT(1) FROM t1 WHERE c >= '100' AND c <= '200';
+COUNT(1)
+834
+SELECT COUNT(1) FROM t1 WHERE c IS NULL;
+COUNT(1)
+1000
+SELECT COUNT(1) FROM t1 WHERE c IS NOT NULL;
+COUNT(1)
+2000
+SELECT COUNT(1) FROM t1 WHERE d >= 100.00;
+COUNT(1)
+2414
+SELECT COUNT(1) FROM t1 WHERE d < 400.00;
+COUNT(1)
+2386
+SELECT COUNT(1) FROM t1 WHERE d >= 100.00 AND d < 400.00;
+COUNT(1)
+1800
+EXPLAIN SELECT * FROM t1 FORCE INDEX (idx_b) WHERE b < 500;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	idx_b	idx_b	4	NULL	3000	100.00	Using where; Using pushed condition (`test`.`t1`.`b` < 500)
+EXPLAIN SELECT * FROM t1 FORCE INDEX (idx_b) WHERE b >= 200;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	idx_b	idx_b	4	NULL	912	100.00	Using where; Using pushed condition (`test`.`t1`.`b` >= 200)
+EXPLAIN SELECT * FROM t1 FORCE INDEX (idx_b) WHERE b >= 200 AND c < 500;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	idx_b	idx_b	4	NULL	912	33.33	Using where; Using pushed condition (`test`.`t1`.`b` >= 200)
+EXPLAIN SELECT * FROM t1 FORCE INDEX (idx_c) WHERE c < '700';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	idx_c	idx_c	83	NULL	2864	100.00	Using where; Using pushed condition (`test`.`t1`.`c` < '700')
+EXPLAIN SELECT * FROM t1 FORCE INDEX (idx_c) WHERE c <= '200';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	idx_c	idx_c	83	NULL	1263	100.00	Using where; Using pushed condition (`test`.`t1`.`c` <= '200')
+EXPLAIN SELECT * FROM t1 FORCE INDEX (idx_c) WHERE c >= '100';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	idx_c	idx_c	83	NULL	3000	100.00	Using where; Using pushed condition (`test`.`t1`.`c` >= '100')
+EXPLAIN SELECT * FROM t1 FORCE INDEX (idx_c) WHERE c >= '100' AND c <= '200';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	idx_c	idx_c	83	NULL	1263	100.00	Using where; Using pushed condition ((`test`.`t1`.`c` >= '100') and (`test`.`t1`.`c` <= '200'))
+EXPLAIN SELECT * FROM t1 WHERE c IS NULL;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ref	idx_c	idx_c	83	const	1000	100.00	Using where; Using pushed condition (`test`.`t1`.`c` is null)
+EXPLAIN SELECT * FROM t1 FORCE INDEX (idx_c) WHERE c IS NOT NULL;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	idx_c	idx_c	83	NULL	2000	100.00	Using where; Using pushed condition (`test`.`t1`.`c` is not null)
+EXPLAIN SELECT * FROM t1 FORCE INDEX (idx_d) WHERE d >= 100.00;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	idx_d	idx_d	5	NULL	2421	100.00	Using where; Using pushed condition (`test`.`t1`.`d` >= 100)
+EXPLAIN SELECT * FROM t1 FORCE INDEX (idx_d) WHERE d < 400.00;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	idx_d	idx_d	5	NULL	2397	100.00	Using where; Using pushed condition (`test`.`t1`.`d` < 400)
+EXPLAIN SELECT * FROM t1 FORCE INDEX (idx_d) WHERE d >= 100.00 AND d < 400.00;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	idx_d	idx_d	5	NULL	1807	100.00	Using where; Using pushed condition ((`test`.`t1`.`d` >= 100) and (`test`.`t1`.`d` < 400))
+SELECT COUNT(1) FROM t1 WHERE b = 111 AND c IS NULL AND d < 100;
+COUNT(1)
+100
+SELECT COUNT(1) FROM t1 WHERE b = 121 AND c = '121' AND d >= 10;
+COUNT(1)
+490
+SELECT COUNT(1) FROM t1 WHERE b < 300 AND c > '300';
+COUNT(1)
+428
+SELECT COUNT(1) FROM t1 WHERE b = 121 AND c IS NULL AND  d >= 100 AND d < 400;
+COUNT(1)
+1
+SELECT COUNT(1) FROM t1 WHERE b = 121 AND c IS NOT NULL and d > 200;
+COUNT(1)
+299
+SELECT COUNT(1) FROM t1 WHERE b = 121 AND d >= 100.00;
+COUNT(1)
+403
+SELECT COUNT(1) FROM t1 WHERE b = 131 AND c >= '100' AND  c <= '400';
+COUNT(1)
+334
+EXPLAIN SELECT * FROM t1 FORCE INDEX (idx_bcd) WHERE b = 111 AND c IS NULL AND d < 100;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	idx_bcd	idx_bcd	92	NULL	32	100.00	Using where; Using pushed condition ((`test`.`t1`.`b` = 111) and (`test`.`t1`.`c` is null) and (`test`.`t1`.`d` < 100))
+EXPLAIN SELECT * FROM t1 FORCE INDEX (idx_bcd) WHERE b = 121 AND c = '121' AND d >= 100;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	idx_bcd	idx_bcd	92	NULL	103	100.00	Using where; Using pushed condition ((`test`.`t1`.`c` = '121') and (`test`.`t1`.`b` = 121) and (`test`.`t1`.`d` >= 100))
+EXPLAIN SELECT * FROM t1 WHERE b < 300 AND c > '300';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	idx_b,idx_c,idx_bcd	NULL	NULL	NULL	3000	33.31	Using where; Using pushed condition ((`test`.`t1`.`b` < 300) and (`test`.`t1`.`c` > '300'))
+EXPLAIN SELECT * FROM t1 FORCE INDEX (idx_bcd) WHERE b = 121 AND c IS NULL AND d >= 100 AND d < 400;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	idx_bcd	idx_bcd	92	NULL	101	100.00	Using where; Using pushed condition ((`test`.`t1`.`b` = 121) and (`test`.`t1`.`c` is null) and (`test`.`t1`.`d` >= 100) and (`test`.`t1`.`d` < 400))
+EXPLAIN SELECT * FROM t1 WHERE b = 121 AND c IS NOT NULL and d > 200;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ref	idx_b,idx_c,idx_d,idx_bcd	idx_b	4	const	507	40.29	Using where; Using pushed condition ((`test`.`t1`.`c` is not null) and (`test`.`t1`.`d` > 200))
+EXPLAIN SELECT * FROM t1 WHERE b = 121 AND d >= 100.00;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ref	idx_b,idx_d,idx_bcd	idx_b	4	const	507	80.70	Using where; Using pushed condition (`test`.`t1`.`d` >= 100)
+EXPLAIN SELECT * FROM t1 FORCE INDEX (idx_bcd) WHERE b = 131 AND c >= '100' AND  c <= '400';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	idx_bcd	idx_bcd	87	NULL	381	100.00	Using where; Using pushed condition ((`test`.`t1`.`b` = 131) and (`test`.`t1`.`c` >= '100') and (`test`.`t1`.`c` <= '400'))
+drop table t1;
