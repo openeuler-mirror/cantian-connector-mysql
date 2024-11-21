@@ -59,43 +59,54 @@ static void convert_set_key_to_variant(const uchar *set_key, cache_variant_t *va
   }
 }
 
-void r_key2variant(ctc_key *rKey, KEY_PART_INFO *cur_index_part, cache_variant_t *ret_val, cache_variant_t * value, uint32_t key_offset)
+bool handle_null_and_single_boundary(ctc_key *rKey, Field *field, cache_variant_t *ret_val,
+                                     cache_variant_t * value, uint32_t key_offset)
 {
+  bool access_boundary = true;
+
   if (rKey->cmp_type == CMP_TYPE_NULL) {
     *ret_val = *value;
     rKey->cmp_type = CMP_TYPE_CLOSE_INTERNAL;
-    return;
+    return access_boundary;
   }
 
+  if (field->is_nullable() && *(rKey->key + key_offset) == 1) {
+    /*The curr field is nullable, and first byte value indicates that it is an SQL NULL value*/
+    *ret_val = *value;
+    rKey->cmp_type = CMP_TYPE_CLOSE_INTERNAL;
+    return access_boundary;
+  }
+
+  return !access_boundary;
+}
+
+void extract_boundary_value(ctc_key *rKey, KEY_PART_INFO *cur_index_part, cache_variant_t *ret_val,
+                            cache_variant_t * value, uint32_t key_offset)
+{
   Field *field = cur_index_part->field;
-  uint32_t offset = 0;
-  if (cur_index_part->field->is_nullable()) {
-    /* The first byte in the field tells if this is an SQL NULL value */
-    if(*(rKey->key + key_offset) == 1) {
-      *ret_val = *value;
-      rKey->cmp_type = CMP_TYPE_CLOSE_INTERNAL;
-      return;
-    }
-    offset = 1;
+  
+  if (handle_null_and_single_boundary(rKey, field, ret_val, value, key_offset)) {
+    return;
   }
-  // calculate string copy length
+  
   uint32_t str_key_len = 0;
+  uint32_t varchar_offset = 0;
+  uint32_t null_offset = field->is_nullable() ? 1 : 0;
   if (field->real_type() == MYSQL_TYPE_VARCHAR) {
-    str_key_len = *(uint16_t *)const_cast<uint8_t *>(rKey->key + offset);
-  }
-  if (field->real_type() == MYSQL_TYPE_STRING) {
+    str_key_len = *(uint16_t *)const_cast<uint8_t *>(rKey->key + key_offset + null_offset);
+    varchar_offset = OFFSET_VARCHAR_TYPE;
+  } else if (field->real_type() == MYSQL_TYPE_STRING) {
       uint32_t data_len = field->key_length();
-      while (data_len > 0 && rKey->key[data_len + offset - 1] == field->charset()->pad_char) {
+      while (data_len > 0 && rKey->key[data_len + key_offset + null_offset - 1] == field->charset()->pad_char) {
         data_len--;
       }
       str_key_len = data_len;
   }
   uint32_t str_copy_len = str_key_len > CBO_STRING_MAX_LEN-1 ? CBO_STRING_MAX_LEN-1 : str_key_len;
-
-  key_offset += field->real_type() == MYSQL_TYPE_VARCHAR ? OFFSET_VARCHAR_TYPE : 0;
-  const uchar *key = rKey->key + key_offset + offset;
+  const uchar *key = rKey->key + key_offset + varchar_offset + null_offset;
   uchar tmp_ptr[CTC_BYTE_8] = {0};
   const field_cnvrt_aux_t *mysql_info = get_auxiliary_for_field_convert(field, field->type());
+
   switch (field->real_type()) {
     case MYSQL_TYPE_SET:
       convert_set_key_to_variant(key, ret_val, (capacity_usage)field->pack_length());
@@ -133,11 +144,11 @@ void r_key2variant(ctc_key *rKey, KEY_PART_INFO *cur_index_part, cache_variant_t
       ret_val->v_date = *(date_t *)const_cast<uchar *>(key);
       break;
     case MYSQL_TYPE_DATETIME2:
-      cnvrt_datetime_decimal(const_cast<uchar *>(key), cur_index_part->field->decimals(), tmp_ptr, DATETIME_MAX_DECIMALS, CTC_BYTE_8);
+      cnvrt_datetime_decimal(const_cast<uchar *>(key), field->decimals(), tmp_ptr, DATETIME_MAX_DECIMALS, CTC_BYTE_8);
       ret_val->v_date = *(date_t *)tmp_ptr;
       break;
     case MYSQL_TYPE_TIME2:
-      cnvrt_time_decimal(const_cast<uchar *>(key), cur_index_part->field->decimals(), tmp_ptr, DATETIME_MAX_DECIMALS, CTC_BYTE_8);
+      cnvrt_time_decimal(const_cast<uchar *>(key), field->decimals(), tmp_ptr, DATETIME_MAX_DECIMALS, CTC_BYTE_8);
       ret_val->v_date = *(date_t *)tmp_ptr;
       break;
     case MYSQL_TYPE_DECIMAL:
@@ -588,8 +599,8 @@ double calc_density_by_cond(ctc_cbo_stats_table_t *cbo_stats, KEY_PART_INFO cur_
     min_key_val.v_str = v_str_min;
     max_key_val.v_str = v_str_max;
   }
-  r_key2variant(min_key, &cur_index_part, &min_key_val, low_val, key_offset);
-  r_key2variant(max_key, &cur_index_part, &max_key_val, high_val, key_offset);
+  extract_boundary_value(min_key, &cur_index_part, &min_key_val, low_val, key_offset);
+  extract_boundary_value(max_key, &cur_index_part, &max_key_val, high_val, key_offset);
   if (compare(&max_key_val, low_val, cur_index_part.field, cs) == LESS ||
       compare(&min_key_val, high_val, cur_index_part.field, cs) == GREAT) {
     return 0;
@@ -621,48 +632,102 @@ void calc_accumulate_gcol_num(uint num_fields, Field** field, uint32_t *acc_gcol
   }
 }
 
+double calculate_column_selectivity(ctc_cbo_stats_table_t *cbo_stats, ctc_range_key* key, KEY_PART_INFO *cur_index_part,
+                                    uint32_t ctc_col_id,  uint32_t key_offset, bool is_nullable, const CHARSET_INFO *cs)
+{
+    double col_selectivity = 0.0;
+
+    if (is_nullable &&
+        (key->min_key->key != nullptr && *(key->min_key->key + key_offset) == 1) &&
+        (key->max_key->key == nullptr || key_offset >= key->max_key->len)) {
+        /*when the col of min_key has null-val and max_key is not exists --> select * from table where col is not null*/
+        col_selectivity = (double)1 - calc_equal_null_density(cbo_stats, ctc_col_id);
+    } else if (is_nullable &&
+               (key->min_key->key != nullptr && *(key->min_key->key + key_offset) == 1) &&
+               (key->max_key->key != nullptr && *(key->max_key->key + key_offset) == 1)) {
+        /*when the col of min_key and max_key both have null-val --> select * from table where col is null*/
+        col_selectivity = calc_equal_null_density(cbo_stats, ctc_col_id);
+    } else {
+        col_selectivity = calc_density_by_cond(cbo_stats, *cur_index_part, key, key_offset, ctc_col_id, cs);
+    }
+
+    return col_selectivity;
+}
+
+void set_key_boundary_types(ctc_range_key *key, uint32_t id, ctc_cmp_type_t min_key_cmp_type, ctc_cmp_type_t max_key_cmp_type)
+{
+    uint64_t min_key_map = key->min_key->col_map;
+    uint64_t max_key_map = key->max_key->col_map;
+
+    uint64_t min_key_field_valid = min_key_map & ((uint64_t)1 << id);
+    uint64_t max_key_field_valid = max_key_map & ((uint64_t)1 << id);
+    uint64_t min_key_field_next = min_key_map & ((uint64_t)1 << (id + 1));
+    uint64_t max_key_field_next = max_key_map & ((uint64_t)1 << (id + 1));
+
+    if (min_key_field_valid && max_key_field_valid) {
+        /*The upper and lower boundarys of current field both exist*/
+        if (min_key_field_next || max_key_field_next) {
+            /*The current field is not the last valid field, the boundary type is set as closed*/
+            key->min_key->cmp_type = CMP_TYPE_CLOSE_INTERNAL;
+            key->max_key->cmp_type = CMP_TYPE_CLOSE_INTERNAL;
+            return;
+        }
+    }
+    /*The current field is the last valid field in the condition,
+    1) Field has only one boundary value (e.g., >=, <=, <, >, is not null)
+    2) The upper and lower boundarys of current field both exist (e.g., column > 3 and column <= 5)*/
+    key->min_key->cmp_type = min_key_cmp_type;
+    key->max_key->cmp_type = max_key_cmp_type;
+}
+
 double calc_density_one_table(uint16_t idx_id, ctc_range_key *key,
                               ctc_cbo_stats_table_t *cbo_stats, const TABLE &table)
 {
   if (cbo_stats->estimate_rows == 0) { // no stats or empty table
     return 0;
   }
-  double density = 1.0;
-  uint32_t my_col_id;
-  uint32_t ct_col_id;
   uint32_t acc_gcol_num[CTC_MAX_COLUMNS] = {0};
   calc_accumulate_gcol_num(table.s->fields, table.s->field, acc_gcol_num);
-  uint32_t key_offset = 0;//列在索引中的偏移量
-  uint64_t col_map = max(key->min_key->col_map, key->max_key->col_map);
   KEY cur_index = table.key_info[idx_id];
+
+  double density = 1.0;
+  uint32_t mysql_col_id;
+  uint32_t ctc_col_id;
+  uint32_t key_offset = 0; // column offset in the index
+  uint64_t valid_map = max(key->min_key->col_map, key->max_key->col_map);
+
+  /*cmp_type of the last valid field in min_key and max_key*/
+  ctc_cmp_type_t min_key_cmp_type = key->min_key->cmp_type;
+  ctc_cmp_type_t max_key_cmp_type = key->max_key->cmp_type;
 
   /*
   * For all columns in used index,
   * density = 1.0 / (column[0]->num_distinct * ... * column[n]->num_distinct)
   */
   for (uint32_t idx_col_num = 0; idx_col_num < cur_index.actual_key_parts; idx_col_num++) {
-    double col_product = 1.0;
-    if (col_map & ((uint64_t)1 << idx_col_num)) {
-      KEY_PART_INFO cur_index_part = cur_index.key_part[idx_col_num];
-      if (cur_index_part.field->is_virtual_gcol()) {
-        continue;
-      }
-      my_col_id = cur_index_part.field->field_index();
-      ct_col_id = my_col_id - acc_gcol_num[my_col_id];
-      uint32_t offset = cur_index_part.field->is_nullable() ? 1 : 0;
-      if ((offset == 1) && *(key->min_key->key + key_offset) == 1 && key->max_key->key == nullptr) {
-        // select * from table where col is not null
-        col_product = (double)1 - calc_equal_null_density(cbo_stats, ct_col_id);
-      } else if ((offset == 1) && *(key->min_key->key + key_offset) == 1 && *(key->max_key->key + key_offset) == 1) {
-        // select * from table where col is null
-        col_product = calc_equal_null_density(cbo_stats, ct_col_id);
-      } else {
-        col_product = calc_density_by_cond(cbo_stats, cur_index_part, key, key_offset, ct_col_id, table.field[my_col_id]->charset());
-      }
-      col_product = eval_density_result(col_product);
-      key_offset += (offset + cur_index_part.field->key_length());
-      density = density * col_product;
+    double col_selectivity = 0.0;
+    if ((valid_map & ((uint64_t)1 << idx_col_num)) == 0) {
+      break;
     }
+
+    KEY_PART_INFO cur_index_part = cur_index.key_part[idx_col_num];
+    if (cur_index_part.field->is_virtual_gcol()) {
+      continue;
+    }
+
+    mysql_col_id = cur_index_part.field->field_index();
+    ctc_col_id = mysql_col_id - acc_gcol_num[mysql_col_id];
+
+    uint32_t null_offset = cur_index_part.field->is_nullable() ? 1 : 0;
+    uint32_t varchar_offset = cur_index_part.field->real_type() == MYSQL_TYPE_VARCHAR ? OFFSET_VARCHAR_TYPE : 0;
+
+    set_key_boundary_types(key, idx_col_num, min_key_cmp_type, max_key_cmp_type);
+    col_selectivity = calculate_column_selectivity(cbo_stats, key, &cur_index_part, ctc_col_id, 
+                                                   key_offset, null_offset, table.field[mysql_col_id]->charset());
+    col_selectivity = eval_density_result(col_selectivity);
+
+    key_offset += (varchar_offset + null_offset + cur_index_part.field->key_length());
+    density = density * col_selectivity;
   }
 
   /*

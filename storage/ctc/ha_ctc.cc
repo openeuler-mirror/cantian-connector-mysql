@@ -4046,7 +4046,7 @@ ha_rows ha_ctc::records_in_range(uint inx, key_range *min_key,
     * we need this to make sure that our optimizer continue to work even when we
     * miscalculated the density, and it's still prefer index read
     */
-    n_rows += m_share->cbo_stats->ctc_cbo_stats_table->estimate_rows * density;
+    n_rows = m_share->cbo_stats->ctc_cbo_stats_table->estimate_rows * density;
   }
 
   /*
