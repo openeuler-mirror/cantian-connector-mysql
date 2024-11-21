@@ -20,6 +20,7 @@ ctc_set_analyze
 ctc_enum_analyze
 ctc_bit_analyze
 ctc_string_analyze
+ctc_dml_estimate_rows
 # ------ END TEST CASES OF DML ------
 
 # ------ BEGIN TEST CASES OF TRANSACTION ------

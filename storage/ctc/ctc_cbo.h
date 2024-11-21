@@ -74,4 +74,13 @@ double calc_density_one_table(uint16_t idx_id, ctc_range_key *key,
                               ctc_cbo_stats_table_t *cbo_stats, const TABLE &table);
 void calc_accumulate_gcol_num(uint num_fields, Field** field, uint32_t *acc_gcol_num);
 void ctc_index_stats_update(TABLE *table, ctc_cbo_stats_t *cbo_stats);
+double calc_density_by_cond(ctc_cbo_stats_table_t *cbo_stats, KEY_PART_INFO cur_index_part, ctc_range_key *key,
+                            uint32_t key_offset, uint32_t col_id, const CHARSET_INFO *cs);
+void set_key_boundary_types(ctc_range_key *key, uint32_t id, ctc_cmp_type_t min_key_cmp_type, ctc_cmp_type_t max_key_cmp_type);
+double calculate_column_selectivity(ctc_cbo_stats_table_t *cbo_stats, ctc_range_key* key, KEY_PART_INFO *cur_index_part,
+                                    uint32_t ctc_col_id,  uint32_t key_offset, bool is_nullable, const CHARSET_INFO *cs);
+void extract_boundary_value(ctc_key *rKey, KEY_PART_INFO *cur_index_part, cache_variant_t *ret_val,
+                            cache_variant_t * value, uint32_t key_offset);
+bool handle_null_and_single_boundary(ctc_key *rKey, Field *field, cache_variant_t *ret_val,
+                                     cache_variant_t * value, uint32_t key_offset);
 #endif
