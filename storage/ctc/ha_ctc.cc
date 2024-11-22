@@ -4872,7 +4872,7 @@ mysql_declare_plugin(ctc) g_ctc_ddl_rewriter_plugin,{
   &ctc_storage_engine,
   ctc_hton_name,
   PLUGIN_AUTHOR_ORACLE,
-  "CTC storage engine",
+  "Connector for Cantian storage engine",
   PLUGIN_LICENSE_GPL,
   ctc_init_func,
   nullptr,
