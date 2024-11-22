@@ -2020,6 +2020,7 @@ static int ctc_notify_post_event(THD *thd, handlerton *ctc_hton, ctc_handler_t &
   if (is_work_flow()) {
     if ((MDL_key::enum_mdl_namespace)lock_info->mdl_namespace == MDL_key::ACL_CACHE) {
       invalidate_remote_dcl_cache(&tch);
+      update_sess_ctx_by_tch(tch, ctc_hton, thd);
       ctc_log_system("[CTC_ACL_CACHE]:invalidate dcl cache.");
 
       if (thd->is_error()) {
