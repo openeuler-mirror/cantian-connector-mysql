@@ -383,17 +383,6 @@ int32 restore_digital(uint8 *digits, int start, int end, int step)
   return val;
 }
 
-void remove_leading_zero(uint8 *digits, int &start, int &point, int &end)
-{
-  while (end > point && digits[end] == 0) {
-    end--;
-  }
-  start = 0;
-  while (start < point && digits[start] == 0) {
-    start++;
-  }
-}
-
 #define DIG_PER_MYDEC 9
 #define DIG_PER_DEC4 4
 void convert_mydec_to_digital(my_decimal *myd, uint8 *digits, int &start, int &point, int &end)
@@ -414,15 +403,31 @@ void convert_mydec_to_digital(my_decimal *myd, uint8 *digits, int &start, int &p
     }
   }
   point = my_point_loc * DIG_PER_MYDEC;  // the first fraction index
-  end = point + myd->frac - 1; // the last fraction index
-  remove_leading_zero(digits, start, point, end);
+  end = point + myd->frac - 1; // the last digit index
+  start = 0; // the first digit index
+  // remove leading zero
+  while (end >= point && digits[end] == 0) {
+    end--;
+  }
+  while (start < end && digits[start] == 0) {
+    start++;
+  }
 }
 
 void convert_digital_to_dec4(dec4_t *d4, uint8 *digits, bool sign, int start, int point, int end)
 {
   int expn = point - start;
   int cell0_num = 0;  // number of digits in cells[0]
+
   d4->sign = sign ? 1 : 0;
+  // digit '0'
+  if ((start == end && digits[start] == 0) ||
+    (start == point && end < point)) {
+    d4->expn = 0;
+    d4->ncells = 0;
+    return;
+  }
+
   if (expn > 0) {
     cell0_num = expn % DIG_PER_DEC4;
     if (cell0_num == 0 && expn >= DIG_PER_DEC4) {
@@ -467,19 +472,29 @@ void convert_dec4_to_digital(dec4_t *dec4, uint8 *digits, int &start, int &point
   // only fraction
   int i = 0, j = 0;
   if (dec4->expn >= 0) {
-    point = (dec4->expn + 1) * DIG_PER_DEC4; // the first fraction index
+    if (dec4->ncells != 0) {
+      point = (dec4->expn + 1) * DIG_PER_DEC4; // the first fraction index
+    } else {
+      point = 0;
+    }
   } else if (dec4->expn < 0) {
     point = 0;
     i = -(dec4->expn + 1);
   }
-  start = i * DIG_PER_DEC4;
   while (j < dec4->ncells) {
     record_digital(digits, (int32)dec4->cells[j], i * DIG_PER_DEC4, DIG_PER_DEC4);
     i++;
     j++;
   }
-  end = i * DIG_PER_DEC4 - 1; // the last fraction index
-  remove_leading_zero(digits, start, point, end);
+  end = i * DIG_PER_DEC4 - 1; // the last number index
+  // remove leading zero
+  while (end >= point && digits[end] == 0) {
+    end--;
+  }
+  start = 0;
+  while (start < point && digits[start] == 0) {
+    start++;
+  }
 }
 
 void convert_digital_to_mydec(my_decimal *mydec, uint8 *digits, bool sign, int start, int point, int end)
@@ -507,6 +522,11 @@ void convert_digital_to_mydec(my_decimal *mydec, uint8 *digits, bool sign, int s
     }
     digidx += DIG_PER_MYDEC;
     buf_idx++;
+  }
+  // digit '0'
+  if (mydec->intg == 0 && mydec->frac == 0) {
+    mydec->intg = 1;
+    mydec->buf[0] = 0;
   }
 }
 
