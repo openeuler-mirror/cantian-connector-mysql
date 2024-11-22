@@ -143,9 +143,14 @@
  * mysql> SHOW GLOBAL VARIABLES like'%ctc%'
  */
 
-static void ctc_statistics_enabled_update(THD *, SYS_VAR *, void *var_ptr, const void *save) {
-  bool val = *static_cast<bool *>(var_ptr) = *static_cast<const bool *>(save);
-  ctc_stats::get_instance().set_statistics_enabled(val);
+static void ctc_statistics_enabled_update(THD * thd, SYS_VAR *, void *var_ptr, const void *save) {
+    bool enabled = *static_cast<bool *>(var_ptr) = *static_cast<const bool *>(save);
+    ctc_stats::get_instance()->set_statistics_enabled(enabled);
+    if (enabled) {
+        push_warning_printf(thd, Sql_condition::SL_WARNING, ER_DISALLOWED_OPERATION,
+            "CTC: ONLY FOR developers profiling and testing purposes! \
+            Turning on this switch will cause a significant performance DEGRADATION! .");
+    }
 }
 
 /* 创库的表空间datafile自动扩展, 默认开 */
@@ -1691,8 +1696,9 @@ static void ctc_free_cursors_no_autocommit(THD *thd, ctc_handler_t *tch, thd_ses
 */
 static int ctc_commit(handlerton *hton, THD *thd, bool commit_trx) {
   DBUG_TRACE;
-
+  BEGIN_RECORD_STATS
   if (engine_ddl_passthru(thd) && (is_alter_table_copy(thd) || is_create_table_check(thd) || is_lock_table(thd))) {
+    END_RECORD_STATS(EVENT_TYPE_COMMIT)
     return 0;
   }
 
@@ -1722,6 +1728,7 @@ static int ctc_commit(handlerton *hton, THD *thd, bool commit_trx) {
     ctc_free_buf(&tch, (uint8_t *)cursors);
     if (ret != CT_SUCCESS) {
       ctc_log_error("commit atomic ddl failed with error code: %d", ret);
+      END_RECORD_STATS(EVENT_TYPE_COMMIT)
       return convert_ctc_error_code_to_mysql(ret);
     }
     if (is_ddl_commit && !engine_skip_ddl(thd)) {
@@ -1749,6 +1756,7 @@ static int ctc_commit(handlerton *hton, THD *thd, bool commit_trx) {
     sess_ctx->sql_stat_start = 1;  // indicate cantian for a new sql border
     tch.sql_stat_start = 1;
   }
+  END_RECORD_STATS(EVENT_TYPE_COMMIT)
   return 0;
 }
 
@@ -1765,7 +1773,7 @@ static int ctc_commit(handlerton *hton, THD *thd, bool commit_trx) {
 */
 static int ctc_rollback(handlerton *hton, THD *thd, bool rollback_trx) {
   DBUG_TRACE;
-
+  BEGIN_RECORD_STATS
   if (thd->lex->sql_command == SQLCOM_DROP_TABLE) {
     ctc_log_error("[CTC_TRX]:rollback when drop table, rollback_trx=%d", rollback_trx);
   }
@@ -1793,6 +1801,7 @@ static int ctc_rollback(handlerton *hton, THD *thd, bool rollback_trx) {
     if (ret != CT_SUCCESS) {
       ctc_free_buf(&tch, (uint8_t *)cursors);
       ctc_log_error("rollback trx failed with error code: %d", ret);
+      END_RECORD_STATS(EVENT_TYPE_ROLLBACK)
       return convert_ctc_error_code_to_mysql(ret);
     }
     ctc_free_buf(&tch, (uint8_t *)cursors);
@@ -1818,11 +1827,12 @@ static int ctc_rollback(handlerton *hton, THD *thd, bool rollback_trx) {
     sess_ctx->sql_stat_start = 1;  // indicate cantian for a new sql border
     tch.sql_stat_start = 1;
   }
-
+  END_RECORD_STATS(EVENT_TYPE_ROLLBACK)
   return 0;
 }
 
 static int ctc_close_connect(handlerton *hton, THD *thd) {
+  BEGIN_RECORD_STATS
   ctc_handler_t tch;
   CTC_RETURN_IF_NOT_ZERO(get_tch_in_handler_data(hton, thd, tch));
   thd_sess_ctx_s *sess_ctx = (thd_sess_ctx_s *)thd_get_ha_data(thd, hton);
@@ -1842,10 +1852,12 @@ static int ctc_close_connect(handlerton *hton, THD *thd) {
 
   int ret = ctc_close_session(&local_tch);
   release_sess_ctx(sess_ctx, hton, thd);
+  END_RECORD_STATS(EVENT_TYPE_CLOSE_CONNECTION)
   return convert_ctc_error_code_to_mysql((ct_errno_t)ret);
 }
 
 static void ctc_kill_connection(handlerton *hton, THD *thd) {
+  BEGIN_RECORD_STATS
   ctc_handler_t tch;
   int ret = get_tch_in_handler_data(hton, thd, tch);
   if (ret != CT_SUCCESS) {
@@ -1854,10 +1866,12 @@ static void ctc_kill_connection(handlerton *hton, THD *thd) {
   if (tch.sess_addr == INVALID_VALUE64) {
     ctc_log_system("[CTC_KILL_SESSION]:trying to kill a thd without session assigned, conn_id=%u, instid=%u",
       tch.thd_id, tch.inst_id);
+    END_RECORD_STATS(EVENT_TYPE_KILL_CONNECTION)
     return;
   }
 
   if (is_ddl_sql_cmd(thd->lex->sql_command)) {
+    END_RECORD_STATS(EVENT_TYPE_KILL_CONNECTION)
     return;
   }
 
@@ -1869,10 +1883,13 @@ static void ctc_kill_connection(handlerton *hton, THD *thd) {
 
   ctc_kill_session(&local_tch);
   ctc_log_system("[CTC_KILL_SESSION]:conn_id:%u, ctc_instance_id:%u", tch.thd_id, tch.inst_id);
+  END_RECORD_STATS(EVENT_TYPE_KILL_CONNECTION)
 }
 
 static int ctc_pre_create_db4cantian(THD *thd, ctc_handler_t *tch) {
+  BEGIN_RECORD_STATS
   if (engine_skip_ddl(thd)) {
+    END_RECORD_STATS(EVENT_TYPE_PRE_CREATE_DB)
     return CT_SUCCESS;
   }
   char user_name[SMALL_RECORD_SIZE] = { 0 };
@@ -1900,9 +1917,11 @@ static int ctc_pre_create_db4cantian(THD *thd, ctc_handler_t *tch) {
     /* 如果参天上报tablespace或user已存在，且创库命令包含if not exists关键字，则忽略此错误 */
     if (error_code == ERR_USER_NOT_EMPTY_4MYSQL) {
         if (thd->lex->create_info->options & HA_LEX_CREATE_IF_NOT_EXISTS) {
+            END_RECORD_STATS(EVENT_TYPE_PRE_CREATE_DB)
             return CT_SUCCESS;
         }
         my_printf_error(ER_DB_CREATE_EXISTS, "Can't create database '%s'; database exists", MYF(0), thd->lex->name.str);
+        END_RECORD_STATS(EVENT_TYPE_PRE_CREATE_DB)
         return ER_DB_CREATE_EXISTS;
     }
 
@@ -1911,6 +1930,7 @@ static int ctc_pre_create_db4cantian(THD *thd, ctc_handler_t *tch) {
     }
   }
   ctc_log_system("[CTC_INIT]:ctc_pre_create_db4cantian end, ret=%d", ret);
+  END_RECORD_STATS(EVENT_TYPE_PRE_CREATE_DB)
   return ret;
 }
 
@@ -2133,7 +2153,7 @@ static const int BASE36 = 36;  // 0~9 and a~z, total 36 encoded character
 */
 static int ctc_set_savepoint(handlerton *hton, THD *thd, void *savepoint) {
   DBUG_TRACE;
-
+  BEGIN_RECORD_STATS
   char name[MAX_SAVEPOINT_NAME_LEN];
   longlong2str((unsigned long long)savepoint, name, BASE36);
   ctc_handler_t tch;
@@ -2146,6 +2166,7 @@ static int ctc_set_savepoint(handlerton *hton, THD *thd, void *savepoint) {
   if (ret != CT_SUCCESS) {
     ctc_log_error("set trx savepoint failed with error code: %d", ret);
   }
+  END_RECORD_STATS(EVENT_TYPE_SET_SAVEPOINT)
   return convert_ctc_error_code_to_mysql(ret);
 }
 
@@ -2158,7 +2179,7 @@ static int ctc_set_savepoint(handlerton *hton, THD *thd, void *savepoint) {
 */
 static int ctc_rollback_savepoint(handlerton *hton, THD *thd, void *savepoint) {
   DBUG_TRACE;
-
+  BEGIN_RECORD_STATS
   char name[MAX_SAVEPOINT_NAME_LEN];
   longlong2str((unsigned long long)savepoint, name, BASE36);
   ctc_handler_t tch;
@@ -2180,6 +2201,7 @@ static int ctc_rollback_savepoint(handlerton *hton, THD *thd, void *savepoint) {
   if (ret != CT_SUCCESS) {
     ctc_log_error("rollback to trx savepoint failed with error code: %d", ret);
   }
+  END_RECORD_STATS(EVENT_TYPE_ROLLBACK_SAVEPOINT)
   return convert_ctc_error_code_to_mysql(ret);
 }
 
@@ -2192,7 +2214,7 @@ static int ctc_rollback_savepoint(handlerton *hton, THD *thd, void *savepoint) {
 */
 static int ctc_release_savepoint(handlerton *hton, THD *thd, void *savepoint) {
   DBUG_TRACE;
-
+  BEGIN_RECORD_STATS
   /**
    * SQLCOM_SAVEPOINT命令如果发现之前已保存有重名的savepoint，mysql会触发调用ctc_release_savepoint，
    * 该种场景下就不需要再调用ctc_srv_release_savepoint了，knl_set_savepoint接口内部会去掉重名的savepoint；
@@ -2201,6 +2223,7 @@ static int ctc_release_savepoint(handlerton *hton, THD *thd, void *savepoint) {
    * 与innodb行为不一致，在某些场景下会引发缺陷
    */
   if (thd->query_plan.get_command() == SQLCOM_SAVEPOINT) {
+    END_RECORD_STATS(EVENT_TYPE_RELEASE_SAVEPOINT)
     return 0;
   }
 
@@ -2212,6 +2235,7 @@ static int ctc_release_savepoint(handlerton *hton, THD *thd, void *savepoint) {
   if (ret != CT_SUCCESS) {
     ctc_log_error("release trx savepoint failed with error code: %d", ret);
   }
+  END_RECORD_STATS(EVENT_TYPE_RELEASE_SAVEPOINT)
   return convert_ctc_error_code_to_mysql(ret);
 }
 
@@ -2433,6 +2457,7 @@ bool ctc_is_temporary(const dd::Table *table_def) {
 
 EXTER_ATTACK int ha_ctc::open(const char *name, int, uint test_if_locked, const dd::Table *table_def) {
   DBUG_TRACE;
+  BEGIN_RECORD_STATS
   assert(table_share == table->s);
   THD *thd = ha_thd();
 
@@ -2449,15 +2474,18 @@ EXTER_ATTACK int ha_ctc::open(const char *name, int, uint test_if_locked, const 
       if (table_share->m_part_info == nullptr) {
         free_share<Ctc_share>();
       }
+      END_RECORD_STATS(EVENT_TYPE_OPEN_TABLE)
       return convert_ctc_error_code_to_mysql(ret);
     }
   }
 
   if (is_replay_ddl(thd)) {
+    END_RECORD_STATS(EVENT_TYPE_OPEN_TABLE)
     return 0;
   }
   // rename table的故障场景下，参天的表不存在，需要忽略open close table的错误
   if (engine_ddl_passthru(thd) && (is_alter_table_copy(thd, table->s->table_name.str) || is_lock_table(thd))) {
+    END_RECORD_STATS(EVENT_TYPE_OPEN_TABLE)
     return 0;
   }
 
@@ -2487,6 +2515,7 @@ EXTER_ATTACK int ha_ctc::open(const char *name, int, uint test_if_locked, const 
     free_share<Ctc_share>();
   }
 
+  END_RECORD_STATS(EVENT_TYPE_OPEN_TABLE)
   return convert_ctc_error_code_to_mysql(ret);
 }
 
@@ -2507,9 +2536,11 @@ EXTER_ATTACK int ha_ctc::open(const char *name, int, uint test_if_locked, const 
 
 int ha_ctc::close(void) {
   DBUG_TRACE;
+  BEGIN_RECORD_STATS
   THD *thd = ha_thd();
 
   if (get_server_state() != SERVER_OPERATING && thd == nullptr) {
+    END_RECORD_STATS(EVENT_TYPE_CLOSE_TABLE)
     return 0;
   }
 
@@ -2518,23 +2549,27 @@ int ha_ctc::close(void) {
   }
 
   if (is_replay_ddl(thd)) {
+    END_RECORD_STATS(EVENT_TYPE_CLOSE_TABLE)
     return 0;
   }
   
   // rename table的故障场景下，参天的表不存在，需要忽略open close table的错误
   if (engine_ddl_passthru(thd) && (is_alter_table_copy(thd, table->s->table_name.str))) {
+    END_RECORD_STATS(EVENT_TYPE_CLOSE_TABLE)
     return 0;
   }
 
   update_member_tch(m_tch, ctc_hton, thd);
   if (m_tch.ctx_addr == INVALID_VALUE64) {
     ctc_log_warning("[CTC_CLOSE_TABLE]:Close a table that is not open.");
+    END_RECORD_STATS(EVENT_TYPE_CLOSE_TABLE)
     return 0;
   }
 
   ct_errno_t ret = (ct_errno_t)ctc_close_table(&m_tch);
   check_error_code_to_mysql(ha_thd(), &ret);
   m_tch.ctx_addr = INVALID_VALUE64;
+  END_RECORD_STATS(EVENT_TYPE_CLOSE_TABLE)
   return convert_ctc_error_code_to_mysql(ret);
 }
 
@@ -2612,9 +2647,11 @@ EXTER_ATTACK int ha_ctc::write_row(uchar *buf, bool write_through) {
 EXTER_ATTACK int ha_ctc::write_row(uchar *buf) {
 #endif
   DBUG_TRACE;
+  BEGIN_RECORD_STATS
   THD *thd = ha_thd();
 
   if (engine_ddl_passthru(thd) && is_create_table_check(thd)) {
+    END_RECORD_STATS(EVENT_TYPE_WRITE_ROW)
     return CT_SUCCESS;
   }
 
@@ -2629,6 +2666,7 @@ EXTER_ATTACK int ha_ctc::write_row(uchar *buf) {
   if (table->next_number_field && buf == table->record[0]) {
     error_result = handle_auto_increment(has_explicit_autoinc);
     if (error_result != CT_SUCCESS) {
+      END_RECORD_STATS(EVENT_TYPE_WRITE_ROW)
       return error_result;
     }
     auto_inc_used = true;
@@ -2643,6 +2681,7 @@ EXTER_ATTACK int ha_ctc::write_row(uchar *buf) {
         flag.write_through = false;
 #endif
     error_result = convert_mysql_record_and_write_to_cantian(buf, &cantian_record_buf_size, &serial_column_offset, flag);
+    END_RECORD_STATS(EVENT_TYPE_WRITE_ROW)
     return error_result;
   }
 
@@ -2652,6 +2691,7 @@ EXTER_ATTACK int ha_ctc::write_row(uchar *buf) {
     if (error_result != CT_SUCCESS) {
       delete m_rec_buf_4_writing;
       m_rec_buf_4_writing = nullptr;
+      END_RECORD_STATS(EVENT_TYPE_WRITE_ROW)
       return error_result;
     }
 
@@ -2671,10 +2711,9 @@ EXTER_ATTACK int ha_ctc::write_row(uchar *buf) {
     return error_result;
   }
   assert(cantian_record_buf_size <= m_cantian_rec_len);
-
+  END_RECORD_STATS(EVENT_TYPE_WRITE_ROW)
   return CT_SUCCESS;
 }
-
 
 int ha_ctc::convert_mysql_record_and_write_to_cantian(uchar *buf, int *cantian_record_buf_size,
                                                       uint16_t *serial_column_offset, dml_flag_t flag) {
@@ -2843,13 +2882,14 @@ int ctc_cmp_key_values(TABLE *table, const uchar *old_data, const uchar *new_dat
 */
 EXTER_ATTACK int ha_ctc::update_row(const uchar *old_data, uchar *new_data) {
   DBUG_TRACE;
-
+  BEGIN_RECORD_STATS
   THD *thd = ha_thd();
   m_is_replace = (thd->lex->sql_command == SQLCOM_REPLACE ||
                   thd->lex->sql_command == SQLCOM_REPLACE_SELECT) ? true : m_is_replace;
   if (thd->lex->sql_command == SQLCOM_REPLACE || thd->lex->sql_command == SQLCOM_REPLACE_SELECT) {
     uint key_nr = table->file->errkey;
     if (key_nr < MAX_KEY && ctc_cmp_key_values(table, old_data, new_data, key_nr) != 0) {
+      END_RECORD_STATS(EVENT_TYPE_UPDATE_ROW)
       return HA_ERR_KEY_NOT_FOUND;
     }
   }
@@ -2868,12 +2908,14 @@ EXTER_ATTACK int ha_ctc::update_row(const uchar *old_data, uchar *new_data) {
   }
 
   if (upd_fields.size() == 0) {
+    END_RECORD_STATS(EVENT_TYPE_UPDATE_ROW)
     return HA_ERR_RECORD_IS_THE_SAME;
   }
 
   if (m_ctc_buf == nullptr) {
     m_ctc_buf = ctc_alloc_buf(&m_tch, BIG_RECORD_SIZE);
     if (m_ctc_buf == nullptr) {
+      END_RECORD_STATS(EVENT_TYPE_UPDATE_ROW)
       return convert_ctc_error_code_to_mysql(ERR_ALLOC_MEMORY);
     }
   }
@@ -2883,10 +2925,12 @@ EXTER_ATTACK int ha_ctc::update_row(const uchar *old_data, uchar *new_data) {
   ct_errno_t ret = (ct_errno_t)mysql_record_to_cantian_record(*table, &record_buf,
                                              m_tch, &serial_column_offset, &upd_fields);
   if (ret != CT_SUCCESS) {
+    END_RECORD_STATS(EVENT_TYPE_UPDATE_ROW)
     return ret;
   }
   // return if only update gcol
   if (upd_fields.size() == 0) {
+    END_RECORD_STATS(EVENT_TYPE_UPDATE_ROW)
     return 0;
   }
   // (m_ignore_dup && m_is_replace) -> special case for load data ... replace into
@@ -2898,6 +2942,7 @@ EXTER_ATTACK int ha_ctc::update_row(const uchar *old_data, uchar *new_data) {
   ret = (ct_errno_t)ctc_update_row(&m_tch, cantian_new_record_buf_size, m_ctc_buf,
                                    &upd_fields[0], upd_fields.size(), flag);
   check_error_code_to_mysql(thd, &ret);
+  END_RECORD_STATS(EVENT_TYPE_UPDATE_ROW)
   return convert_ctc_error_code_to_mysql(ret);
 }
 
@@ -2923,6 +2968,7 @@ EXTER_ATTACK int ha_ctc::update_row(const uchar *old_data, uchar *new_data) {
 
 int ha_ctc::delete_row(const uchar *buf) {
   DBUG_TRACE;
+  BEGIN_RECORD_STATS
   UNUSED_PARAM(buf);
   ha_statistic_increment(&System_status_var::ha_delete_count);
   THD *thd = ha_thd();
@@ -2935,6 +2981,7 @@ int ha_ctc::delete_row(const uchar *buf) {
   }
   ct_errno_t ret = (ct_errno_t)ctc_delete_row(&m_tch, table->s->reclength, flag);
   check_error_code_to_mysql(thd, &ret);
+  END_RECORD_STATS(EVENT_TYPE_DELETE_ROW)
   return convert_ctc_error_code_to_mysql(ret);
 }
 
@@ -3132,15 +3179,18 @@ int ctc_fill_conds(ctc_handler_t m_tch, const Item *pushed_cond, Field **field,
 
 int ha_ctc::rnd_init(bool) {
   DBUG_TRACE;
+  BEGIN_RECORD_STATS
   m_index_sorted = false;
   THD *thd = ha_thd();
   if (engine_ddl_passthru(thd) && (is_alter_table_copy(thd) || is_create_table_check(thd) ||
       is_alter_table_scan(m_error_if_not_empty))) {
+    END_RECORD_STATS(EVENT_TYPE_RND_INIT)
     return 0;
   }
 
   ct_errno_t ret = (ct_errno_t)set_prefetch_buffer();
   if (ret != CT_SUCCESS) {
+    END_RECORD_STATS(EVENT_TYPE_RND_INIT)
     return ret;
   }
   expected_cursor_action_t action = EXP_CURSOR_ACTION_SELECT;
@@ -3165,6 +3215,7 @@ int ha_ctc::rnd_init(bool) {
   check_error_code_to_mysql(ha_thd(), &ret);
   cnvrt_to_mysql_record = cantian_record_to_mysql_record;
   reset_rec_buf();
+  END_RECORD_STATS(EVENT_TYPE_RND_INIT)
   return convert_ctc_error_code_to_mysql(ret);
 }
 
@@ -3207,11 +3258,12 @@ int ha_ctc::ctc_alloc_ctc_buf_4_read() {
 */
 int ha_ctc::rnd_next(uchar *buf) {
   DBUG_TRACE;
-
+  BEGIN_RECORD_STATS
   if (unlikely(!m_rec_buf || m_rec_buf->records() == 0)) {
     THD *thd = ha_thd();
     if (engine_ddl_passthru(thd) && (is_alter_table_copy(thd) || is_create_table_check(thd) ||
         is_alter_table_scan(m_error_if_not_empty))) {
+      END_RECORD_STATS(EVENT_TYPE_RND_NEXT)
       return HA_ERR_END_OF_FILE;
     }
   }
@@ -3225,6 +3277,7 @@ int ha_ctc::rnd_next(uchar *buf) {
     record_info_t record_info = {m_read_buf, 0, nullptr, nullptr};
     ct_ret = (ct_errno_t)ctc_rnd_next(&m_tch, &record_info);
     ret = process_cantian_record(buf, &record_info, ct_ret, HA_ERR_END_OF_FILE);
+    END_RECORD_STATS(EVENT_TYPE_RND_NEXT)
     return ret;
   }
 
@@ -3236,6 +3289,7 @@ int ha_ctc::rnd_next(uchar *buf) {
       cur_pos_in_buf = INVALID_MAX_UINT32;
       if (m_rec_buf->is_out_of_range()) {
         set_my_errno(HA_ERR_END_OF_FILE);
+        END_RECORD_STATS(EVENT_TYPE_RND_NEXT)
         return HA_ERR_END_OF_FILE;
       }
     } else {
@@ -3246,6 +3300,7 @@ int ha_ctc::rnd_next(uchar *buf) {
       if (cur_pos_in_buf % m_rec_buf->max_records() == 0) {
         fill_record_to_rec_buffer();
       }
+      END_RECORD_STATS(EVENT_TYPE_RND_NEXT)
       return 0;
     }
   }
@@ -3253,8 +3308,10 @@ int ha_ctc::rnd_next(uchar *buf) {
   int mysql_ret = prefetch_and_fill_record_buffer(buf, ctc_rnd_prefetch);
   if (mysql_ret != 0) {
     set_my_errno(mysql_ret);
+    END_RECORD_STATS(EVENT_TYPE_RND_NEXT)
     return mysql_ret;
   }
+  END_RECORD_STATS(EVENT_TYPE_RND_NEXT)
   return 0;
 }
 
@@ -3280,12 +3337,15 @@ int ha_ctc::rnd_next(uchar *buf) {
   filesort.cc, sql_select.cc, sql_delete.cc and sql_update.cc
 */
 void ha_ctc::position(const uchar *) {
+  BEGIN_RECORD_STATS
   if (cur_pos_in_buf == INVALID_MAX_UINT32) {
     ctc_position(&m_tch, ref, ref_length);
+    END_RECORD_STATS(EVENT_TYPE_POSITION)
     return;
   }
   assert(cur_pos_in_buf < max_prefetch_num);
   memcpy(ref, &m_rowids[cur_pos_in_buf], ref_length);
+  END_RECORD_STATS(EVENT_TYPE_POSITION)
 }
 
 /**
@@ -3304,6 +3364,7 @@ void ha_ctc::position(const uchar *) {
 */
 EXTER_ATTACK int ha_ctc::rnd_pos(uchar *buf, uchar *pos) {
   DBUG_TRACE;
+  BEGIN_RECORD_STATS
   ha_statistic_increment(&System_status_var::ha_read_rnd_count);
   int ret = CT_SUCCESS;
   ct_errno_t ct_ret = CT_SUCCESS;
@@ -3315,6 +3376,7 @@ EXTER_ATTACK int ha_ctc::rnd_pos(uchar *buf, uchar *pos) {
   }
   ct_ret = (ct_errno_t)ctc_rnd_pos(&m_tch, key_len, pos, &record_info);
   ret = process_cantian_record(buf, &record_info, ct_ret, HA_ERR_KEY_NOT_FOUND);
+  END_RECORD_STATS(EVENT_TYPE_RND_POS)
   return ret;
 }
 
@@ -3365,8 +3427,10 @@ void ha_ctc::info_low() {
 
 int ha_ctc::info(uint flag) {
   DBUG_TRACE;
+  BEGIN_RECORD_STATS
   THD *thd = ha_thd();
   if (engine_ddl_passthru(thd) && (is_alter_table_copy(thd) || is_create_table_check(thd))) {
+    END_RECORD_STATS(EVENT_TYPE_GET_CBO)
     return 0;
   }
 
@@ -3375,6 +3439,7 @@ int ha_ctc::info(uint flag) {
     if (thd->lex->sql_command == SQLCOM_DELETE &&
         thd->lex->query_block->where_cond() == nullptr) {
       records(&stats.records);
+      END_RECORD_STATS(EVENT_TYPE_GET_CBO)
       return 0;
     }
     // analyze..update histogram on colname flag
@@ -3382,12 +3447,14 @@ int ha_ctc::info(uint flag) {
       thd->lex->sql_command == SQLCOM_ANALYZE) {
       ret = (ct_errno_t)analyze(thd, nullptr);
       if (ret != CT_SUCCESS) {
+        END_RECORD_STATS(EVENT_TYPE_GET_CBO)
         return convert_ctc_error_code_to_mysql(ret);
       }
     }
     
     ret = (ct_errno_t)get_cbo_stats_4share();
     if (ret != CT_SUCCESS) {
+      END_RECORD_STATS(EVENT_TYPE_GET_CBO)
       return convert_ctc_error_code_to_mysql(ret);
     }
   }
@@ -3410,24 +3477,27 @@ int ha_ctc::info(uint flag) {
         }
       }
       if (table->file->errkey == UINT_MAX) {
+        END_RECORD_STATS(EVENT_TYPE_GET_CBO)
         return HA_ERR_KEY_NOT_FOUND;
       }
     }
   }
-
+  END_RECORD_STATS(EVENT_TYPE_GET_CBO)
   return convert_ctc_error_code_to_mysql(ret);
 }
 
 int ha_ctc::analyze(THD *thd, HA_CHECK_OPT *) {
-
+  BEGIN_RECORD_STATS
   if (engine_ddl_passthru(thd)) {
     if (m_share) {
       m_share->need_fetch_cbo = true;
     }
+    END_RECORD_STATS(EVENT_TYPE_CBO_ANALYZE)
     return 0;
   }
 
   if (table->s->tmp_table) {
+    END_RECORD_STATS(EVENT_TYPE_CBO_ANALYZE)
     return HA_ADMIN_OK;
   }
 
@@ -3440,6 +3510,7 @@ int ha_ctc::analyze(THD *thd, HA_CHECK_OPT *) {
   if (ret == CT_SUCCESS && m_share && table_share->m_part_info == nullptr) {
     m_share->need_fetch_cbo = true;
   }
+  END_RECORD_STATS(EVENT_TYPE_CBO_ANALYZE)
   return convert_ctc_error_code_to_mysql(ret);
 }
 
@@ -3528,9 +3599,11 @@ int ha_ctc::reset() {
 
 int ha_ctc::rnd_end() {
   DBUG_TRACE;
+  BEGIN_RECORD_STATS
   THD *thd = ha_thd();
   if (engine_ddl_passthru(thd) && (is_alter_table_copy(thd) || is_create_table_check(thd) ||
       is_alter_table_scan(m_error_if_not_empty))) {
+    END_RECORD_STATS(EVENT_TYPE_RND_END)
     return 0;
   }
 
@@ -3544,11 +3617,13 @@ int ha_ctc::rnd_end() {
 
   m_tch.cursor_valid = false;
   m_tch.cursor_addr = INVALID_VALUE64;
+  END_RECORD_STATS(EVENT_TYPE_RND_END)
   return ret;
 }
 
 int ha_ctc::index_init(uint index, bool sorted) {
   DBUG_TRACE;
+  BEGIN_RECORD_STATS
   ct_errno_t ret = (ct_errno_t)set_prefetch_buffer();
   if (ret != CT_SUCCESS) {
     return ret;
@@ -3563,12 +3638,13 @@ int ha_ctc::index_init(uint index, bool sorted) {
   }
   m_tch.cursor_ref++;
   m_tch.cursor_valid = false;
+  END_RECORD_STATS(EVENT_TYPE_INDEX_INIT)
   return CT_SUCCESS;
 }
 
 int ha_ctc::index_end() {
   DBUG_TRACE;
-
+  BEGIN_RECORD_STATS
   active_index = MAX_KEY;
   
   int ret = CT_SUCCESS;
@@ -3581,6 +3657,7 @@ int ha_ctc::index_end() {
   if (m_tch.cursor_ref <= 0) {
     m_tch.cursor_valid = false;
   }
+  END_RECORD_STATS(EVENT_TYPE_INDEX_END)
   return ret;
 }
 
@@ -3608,6 +3685,7 @@ int ha_ctc::process_cantian_record(uchar *buf, record_info_t *record_info, ct_er
 
 EXTER_ATTACK int ha_ctc::index_read(uchar *buf, const uchar *key, uint key_len, ha_rkey_function find_flag) {
   DBUG_TRACE;
+  BEGIN_RECORD_STATS
   ha_statistic_increment(&System_status_var::ha_read_key_count);
 
   // reset prefetch buf if calling multiple index_read continuously without index_init as interval
@@ -3652,6 +3730,7 @@ EXTER_ATTACK int ha_ctc::index_read(uchar *buf, const uchar *key, uint key_len, 
   int ret = ctc_fill_index_key_info(table, key, key_len, end_range, &index_key_info, index_key_info.index_skip_scan);
   if (ret != CT_SUCCESS) {
       ctc_log_error("ha_ctc::index_read: fill index key info failed, ret(%d).", ret);
+      END_RECORD_STATS(EVENT_TYPE_INDEX_READ)
       return ret;
   }
 
@@ -3661,6 +3740,7 @@ EXTER_ATTACK int ha_ctc::index_read(uchar *buf, const uchar *key, uint key_len, 
   ret = ctc_convert_index_datatype(table, &index_key_info, has_right_key, d4);
   if (ret != CT_SUCCESS) {
       ctc_log_error("ha_ctc::index_read: convert data type for index search failed, ret(%d).", ret);
+      END_RECORD_STATS(EVENT_TYPE_INDEX_READ)
       return ret;
   }
 
@@ -3681,6 +3761,7 @@ EXTER_ATTACK int ha_ctc::index_read(uchar *buf, const uchar *key, uint key_len, 
   }
 
   ret = process_cantian_record(buf, &record_info, ct_ret, HA_ERR_KEY_NOT_FOUND);
+  END_RECORD_STATS(EVENT_TYPE_INDEX_READ)
   return ret;
 }
 
@@ -3690,6 +3771,7 @@ EXTER_ATTACK int ha_ctc::index_read_last(uchar *buf, const uchar *key_ptr, uint 
 
 int ha_ctc::index_fetch(uchar *buf) {
   DBUG_TRACE;
+  BEGIN_RECORD_STATS
   int mysql_ret = 0;
 
   if (!m_rec_buf || m_rec_buf->max_records() == 0) {
@@ -3701,6 +3783,7 @@ int ha_ctc::index_fetch(uchar *buf) {
     ct_ret = (ct_errno_t)ctc_general_fetch(&m_tch, &record_info);
     attachable_trx_update_pre_addr(ctc_hton, ha_thd(), &m_tch, false);
     ret = process_cantian_record(buf, &record_info, ct_ret, HA_ERR_END_OF_FILE);
+    END_RECORD_STATS(EVENT_TYPE_INDEX_FETCH)
     return ret;
   }
 
@@ -3712,6 +3795,7 @@ int ha_ctc::index_fetch(uchar *buf) {
       cur_pos_in_buf = INVALID_MAX_UINT32;
       if (m_rec_buf->is_out_of_range()) {
         set_my_errno(HA_ERR_END_OF_FILE);
+        END_RECORD_STATS(EVENT_TYPE_INDEX_FETCH)
         return HA_ERR_END_OF_FILE;
       }
     } else {
@@ -3722,6 +3806,7 @@ int ha_ctc::index_fetch(uchar *buf) {
       if (cur_pos_in_buf % m_rec_buf->max_records() == 0) {
         fill_record_to_rec_buffer();
       }
+      END_RECORD_STATS(EVENT_TYPE_INDEX_FETCH)
       return CT_SUCCESS;
     }
   }
@@ -3732,8 +3817,10 @@ int ha_ctc::index_fetch(uchar *buf) {
 
   if (mysql_ret != 0) {
     set_my_errno(mysql_ret);
+    END_RECORD_STATS(EVENT_TYPE_INDEX_FETCH)
     return mysql_ret;
   }
+  END_RECORD_STATS(EVENT_TYPE_INDEX_FETCH)
   return CT_SUCCESS;
 }
 
@@ -3827,6 +3914,7 @@ int ha_ctc::index_last(uchar *buf) {
 */
 int ha_ctc::delete_all_rows() {
   DBUG_TRACE;
+  BEGIN_RECORD_STATS
   THD *thd = ha_thd();
   update_member_tch(m_tch, ctc_hton, thd);
   dml_flag_t flag = ctc_get_dml_flag(thd, false, false, false, false);
@@ -3837,8 +3925,10 @@ int ha_ctc::delete_all_rows() {
   update_sess_ctx_by_tch(m_tch, ctc_hton, thd);
   check_error_code_to_mysql(thd, &ret);
   if (thd->lex->is_ignore() && ret == ERR_ROW_IS_REFERENCED) {
+    END_RECORD_STATS(EVENT_TYPE_DELETE_ALL_ROWS)
     return 0;
   }
+  END_RECORD_STATS(EVENT_TYPE_DELETE_ALL_ROWS)
   return convert_ctc_error_code_to_mysql(ret);
 }
 
@@ -4020,6 +4110,7 @@ void ha_ctc::set_ctc_range_key(ctc_key *ctc_key, key_range *mysql_range_key, boo
 */
 ha_rows ha_ctc::records_in_range(uint inx, key_range *min_key,
                                  key_range *max_key) {
+  BEGIN_RECORD_STATS
   DBUG_TRACE;
   ctc_key ctc_min_key;
   ctc_key ctc_max_key;
@@ -4038,6 +4129,7 @@ ha_rows ha_ctc::records_in_range(uint inx, key_range *min_key,
   if (m_share) {
     if (!m_share->cbo_stats->is_updated) {
         ctc_log_debug("table %s has not been analyzed", table->alias);
+        END_RECORD_STATS(EVENT_TYPE_CBO_RECORDS_IN_RANGE)
         return 1;
     }
     density = calc_density_one_table(inx, &key, m_share->cbo_stats->ctc_cbo_stats_table, *table);
@@ -4056,6 +4148,7 @@ ha_rows ha_ctc::records_in_range(uint inx, key_range *min_key,
   if (n_rows == 0) {
       n_rows = 1;
   }
+  END_RECORD_STATS(EVENT_TYPE_CBO_RECORDS_IN_RANGE)
   return n_rows;
 }
 
@@ -4088,9 +4181,11 @@ int ha_ctc::records(ha_rows *num_rows) /*!< out: number of rows */
  
 int ha_ctc::records_from_index(ha_rows *num_rows, uint inx)
 {
+  BEGIN_RECORD_STATS
   active_index = inx;
   int ret = records(num_rows);
   active_index = MAX_KEY;
+  END_RECORD_STATS(EVENT_TYPE_CBO_RECORDS)
   return ret;
 }
 
@@ -4221,7 +4316,7 @@ int ha_ctc::external_lock(THD *thd, int lock_type) {
     out they lock meaning.
   */
   DBUG_TRACE;
-
+  BEGIN_RECORD_STATS
   if (IS_METADATA_NORMALIZATION() &&
     ctc_check_if_log_table(table_share->db.str, table_share->table_name.str)) {
     is_log_table = true;
@@ -4230,22 +4325,27 @@ int ha_ctc::external_lock(THD *thd, int lock_type) {
       sess_ctx->sql_stat_start = 1;
       m_tch.sql_stat_start = 1;
     }
+    END_RECORD_STATS(EVENT_TYPE_BEGIN_TRX)
     return 0;
   }
 
   is_log_table = false;
   
   if (engine_ddl_passthru(thd) && (is_create_table_check(thd) || is_alter_table_copy(thd))) {
+    END_RECORD_STATS(EVENT_TYPE_BEGIN_TRX)
     return 0;
   }
   
   // F_RDLCK:0, F_WRLCK:1, F_UNLCK:2
   if (lock_type == F_UNLCK) {
     m_select_lock = lock_mode::NO_LOCK;
+    END_RECORD_STATS(EVENT_TYPE_BEGIN_TRX)
     return 0;
   }
 
-  return start_stmt(thd, TL_IGNORE);
+  int ret =  start_stmt(thd, TL_IGNORE);
+  END_RECORD_STATS(EVENT_TYPE_BEGIN_TRX)
+  return ret;
 }
 
 /**
@@ -4336,16 +4436,19 @@ static bool ctc_get_tablespace_statistics(
 }
 
 EXTER_ATTACK bool ctc_drop_database_with_err(handlerton *hton, char *path) {
+  BEGIN_RECORD_STATS
   THD *thd = current_thd;
   assert(thd != nullptr);
 
   if (engine_ddl_passthru(thd)) {
+    END_RECORD_STATS(EVENT_TYPE_DROP_DB)
     return false;
   }
 
   ctc_handler_t tch;
   int res = get_tch_in_handler_data(hton, thd, tch);
   if (res != CT_SUCCESS) {
+    END_RECORD_STATS(EVENT_TYPE_DROP_DB)
     return true;
   }
 
@@ -4366,6 +4469,7 @@ EXTER_ATTACK bool ctc_drop_database_with_err(handlerton *hton, char *path) {
     ctc_log_error("drop database failed with error code: %d", convert_ctc_error_code_to_mysql((ct_errno_t)ret));
     cm_assert(0);
   }
+  END_RECORD_STATS(EVENT_TYPE_DROP_DB)
   return false;
 }
 
@@ -4450,7 +4554,7 @@ void ctc_binlog_log_query(handlerton *hton, THD *thd,
 @param[in]	stat_type	status to show */
 static bool ctc_show_status(handlerton *, THD *thd, stat_print_fn *stat_print, enum ha_stat_type stat_type) {
   if (stat_type == HA_ENGINE_STATUS) {
-    ctc_stats::get_instance().print_stats(thd, stat_print);
+    ctc_stats::get_instance()->print_stats(thd, stat_print);
   }
 
   return false;
@@ -4948,6 +5052,7 @@ void ha_ctc::update_create_info(HA_CREATE_INFO *create_info) {
   delete_table and ha_create_table() in handler.cc
 */
 EXTER_ATTACK int ha_ctc::delete_table(const char *full_path_name, const dd::Table *table_def) {
+  BEGIN_RECORD_STATS
   THD *thd = ha_thd();
   ct_errno_t ret = CT_SUCCESS;
 
@@ -4957,11 +5062,13 @@ EXTER_ATTACK int ha_ctc::delete_table(const char *full_path_name, const dd::Tabl
         close_all_tables_for_name(thd, parent_fk->child_schema_name().c_str(), parent_fk->child_table_name().c_str(), true);
       }
     }
+    END_RECORD_STATS(EVENT_TYPE_DROP_TABLE)
     return ret;
   }
 
   /* 删除db时 会直接删除参天用户 所有表也会直接被删除 无需再次下发 */
   if (thd->lex->sql_command == SQLCOM_DROP_DB) {
+    END_RECORD_STATS(EVENT_TYPE_DROP_TABLE)
     return ret;
   }
 
@@ -4975,10 +5082,12 @@ EXTER_ATTACK int ha_ctc::delete_table(const char *full_path_name, const dd::Tabl
   ctc_ddl_stack_mem stack_mem(0);
   int mysql_ret = fill_delete_table_req(full_path_name, table_def, thd, &ddl_ctrl, &stack_mem);
   if (mysql_ret != CT_SUCCESS) {
+    END_RECORD_STATS(EVENT_TYPE_DROP_TABLE)
     return mysql_ret;
   }
   void *ctc_ddl_req_msg_mem = stack_mem.get_buf();
   if (ctc_ddl_req_msg_mem == nullptr) {
+    END_RECORD_STATS(EVENT_TYPE_DROP_TABLE)
     return HA_ERR_OUT_OF_MEM;
   }
   ctc_log_note("ctc_drop_table enter");
@@ -4987,6 +5096,7 @@ EXTER_ATTACK int ha_ctc::delete_table(const char *full_path_name, const dd::Tabl
   ctc_ddl_hook_cantian_error("ctc_drop_table_cantian_error", thd, &ddl_ctrl, &ret);
   m_tch = ddl_ctrl.tch;
   update_sess_ctx_by_tch(m_tch, ctc_hton, thd);
+  END_RECORD_STATS(EVENT_TYPE_DROP_TABLE)
   return ctc_ddl_handle_fault("ctc_drop_table", thd, &ddl_ctrl, ret, full_path_name, HA_ERR_WRONG_TABLE_NAME);
 }
 static map<const char *, set<ct_errno_t>>
@@ -5084,10 +5194,12 @@ int ctc_ddl_handle_fault(const char *tag, const THD *thd,
   */
 EXTER_ATTACK int ha_ctc::create(const char *name, TABLE *form, HA_CREATE_INFO *create_info,
                    dd::Table *table_def) {
+  BEGIN_RECORD_STATS
   THD *thd = ha_thd();
   ct_errno_t ret = CT_SUCCESS;
   if (check_unsupported_operation(thd, create_info)) {
     ctc_log_system("Unsupported operation. sql = %s", thd->query().str);
+    END_RECORD_STATS(EVENT_TYPE_CREATE_TABLE)
     return HA_ERR_WRONG_COMMAND;
   }
 
@@ -5099,6 +5211,7 @@ EXTER_ATTACK int ha_ctc::create(const char *name, TABLE *form, HA_CREATE_INFO *c
       && thd->lex->alter_info) {
     if (is_tmp_table) {
       ctc_log_system("Unsupported operation. sql = %s", thd->query().str);
+      END_RECORD_STATS(EVENT_TYPE_CREATE_TABLE)
       return HA_ERR_NOT_ALLOWED_COMMAND;
     }
     // do not move this under engine_ddl_passthru(thd) function
@@ -5106,6 +5219,7 @@ EXTER_ATTACK int ha_ctc::create(const char *name, TABLE *form, HA_CREATE_INFO *c
   }
 
   if (engine_skip_ddl(thd) || engine_ddl_passthru(thd)) {
+    END_RECORD_STATS(EVENT_TYPE_CREATE_TABLE)
     return ret;
   }
 
@@ -5122,10 +5236,13 @@ EXTER_ATTACK int ha_ctc::create(const char *name, TABLE *form, HA_CREATE_INFO *c
   }
 
   if (thd->lex->sql_command == SQLCOM_TRUNCATE) {
-    return ha_ctc_truncate_table(&m_tch, thd, db_name, table_name, is_tmp_table);
+    int ret_status = ha_ctc_truncate_table(&m_tch, thd, db_name, table_name, is_tmp_table);
+    END_RECORD_STATS(EVENT_TYPE_CREATE_TABLE)
+    return ret_status;
   }
 
   if (get_cantian_record_length(form) > CT_MAX_RECORD_LENGTH) {
+    END_RECORD_STATS(EVENT_TYPE_CREATE_TABLE)
     return HA_ERR_TOO_BIG_ROW;
   }
 
@@ -5148,11 +5265,13 @@ EXTER_ATTACK int ha_ctc::create(const char *name, TABLE *form, HA_CREATE_INFO *c
   }
   ret = (ct_errno_t)fill_create_table_req(create_info, table_def, db_name, table_name, form, thd, &ddl_ctrl, &stack_mem);
   if (ret != CT_SUCCESS) {
+    END_RECORD_STATS(EVENT_TYPE_CREATE_TABLE)
     return ret;
   }
 
   void *ctc_ddl_req_msg_mem = stack_mem.get_buf();
   if (ctc_ddl_req_msg_mem == nullptr) {
+    END_RECORD_STATS(EVENT_TYPE_CREATE_TABLE)
     return HA_ERR_OUT_OF_MEM;
   }
 
@@ -5165,12 +5284,14 @@ EXTER_ATTACK int ha_ctc::create(const char *name, TABLE *form, HA_CREATE_INFO *c
       // func_name非空的情况对应default function
       my_error(ER_DEFAULT_VAL_GENERATED_NAMED_FUNCTION_IS_NOT_ALLOWED, MYF(0),
                field_name, func_name);
+      END_RECORD_STATS(EVENT_TYPE_CREATE_TABLE)
       return CT_ERROR;
     }
   }
   ctc_ddl_hook_cantian_error("ctc_create_table_cantian_error", thd, &ddl_ctrl, &ret);
   m_tch = ddl_ctrl.tch;
   update_sess_ctx_by_tch(m_tch, ctc_hton, thd);
+  END_RECORD_STATS(EVENT_TYPE_CREATE_TABLE)
   return ctc_ddl_handle_fault("ctc_create_table", thd, &ddl_ctrl, ret);
 }
 
@@ -5195,10 +5316,12 @@ bool ha_ctc::inplace_alter_table(TABLE *altered_table,
                             const dd::Table *old_table_def,
                             dd::Table *new_table_def)
 {
+  BEGIN_RECORD_STATS
   if (old_table_def == nullptr || new_table_def == nullptr) {
     ctc_log_error(
         "inplace_alter_table old_table_def:%p, or new_table_def:%p is NULL",
         old_table_def, new_table_def);
+    END_RECORD_STATS(EVENT_TYPE_INPLACE_ALTER_TABLE)
     return true;
   }
 
@@ -5208,16 +5331,19 @@ bool ha_ctc::inplace_alter_table(TABLE *altered_table,
 
   if (check_unsupported_operation(thd, nullptr)) {
     ctc_log_system("Unsupported operation. sql = %s", thd->query().str);
+    END_RECORD_STATS(EVENT_TYPE_INPLACE_ALTER_TABLE)
     return true;
   }
 
   if (get_cantian_record_length(altered_table) > CT_MAX_RECORD_LENGTH) {
+    END_RECORD_STATS(EVENT_TYPE_INPLACE_ALTER_TABLE)
     return true;
   }
   /* Nothing to commit/rollback, mark all handlers committed! */
   ha_alter_info->group_commit_ctx = nullptr;
 
   if (engine_ddl_passthru(thd)) {
+      END_RECORD_STATS(EVENT_TYPE_INPLACE_ALTER_TABLE)
       return false;
   }
 
@@ -5233,11 +5359,13 @@ bool ha_ctc::inplace_alter_table(TABLE *altered_table,
           &ddl_ctrl, &stack_mem);
   }
   if (ret != CT_SUCCESS) {
+    END_RECORD_STATS(EVENT_TYPE_INPLACE_ALTER_TABLE)
     return true;
   }
 
   void *ctc_ddl_req_msg_mem = stack_mem.get_buf();
   if (ctc_ddl_req_msg_mem == nullptr) {
+    END_RECORD_STATS(EVENT_TYPE_INPLACE_ALTER_TABLE)
     return true;
   }
   ctc_register_trx(ht, thd);
@@ -5249,9 +5377,11 @@ bool ha_ctc::inplace_alter_table(TABLE *altered_table,
   // 这个地方alter table需要特殊处理返回值
   if (ret != CT_SUCCESS) {
     ctc_alter_table_handle_fault(ret);
+    END_RECORD_STATS(EVENT_TYPE_INPLACE_ALTER_TABLE)
     return true;
   }
 
+  END_RECORD_STATS(EVENT_TYPE_INPLACE_ALTER_TABLE)
   return false;
 }
 
@@ -5273,15 +5403,18 @@ bool ha_ctc::inplace_alter_table(TABLE *altered_table,
 EXTER_ATTACK int ha_ctc::rename_table(const char *from, const char *to,
                          const dd::Table *from_table_def,
                          dd::Table *to_table_def) {
+  BEGIN_RECORD_STATS
   THD *thd = ha_thd();
   ct_errno_t ret = CT_SUCCESS;
 
   if (engine_ddl_passthru(thd)) {
+    END_RECORD_STATS(EVENT_TYPE_RENAME_TABLE)
     return false;
   }
 
   if (is_dd_table_id(to_table_def->se_private_id())) {
     my_error(ER_NOT_ALLOWED_COMMAND, MYF(0));
+    END_RECORD_STATS(EVENT_TYPE_RENAME_TABLE)
     return HA_ERR_UNSUPPORTED;
   }
 
@@ -5295,11 +5428,13 @@ EXTER_ATTACK int ha_ctc::rename_table(const char *from, const char *to,
 
   ret = (ct_errno_t)fill_rename_table_req(from, to, from_table_def, to_table_def, thd, &ddl_ctrl, &stack_mem);
   if (ret != CT_SUCCESS) {
+    END_RECORD_STATS(EVENT_TYPE_RENAME_TABLE)
     return ret;
   }
 
   void *ctc_ddl_req_msg_mem = stack_mem.get_buf();
   if(ctc_ddl_req_msg_mem == nullptr) {
+    END_RECORD_STATS(EVENT_TYPE_RENAME_TABLE)
     return HA_ERR_OUT_OF_MEM;
   }
   ctc_register_trx(ht, thd);
@@ -5307,6 +5442,7 @@ EXTER_ATTACK int ha_ctc::rename_table(const char *from, const char *to,
   ctc_ddl_hook_cantian_error("ctc_rename_table_cantian_error", thd, &ddl_ctrl, &ret);
   m_tch = ddl_ctrl.tch;
   update_sess_ctx_by_tch(m_tch, ctc_hton, thd);
+  END_RECORD_STATS(EVENT_TYPE_RENAME_TABLE)
   return ctc_ddl_handle_fault("ctc_rename_table", thd, &ddl_ctrl, ret, to);
 }
 
@@ -5421,9 +5557,11 @@ int ha_ctc::initialize_cbo_stats()
   if (!m_share || m_share->cbo_stats != nullptr) {
     return CT_SUCCESS;
   }
+  BEGIN_RECORD_STATS
   m_share->cbo_stats = (ctc_cbo_stats_t*)my_malloc(PSI_NOT_INSTRUMENTED, sizeof(ctc_cbo_stats_t), MYF(MY_WME));
   if (m_share->cbo_stats == nullptr) {
     ctc_log_error("alloc mem failed, m_share->cbo_stats size(%lu)", sizeof(ctc_cbo_stats_t));
+    END_RECORD_STATS(EVENT_TYPE_INITIALIZE_DBO)
     return ERR_ALLOC_MEMORY;
   }
   *m_share->cbo_stats = {0, 0, 0, 0, 0, nullptr, 0, nullptr, nullptr};
@@ -5431,12 +5569,14 @@ int ha_ctc::initialize_cbo_stats()
         (ctc_cbo_stats_table_t*)my_malloc(PSI_NOT_INSTRUMENTED, sizeof(ctc_cbo_stats_table_t), MYF(MY_WME));
   if (m_share->cbo_stats->ctc_cbo_stats_table == nullptr) {
     ctc_log_error("alloc mem failed, m_share->cbo_stats->ctc_cbo_stats_table(%lu)", sizeof(ctc_cbo_stats_table_t));
+    END_RECORD_STATS(EVENT_TYPE_INITIALIZE_DBO)
     return ERR_ALLOC_MEMORY;
   }
   m_share->cbo_stats->ctc_cbo_stats_table->columns =
     (ctc_cbo_stats_column_t*)my_malloc(PSI_NOT_INSTRUMENTED, table->s->fields * sizeof(ctc_cbo_stats_column_t), MYF(MY_WME));
   if (m_share->cbo_stats->ctc_cbo_stats_table->columns == nullptr) {
     ctc_log_error("alloc mem failed, m_share->cbo_stats->ctc_cbo_stats_table->columns size(%lu)", table->s->fields * sizeof(ctc_cbo_stats_column_t));
+    END_RECORD_STATS(EVENT_TYPE_INITIALIZE_DBO)
     return ERR_ALLOC_MEMORY;
   }
   for (uint col_id = 0; col_id < table->s->fields; col_id++) {
@@ -5452,11 +5592,13 @@ int ha_ctc::initialize_cbo_stats()
     (uint32_t*)my_malloc(PSI_NOT_INSTRUMENTED, table->s->keys * sizeof(uint32_t) * MAX_KEY_COLUMNS, MYF(MY_WME));
   if (m_share->cbo_stats->ndv_keys == nullptr) {
     ctc_log_error("alloc mem failed, m_share->cbo_stats->ndv_keys size(%lu)", table->s->keys * sizeof(uint32_t) * MAX_KEY_COLUMNS);
+    END_RECORD_STATS(EVENT_TYPE_INITIALIZE_DBO)
     return ERR_ALLOC_MEMORY;
   }
   
   m_share->cbo_stats->msg_len = table->s->fields * sizeof(ctc_cbo_stats_column_t);
   m_share->cbo_stats->key_len = table->s->keys * sizeof(uint32_t) * MAX_KEY_COLUMNS;
+  END_RECORD_STATS(EVENT_TYPE_INITIALIZE_DBO)
   return CT_SUCCESS;
 }
 
@@ -5522,7 +5664,7 @@ void ha_ctc::free_cbo_stats()
   if (!m_share || m_share->cbo_stats == nullptr) {
     return;
   }
-
+  BEGIN_RECORD_STATS
   my_free((m_share->cbo_stats->ndv_keys));
   m_share->cbo_stats->ndv_keys = nullptr;
   my_free((m_share->cbo_stats->col_type));
@@ -5535,7 +5677,7 @@ void ha_ctc::free_cbo_stats()
   m_share->cbo_stats->ctc_cbo_stats_table = nullptr;
   my_free((uchar *)(m_share->cbo_stats));
   m_share->cbo_stats = nullptr;
-
+  END_RECORD_STATS(EVENT_TYPE_FREE_CBO)
 }
 
 /**
