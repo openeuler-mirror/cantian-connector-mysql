@@ -143,17 +143,14 @@
  * mysql> SHOW GLOBAL VARIABLES like'%ctc%'
  */
 
-
-
-
 static void ctc_statistics_enabled_update(THD * thd, SYS_VAR *, void *var_ptr, const void *save) {
-  bool val = *static_cast<bool *>(var_ptr) = *static_cast<const bool *>(save);
-  ctc_stats::get_instance()->set_statistics_enabled(val);
-  if (val) {
-    push_warning_printf(thd, Sql_condition::SL_WARNING, ER_DISALLOWED_OPERATION, 
-        "CTC: ONLY FOR developers profiling and testing purposes! \
-        Turning on this switch will cause a significant performance DEGRADATION! .");
-  }
+    bool enabled = *static_cast<bool *>(var_ptr) = *static_cast<const bool *>(save);
+    ctc_stats::get_instance()->set_statistics_enabled(enabled);
+    if (enabled) {
+        push_warning_printf(thd, Sql_condition::SL_WARNING, ER_DISALLOWED_OPERATION,
+            "CTC: ONLY FOR developers profiling and testing purposes! \
+            Turning on this switch will cause a significant performance DEGRADATION! .");
+    }
 }
 
 /* 创库的表空间datafile自动扩展, 默认开 */
@@ -2717,7 +2714,6 @@ EXTER_ATTACK int ha_ctc::write_row(uchar *buf) {
   END_RECORD_STATS(EVENT_TYPE_WRITE_ROW)
   return CT_SUCCESS;
 }
-
 
 int ha_ctc::convert_mysql_record_and_write_to_cantian(uchar *buf, int *cantian_record_buf_size,
                                                       uint16_t *serial_column_offset, dml_flag_t flag) {

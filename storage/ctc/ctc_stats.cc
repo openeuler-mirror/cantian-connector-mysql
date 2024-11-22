@@ -17,54 +17,55 @@
 #include "ctc_stats.h"
 #include "ctc_log.h"
 #include <sstream>
+#include <mutex>
 
 ctc_stats *ctc_stats ::m_ctc_stats = NULL;
+static std::mutex _mutex;
 
 const char *event_tracking_messages[] = {
-  //DATABASE
-  "EVENT_TYPE_PRE_CREATE_DB",
-  "EVENT_TYPE_DROP_DB",
-  //TABLE
-  "EVENT_TYPE_OPEN_TABLE",
-  "EVENT_TYPE_CLOSE_TABLE",
-  "EVENT_TYPE_CREATE_TABLE",
-  "EVENT_TYPE_RENAME_TABLE",
-  "EVENT_TYPE_DROP_TABLE",
-  "EVENT_TYPE_INPLACE_ALTER_TABLE",
-  //DML-FETCH
-  "EVENT_TYPE_RND_INIT",
-  "EVENT_TYPE_RND_NEXT",
-  "EVENT_TYPE_POSITION",
-  "EVENT_TYPE_RND_POS",
-  "EVENT_TYPE_RND_END",
-  //DML
-  "EVENT_TYPE_WRITE_ROW",
-  "EVENT_TYPE_UPDATE_ROW",
-  "EVENT_TYPE_DELETE_ROW",
-  "EVENT_TYPE_DELETE_ALL_ROWS",
-  //INDEX
-  "EVENT_TYPE_INDEX_INIT",
-  "EVENT_TYPE_INDEX_END",
-  "EVENT_TYPE_INDEX_READ",
-  "EVENT_TYPE_INDEX_FETCH",
-  //CBO
-  "EVENT_TYPE_INITIALIZE_DBO",
-  "EVENT_TYPE_FREE_CBO",
-  "EVENT_TYPE_GET_CBO",
-  "EVENT_TYPE_CBO_ANALYZE",
-  "EVENT_TYPE_CBO_RECORDS",
-  "EVENT_TYPE_CBO_RECORDS_IN_RANGE",
-  //TRANSCTIONS
-  "EVENT_TYPE_COMMIT",
-  "EVENT_TYPE_ROLLBACK",
-  "EVENT_TYPE_BEGIN_TRX",
-  "EVENT_TYPE_RELEASE_SAVEPOINT",
-  "EVENT_TYPE_SET_SAVEPOINT",
-  "EVENT_TYPE_ROLLBACK_SAVEPOINT",
-  //CONNECTION
-  "EVENT_TYPE_KILL_CONNECTION",
-  "EVENT_TYPE_CLOSE_CONNECTION",
-
+    // DATABASE
+    "EVENT_TYPE_PRE_CREATE_DB",
+    "EVENT_TYPE_DROP_DB",
+    // TABLE
+    "EVENT_TYPE_OPEN_TABLE",
+    "EVENT_TYPE_CLOSE_TABLE",
+    "EVENT_TYPE_CREATE_TABLE",
+    "EVENT_TYPE_RENAME_TABLE",
+    "EVENT_TYPE_DROP_TABLE",
+    "EVENT_TYPE_INPLACE_ALTER_TABLE",
+    // FETCH
+    "EVENT_TYPE_RND_INIT",
+    "EVENT_TYPE_RND_NEXT",
+    "EVENT_TYPE_POSITION",
+    "EVENT_TYPE_RND_POS",
+    "EVENT_TYPE_RND_END",
+    // DML
+    "EVENT_TYPE_WRITE_ROW",
+    "EVENT_TYPE_UPDATE_ROW",
+    "EVENT_TYPE_DELETE_ROW",
+    "EVENT_TYPE_DELETE_ALL_ROWS",
+    // INDEX
+    "EVENT_TYPE_INDEX_INIT",
+    "EVENT_TYPE_INDEX_END",
+    "EVENT_TYPE_INDEX_READ",
+    "EVENT_TYPE_INDEX_FETCH",
+    // CBO
+    "EVENT_TYPE_INITIALIZE_DBO",
+    "EVENT_TYPE_FREE_CBO",
+    "EVENT_TYPE_GET_CBO",
+    "EVENT_TYPE_CBO_ANALYZE",
+    "EVENT_TYPE_CBO_RECORDS",
+    "EVENT_TYPE_CBO_RECORDS_IN_RANGE",
+    // TRANSCTIONS
+    "EVENT_TYPE_COMMIT",
+    "EVENT_TYPE_ROLLBACK",
+    "EVENT_TYPE_BEGIN_TRX",
+    "EVENT_TYPE_RELEASE_SAVEPOINT",
+    "EVENT_TYPE_SET_SAVEPOINT",
+    "EVENT_TYPE_ROLLBACK_SAVEPOINT",
+    // CONNECTION
+    "EVENT_TYPE_KILL_CONNECTION",
+    "EVENT_TYPE_CLOSE_CONNECTION",
 };
 
 #ifndef WITH_CANTIAN
@@ -105,59 +106,67 @@ mem_class_cfg_t g_mem_class_cfg[MEM_CLASS_NUM] = {
 #endif
 
 ctc_stats* ctc_stats::get_instance() noexcept {
-  if(m_ctc_stats == NULL) {
-      m_ctc_stats = new ctc_stats();
-      return m_ctc_stats; 
-    } else {   
-      return m_ctc_stats;
+    if (m_ctc_stats == NULL) {
+        std::lock_guard<std::mutex>lock(_mutex);
+        if (m_ctc_stats == NULL) {
+            m_ctc_stats = new ctc_stats();
+        }
     }
+    return m_ctc_stats;
 }
 
 bool ctc_stats::get_statistics_enabled() {
-  return m_statistics_enabled;
+    return m_statistics_enabled.load();
 }
 
-void ctc_stats::set_statistics_enabled(const bool val) {
-  if (val && !m_statistics_enabled) {
-    for (int i = 0; i < CTC_FUNC_TYPE_NUMBER; i++) {
-      m_calls[i] = 0;
-      m_use_time[i] = 0;
+void ctc_stats::set_statistics_enabled(const bool enabled) {
+    if (enabled && !m_statistics_enabled.load()) {
+        for (int i = 0; i < CTC_FUNC_TYPE_NUMBER; i++) {
+            for (int hash_id = 0; hash_id < EVENT_TRACKING_GROUP; hash_id++) {
+                m_calls[i][hash_id] = 0;
+                m_use_time[i][hash_id] = 0;
+            }
+        }
     }
-  }
-  initialize_clock_freq();
-  m_statistics_enabled = val;
+    initialize_clock_freq();
+    m_statistics_enabled.store(enabled);
 }
 
-void ctc_stats::gather_stats(const enum EVENT_TRACKING type, const uint64_t use_time) {
-  if (clock_frequency == 0) {
-    ctc_log_error("[TSE STATS] clock frequency is not initialized.");
-    return;
-  }
-  m_calls[type]++;
-  m_use_time[type] += (use_time * 1e6)/clock_frequency;
+void ctc_stats::gather_stats(const enum EVENT_TRACKING type, const uint64_t start_cycles) {
+    if (clock_frequency == 0) {
+        ctc_log_error("[TSE STATS] clock frequency is not initialized.");
+        return;
+    }
+    uint64_t use_time = rdtsc() - start_cycles;
+    m_calls[type][EVENT_TRACKING_HASH_FUNC(start_cycles)]++;
+    m_use_time[type][EVENT_TRACKING_HASH_FUNC(start_cycles)] += (use_time * 1e6)/clock_frequency;
 }
 
 void ctc_stats::print_cost_times(std::string &ctc_srv_monitor_str) {
-  if ((sizeof(event_tracking_messages) / sizeof(event_tracking_messages[0])) != EVENT_TYPE_COUNT) {
-    ctc_srv_monitor_str += "[CTC_STATS]: ctc_interface_strs number must be same as total ctc interfaces.\n";
-    return;
-  }
+    if ((sizeof(event_tracking_messages) / sizeof(event_tracking_messages[0])) != EVENT_TYPE_COUNT) {
+        ctc_srv_monitor_str += "[CTC_STATS]: ctc_interface_strs number must be same as total ctc interfaces.\n";
+        return;
+    }
 
-  ctc_srv_monitor_str += "\n===================================================CTC_STATS===================================================\n";
-  size_t size = EVENT_TYPE_COUNT;
-  auto longestStr = std::max_element(event_tracking_messages, event_tracking_messages + size, 
+    ctc_srv_monitor_str += "\n======================================CTC_STATS======================================\n";
+    size_t size = EVENT_TYPE_COUNT;
+    const char** longest_str = std::max_element(event_tracking_messages, event_tracking_messages + size,
         [](const char* a, const char* b) {
             return std::strlen(a) < std::strlen(b);
         });
-  int interf_width = strlen(*longestStr);
-  ctc_srv_monitor_str += "Interface" + std::string(interf_width - strlen("Interface"), ' ');
-  ctc_srv_monitor_str += "Call counter             Used Time                Average Time\n";
+    int interf_width = strlen(*longest_str);
+    ctc_srv_monitor_str += "Interface" + std::string(interf_width - strlen("Interface"), ' ');
+    ctc_srv_monitor_str += "Call counter             Used Time                Average Time\n";
                                                                    
-  for (int i = 0; i < EVENT_TYPE_COUNT; i++) {
-    uint64_t calls = m_calls[i];
-    uint64_t use_time = m_use_time[i];
+    for (int i = 0; i < EVENT_TYPE_COUNT; i++) {
+        uint64_t calls = 0;
+        uint64_t use_time = 0;
+    for (int hash_id = 0; hash_id < EVENT_TRACKING_GROUP; hash_id++) {
+        calls += m_calls[i][hash_id];
+        use_time += m_use_time[i][hash_id];
+    }
     if (calls == 0) {
-      continue;
+        continue;
     }
 
     uint64_t average_time = use_time / calls;
@@ -165,54 +174,56 @@ void ctc_stats::print_cost_times(std::string &ctc_srv_monitor_str) {
     std::string calls_str = std::to_string(calls);
     std::string total_str = std::to_string(use_time);
     std::string avg_str = std::to_string(average_time);
-    ctc_srv_monitor_str += std::string(interf_width - strlen(event_tracking_messages[i]), ' ') + calls_str + std::string(CTC_STATS_TABLE_COL_WIDTH - calls_str.size(), ' ') 
-          + total_str + std::string(CTC_STATS_TABLE_COL_WIDTH - total_str.size(), ' ')  +  avg_str + "\n";
-  }
+    ctc_srv_monitor_str += std::string(interf_width - strlen(event_tracking_messages[i]), ' ')
+            + calls_str + std::string(CTC_STATS_TABLE_COL_WIDTH - calls_str.size(), ' ')
+            + total_str + std::string(CTC_STATS_TABLE_COL_WIDTH - total_str.size(), ' ')  +  avg_str + "\n";
+    }
 
-  ctc_srv_monitor_str += "\n====================================================CTC_STATS================================================\n";
+    ctc_srv_monitor_str += "\n======================================CTC_STATS======================================\n";
 }
 
 #ifndef WITH_CANTIAN
 extern uint32_t g_shm_file_num;
 void ctc_stats::print_shm_usage(std::string &ctc_srv_monitor_str) {
-  uint32_t *ctc_shm_usage = (uint32_t *)my_malloc(PSI_NOT_INSTRUMENTED, (g_shm_file_num + 1) * MEM_CLASS_NUM * sizeof(uint32_t), MYF(MY_WME));
-  if (ctc_get_shm_usage(ctc_shm_usage) != CT_SUCCESS) {
-    my_free(ctc_shm_usage);
-    return;
-  }
-  ctc_srv_monitor_str += "\n=====================================SHARE MEMORY USAGE STATISTICS=====================================\n";
-  ctc_srv_monitor_str += "SIZE:\t" ;
-  for (uint32_t j = 0; j < MEM_CLASS_NUM; j++) {
-    ctc_srv_monitor_str += std::to_string(g_mem_class_cfg[j].size) + "\t" ;
-  }
-  ctc_srv_monitor_str += "\nNUM:\t";
-  for (uint32_t j = 0; j < MEM_CLASS_NUM; j++) {
-    ctc_srv_monitor_str += std::to_string(g_mem_class_cfg[j].num) + "\t" ;
-  }
-  ctc_srv_monitor_str += "\n------------------------------------------------------------------------------------------------------\n";
-
-  int idx = 0;
-  for (uint32_t i = 0; i < g_shm_file_num + 1; i++) {
-    ctc_srv_monitor_str += "FILE" + std::to_string(i)  + ":\t" ;
-    for (uint32_t j = 0; j < MEM_CLASS_NUM; j++) {
-      ctc_srv_monitor_str += std::to_string(ctc_shm_usage[idx++]) + "\t" ; // ctc_shm_usage[idx++] / g_mem_class_cfg[j].num
+    uint32_t *ctc_shm_usage = (uint32_t *)my_malloc(PSI_NOT_INSTRUMENTED, 
+            (g_shm_file_num + 1) * MEM_CLASS_NUM * sizeof(uint32_t), MYF(MY_WME));
+    if (ctc_get_shm_usage(ctc_shm_usage) != CT_SUCCESS) {
+        my_free(ctc_shm_usage);
+        return;
     }
-    ctc_srv_monitor_str += "\n";
-  }
-  my_free(ctc_shm_usage);
+    ctc_srv_monitor_str += "\n============================SHARE MEMORY USAGE STATISTICS============================\n";
+    ctc_srv_monitor_str += "SIZE:\t" ;
+    for (uint32_t j = 0; j < MEM_CLASS_NUM; j++) {
+        ctc_srv_monitor_str += std::to_string(g_mem_class_cfg[j].size) + "\t" ;
+    }
+    ctc_srv_monitor_str += "\nNUM:\t";
+    for (uint32_t j = 0; j < MEM_CLASS_NUM; j++) {
+        ctc_srv_monitor_str += std::to_string(g_mem_class_cfg[j].num) + "\t" ;
+    }
+    ctc_srv_monitor_str += "\n-----------------------------------------------------------------------------\n";
+
+    int idx = 0;
+    for (uint32_t i = 0; i < g_shm_file_num + 1; i++) {
+        ctc_srv_monitor_str += "FILE" + std::to_string(i)  + ":\t" ;
+        for (uint32_t j = 0; j < MEM_CLASS_NUM; j++) {
+            // ctc_shm_usage[idx++] / g_mem_class_cfg[j].num
+            ctc_srv_monitor_str += std::to_string(ctc_shm_usage[idx++]) + "\t" ;
+        }
+        ctc_srv_monitor_str += "\n";
+    }
+    my_free(ctc_shm_usage);
 }
 #endif
 
 #if (defined __x86_64__)
-void ctc_stats::initialize_clock_freq()
-{
-    FILE *fp = fopen("/proc/cpuinfo", "r");
+void ctc_stats::initialize_clock_freq() {
+    FILE *fp = fopen(CPUINFO_PATH, "r");
     if (!fp) {
         ctc_log_error("[IO RECORD] Failed to open 'proc/cpuinfo");
         my_error(ER_INTERNAL_ERROR, MYF(0), "Clock frequency initialization failed: unable to open cpuinfo.");
         return;
     }
-    char line[100];
+    char line[LINUX_SYSINFO_LEN];
     double freq = 0;
     while (fgets(line, sizeof(line), fp)) {
         if (sscanf(line, "cpu MHz : %lf", &freq) == 1) {
@@ -221,12 +232,12 @@ void ctc_stats::initialize_clock_freq()
             return;
         }
     }
-    ctc_log_error("[io record] failed to get cpu frequency.");
-    my_error(ER_INTERNAL_ERROR, MYF(0), "Clock frequency initialization failed: unable to get cpu frequency.");
+    ctc_log_error("[io record] failed to get cpu frequency. Last line read: %s", line);
+    my_error(ER_INTERNAL_ERROR, MYF(0), 
+            "Clock frequency initialization failed: unable to get cpu frequency. Last line read: %s", line);
 }
 #else
-void ctc_stats::initialize_clock_freq()
-{
+void ctc_stats::initialize_clock_freq() {
     uint64_t freq;
     __asm__ volatile("mrs %0, cntfrq_el0" : "=r"(freq));
     clock_frequency = freq;
@@ -235,12 +246,11 @@ void ctc_stats::initialize_clock_freq()
 
 #if (defined __x86_64__)
 #include <x86intrin.h>
-uint64_t rdtsc(){
+uint64_t rdtsc() {
     return __rdtsc();
 }
 #else
-uint64_t rdtsc()
-{
+uint64_t rdtsc() {
     uint64_t tsc;
     __asm__ volatile ("mrs %0, cntvct_el0" : "=r" (tsc));
     return tsc;
