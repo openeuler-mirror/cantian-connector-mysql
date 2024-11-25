@@ -1284,123 +1284,170 @@ static uint32_t ctc_fill_func_key_part(TABLE *form, THD *thd, TcDb__CtcDDLTableK
   return CT_SUCCESS;
 }
 
-static bool ctc_ddl_create_table_fill_add_key(TcDb__CtcDDLCreateTableDef *req, THD *thd,
-                                              const dd::Table *table_def, TABLE *form, char *user) {
-  if (req->n_key_list == 0) {
-    return true;
+static inline longlong get_session_level_create_index_parallelism(THD *thd)
+{
+  return get_session_variable_int_value_with_range(
+      thd, SESSION_VARIABLE_NAME_CREATE_INDEX_PARALLELISM,
+      SESSION_VARIABLE_VALUE_MIN_CREATE_INDEX_PARALLELISM,
+      SESSION_VARIABLE_VALUE_MAX_CREATE_INDEX_PARALLELISM,
+      SESSION_VARIABLE_VALUE_DEFAULT_CREATE_INDEX_PARALLELISM);
+}
+
+static inline int initialize_ddl_table_key_req_key_def(TcDb__CtcDDLTableKey *req_key_def, char* user,
+                                                       TcDb__CtcDDLCreateTableDef *req, const char *name)
+{
+  req_key_def->user = user;
+  req_key_def->table = req->name;
+  CTC_RETURN_IF_NOT_ZERO(check_ctc_identifier_name(name));
+  req_key_def->name = const_cast<char *>(name);
+  req_key_def->space = NULL;
+  return 0;
+}
+
+static bool ctc_ddl_create_table_fill_add_key_table_def_null_fill_key_part(TcDb__CtcDDLTableKey *req_key_def,
+    THD *thd, TABLE *form, TcDb__CtcDDLTableKeyPart *req_key_part, KEY_PART_INFO *key_part)
+{
+  if (key_part->key_part_flag & HA_REVERSE_SORT) {
+    req_key_def->is_dsc = true;
   }
+  bool is_prefix_key = false;
+  cm_assert(key_part != NULL);
+  Field *fld = form->field[key_part->field->field_index()];
+  cm_assert(fld != nullptr);
+  if (fld->is_field_for_functional_index()) {
+    req_key_def->is_func = true;
+    CTC_RETURN_IF_ERROR(ctc_fill_func_key_part(form, thd, req_key_part, fld->gcol_info) == CT_SUCCESS, false);
+  } else {
+    if (fld->is_virtual_gcol()) {
+      my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
+                      "Cantian does not support index on virtual generated column.");
+      return false;
+    }
 
-  if (table_def == nullptr) {
-    for (uint i = 0; i < req->n_key_list; i++) {
-      TcDb__CtcDDLTableKey *req_key_def = req->key_list[i];
-      const KEY *key = form->key_info + i;
-      if (key->key_length == 0) {
-        my_error(ER_WRONG_KEY_COLUMN, MYF(0), key->key_part->field->field_name);
-        return ER_WRONG_KEY_COLUMN;
-      }
-      req_key_def->user = user;
-      req_key_def->table = req->name;
-      CTC_RETURN_IF_NOT_ZERO(check_ctc_identifier_name(key->name));
-      req_key_def->name = const_cast<char *>(key->name);
-      req_key_def->space = NULL;
-      CTC_RETURN_IF_ERROR(get_ctc_key_type(key, &req_key_def->key_type), false);
-      CTC_RETURN_IF_ERROR(get_ctc_key_algorithm(key->algorithm, &req_key_def->algorithm), false);
-      if (req_key_def->key_type == CTC_KEYTYPE_PRIMARY || req_key_def->key_type == CTC_KEYTYPE_UNIQUE) {
-        req_key_def->is_constraint = true;
-      }
-      for (uint j = 0; j < req_key_def->n_columns; j++) {
-        TcDb__CtcDDLTableKeyPart *req_key_part = req_key_def->columns[j];
-        KEY_PART_INFO *key_part = key->key_part + j;
-        if (key_part->key_part_flag & HA_REVERSE_SORT) {
-          req_key_def->is_dsc = true;
-        }
-        bool is_prefix_key = false;
-        assert(key_part != NULL);
-        Field *fld = form->field[key_part->field->field_index()];
-        assert(fld != nullptr);
-        if (fld->is_field_for_functional_index()) {
-          req_key_def->is_func = true;
-          CTC_RETURN_IF_ERROR(ctc_fill_func_key_part(form, thd, req_key_part, fld->gcol_info) == CT_SUCCESS, false);
-        } else {
-          if (fld->is_virtual_gcol()) {
-            my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
-              "Cantian does not support index on virtual generated column.");
-            return false;
-          }
+    uint prefix_len = get_prefix_index_len(fld, key_part->length);
+    if (prefix_len) {
+      ctc_fill_prefix_func_key_part(req_key_part, fld, prefix_len);
+      is_prefix_key = true;
+    } else {
+      req_key_part->is_func = false;
+      req_key_part->func_text = nullptr;
+    }
+    req_key_part->name = const_cast<char *>(key_part->field->field_name);
+  }
+  req_key_part->length = key_part->length;
+  ctc_ddl_get_data_type_from_mysql_type(fld, fld->type(), &req_key_part->datatype);
+  ctc_set_unsigned_column(fld, &req_key_part->is_unsigned);
+  if (is_prefix_key && fld->is_flag_set(BLOB_FLAG)) {
+    req_key_part->datatype = CTC_DDL_TYPE_VARCHAR;
+  }
+  return true;
+}
 
-          uint prefix_len = get_prefix_index_len(fld, key_part->length);
-          if (prefix_len) {
-            ctc_fill_prefix_func_key_part(req_key_part, fld, prefix_len);
-            is_prefix_key = true;
-          } else {
-            req_key_part->is_func = false;
-            req_key_part->func_text = nullptr;
-          }
-          req_key_part->name = const_cast<char *>(key_part->field->field_name);
-        }
-        req_key_part->length = key_part->length;
-        ctc_ddl_get_data_type_from_mysql_type(fld, fld->type(), &req_key_part->datatype);
-        ctc_set_unsigned_column(fld, &req_key_part->is_unsigned);
-        if (is_prefix_key && fld->is_flag_set(BLOB_FLAG)) {
-          req_key_part->datatype = CTC_DDL_TYPE_VARCHAR;
-        }
+static bool ctc_ddl_create_table_fill_add_key_table_def_null(TcDb__CtcDDLCreateTableDef *req, THD *thd,
+                                                             TABLE *form, char *user)
+{
+  for (uint i = 0; i < req->n_key_list; i++) {
+    TcDb__CtcDDLTableKey *req_key_def = req->key_list[i];
+    const KEY *key = form->key_info + i;
+    if (key->key_length == 0) {
+      my_error(ER_WRONG_KEY_COLUMN, MYF(0), key->key_part->field->field_name);
+      return ER_WRONG_KEY_COLUMN;
+    }
+    CTC_RETURN_IF_NOT_ZERO(initialize_ddl_table_key_req_key_def(req_key_def, user, req, key->name));
+    CTC_RETURN_IF_ERROR(get_ctc_key_type(key, &req_key_def->key_type), false);
+    CTC_RETURN_IF_ERROR(get_ctc_key_algorithm(key->algorithm, &req_key_def->algorithm), false);
+    if (req_key_def->key_type == CTC_KEYTYPE_PRIMARY || req_key_def->key_type == CTC_KEYTYPE_UNIQUE) {
+      req_key_def->is_constraint = true;
+    }
+    for (uint j = 0; j < req_key_def->n_columns; j++) {
+      TcDb__CtcDDLTableKeyPart *req_key_part = req_key_def->columns[j];
+      KEY_PART_INFO *key_part = key->key_part + j;
+      if (!ctc_ddl_create_table_fill_add_key_table_def_null_fill_key_part(
+          req_key_def, thd, form, req_key_part, key_part)) {
+        return false;
       }
     }
-    return true;
+    req_key_def->parallelism = get_session_level_create_index_parallelism(thd);
   }
+  return true;
+}
 
+static inline bool ctc_ddl_create_table_fill_add_key_table_def_not_null_fill_key_part(TcDb__CtcDDLTableKey *req_key_def,
+    THD *thd, TABLE *form, TcDb__CtcDDLTableKeyPart *req_key_part, const dd::Index_element *key_part)
+{
+  if (key_part->order() == dd::Index_element::ORDER_DESC) {
+    req_key_def->is_dsc = true;
+  }
+  bool is_prefix_key = false;
+  cm_assert(key_part != NULL);
+  Field *fld = ctc_get_field_by_name(form, key_part->column().name().data());
+  cm_assert(fld != nullptr);
+
+  if (fld->is_field_for_functional_index()) {
+    req_key_def->is_func = true;
+    CTC_RETURN_IF_ERROR(ctc_fill_func_key_part(form, thd, req_key_part, fld->gcol_info) == CT_SUCCESS, false);
+  } else {
+    if (fld->is_virtual_gcol()) {
+      my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
+                      "Cantian does not support index on virtual generated column.");
+      return false;
+    }
+
+    uint prefix_len = get_prefix_index_len(fld, key_part->length());
+    if (prefix_len) {
+      ctc_fill_prefix_func_key_part(req_key_part, fld, prefix_len);
+      is_prefix_key = true;
+    } else {
+      req_key_part->is_func = false;
+      req_key_part->func_text = nullptr;
+    }
+    req_key_part->name = const_cast<char *>(key_part->column().name().data());
+  }
+  req_key_part->length = key_part->length();
+  ctc_ddl_get_data_type_from_mysql_type(fld, fld->type(), &req_key_part->datatype);
+  ctc_set_unsigned_column(fld, &req_key_part->is_unsigned);
+  if (is_prefix_key && fld->is_flag_set(BLOB_FLAG)) {
+    req_key_part->datatype = CTC_DDL_TYPE_VARCHAR;
+  }
+  return true;
+}
+
+static inline bool ctc_ddl_create_table_fill_add_key_table_def_not_null(TcDb__CtcDDLCreateTableDef *req, THD *thd,
+                                                                        const dd::Table *table_def, TABLE *form,
+                                                                        char *user)
+{
   for (uint i = 0; i < req->n_key_list; i++) {
     TcDb__CtcDDLTableKey *req_key_def = req->key_list[i];
     assert(table_def != nullptr);
     const dd::Index *idx = table_def->indexes().at(i);
-    req_key_def->user = user;
-    req_key_def->table = req->name;
-    CTC_RETURN_IF_NOT_ZERO(check_ctc_identifier_name(idx->name().data()));
-    req_key_def->name = const_cast<char *>(idx->name().data());
-    req_key_def->space = NULL;
+    CTC_RETURN_IF_NOT_ZERO(initialize_ddl_table_key_req_key_def(req_key_def, user, req, idx->name().data()));
     CTC_RETURN_IF_ERROR(ctc_ddl_get_create_key_type(idx->type(), &req_key_def->key_type), false);
     CTC_RETURN_IF_ERROR(ctc_ddl_get_create_key_algorithm(idx->algorithm(), &req_key_def->algorithm), false);
 
     for (uint j = 0; j < req_key_def->n_columns; j++) {
       TcDb__CtcDDLTableKeyPart *req_key_part = req_key_def->columns[j];
       const dd::Index_element *key_part = idx->elements().at(j);
-      if (key_part->order() == dd::Index_element::ORDER_DESC) {
-        req_key_def->is_dsc = true;
-      }
-      bool is_prefix_key = false;
-      assert(key_part != NULL);
-      Field *fld = ctc_get_field_by_name(form, key_part->column().name().data());
-      assert(fld != nullptr);
-
-      if (fld->is_field_for_functional_index()) {
-        req_key_def->is_func = true;
-        CTC_RETURN_IF_ERROR(ctc_fill_func_key_part(form, thd, req_key_part, fld->gcol_info) == CT_SUCCESS, false);
-      } else {
-        if (fld->is_virtual_gcol()) {
-          my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
-            "Cantian does not support index on virtual generated column.");
-          return false;
-        }
-
-        uint prefix_len = get_prefix_index_len(fld, key_part->length());
-        if (prefix_len) {
-          ctc_fill_prefix_func_key_part(req_key_part, fld, prefix_len);
-          is_prefix_key = true;
-        } else {
-          req_key_part->is_func = false;
-          req_key_part->func_text = nullptr;
-        }
-        req_key_part->name = const_cast<char *>(key_part->column().name().data());
-      }
-      req_key_part->length = key_part->length();
-      ctc_ddl_get_data_type_from_mysql_type(fld, fld->type(), &req_key_part->datatype);
-      ctc_set_unsigned_column(fld, &req_key_part->is_unsigned);
-      if (is_prefix_key && fld->is_flag_set(BLOB_FLAG)) {
-        req_key_part->datatype = CTC_DDL_TYPE_VARCHAR;
+      if (!ctc_ddl_create_table_fill_add_key_table_def_not_null_fill_key_part(
+          req_key_def, thd, form, req_key_part, key_part)) {
+        return false;
       }
     }
+    req_key_def->parallelism = get_session_level_create_index_parallelism(thd);
   }
   return true;
+}
+
+static bool ctc_ddl_create_table_fill_add_key(TcDb__CtcDDLCreateTableDef *req, THD *thd,
+                                              const dd::Table *table_def, TABLE *form, char *user)
+{
+  if (req->n_key_list == 0) {
+    return true;
+  }
+
+  if (table_def == nullptr) {
+    return ctc_ddl_create_table_fill_add_key_table_def_null(req, thd, form, user);
+  }
+  return ctc_ddl_create_table_fill_add_key_table_def_not_null(req, thd, table_def, form, user);
 }
 
 static int ctc_ddl_fill_partition_table_info(const dd::Partition *pt, char **mem_start, char *mem_end,
@@ -1533,7 +1580,7 @@ static int ctc_ddl_init_foreign_key_def(TcDb__CtcDDLCreateTableDef *req, const d
   return 0;
 }
 
-static int ctc_ddl_init_index_def(TcDb__CtcDDLCreateTableDef *req, const dd::Table *table_def,
+static int ctc_ddl_init_index_def(TcDb__CtcDDLCreateTableDef *req, THD* thd, const dd::Table *table_def,
                                   char **mem_start, char *mem_end) {
   req->key_list = (TcDb__CtcDDLTableKey **)ctc_ddl_alloc_mem(
       mem_start, mem_end, sizeof(TcDb__CtcDDLTableKey*) * req->n_key_list);
@@ -1566,12 +1613,13 @@ static int ctc_ddl_init_index_def(TcDb__CtcDDLCreateTableDef *req, const dd::Tab
       req_key->columns[j]->func_text = (char *)ctc_ddl_alloc_mem(mem_start, mem_end, FUNC_TEXT_MAX_LEN);
       assert(req_key->columns[j]->func_text != NULL);
       memset(req_key->columns[j]->func_text, 0, FUNC_TEXT_MAX_LEN);
+      req_key->parallelism = get_session_level_create_index_parallelism(thd);
     }
   }
   return 0;
 }
 
-static int ctc_ddl_init_index_form(TcDb__CtcDDLCreateTableDef *req, TABLE *form,
+static int ctc_ddl_init_index_form(TcDb__CtcDDLCreateTableDef *req, THD *thd, TABLE *form,
                                   char **mem_start, char *mem_end) {
 
   req->n_key_list = form->s->keys;
@@ -1613,6 +1661,7 @@ static int ctc_ddl_init_index_form(TcDb__CtcDDLCreateTableDef *req, TABLE *form,
         assert(req_key->columns[j]->func_text != NULL);
         memset(req_key->columns[j]->func_text, 0, FUNC_TEXT_MAX_LEN);
       }
+      req_key->parallelism = get_session_level_create_index_parallelism(thd);
     }
   }
   return 0;
@@ -1636,12 +1685,12 @@ static int ctc_ddl_init_create_table_def(TcDb__CtcDDLCreateTableDef *req,
   }
 
   if (table_def == nullptr) {
-    return ctc_ddl_init_index_form(req, form, mem_start, mem_end);
+    return ctc_ddl_init_index_form(req, thd, form, mem_start, mem_end);
   }
 
   req->n_key_list = table_def->indexes().size();
   if (req->n_key_list > 0) {
-    CTC_RETURN_IF_NOT_ZERO(ctc_ddl_init_index_def(req, table_def, mem_start, mem_end));
+    CTC_RETURN_IF_NOT_ZERO(ctc_ddl_init_index_def(req, thd, table_def, mem_start, mem_end));
   }
 
   req->n_fk_list = table_def->foreign_keys().size();
@@ -2008,7 +2057,7 @@ static int init_create_list_4alter_table(TcDb__CtcDDLAlterTableDef *req, char **
   return 0;
 }
 
-static int init_add_key_list_4alter_table(TcDb__CtcDDLAlterTableDef *req, Alter_inplace_info *ha_alter_info,
+static int init_add_key_list_4alter_table(TcDb__CtcDDLAlterTableDef *req, THD *thd, Alter_inplace_info *ha_alter_info,
                                           char **mem_start, char *mem_end) {
   req->add_key_list = (TcDb__CtcDDLTableKey **)ctc_ddl_alloc_mem(
                        mem_start, mem_end, sizeof(TcDb__CtcDDLTableKey*) * req->n_add_key_list);
@@ -2044,6 +2093,7 @@ static int init_add_key_list_4alter_table(TcDb__CtcDDLAlterTableDef *req, Alter_
       }
       memset(req_key->columns[j]->func_text, 0, FUNC_TEXT_MAX_LEN);
     }
+    req_key->parallelism = get_session_level_create_index_parallelism(thd);
   }
   return 0;
 }
@@ -2177,7 +2227,7 @@ static int init_ctc_ddl_alter_table_def(TcDb__CtcDDLAlterTableDef *req, Alter_in
     req->n_add_key_list = 0;
   }
   if (req->n_add_key_list > 0) {
-    CTC_RETURN_IF_NOT_ZERO(init_add_key_list_4alter_table(req, ha_alter_info, mem_start, mem_end));
+    CTC_RETURN_IF_NOT_ZERO(init_add_key_list_4alter_table(req, thd, ha_alter_info, mem_start, mem_end));
   }
 
   // 删除索引
@@ -2292,6 +2342,7 @@ bool ctc_ddl_fill_add_key(THD *thd, TABLE *form, TcDb__CtcDDLAlterTableDef *req,
                              key_part) == CT_SUCCESS),
           false);
     }
+    req_key_def->parallelism = get_session_level_create_index_parallelism(thd);
   }
   return true;
 }

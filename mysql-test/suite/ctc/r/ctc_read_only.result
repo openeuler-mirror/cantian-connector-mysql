@@ -3,14 +3,10 @@ set @orig_sql_mode= @@sql_mode;
 create user test@localhost;
 grant CREATE, INSERT, SELECT, DROP on *.* to test@localhost;
 set global read_only=0;
-Warnings:
-Warning	3655	CTC: This parameter will not be broadcast to other nodes.
 create table table_11733 (a int);
 BEGIN;
 insert into table_11733 values(11733);
 set global read_only=1;
-Warnings:
-Warning	3655	CTC: This parameter will not be broadcast to other nodes.
 select @@global.read_only;
 @@global.read_only
 1
@@ -20,8 +16,6 @@ a
 COMMIT;
 ERROR HY000: The MySQL server is running with the --read-only option so it cannot execute this statement
 set global read_only=0;
-Warnings:
-Warning	3655	CTC: This parameter will not be broadcast to other nodes.
 COMMIT;
 drop table table_11733 ;
 drop user test@localhost;
@@ -30,8 +24,6 @@ GRANT CREATE, SELECT, DROP ON *.* TO test@localhost;
 CREATE TABLE t1(a INT);
 INSERT INTO t1 VALUES (0), (1);
 SET GLOBAL read_only=1;
-Warnings:
-Warning	3655	CTC: This parameter will not be broadcast to other nodes.
 SELECT * FROM t1;
 a
 0
@@ -43,8 +35,6 @@ a
 1
 COMMIT;
 SET GLOBAL read_only=0;
-Warnings:
-Warning	3655	CTC: This parameter will not be broadcast to other nodes.
 FLUSH TABLES WITH READ LOCK;
 SELECT * FROM t1;
 a
@@ -70,8 +60,6 @@ INSERT INTO db1.t2 VALUES (2);
 GRANT CREATE TEMPORARY TABLES, DROP, INSERT, DELETE, UPDATE,
 SELECT, LOCK TABLES ON db1.* TO bug33669@localhost;
 SET GLOBAL READ_ONLY = ON;
-Warnings:
-Warning	3655	CTC: This parameter will not be broadcast to other nodes.
 CREATE TEMPORARY TABLE temp (a INT);
 INSERT INTO temp VALUES (1);
 DROP TABLE temp;
@@ -202,8 +190,6 @@ a	a
 5	10
 DROP TABLE temp1, temp2;
 SET GLOBAL READ_ONLY = OFF;
-Warnings:
-Warning	3655	CTC: This parameter will not be broadcast to other nodes.
 DROP USER bug33669@localhost;
 DROP DATABASE db1;
 SET @start_read_only = @@global.read_only;
@@ -212,53 +198,35 @@ SELECT @start_read_only, @start_super_read_only;
 @start_read_only	@start_super_read_only
 0	0
 SET @@global.super_read_only = 1;
-Warnings:
-Warning	3655	CTC: This parameter will not be broadcast to other nodes.
 SET @@global.super_read_only = DEFAULT;
-Warnings:
-Warning	3655	CTC: This parameter will not be broadcast to other nodes.
 SELECT @@global.super_read_only;
 @@global.super_read_only
 0
 SET @@global.super_read_only = @start_super_read_only;
-Warnings:
-Warning	3655	CTC: This parameter will not be broadcast to other nodes.
 SELECT @@global.super_read_only = 0;
 @@global.super_read_only = 0
 1
 SET @@global.super_read_only = 0;
-Warnings:
-Warning	3655	CTC: This parameter will not be broadcast to other nodes.
 SELECT @@global.super_read_only;
 @@global.super_read_only
 0
 SET @@global.super_read_only = 1;
-Warnings:
-Warning	3655	CTC: This parameter will not be broadcast to other nodes.
 SELECT @@global.super_read_only;
 @@global.super_read_only
 1
 SET @@global.super_read_only = TRUE;
-Warnings:
-Warning	3655	CTC: This parameter will not be broadcast to other nodes.
 SELECT @@global.super_read_only;
 @@global.super_read_only
 1
 SET @@global.super_read_only = FALSE;
-Warnings:
-Warning	3655	CTC: This parameter will not be broadcast to other nodes.
 SELECT @@global.super_read_only;
 @@global.super_read_only
 0
 SET @@global.super_read_only = ON;
-Warnings:
-Warning	3655	CTC: This parameter will not be broadcast to other nodes.
 SELECT @@global.super_read_only;
 @@global.super_read_only
 1
 SET @@global.super_read_only = OFF;
-Warnings:
-Warning	3655	CTC: This parameter will not be broadcast to other nodes.
 SELECT @@global.super_read_only;
 @@global.super_read_only
 0
@@ -313,8 +281,6 @@ WHERE VARIABLE_NAME='super_read_only';
 IF(@@read_only, "ON", "OFF") = VARIABLE_VALUE
 0
 SET @@global.super_read_only = 1;
-Warnings:
-Warning	3655	CTC: This parameter will not be broadcast to other nodes.
 SELECT @@super_read_only = @@global.super_read_only;
 @@super_read_only = @@global.super_read_only
 1
@@ -334,11 +300,7 @@ ERROR 42S02: Unknown table 'global' in field list
 SELECT super_read_only = @@session.super_read_only;
 ERROR 42S22: Unknown column 'super_read_only' in 'field list'
 SET @@global.read_only = @start_read_only;
-Warnings:
-Warning	3655	CTC: This parameter will not be broadcast to other nodes.
 SET @@global.super_read_only = @start_super_read_only;
-Warnings:
-Warning	3655	CTC: This parameter will not be broadcast to other nodes.
 SELECT @@global.super_read_only;
 @@global.super_read_only
 0
