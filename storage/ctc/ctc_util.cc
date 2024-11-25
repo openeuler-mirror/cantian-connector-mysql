@@ -818,3 +818,34 @@ void ctc_lock_table_post(MYSQL_THD thd, vector<MDL_ticket*>& ticket_list) {
   }
   ticket_list.clear();
 }
+
+/**
+    Get int value from session variable if it's in a given range.
+    If the variable does not exist or is outside of the range, then a default value is returned.
+
+    @param thd thread handler
+    @param variable_name the name of the session variable, without @
+    @param min the min of the range
+    @param max the max of the range
+    @param default_value the default value returned if:
+                            1. The variable has not been defined
+                            2. The value in the variable is outside of the given range
+    @return the value of the session variable or default value, as discussed above
+*/
+longlong get_session_variable_int_value_with_range(THD *thd,
+                                                   const string &variable_name,
+                                                   longlong min,
+                                                   longlong max,
+                                                   longlong default_value)
+{
+  user_var_entry *var_entry = find_or_nullptr(thd->user_vars, variable_name);
+  if (var_entry == nullptr || var_entry->ptr() == nullptr) {
+      return default_value;
+  }
+  bool is_var_null;
+  longlong var_value = var_entry->val_int(&is_var_null);
+  if ((is_var_null) || (var_value < min || var_value > max)) {
+      return default_value;
+  }
+  return var_value;
+}
