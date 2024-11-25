@@ -466,12 +466,11 @@ static int ctc_set_var_meta(MYSQL_THD thd, uint32_t options, const char* base_na
   }
   broadcast_req.options |= options;
   int ret = ctc_execute_mysql_ddl_sql(&tch, &broadcast_req, true);
+  update_sess_ctx_by_tch(tch, hton, thd);
   if (ret != 0 && broadcast_req.err_code != 0) {
     string err_msg = broadcast_req.err_msg;
     my_printf_error(broadcast_req.err_code, "%s", MYF(0), err_msg.c_str());
-    return ret;
   }
-  update_sess_ctx_by_tch(tch, hton, thd);
   return ret;
 }
 
@@ -1088,7 +1087,7 @@ int ddl_broadcast_and_wait(MYSQL_THD thd, string &query_str,
 
   // 全局创建连接成功后执行sql语句
   int ret = ctc_broadcast_rewrite_sql(&tch, &broadcast_req, true);
-
+  update_sess_ctx_by_tch(tch, hton, thd);
   if (sql_cmd == SQLCOM_LOCK_TABLES) {
     ctc_lock_table_post(thd, ticket_list);
   }
@@ -1103,7 +1102,6 @@ int ddl_broadcast_and_wait(MYSQL_THD thd, string &query_str,
     "conn_id:%u, ctc_inst_id:%u", ret, sql_without_plaintext_password(&broadcast_req).c_str(), broadcast_req.user_name,
     broadcast_req.err_code, broadcast_req.mysql_inst_id, tch.thd_id, tch.inst_id);
 
-  update_sess_ctx_by_tch(tch, hton, thd);
   return convert_ctc_error_code_to_mysql((ct_errno_t)ret);
 }
 

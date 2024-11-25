@@ -1539,11 +1539,11 @@ static int ctc_start_trx_and_assign_scn(
   ctc_trx_context_t trx_context = {isolation_level, autocommit, lock_wait_timeout, false};
   bool is_mysql_local = (sess_ctx->set_flag & CTC_DDL_LOCAL_ENABLED);
   ct_errno_t ret = (ct_errno_t)ctc_trx_begin(&tch, trx_context, is_mysql_local);
+  update_sess_ctx_by_tch(tch, hton, thd);
   if (ret != CT_SUCCESS) {
     ctc_log_error("start trx failed with error code: %d", ret);
     return convert_ctc_error_code_to_mysql(ret);
   }
-  update_sess_ctx_by_tch(tch, hton, thd);
   sess_ctx->is_ctc_trx_begin = 1;
   trans_register_ha(thd, !autocommit, hton, nullptr);
   return 0;
@@ -5277,6 +5277,8 @@ EXTER_ATTACK int ha_ctc::create(const char *name, TABLE *form, HA_CREATE_INFO *c
   }
 
   ret = (ct_errno_t)ctc_create_table(ctc_ddl_req_msg_mem, &ddl_ctrl);
+  m_tch = ddl_ctrl.tch;
+  update_sess_ctx_by_tch(m_tch, ctc_hton, thd);
   if (ret == ERR_FUNCTION_NOT_EXIST) {
     char *err_msg;
     char *field_name = strtok_r(ddl_ctrl.error_msg, ",", &err_msg);
@@ -5290,8 +5292,6 @@ EXTER_ATTACK int ha_ctc::create(const char *name, TABLE *form, HA_CREATE_INFO *c
     }
   }
   ctc_ddl_hook_cantian_error("ctc_create_table_cantian_error", thd, &ddl_ctrl, &ret);
-  m_tch = ddl_ctrl.tch;
-  update_sess_ctx_by_tch(m_tch, ctc_hton, thd);
   END_RECORD_STATS(EVENT_TYPE_CREATE_TABLE)
   return ctc_ddl_handle_fault("ctc_create_table", thd, &ddl_ctrl, ret);
 }
