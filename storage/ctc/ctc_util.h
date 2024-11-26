@@ -40,6 +40,11 @@ static unordered_set<string> mysql_system_db{"information_schema", "mysql", "per
 
 #define OFFSET_VARCHAR_TYPE 2
 
+#define SESSION_VARIABLE_NAME_CREATE_INDEX_PARALLELISM "create_index_parallelism"
+#define SESSION_VARIABLE_VALUE_MIN_CREATE_INDEX_PARALLELISM 0
+#define SESSION_VARIABLE_VALUE_MAX_CREATE_INDEX_PARALLELISM 10
+#define SESSION_VARIABLE_VALUE_DEFAULT_CREATE_INDEX_PARALLELISM -1
+
 void ctc_split_normalized_name(const char *file_name, char db[], size_t db_buf_len,
                                char name[], size_t name_buf_len, bool *is_tmp_table);
 void ctc_copy_name(char to_name[], const char from_name[], size_t to_buf_len);
@@ -72,6 +77,11 @@ int ctc_check_unlock_instance(MYSQL_THD thd);
 int ctc_record_sql(MYSQL_THD thd, bool need_select_db);
 int ctc_lock_table_pre(MYSQL_THD thd, vector<MDL_ticket*>& ticket_list, enum_mdl_type mdl_type);
 void ctc_lock_table_post(MYSQL_THD thd, vector<MDL_ticket*>& ticket_list);
+longlong get_session_variable_int_value_with_range(THD *thd,
+                                                   const string &variable_name,
+                                                   longlong min,
+                                                   longlong max,
+                                                   longlong default_value);
 
 #pragma GCC visibility push(default)
  
