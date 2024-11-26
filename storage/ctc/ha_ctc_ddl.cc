@@ -1225,6 +1225,36 @@ static void ctc_fill_prefix_func_key_part(TcDb__CtcDDLTableKeyPart *req_key_part
   return;
 }
 
+struct FuncMapping {
+    std::string mysql_func_name;
+    std::string ctc_func_name;
+};
+
+static const FuncMapping mysql_func_name_to_ctc_map[] = {
+    {"%", "mod"},
+    {"cast_as", "cast"},
+    {"ceiling", "ceil"},
+    {"locate", "position"}
+};
+
+static const size_t func_map_size = sizeof(mysql_func_name_to_ctc_map) / sizeof(mysql_func_name_to_ctc_map[0]);
+
+static int ctc_check_func_name(std::string func_name)
+{
+  size_t func_name_len = func_name.length();
+
+  for (size_t i = 0; i < func_map_size; ++i) {
+    const std::string mysql_func_name = mysql_func_name_to_ctc_map[i].mysql_func_name;
+    if (func_name_len >= mysql_func_name.length() &&
+        func_name.compare(0, mysql_func_name.length(), mysql_func_name) == 0) {
+      my_printf_error(ER_DISALLOWED_OPERATION, "Function %s is not indexable", MYF(0),  
+                      mysql_func_name_to_ctc_map[i].ctc_func_name.c_str());
+      return CT_ERROR;
+    }
+  }
+  return CT_SUCCESS;
+}
+
 static uint32_t ctc_fill_func_key_part(TABLE *form, THD *thd, TcDb__CtcDDLTableKeyPart *req_key_part, Value_generator *gcol_info)
 {
   Item_func *func_expr_item = dynamic_cast<Item_func *>(gcol_info->expr_item);
@@ -1241,6 +1271,10 @@ static uint32_t ctc_fill_func_key_part(TABLE *form, THD *thd, TcDb__CtcDDLTableK
     return CT_ERROR;
   }
 
+  if (ctc_check_func_name(std::string(func_expr_item->func_name())) != CT_SUCCESS) {
+    return CT_ERROR;
+  }
+  
   req_key_part->is_func = true;
   req_key_part->func_name = const_cast<char *>(func_expr_item->func_name());
   Item **args = func_expr_item->arguments();
