@@ -201,7 +201,7 @@ static MYSQL_SYSVAR_UINT(instance_id, ctc_instance_id, PLUGIN_VAR_READONLY,
                          "mysql instance id which is used for cantian", nullptr,
                          nullptr, 0, 0, UINT32_MAX, 0);
 
-static void ctc_gather_change_stats_update(THD *, SYS_VAR *, void *var_ptr, const void *save) {
+static void ctc_stats_auto_recalc_update(THD *, SYS_VAR *, void *var_ptr, const void *save) {
   int ret;
   update_job_info info = { "GATHER_CHANGE_STATS", 19, "SYS", 3, 0 };
   bool val = *static_cast<bool *>(var_ptr) = *static_cast<const bool *>(save);
@@ -212,9 +212,9 @@ static void ctc_gather_change_stats_update(THD *, SYS_VAR *, void *var_ptr, cons
   }
 }
 
-bool ctc_gather_change_stats = true;
-static MYSQL_SYSVAR_BOOL(gather_change_stats, ctc_gather_change_stats, PLUGIN_VAR_NOCMDARG,
-                         "auto statistics collecting is turn on", nullptr, ctc_gather_change_stats_update, true);
+bool ctc_stats_auto_recalc = true;
+static MYSQL_SYSVAR_BOOL(stats_auto_recalc, ctc_stats_auto_recalc, PLUGIN_VAR_NOCMDARG,
+                         "auto statistics collecting is turn on", nullptr, ctc_stats_auto_recalc_update, true);
 
 bool ctc_enable_x_lock_instance = false;
 static MYSQL_SYSVAR_BOOL(enable_x_lock_instance, ctc_enable_x_lock_instance, PLUGIN_VAR_NOCMDARG,
@@ -263,7 +263,7 @@ static SYS_VAR *ctc_system_variables[] = {
   MYSQL_SYSVAR(autoinc_lock_mode),
   MYSQL_SYSVAR(cluster_role),
   MYSQL_SYSVAR(update_analyze_time),
-  MYSQL_SYSVAR(gather_change_stats),
+  MYSQL_SYSVAR(stats_auto_recalc),
   MYSQL_SYSVAR(select_prefetch),
   nullptr
 };
