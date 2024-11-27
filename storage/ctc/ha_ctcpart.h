@@ -392,6 +392,8 @@ class ha_ctcpart : public ha_ctc,
 
   bool equal_range_on_part_field(const key_range *start_key, const key_range *end_key);
 
+  double scan_time() override;
+  
   void info_low() override;
 
   int info(uint) override;

@@ -201,7 +201,7 @@ static MYSQL_SYSVAR_UINT(instance_id, ctc_instance_id, PLUGIN_VAR_READONLY,
                          "mysql instance id which is used for cantian", nullptr,
                          nullptr, 0, 0, UINT32_MAX, 0);
 
-static void ctc_gather_change_stats_update(THD *, SYS_VAR *, void *var_ptr, const void *save) {
+static void ctc_stats_auto_recalc_update(THD *, SYS_VAR *, void *var_ptr, const void *save) {
   int ret;
   update_job_info info = { "GATHER_CHANGE_STATS", 19, "SYS", 3, 0 };
   bool val = *static_cast<bool *>(var_ptr) = *static_cast<const bool *>(save);
@@ -212,9 +212,9 @@ static void ctc_gather_change_stats_update(THD *, SYS_VAR *, void *var_ptr, cons
   }
 }
 
-bool ctc_gather_change_stats = true;
-static MYSQL_SYSVAR_BOOL(gather_change_stats, ctc_gather_change_stats, PLUGIN_VAR_NOCMDARG,
-                         "auto statistics collecting is turn on", nullptr, ctc_gather_change_stats_update, true);
+bool ctc_stats_auto_recalc = true;
+static MYSQL_SYSVAR_BOOL(stats_auto_recalc, ctc_stats_auto_recalc, PLUGIN_VAR_NOCMDARG,
+                         "auto statistics collecting is turn on", nullptr, ctc_stats_auto_recalc_update, true);
 
 bool ctc_enable_x_lock_instance = false;
 static MYSQL_SYSVAR_BOOL(enable_x_lock_instance, ctc_enable_x_lock_instance, PLUGIN_VAR_NOCMDARG,
@@ -263,7 +263,7 @@ static SYS_VAR *ctc_system_variables[] = {
   MYSQL_SYSVAR(autoinc_lock_mode),
   MYSQL_SYSVAR(cluster_role),
   MYSQL_SYSVAR(update_analyze_time),
-  MYSQL_SYSVAR(gather_change_stats),
+  MYSQL_SYSVAR(stats_auto_recalc),
   MYSQL_SYSVAR(select_prefetch),
   nullptr
 };
@@ -3381,6 +3381,41 @@ EXTER_ATTACK int ha_ctc::rnd_pos(uchar *buf, uchar *pos) {
   return ret;
 }
 
+double ha_ctc::scan_time() {
+  DBUG_TRACE;
+  double data_page_num = 1.0;
+  if (m_share && m_share->cbo_stats != nullptr) {
+    data_page_num = m_share->cbo_stats->ctc_cbo_stats_table->blocks;
+  }
+  return data_page_num;
+}
+
+double ha_ctc::index_only_read_time(uint keynr, double records) {
+  double index_read_time;
+  uint32_t keys_per_block = (stats.block_size / 2 / 
+                              (table_share->key_info[keynr].key_length + ref_length) + 1);
+  index_read_time = ((double)(records + keys_per_block - 1) / (double)keys_per_block);
+  return index_read_time;
+}
+
+double ha_ctc::read_time(uint index, uint ranges, ha_rows rows) {
+  DBUG_TRACE;
+  if (index != table->s->primary_key) {
+    return (handler::read_time(index, ranges, rows));
+  }
+
+  if (rows <= 2) {
+    return ((double)rows);
+  }
+
+  double time_for_scan = scan_time();
+  if (stats.records < rows) {
+    return (time_for_scan);
+  }
+
+  return (ranges + (double)rows / (double)stats.records * time_for_scan);
+}
+
 /**
   @brief
   ::info() is used to return information to the optimizer. See my_base.h for
@@ -3423,6 +3458,8 @@ EXTER_ATTACK int ha_ctc::rnd_pos(uchar *buf, uchar *pos) {
 void ha_ctc::info_low() {
   if (m_share && m_share->cbo_stats != nullptr) {
     stats.records = m_share->cbo_stats->ctc_cbo_stats_table->estimate_rows;
+    stats.mean_rec_length = m_share->cbo_stats->ctc_cbo_stats_table->avg_row_len;
+    stats.block_size = m_share->cbo_stats->page_size;
   }
 }
 
@@ -5566,7 +5603,7 @@ int ha_ctc::initialize_cbo_stats()
     END_RECORD_STATS(EVENT_TYPE_INITIALIZE_DBO)
     return ERR_ALLOC_MEMORY;
   }
-  *m_share->cbo_stats = {0, 0, 0, 0, 0, nullptr, 0, nullptr, nullptr};
+  *m_share->cbo_stats = {0, 0, 0, 0, 0, nullptr, 0, nullptr, nullptr, 0};
   m_share->cbo_stats->ctc_cbo_stats_table =
         (ctc_cbo_stats_table_t*)my_malloc(PSI_NOT_INSTRUMENTED, sizeof(ctc_cbo_stats_table_t), MYF(MY_WME));
   if (m_share->cbo_stats->ctc_cbo_stats_table == nullptr) {
@@ -5574,6 +5611,9 @@ int ha_ctc::initialize_cbo_stats()
     END_RECORD_STATS(EVENT_TYPE_INITIALIZE_DBO)
     return ERR_ALLOC_MEMORY;
   }
+  m_share->cbo_stats->ctc_cbo_stats_table->estimate_rows = 0;
+  m_share->cbo_stats->ctc_cbo_stats_table->avg_row_len = 0;
+  m_share->cbo_stats->ctc_cbo_stats_table->blocks = 0;
   m_share->cbo_stats->ctc_cbo_stats_table->columns =
     (ctc_cbo_stats_column_t*)my_malloc(PSI_NOT_INSTRUMENTED, table->s->fields * sizeof(ctc_cbo_stats_column_t), MYF(MY_WME));
   if (m_share->cbo_stats->ctc_cbo_stats_table->columns == nullptr) {
