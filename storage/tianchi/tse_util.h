@@ -26,7 +26,7 @@
 #include "datatype_cnvrtr.h"
 #include "sql/item_timefunc.h"
 #include "sql/my_decimal.h"
-#include "sql/sql_backup_lock.h"
+//#include "sql/sql_backup_lock.h"
 
 using namespace std;
 
@@ -34,7 +34,7 @@ static unordered_set<string> mysql_system_db{"information_schema", "mysql", "per
 
 #define CM_IS_EMPTY_STR(str)     (((str) == NULL) || ((str)[0] == 0))
 
-#define TSE_GET_THD_DB_NAME(thd) (thd->db().str == NULL) ? nullptr : const_cast<char *>(thd->db().str)
+#define TSE_GET_THD_DB_NAME(thd) (thd->db.str == NULL) ? nullptr : const_cast<char *>(thd->db.str)
 
 #define CBO_STRING_MAX_LEN 16
 
@@ -80,6 +80,8 @@ string sql_without_plaintext_password(tse_ddl_broadcast_request* broadcast_req);
 string tse_escape_single_quotation_str(string &src);
 string cnvrt_name_for_sql(string name);
  
+bool acquire_exclusive_backup_lock(THD *thd, ulong lock_wait_timeout, bool for_trx);
+void release_backup_lock(THD *thd);
 #pragma GCC visibility pop
 
 #endif // __TSE_UTIL_H__

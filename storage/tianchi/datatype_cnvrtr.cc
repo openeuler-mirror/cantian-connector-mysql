@@ -14,8 +14,12 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
 */
+#include "my_global.h"
 #include <map>
-#include "field_types.h"
+//#include "field_types.h"
+#include "mysql_com.h"
+//#include "mariadb_com.h"
+#include "sql/template_utils.h"
 #include "sql/field.h"
 #include "sql/sql_class.h"
 #include "my_bitmap.h"
@@ -28,10 +32,11 @@
 #include "decimal_convert.h"
 #include "tse_srv.h"
 #ifdef FEATURE_X_FOR_MYSQL_26
-#include "sql/json_dom.h"
+//#include "sql/json_dom.h"
 #elif defined(FEATURE_X_FOR_MYSQL_32)
-#include "sql-common/json_dom.h"
+//#include "sql-common/json_dom.h"
 #endif
+#include "sql/extra_defs.h"
 
 #define LOWER_LENGTH_BYTES  (uint8)0x01 // Bytes that are used to represent the length of variable length data
 
@@ -61,6 +66,12 @@ uint16 g_cantian_month_days[2][12] = {
 
 #define CM_MONTH_DAYS(year, mon) (g_cantian_month_days[IS_LEAP_YEAR(year)][(mon) - 1])
 
+// this isn't defined in mysql_com.h, it should have been ported from mysql code too.
+// but we don't want to modify that widely included header.
+const static int MYSQL_TYPE_JSON = 245;
+const static int MYSQL_TYPE_INVALID = (MYSQL_TYPE_JSON-2);
+const static int MYSQL_TYPE_TYPED_ARRAY = (MYSQL_TYPE_JSON-3);
+
 /**
     Obtains the mapping between MySQL data types and Cantian data types, including the storage format
     and DDL transmission on the Cantian side.according to the field type (not real_type()).
@@ -89,9 +100,10 @@ static field_cnvrt_aux_t g_field_cnvrt_aux_array[] = {
   {MYSQL_TYPE_TIMESTAMP2,  CANTIAN_COL_BITS_NULL, UNKNOW_DATA,   TSE_DDL_TYPE_TIMESTAMP2 },
   {MYSQL_TYPE_DATETIME2,   CANTIAN_COL_BITS_NULL, UNKNOW_DATA,   TSE_DDL_TYPE_DATETIME2  },
   {MYSQL_TYPE_TIME2,       CANTIAN_COL_BITS_NULL, UNKNOW_DATA,   TSE_DDL_TYPE_TIME2      },
-  {MYSQL_TYPE_TYPED_ARRAY, CANTIAN_COL_BITS_NULL, UNKNOW_DATA,   TSE_DDL_TYPE_TYPED_ARRAY},
+  // below two types are not supported by mariadb
+  //{MYSQL_TYPE_TYPED_ARRAY, CANTIAN_COL_BITS_NULL, UNKNOW_DATA,   TSE_DDL_TYPE_TYPED_ARRAY},
   // > MYSQL_TYPE_INVALID
-  {MYSQL_TYPE_JSON,        CANTIAN_COL_BITS_VAR,  LOB_DATA,      TSE_DDL_TYPE_JSON       },
+  //{MYSQL_TYPE_JSON,        CANTIAN_COL_BITS_VAR,  LOB_DATA,      TSE_DDL_TYPE_JSON       },
   {MYSQL_TYPE_NEWDECIMAL,  CANTIAN_COL_BITS_VAR,  NUMERIC_DATA,  TSE_DDL_TYPE_NEWDECIMAL },
   {MYSQL_TYPE_TINY_BLOB,   CANTIAN_COL_BITS_VAR,  LOB_DATA,      TSE_DDL_TYPE_TINY_BLOB  },
   {MYSQL_TYPE_MEDIUM_BLOB, CANTIAN_COL_BITS_VAR,  LOB_DATA,      TSE_DDL_TYPE_MEDIUM_BLOB},
@@ -154,9 +166,9 @@ const field_cnvrt_aux_t* get_auxiliary_for_field_convert(Field *field, enum_fiel
   }
   field_cnvrt_aux_t* ret = &g_field_cnvrt_aux_array[idx];
 
-  if (field->is_flag_set(BLOB_FLAG)) {
+  if (field_has_flag(field, BLOB_FLAG)) {
     if (field->charset() == &my_charset_bin &&
-        field->is_flag_set(BINARY_FLAG)) {
+        field_has_flag(field, BINARY_FLAG)) {
       ret->ddl_field_type = TSE_DDL_TYPE_BLOB;
     } else {
       ret->ddl_field_type = TSE_DDL_TYPE_CLOB;
@@ -379,7 +391,7 @@ int decimal_mysql_to_cantian(const uint8_t *mysql_ptr, uchar *cantian_ptr, Field
   }
   char buff[DECIMAL_MAX_STR_LENGTH + 1];
   int len = sizeof(buff);
-  ret = decimal2string(&d, buff, &len);
+  ret = decimal2string(&d, buff, &len, 0, 0, 0);
   if (ret != E_DEC_OK) {
     tse_log_error("[mysql2cantian]Decimal data type convert my_decimal to string failed!");
     return ret;
@@ -407,7 +419,7 @@ void decimal_cantian_to_mysql(uint8_t *mysql_ptr, uchar *cantian_ptr, Field *mys
 
   my_decimal decimal_value;
   const char *decimal_data = str;
-  const char *end = strend(decimal_data);
+  char *end = strend(decimal_data);
   if (string2decimal(decimal_data, &decimal_value, &end) != E_DEC_OK) {
     tse_log_error("[cantian2mysql]Decimal data type convert str to my_decimal failed!");
     assert(0);
@@ -421,7 +433,7 @@ void decimal_cantian_to_mysql(uint8_t *mysql_ptr, uchar *cantian_ptr, Field *mys
 
   const int prec = f->precision;
   const int scale = mysql_field->decimals();
-  if (my_decimal2binary(E_DEC_FATAL_ERROR, &decimal_value, mysql_ptr, prec, scale) != E_DEC_OK) {
+  if (decimal_value.to_binary(mysql_ptr, prec, scale, E_DEC_FATAL_ERROR) != E_DEC_OK) {
     tse_log_error("[cantian2mysql]Decimal data type convert my_decimal to binary failed!");
     assert(0);
   }
@@ -498,7 +510,7 @@ int convert_blob_to_cantian(uchar *cantian_ptr, uint32 &cantian_offset,
     tse_log_error("[mysql2cantian]Apply for lob locator:%u Failed", locator_size);
     my_error(ER_OUT_OF_RESOURCES, MYF(0), "LOB LOCATOR");
     field_len = 0;
-    return HA_ERR_SE_OUT_OF_MEMORY;
+    return HA_ERR_OUT_OF_MEM;
   }
   memset(lob_locator, 0xFF, locator_size);
   lob_locator->head.size = 0;
@@ -546,16 +558,21 @@ int convert_blob_to_cantian(uchar *cantian_ptr, uint32 &cantian_offset,
 void convert_json_to_mysql(Field *mysql_field)
 {
   // json binary serialize
+#ifdef SUPPORT_BINARY_JSON
   if (mysql_field->type() == MYSQL_TYPE_JSON) {
     Field_json *json = dynamic_cast<Field_json *>(mysql_field);
     Json_wrapper wr;
-    if (json == nullptr || (bitmap_is_set(json->table->read_set, mysql_field->field_index()) && json->val_json(&wr))) {
+    if (json == nullptr || (bitmap_is_set(json->table->read_set, mysql_field->field_index) && json->val_json(&wr))) {
       tse_log_error("[convert_json_to_mysql] get json value failed");
       assert(0);
     }
   }
+#endif
+  assert(false);// BINARY JSON not supported in mariadb
   return;
 }
+
+
 /**
   @brief
   The blob data stored in the TSE storage engine can be in-line or out-line scenarios.
@@ -565,7 +582,7 @@ void convert_json_to_mysql(Field *mysql_field)
 */
 void convert_blob_to_mysql(uchar *cantian_ptr, Field *mysql_field, tianchi_handler_t &tch, uint8_t *mysql_ptr)
 {
-  bitmap_set_bit(mysql_field->table->read_set, mysql_field->field_index());
+  bitmap_set_bit(mysql_field->table->read_set, mysql_field->field_index);
   lob_locator_t *locator = (lob_locator_t *)(uint8*)cantian_ptr;
   uint32_t blob_len = locator->head.size;
   char *blob_buf = (char *)my_malloc(PSI_NOT_INSTRUMENTED, blob_len * sizeof(char), MYF(MY_WME));
@@ -886,14 +903,14 @@ static void decode_mysql_timestamp_type(MYSQL_TIME& ltime, const uchar *mysql_pt
   if (tm.m_tv_sec == 0) {
     return;
   }
-#elif defined(FEATURE_X_FOR_MYSQL_26)
+#else
   struct timeval tm;
   my_timestamp_from_binary(&tm, mysql_ptr, dec);
   if (tm.tv_sec == 0) {
     return;
   }
 #endif
-  my_tz_UTC->gmt_sec_to_TIME(&ltime, tm);
+  my_tz_UTC->gmt_sec_to_TIME(&ltime, tm.tv_sec);
 }
 
 /**
@@ -1013,7 +1030,7 @@ void cnvrt_time_decimal(const uchar *src_ptr, int src_dec, uchar *des_ptr, int d
     ltime.year = 1900;
     ltime.month = 1;
     ltime.day = 1;
-    longlong ll = TIME_to_longlong_time_packed(ltime);
+    longlong ll = TIME_to_longlong_time_packed(&ltime);
     my_time_packed_to_binary(ll, tmp_ptr, des_dec);
     memcpy(des_ptr, tmp_ptr, length);
     return;
@@ -1026,7 +1043,7 @@ void cnvrt_datetime_decimal(const uchar *src_ptr, int src_dec, uchar *des_ptr, i
     uchar tmp_ptr[TSE_BYTE_8] = {0};
     longlong packed = my_datetime_packed_from_binary(src_ptr, src_dec);
     TIME_from_longlong_datetime_packed(&ltime, packed);
-    longlong ll = TIME_to_longlong_datetime_packed(ltime);
+    longlong ll = TIME_to_longlong_datetime_packed(&ltime);
     my_datetime_packed_to_binary(ll, tmp_ptr, des_dec);
     memcpy(des_ptr, tmp_ptr, length);
     return;
@@ -1160,22 +1177,22 @@ bool tse_datetime_with_no_zero_in_date_to_timeval(const MYSQL_TIME *ltime,
     return false;
   }
 
-  bool is_in_dst_time_gap = false;
-  if (!(tm->tv_sec = tz.TIME_to_gmt_sec(ltime, &is_in_dst_time_gap))) {
+  uint error_code = 0;
+  if (!(tm->tv_sec = tz.TIME_to_gmt_sec(ltime, &error_code))) {
     /*
       Date was outside of the supported timestamp range.
       For example: '3001-01-01 00:00:00' or '1000-01-01 00:00:00'
     */
-    *warnings |= MYSQL_TIME_WARN_OUT_OF_RANGE;
+    *warnings |= error_code;
     return true;
-  } else if (is_in_dst_time_gap) {
+  } else { //if (is_in_dst_time_gap) {
     /*
       Set MYSQL_TIME_WARN_INVALID_TIMESTAMP warning to indicate
       that date was fine but pointed to winter/summer time switch gap.
       In this case tm is set to the fist second after gap.
       For example: '2003-03-30 02:30:00 MSK' -> '2003-03-30 03:00:00 MSK'
     */
-    *warnings |= MYSQL_TIME_WARN_INVALID_TIMESTAMP;
+    *warnings |= error_code;
   }
   tm->tv_usec = ltime->second_part;
   return false;
@@ -1252,11 +1269,11 @@ static void convert_datetime_to_mysql(tianchi_handler_t &tch, const field_cnvrt_
       ltime.hour = date_detail.hour;
       ltime.second_part = 0;
       ltime.neg = false;
-      ltime.time_zone_displacement = 0;
+      // ltime.time_zone_displacement = 0; no such field in mariadb
       ltime.time_type = MYSQL_TIMESTAMP_DATETIME;
 
       uchar data[8];
-      longlong ll = TIME_to_longlong_datetime_packed(ltime);
+      longlong ll = TIME_to_longlong_datetime_packed(&ltime);
       int dec = mysql_field->decimals();
       my_datetime_packed_to_binary(ll, data, dec);
 
@@ -1277,8 +1294,8 @@ static void convert_datetime_to_mysql(tianchi_handler_t &tch, const field_cnvrt_
       ltime.hour = date_detail.hour;
       ltime.second_part = (unsigned long)(date_detail.millisec * MICROSECS_PER_MILLISEC) + date_detail.microsec;
       ltime.neg = false;
-      ltime.time_zone_displacement = 0;
-      ltime.time_type = MYSQL_TIMESTAMP_DATETIME_TZ;
+      // ltime.time_zone_displacement = 0;  no such field in mariadb
+      ltime.time_type = MYSQL_TIMESTAMP_DATETIME; // mariadb has no MYSQL_TIMESTAMP_DATETIME_TZ
 
       struct timeval tm;
       int warnings = 0;
@@ -1313,7 +1330,7 @@ static uint32_t calculate_variable_len(const field_cnvrt_aux_t* mysql_info, Fiel
   // check if it's mysql variable len field
   switch (mysql_info->mysql_field_type) {
     case MYSQL_TYPE_VARCHAR:
-      data_offset = (uint8_t)mysql_field->get_length_bytes();
+      data_offset = (uint8_t)(down_cast<Field_str*>(mysql_field)->length_size());
       if (data_offset == 1) {
         field_len = *(const uint8_t *)mysql_ptr;
       } else if (data_offset == 2) {
@@ -1322,7 +1339,7 @@ static uint32_t calculate_variable_len(const field_cnvrt_aux_t* mysql_info, Fiel
         tse_log_error("[mysql2cantian]get varchar data length error: %u", data_offset);
       }
       break;
-    case MYSQL_TYPE_JSON:
+    //case MYSQL_TYPE_JSON:
     case MYSQL_TYPE_BLOB: {
       Field_blob *dst_blob = down_cast<Field_blob *>(mysql_field);
       data_offset = dst_blob->row_pack_length();
@@ -1373,14 +1390,14 @@ static uint8_t padding_variable_byte(const field_cnvrt_aux_t* mysql_info,
   uint8_t mysql_offset = 0;
   switch (mysql_info->mysql_field_type) {
     case MYSQL_TYPE_VARCHAR:
-      mysql_offset = field->get_length_bytes();
+      mysql_offset = down_cast<Field_str*>(field)->length_size();
       if (mysql_offset == LOWER_LENGTH_BYTES) {
         *mysql_ptr = (uint8_t)field_len;
       } else {
         *(uint16_t *)mysql_ptr = field_len;
       }
       break;
-    case MYSQL_TYPE_JSON:
+    //case MYSQL_TYPE_JSON:
     case MYSQL_TYPE_BLOB: {
       // MYSQL_TYPE_X_BLOB corresponding to pack_length
       // which include MYSQL_TYPE_TINY_BLOB,MYSQL_TYPE_BLOB
@@ -1449,7 +1466,7 @@ static int convert_data_from_mysql_to_cantian(const field_cnvrt_aux_t* mysql_inf
                                        &record_buf->cantian_record_buf[*field_offset_info->cantian_field_offset],
                                        field, &field_len);
       // 如果是自增列，记录自增列在cantian_record_buf中的offset
-      if (field->is_flag_set(AUTO_INCREMENT_FLAG)) {
+      if (field_has_flag(field, AUTO_INCREMENT_FLAG)) {
         *serial_column_offset = *field_offset_info->cantian_field_offset;
       }
 
@@ -1482,7 +1499,7 @@ static int convert_data_from_mysql_to_cantian(const field_cnvrt_aux_t* mysql_inf
       break;
     case LOB_DATA: {
       Field_blob *dst_blob = down_cast<Field_blob *>(field);
-      uchar *blob_str = dst_blob->get_blob_data();
+      uchar *blob_str = dst_blob->get_ptr();
       uint32_t remain_size = dst_blob->get_length();
       res = convert_blob_to_cantian(record_buf->cantian_record_buf,
                                     *field_offset_info->cantian_field_offset,
@@ -1531,7 +1548,7 @@ int mysql_record_to_cantian_record(const TABLE &table, record_buf_info_t *record
 
     // mark as not intialized
     uint8_t map = 0xFF;
-    if (field->is_nullable()) {
+    if (field->is_null()) {
         uint mysql_null_byte_offset = field->null_offset();
         uint mysql_null_bit_mask = field->null_bit;
         /* If the field is null */
@@ -1594,7 +1611,7 @@ int mysql_record_to_cantian_record(const TABLE &table, record_buf_info_t *record
 void copy_column_data_to_mysql(field_info_t *field_info, const field_cnvrt_aux_t* mysql_info,
                                tianchi_handler_t &tch, bool is_index_only)
 {
-  if (!bitmap_is_set(field_info->field->table->read_set, field_info->field->field_index()) &&
+  if (!bitmap_is_set(field_info->field->table->read_set, field_info->field->field_index) &&
       tch.sql_command == SQLCOM_SELECT) {
     return;
   }
@@ -1645,7 +1662,7 @@ void copy_column_data_to_mysql(field_info_t *field_info, const field_cnvrt_aux_t
         }
         memcpy(blob_buf, field_info->cantian_cur_field, blob_len);
         memcpy(field_info->mysql_cur_field, &blob_buf, sizeof(char *));
-        bitmap_set_bit(field_info->field->table->read_set, field_info->field->field_index());
+        bitmap_set_bit(field_info->field->table->read_set, field_info->field->field_index);
       } else {
         convert_blob_to_mysql(field_info->cantian_cur_field, field_info->field, tch, field_info->mysql_cur_field);
       }
@@ -1740,7 +1757,11 @@ static bool ctc_parse_cantian_column_and_update_offset(Field *field, uint8 canti
       // if cantian system table takes the varchar_as_blob branch,bob_len is an invalid value
       // which makes the varchar column gets a huge invalid string exceeding its origin len like 4000 and field->row_pack_length 12000
       uint32 len = 0;
-      if (ctc_field_type_is_lob(is_index_only, cnvrt_aux, field, tch)) {
+      if (!is_index_only &&
+          (cnvrt_aux->mysql_field_type == MYSQL_TYPE_BLOB ||
+          //cnvrt_aux->mysql_field_type == MYSQL_TYPE_JSON ||
+          ((cnvrt_aux->mysql_field_type == MYSQL_TYPE_VARCHAR) &&
+           VARCHAR_AS_BLOB(field->row_pack_length())))) {
         // when the type is blob,the lob data length is not field_len
         // which should decode from lob_locator_t struct, locator->head.size
         lob_locator_t *locator = (lob_locator_t *)(uint8 *)&record_buf->cantian_record_buf[*size->cantian_field_offset];
@@ -1856,7 +1877,7 @@ void cantian_index_record_to_mysql_record(const TABLE &table, index_info_t *inde
                                           tianchi_handler_t &tch, record_info_t *record_info)
 {
   auto index_info = table.key_info[index->active_index];
-  uint n_fields = index_info.actual_key_parts;
+  uint n_fields = index_info.user_defined_key_parts;
   bool is_index_only = true;
 
   uint cantian_field_offset = 0; // prefetch in single mode no need parse column
@@ -1875,7 +1896,7 @@ void cantian_index_record_to_mysql_record(const TABLE &table, index_info_t *inde
     uint mysql_field_offset = field->offset(table.record[0]);
     uint8 cantian_col_type = row_get_column_bits2((row_head_t *)record_buf->cantian_record_buf, key_id);
     field_offset_and_col_type filed_offset = {&cantian_field_offset, &mysql_field_offset, cantian_col_type};
-    uint col_id = field->field_index();
+    uint col_id = field->field_index;
     convert_cantian_field_to_mysql_field(key_id, field, &filed_offset, record_info, record_buf, tch, is_index_only);
 
     // early return if current column exceeds the last column id we wanted
@@ -1941,7 +1962,7 @@ int get_cantian_record_length(const TABLE *table)
         }
         break;
       case MYSQL_TYPE_BLOB:
-      case MYSQL_TYPE_JSON:
+      //case MYSQL_TYPE_JSON:
       case MYSQL_TYPE_TINY_BLOB:
       case MYSQL_TYPE_MEDIUM_BLOB:
         // assume they're all outline-stored

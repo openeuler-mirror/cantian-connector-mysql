@@ -15,6 +15,7 @@
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
 */
 
+#include "my_global.h"
 #include "srv_mq_msg.h"
 #include "tse_srv_mq_module.h"
 #include <pthread.h>
@@ -32,7 +33,9 @@
 #define MAX_DDL_THD_NUM 1024
 #define SHM_MAX_SEG_NUM 8
 using namespace std;
-#define CTC_IGNORE_ERROR_WHEN_MYSQL_SHUTDOWN(req, tag)                      \
+#define CTC_IGNORE_ERROR_WHEN_MYSQL_SHUTDOWN(req, tag)
+
+#if 0 // mariadb has doesn't track server states.
   do {                                                                      \
     if ((req)->result != 0 && get_server_state() == SERVER_SHUTTING_DOWN) { \
       tse_log_error("%s failed,server will shutdown:result:%d", (tag),      \
@@ -40,6 +43,7 @@ using namespace std;
       (req)->result = 0;                                                    \
     }                                                                       \
   } while (0)
+#endif
 
 #define CTC_GET_CLIENT_ID(inst_id) ((int) ((inst_id) & 0xFFFF))
 
@@ -336,7 +340,7 @@ EXTER_ATTACK int tse_mq_deal_func(void *shm_inst, TSE_FUNC_TYPE func_type,
 {
   uint64_t start_time = 0;
   if (ctc_stats::get_instance().get_statistics_enabled()) {
-    start_time = my_getsystime() / 10;
+    start_time = my_hrtime().val / 10;
   }
 
   shm_seg_s *seg = (shm_seg_s *)shm_inst;
@@ -414,7 +418,7 @@ EXTER_ATTACK int tse_mq_deal_func(void *shm_inst, TSE_FUNC_TYPE func_type,
   
 
   if (ctc_stats::get_instance().get_statistics_enabled()) {
-    ctc_stats::get_instance().gather_stats(func_type, my_getsystime() / 10 - start_time);
+    ctc_stats::get_instance().gather_stats(func_type, my_hrtime().val / 10 - start_time);
   }
 
   return result;

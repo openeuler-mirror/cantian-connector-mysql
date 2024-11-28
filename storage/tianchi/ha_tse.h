@@ -23,20 +23,23 @@
 #include <sys/types.h>
 #include <vector>
 
-#include "my_inttypes.h"
+#include <cstdint>
 #include "sql/handler.h"
 #include "sql/table.h"
 #include "sql/item.h"
+#include "sql/sql_cmd.h"
+#include "sql/stateless_allocator.h"
+#include "sql/malloc_allocator.h"
+#include "sql/mem_root_allocator.h"
 #include "sql/record_buffer.h"
-#include "my_sqlcommand.h"
 #include "tse_srv.h"
 #include "datatype_cnvrtr.h"
 #include "tse_error.h"
 #include "tse_cbo.h"
-#include "sql/dd/types/schema.h"
-#include "sql/dd/types/object_table_definition.h"
-#include "sql/dd/string_type.h"
-#include "clientbuild/include/mysql_version.h"
+//#include "sql/dd/types/schema.h"
+//#include "sql/dd/types/object_table_definition.h"
+//#include "sql/dd/string_type.h"
+//#include "clientbuild/include/mysql_version.h"
 
 #pragma GCC visibility push(default)
 
@@ -142,7 +145,7 @@ again. */
 #define RETURN_IF_OOM(result)               \
     {                                       \
         if (result == ERR_ALLOC_MEMORY)     \
-            return HA_ERR_SE_OUT_OF_MEMORY; \
+            return HA_ERR_OUT_OF_MEM; \
     }
 
 #define IS_METADATA_NORMALIZATION() (tse_get_metadata_switch() == (int32_t)metadata_switchs::MATCH_META)
@@ -160,7 +163,11 @@ bool is_single_run_mode();
 #endif
 
 
-static const dd::String_type index_file_name_val_key("index_file_name");
+#ifndef DBUG_TRACE
+#define DBUG_TRACE do{}while(0)
+#endif
+
+static const std::string index_file_name_val_key("index_file_name");
 static const uint ROW_ID_LENGTH = sizeof(uint64_t);
 static const uint TSE_START_TIMEOUT = 120; // seconds
 extern const char *tse_hton_name;
@@ -196,8 +203,8 @@ typedef int (*tse_prefetch_fn)(tianchi_handler_t *tch, uint8_t *records, uint16_
 
 #define FILL_USER_INFO_WITH_THD(ctrl, _thd)                                                                        \
     do {                                                                                                           \
-        const char *user_name = _thd->m_main_security_ctx.priv_user().str;                                         \
-        const char *user_ip = _thd->m_main_security_ctx.priv_host().str;                                           \
+        const char *user_name = _thd->main_security_ctx.priv_user;                                         \
+        const char *user_ip = _thd->main_security_ctx.priv_host;                                           \
         strncpy(ctrl.user_name, user_name, SMALL_RECORD_SIZE - 1);                                                 \
         strncpy(ctrl.user_ip, user_ip, SMALL_RECORD_SIZE - 1);                                                     \
     } while (0)
@@ -274,7 +281,7 @@ public:
 
   template<typename T>
   T *get_share() {
-    DBUG_TRACE;
+    
     T *tmp_share = nullptr;
 
     lock_shared_ha_data();
@@ -291,7 +298,7 @@ public:
 
   template<typename T>
   void free_share() {
-    DBUG_TRACE;
+    
     T *tmp_share;
 
     lock_shared_ha_data();
@@ -313,7 +320,7 @@ public:
     The name that will be used for display purposes.
    */
   const char *table_type() const override {
-    DBUG_TRACE;
+    
     return "CTC";
   }
 
@@ -323,12 +330,12 @@ public:
 
     @sa handler::adjust_index_algorithm().
   */
-  virtual enum ha_key_alg get_default_index_algorithm() const override {
-    DBUG_TRACE;
+  enum ha_key_alg get_default_index_algorithm() const {
+    
     return HA_KEY_ALG_BTREE;
   }
   
-  bool is_index_algorithm_supported(enum ha_key_alg key_alg) const override {
+  bool is_index_algorithm_supported(enum ha_key_alg key_alg) const {
     /* This method is never used for FULLTEXT or SPATIAL keys.
     We rely on handler::ha_table_flags() to check if such keys
     are supported. */
@@ -341,21 +348,24 @@ public:
    share->db_options_in_use//db_create_options (see hanler.h, see row_format in
    information_schema)
   */
-  enum row_type get_real_row_type(const HA_CREATE_INFO *) const override {
-    DBUG_TRACE;
+  enum row_type get_real_row_type(const HA_CREATE_INFO *) const {
+    
     return ROW_TYPE_FIXED;
   }
 
   /** @brief
     This is a list of flags that indicate what functionality the storage engine
     implements. The current table flags are documented in handler.h
+HA_DESCENDING_INDEX HA_NO_READ_LOCAL_LOCK HA_SUPPORTS_DEFAULT_EXPRESSION  HA_CAN_INDEX_BLOBS 
   */
   ulonglong table_flags() const override {
-    DBUG_TRACE;
-    return (HA_BINLOG_ROW_CAPABLE | HA_BINLOG_STMT_CAPABLE | HA_NULL_IN_KEY | HA_DESCENDING_INDEX |
-            HA_CAN_EXPORT | HA_GENERATED_COLUMNS | HA_NO_READ_LOCAL_LOCK |
-            HA_SUPPORTS_DEFAULT_EXPRESSION | HA_CAN_INDEX_BLOBS | HA_CAN_SQL_HANDLER |
-            HA_CAN_INDEX_VIRTUAL_GENERATED_COLUMN | HA_ATTACHABLE_TRX_COMPATIBLE);
+    
+    return (HA_BINLOG_ROW_CAPABLE | HA_BINLOG_STMT_CAPABLE | HA_NULL_IN_KEY |
+			HA_CAN_TABLE_CONDITION_PUSHDOWN |
+            HA_CAN_EXPORT | HA_CAN_VIRTUAL_COLUMNS |
+			HA_PRIMARY_KEY_IN_READ_INDEX | HA_PARTIAL_COLUMN_READ |
+            HA_CAN_SQL_HANDLER | HA_TABLE_SCAN_ON_INDEX |
+			HA_REC_NOT_IN_SEQ);
   }
 
   /** @brief
@@ -369,7 +379,7 @@ public:
     index, up to and including 'part'.
   */
   ulong index_flags(uint key, uint, bool) const override {
-    DBUG_TRACE;
+    
 
     if (table_share->key_info[key].algorithm == HA_KEY_ALG_FULLTEXT) return 0;
 
@@ -391,7 +401,6 @@ public:
     min(your_limits, MySQL_limits) automatically.
    */
   uint max_supported_record_length() const override {
-    DBUG_TRACE;
     return CT_MAX_RECORD_LENGTH;
   }
 
@@ -405,7 +414,7 @@ public:
     support indexes.
   */
   /* uint max_supported_keys() const {
-    DBUG_TRACE;
+    
     return (MAX_KEY);
   } */
 
@@ -438,14 +447,13 @@ public:
   /** @details
     Get the maximum supported indexed columns length
   */
-  uint max_supported_key_part_length(
-      HA_CREATE_INFO *create_info) const override;
+  uint max_supported_key_part_length() const override;
 
   /** @brief
     Called in test_quick_select to determine if indexes should be used.
   */
   virtual double scan_time() override {
-    DBUG_TRACE;
+    
     return (ulonglong)(stats.records + stats.deleted) / 100 + 2;
   }
 
@@ -456,7 +464,7 @@ public:
     uint index,   /*!< in: key number */
     uint ranges,  /*!< in: how many ranges */
     ha_rows rows) /*!< in: estimated number of rows in the ranges */ override {
-    DBUG_TRACE;
+    
 
     if (index != table->s->primary_key) {
       /* Not clustered */
@@ -480,23 +488,20 @@ public:
   }
 
   bool inplace_alter_table(
-      TABLE *altered_table MY_ATTRIBUTE((unused)),
-      Alter_inplace_info *ha_alter_info MY_ATTRIBUTE((unused)),
-      const dd::Table *old_table_def MY_ATTRIBUTE((unused)),
-      dd::Table *new_table_def MY_ATTRIBUTE((unused))) override;
+      TABLE *altered_table,
+      Alter_inplace_info *ha_alter_info) override;
 
-  int open(const char *name, int mode, uint test_if_locked,
-           const dd::Table *table_def) override;  // required
+  int open(const char *name, int mode, uint test_if_locked) override;
 
   int close(void) override;  // required
 
 #ifdef METADATA_NORMALIZED
-  int write_row(uchar *buf, bool write_through = false) override;
+  int write_row(const uchar *buf, bool write_through = false) override;
 #else
-  int write_row(uchar *buf) override;
+  int write_row(const uchar *buf) override;
 #endif
 
-  int update_row(const uchar *old_data, uchar *new_data) override;
+  int update_row(const uchar *old_data, const uchar *new_data) override;
 
   int delete_row(const uchar *buf) override ;
 
@@ -692,12 +697,14 @@ public:
     @see
     check_quick_keys() in opt_range.cc
   */
-  ha_rows records_in_range(uint inx, key_range *min_key, key_range *max_key) override;
+  ha_rows records_in_range(uint inx, const key_range *min_key,
+                                   const key_range *max_key,
+                                   page_range *res)override;
 
-  int records(ha_rows *num_rows) override;
-  int records_from_index(ha_rows *num_rows, uint inx) override;
+  ha_rows records() override;
+  int records_from_index(ha_rows *num_rows, uint inx) ;
 
-  void set_tse_range_key(tse_key *tse_key, key_range *mysql_range_key, bool is_min_key);
+  void set_tse_range_key(tse_key *tse_key, const key_range *mysql_range_key, bool is_min_key);
 
   /**
     @brief
@@ -718,7 +725,7 @@ public:
     @see
     delete_table and ha_create_table() in handler.cc
   */
-  int delete_table(const char *from, const dd::Table *table_def) override;
+  int delete_table(const char *from) override;
 
   // void drop_table(const char *name);
 
@@ -742,8 +749,7 @@ public:
     @see
     ha_create_table() in handle.cc
   */
-  int create(const char *name, TABLE *form, HA_CREATE_INFO *create_info,
-             dd::Table *table_def) override;  ///< required
+  int create(const char *name, TABLE *form, HA_CREATE_INFO *create_info) override;
 
   /**
   @brief
@@ -806,7 +812,7 @@ public:
               allocate space for in the buffer
   @retval true   if the handler wants a buffer
   @retval false  if the handler does not want a buffer */
-  bool is_record_buffer_wanted(ha_rows *const max_rows) const override;
+  bool is_record_buffer_wanted(ha_rows *const max_rows) const ;
   uint max_col_index;
 
   /** Find max column index needed by optimizer in read-only scan
@@ -829,7 +835,7 @@ public:
   int optimize(THD *thd, HA_CHECK_OPT *check_opt) override;
 
   /* functions used for notifying SE to start/terminate batch insertion */
-  void start_bulk_insert(ha_rows rows) override;
+  void start_bulk_insert(ha_rows rows, uint flags) override;
   int end_bulk_insert() override;
   
   /** Check if Tse supports a particular alter table in-place
@@ -846,9 +852,7 @@ public:
   enum_alter_inplace_result check_if_supported_inplace_alter(
       TABLE *altered_table, Alter_inplace_info *ha_alter_info) override;
 
-  int rename_table(const char *from, const char *to,
-                   const dd::Table *from_table_def,
-                   dd::Table *to_table_def) override;
+  int rename_table(const char *from, const char *to) override;
 
   int check(THD *thd, HA_CHECK_OPT *check_opt) override;
 
@@ -877,13 +881,20 @@ public:
   
 #ifdef FEATURE_X_FOR_MYSQL_32
   const handlerton *hton_supporting_engine_pushdown() override;
+#if 0
   const Item *cond_push(const Item *cond) override;
+#endif
 #elif defined(FEATURE_X_FOR_MYSQL_26)
+
+#if 0
   const Item *cond_push(const Item *cond, bool other_tbls_ok) override;
+#endif
+
+
   int engine_push(AQP::Table_access *table) override;
 #endif
 
-  bool get_se_private_data(dd::Table *dd_table, bool reset) override;
+  //bool get_se_private_data(dd::Table *dd_table, bool reset) ;
 
   bool is_replay_ddl(MYSQL_THD thd);
 
@@ -1010,7 +1021,7 @@ bool user_var_set(MYSQL_THD thd, string target_str);
 bool is_initialize();
 bool is_starting();
 
-bool tse_is_temporary(const dd::Table *table_def);
+//bool tse_is_temporary(const dd::Table *table_def);
 int32_t tse_get_cluster_role();
 void tse_set_mysql_read_only();
 void tse_reset_mysql_read_only();
@@ -1019,6 +1030,7 @@ int alloc_str_mysql_mem(tianchi_cbo_stats_t *cbo_stats, uint32_t part_num, TABLE
 void free_columns_cbo_stats(tse_cbo_stats_column_t *tse_cbo_stats_columns, bool *is_str_first_addr, TABLE *table);
 int32_t ctc_get_shm_file_num(uint32_t *shm_file_num);
 int32_t ctc_get_shm_usage(uint32_t *ctc_shm_usage);
+bool tse_is_temporary(const TABLE*table_def);
 
 #pragma GCC visibility pop
 #endif

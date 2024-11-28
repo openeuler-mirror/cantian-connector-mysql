@@ -169,14 +169,14 @@ static map<const int, const int> mysql_collate_num_to_tse_type = {
   {83, COLLATE_UTF8MB3_BIN},
   {76, COLLATE_UTF8_TOLOWER_CI},
 };
-
+/*
 static map<enum ts_alter_tablespace_type, tse_altspace_action_t> g_tse_alter_tablespace_map = {
   {ALTER_TABLESPACE_ADD_FILE, TSE_ALTSPACE_ADD_DATAFILE},
   {ALTER_TABLESPACE_DROP_FILE, TSE_ALTSPACE_DROP_DATAFILE},
   {ALTER_TABLESPACE_RENAME, TSE_ALTSPACE_RENAME_SPACE},
   {ALTER_TABLESPACE_OPTIONS, TSE_ALTSPACE_SET_AUTOEXTEND}, // option 只有auto extend适配
 };
-
+*/
 class tse_ddl_stack_mem {
  public:
   tse_ddl_stack_mem(size_t mem_size):buf_obj(nullptr) {
@@ -211,23 +211,25 @@ public:
   void *buf_obj;
 };
 
-int fill_delete_table_req(const char *full_path_name, const dd::Table *table_def, 
+int fill_delete_table_req(const char *full_path_name, TABLE *table_def, 
                           THD *thd, ddl_ctrl_t *ddl_ctrl, tse_ddl_stack_mem *stack_mem);
+/*
 int tsebase_alter_tablespace(handlerton *hton, THD *thd,
                              st_alter_tablespace *alter_info,
                              const dd::Tablespace *old_ts_def,
                              dd::Tablespace *new_ts_def);
+*/
 int ha_tse_truncate_table(tianchi_handler_t *tch, THD *thd, const char *db_name,
                           const char *table_name, bool is_tmp_table);
 int check_tse_identifier_name(const char *in_name);
-int fill_create_table_req(HA_CREATE_INFO *create_info, dd::Table *table_def, char *db_name, char *table_name,
+int fill_create_table_req(HA_CREATE_INFO *create_info, char *db_name, char *table_name,
                           TABLE *form, THD *thd, ddl_ctrl_t *ddl_ctrl, tse_ddl_stack_mem *stack_mem);
-int fill_alter_table_req(TABLE *altered_table, Alter_inplace_info *ha_alter_info, const dd::Table *old_table_def,
-                         dd::Table *new_table_def, THD *thd, ddl_ctrl_t *ddl_ctrl, tse_ddl_stack_mem *stack_mem);
-int fill_rename_table_req(const char *from, const char *to, const dd::Table *from_table_def,
-  dd::Table *to_table_def, THD *thd, ddl_ctrl_t *ddl_ctrl, tse_ddl_stack_mem *stack_mem);
+int fill_alter_table_req(TABLE *altered_table, Alter_inplace_info *ha_alter_info,
+                         THD *thd, ddl_ctrl_t *ddl_ctrl, tse_ddl_stack_mem *stack_mem);
+int fill_rename_table_req(const char *from, const char *to, 
+  THD *thd, ddl_ctrl_t *ddl_ctrl, tse_ddl_stack_mem *stack_mem);
 int fill_truncate_partition_req(const char *full_name, partition_info *part_info, 
-                                dd::Table *dd_table, THD *thd, ddl_ctrl_t *ddl_ctrl, tse_ddl_stack_mem *stack_mem);
+								THD *thd, ddl_ctrl_t *ddl_ctrl, tse_ddl_stack_mem *stack_mem);
 int fill_rebuild_index_req(TABLE *table, THD *thd, ddl_ctrl_t *ddl_ctrl, tse_ddl_stack_mem *stack_mem);
 bool get_tse_key_type(const KEY *key_info, int32_t *ret_type);
 bool get_tse_key_algorithm(ha_key_alg algorithm, int32_t *ret_algorithm);

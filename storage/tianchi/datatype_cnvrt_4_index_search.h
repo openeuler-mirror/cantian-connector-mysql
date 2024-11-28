@@ -14,7 +14,6 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
 */
-#include "sql/dd/types/table.h"
 #include "tse_srv.h"
 #include "datatype_cnvrtr.h"
 #include "decimal_convert.h"

@@ -18,12 +18,13 @@
 // @file storage/tianchi/ha_tsepart.cc
 // description: TIANCHI handler implementation for MySQL storage engine API.
 // this module should use tse_part_srv rather than knl_intf
-
+#if NEED_TSE_PART_HANDLER
+#include "my_global.h"
 #include "ha_tsepart.h"
 #include "ha_tse_ddl.h"
 #include <errno.h>
 #include <limits.h>
-#include <sql/sql_thd_internal_api.h>
+//#include <sql/sql_thd_internal_api.h>
 
 #include <algorithm>
 #include <atomic>
@@ -31,15 +32,16 @@
 #include <regex>
 #include <unordered_map>
 #include <vector>
-#include "field_types.h"
+//#include "field_types.h"
+#include "mysql_com.h"
+
 #include "my_base.h"
 #include "my_dbug.h"
-#include "my_macros.h"
-#include "my_pointer_arithmetic.h"
-#include "my_psi_config.h"
+//#include "my_macros.h"
+//#include "my_pointer_arithmetic.h"
+//#include "my_psi_config.h"
 #include "mysql/plugin.h"
-#include "sql/current_thd.h"
-#include "sql/dd/types/table.h"
+//#include "sql/current_thd.h"
 #include "sql/field.h"
 #include "sql/sql_base.h"  // enum_tdc_remove_table_type
 #include "sql/sql_class.h"
@@ -53,9 +55,6 @@
 #include "typelib.h"
 #include "tse_cbo.h"
 #include "sql/sql_alter.h"
-#include "sql/dd/properties.h"
-#include "sql/dd/types/partition.h"
-#include "sql/dd/string_type.h"
 
 #define INVALID_PART_ID (uint32)0xFFFFFFFF;
 
@@ -225,7 +224,7 @@ void ha_tsepart::part_autoinc_has_expl_non_null_value_update_row(uchar *new_data
     if (table->found_next_number_field && new_data == table->record[0] &&
         !table->s->next_number_keypart &&
         bitmap_is_set(table->write_set,
-                      table->found_next_number_field->field_index())) {
+                      table->found_next_number_field->field_index)) {
         autoinc_has_expl_non_null_value_update_row = true;
     }
 }
@@ -257,7 +256,7 @@ int ha_tsepart::write_row_in_part(uint part_id, uchar *record) {
   }
 
   set_partition(part_id);
-  int ret = ha_tse::write_row(record);
+  int ret = ha_tse::write_row(record, write_through);// DZW
 
   if (ret == 0 && m_rec_buf_4_writing != nullptr) {
     assert(m_bulk_insert_parts != nullptr);
@@ -413,8 +412,8 @@ void ha_tsepart::position_in_last_part(uchar *ref_arg, const uchar *record) {
  @return	0, HA_ERR_KEY_NOT_FOUND or error code.
 */
 int ha_tsepart::rnd_pos(uchar *buf, uchar *pos) {
-  DBUG_TRACE;
-  ha_statistic_increment(&System_status_var::ha_read_rnd_count);
+  
+  // ha_statistic_increment(&SSV::ha_read_rnd_count);
   m_tch.thd_id = ha_thd()->thread_id();
   uint part_id = uint2korr(pos);
   set_partition(part_id);
@@ -685,18 +684,18 @@ bool ha_tsepart::need_prune_partitions_by_engine(const key_range *start_key, con
 bool ha_tsepart::equal_range_on_part_field(const key_range *start_key, const key_range *end_key) {
   vector<uint> part_field_ids;
   for (uint i = 0; i <m_part_info->num_columns; i++) {
-    part_field_ids.push_back(m_part_info->part_field_array[i]->field_index());
+    part_field_ids.push_back(m_part_info->part_field_array[i]->field_index);
   }
 
   KEY cur_index = table->key_info[active_index];
   uint offset = 0;
 
-  for (uint i = 0; i < cur_index.actual_key_parts; i++) {
+  for (uint i = 0; i < cur_index.user_defined_key_parts; i++) {
     if (offset >= start_key->length) {
       return false;
     }
     KEY_PART_INFO cur_index_part = cur_index.key_part[i];
-    auto iter = find(part_field_ids.begin(), part_field_ids.end(), cur_index_part.field->field_index());
+    auto iter = find(part_field_ids.begin(), part_field_ids.end(), cur_index_part.field->field_index);
     if (iter == part_field_ids.end()) {
       // current key part is not in parted columns
       continue;
@@ -935,7 +934,7 @@ int ha_tsepart::analyze(THD *thd, HA_CHECK_OPT *opt) {
     m_part_share->need_fetch_cbo = true;
     return 0;
   }
-  Alter_info *const alter_info = get_thd()->lex->alter_info;
+  Alter_info *const alter_info = &(get_thd()->lex->alter_info);
   if ((alter_info->flags & Alter_info::ALTER_ADMIN_PARTITION) == 0 ||
       (alter_info->flags & Alter_info::ALTER_ALL_PARTITION)) {
     m_tch.part_id = INVALID_PART_ID;
@@ -1140,10 +1139,10 @@ int ha_tsepart::repair(THD *thd, HA_CHECK_OPT *)
   TSE_RETURN_IF_NOT_ZERO(get_tch_in_handler_data(get_tse_hton(), thd, tch));
   tse_ddl_broadcast_request broadcast_req {{0}, {0}, {0}, {0}, 0, 0, 0, 0, {0}};
   string sql = string(thd->query().str).substr(0, thd->query().length);
-  FILL_BROADCAST_BASE_REQ(broadcast_req, sql.c_str(), thd->m_main_security_ctx.priv_user().str,
-    thd->m_main_security_ctx.priv_host().str, ctc_instance_id, thd->lex->sql_command);
-  if (thd->db().str != NULL && thd->db().length > 0) {
-    strncpy(broadcast_req.db_name, thd->db().str, SMALL_RECORD_SIZE - 1);
+  FILL_BROADCAST_BASE_REQ(broadcast_req, sql.c_str(), thd->main_security_ctx.priv_user,
+    thd->m_main_security_ctx.priv_host.str, ctc_instance_id, thd->lex->sql_command);
+  if (thd->db.str != NULL && thd->db.length > 0) {
+    strncpy(broadcast_req.db_name, thd->db.str, SMALL_RECORD_SIZE - 1);
   }
   broadcast_req.options |= TSE_NOT_NEED_CANTIAN_EXECUTE;
 
@@ -1192,3 +1191,5 @@ EXTER_ATTACK int ha_tsepart::create(const char *name, TABLE *form, HA_CREATE_INF
   return ha_tse::create(name, form, create_info, table_def);                  
 }
 
+
+#endif // NEED_TSE_PART_HANDLER

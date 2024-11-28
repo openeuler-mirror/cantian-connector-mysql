@@ -20,7 +20,6 @@
 
 #include "tse_srv.h"
 #include "sql/table.h"
-#include "sql/dd/types/table.h"
 #include "srv_mq_msg.h"
 
 #define REAL_EPSINON 0.00001

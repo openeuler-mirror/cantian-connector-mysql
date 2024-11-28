@@ -16,7 +16,7 @@
 */
 
 #include "ha_tse.h"
-#include "my_inttypes.h"
+#include <cstdint>
 #include <unordered_map>
 #include "sql/my_decimal.h"
 #include "sql/sql_time.h"
@@ -44,7 +44,7 @@ typedef int16 timezone_info_t;
  * the decimal point.
  */
 
-typedef int64 date_t;
+typedef int64_t date_t;
 #define TSE_BYTE_8 8
 #define CANTIAN_COL_BITS_NULL (uint8)0x00 // NULL in Cantian Storage
 #define CANTIAN_COL_BITS_4    (uint8)0x01 // 4 Bytes in Cantian Storage

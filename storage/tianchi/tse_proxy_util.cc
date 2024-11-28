@@ -14,16 +14,18 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
 */
-
+#include "my_global.h"
 #include "tse_proxy_util.h"
 #include <atomic>
+#include "mysql/psi/psi.h"
+#include "mysql/psi/psi_memory.h"
 #include "tse_log.h"
 #include "sql/sql_connect.h"
-#include "sql/conn_handler/connection_handler_manager.h"  // Connection_handler_manager
-#include "compression.h"
+//#include "compression.h"
 #include "ha_tse.h"
 #include "sql/mysqld.h"
 #include "ctc_meta_data.h"
+#include "errmsg.h" // CR_OUT_OF_MEMORY
 
 #define TSE_CONN_MAX_RETRY_TIMES 10
 #define TSE_PASSWORD_BUFFER_SIZE (uint32)512
@@ -31,6 +33,46 @@
 #ifndef SENSI_INFO
 #define SENSI_INFO
 #endif
+
+void ctc_my_md5(unsigned char*, const char*, size_t)
+{
+        return;
+}
+void ctc_my_md5_multi(unsigned char*, ...)
+{
+        return;
+}
+
+size_t ctc_my_md5_context_size()
+{
+        return 0;
+}
+
+void ctc_my_md5_init(void *context)
+{
+        return;
+}
+
+void ctc_my_md5_input(void *context, const unsigned char *buf, size_t len)
+{
+        return;
+}
+
+void ctc_my_md5_result(void *context, unsigned char *digest)
+{
+        return;
+}
+
+static struct my_md5_service_st my_md5_handler = {
+  ctc_my_md5,
+  ctc_my_md5_multi,
+  ctc_my_md5_context_size,
+  ctc_my_md5_init,
+  ctc_my_md5_input,
+  ctc_my_md5_result
+};
+
+struct my_md5_service_st *my_md5_service = &my_md5_handler;
 
 static atomic<uint32_t> g_name_locks(0);  // 实例持有的命名锁总数，用于标记当前是否有 DDL 正在执行
 
@@ -104,20 +146,22 @@ static int tse_get_agent_info(char *password, uint password_size) {
 
 static void tse_inc_conn_count(int &dec_conn_count)
 {
+		/*
   Connection_handler_manager *conn_manager = Connection_handler_manager::get_instance();
   conn_manager->check_and_incr_conn_count(true);
   Connection_handler_manager::reset_max_used_connections();
+  */
   dec_conn_count--;
-  tse_log_warning("[TSE_CONN_INC]:connection_count:%u, max_used_connections:%lu, max_connections:%lu, dec_conn_count:%d",
-                  Connection_handler_manager::connection_count, Connection_handler_manager::max_used_connections, max_connections, dec_conn_count);
+  //tse_log_warning("[TSE_CONN_INC]:connection_count:%u, max_used_connections:%lu, max_connections:%lu, dec_conn_count:%d",
+      //            Connection_handler_manager::connection_count, Connection_handler_manager::max_used_connections, max_connections, dec_conn_count);
 }
 
 static void tse_dec_conn_count(int &dec_conn_count)
 {
-  Connection_handler_manager::dec_connection_count();
+  //Connection_handler_manager::dec_connection_count();
   dec_conn_count++;
-  tse_log_warning("[TSE_CONN_DEC]:connection_count:%u, max_used_connections:%lu, max_connections:%lu, dec_conn_count:%d",
-                  Connection_handler_manager::connection_count, Connection_handler_manager::max_used_connections, max_connections, dec_conn_count);
+  //tse_log_warning("[TSE_CONN_DEC]:connection_count:%u, max_used_connections:%lu, max_connections:%lu, dec_conn_count:%d",
+    //              Connection_handler_manager::connection_count, Connection_handler_manager::max_used_connections, max_connections, dec_conn_count);
 }
 
 int tse_mysql_conn(MYSQL *&con, const char *host, const char *user, const char *passwd) {
@@ -157,6 +201,8 @@ int tse_mysql_conn(MYSQL *&con, const char *host, const char *user, const char *
     if (err == ER_CON_COUNT_ERROR) {
       tse_dec_conn_count(dec_conn_count);
     }
+#if 0
+	// mariadb doesn't support wire compression
     // 3922 errcode, server has open compress conn, client need to open.
     if (err == ER_WRONG_COMPRESSION_ALGORITHM_CLIENT) {
       if ((con->server_capabilities & CLIENT_COMPRESS)) { // server open zlib conn
@@ -167,6 +213,7 @@ int tse_mysql_conn(MYSQL *&con, const char *host, const char *user, const char *
       retry_time--;
       continue;
     }
+#endif
     tse_log_error("tse_mysql_conn create internal connection failed, retry_time=%d, user=%s, err_code=%d, err_msg=%s.",
                   retry_time, user, err, mysql_error(con));
     retry_time--;
@@ -199,7 +246,7 @@ int tse_init_agent_client(MYSQL *&curr_conn) {
 }
 
 int tse_mysql_query(MYSQL *mysql, const char *query) {
-  reset_mqh(nullptr, nullptr, 0);
+  reset_mqh(nullptr, 0);
 
   int ret = mysql_ping(mysql);
   if (ret != 0) {

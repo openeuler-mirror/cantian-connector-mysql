@@ -13,7 +13,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
 SET(TSE_PLUGIN_DYNAMIC "ha_ctc")
-SET(TSE_SOURCES tse_log.h ha_tse.cc ha_tse.h ha_tsepart.h ha_tsepart.cc ha_tse_ddl.cc ha_tse_ddl.h tse_ddl_util.cc tse_ddl_util.h datatype_cnvrtr.cc datatype_cnvrtr.h tse_error.cc tse_error.h
+SET(TSE_SOURCES tse_proxy_util.cc tse_proxy_util.h tse_mysql_proxy.cc tse_log.h ha_tse.cc ha_tse.h ha_tsepart.h ha_tsepart.cc ha_tse_ddl.cc ha_tse_ddl.h tse_ddl_util.cc tse_ddl_util.h datatype_cnvrtr.cc datatype_cnvrtr.h tse_error.cc tse_error.h
                 decimal_convert.cc decimal_convert.h tse_cbo.cc tse_cbo.h datatype_cnvrt_4_index_search.cc datatype_cnvrt_4_index_search.h tse_ddl_rewriter_plugin.cc
                 ctc_meta_data.cc ctc_meta_data.h tse_stats.h tse_stats.cc tse_srv.h tse_util.h tse_util.cc protobuf/tc_db.pb-c.c protobuf/tc_db.pb-c.h)
 option(WITH_DAAC OFF)
@@ -27,6 +27,12 @@ ELSE ()
 ENDIF ()
 ADD_DEFINITIONS(-DMYSQL_SERVER)
 ADD_DEFINITIONS(-DMYSQL_DYNAMIC_PLUGIN)
+
+# STRING(APPEND ...) from cmake VERSION 3.4
+MACRO(STRING_APPEND STRING_VAR INPUT)
+  SET(${STRING_VAR} "${${STRING_VAR}}${INPUT}")
+ENDMACRO()
+
 STRING_APPEND(CMAKE_CXX_FLAGS " -Wno-implicit-fallthrough")
 STRING_APPEND(CMAKE_CXX_FLAGS " -Wno-stringop-overflow")
 STRING_APPEND(CMAKE_CXX_FLAGS " -Wunused-variable")
@@ -40,33 +46,35 @@ SET(CMAKE_SKIP_RPATH TRUE)
 
 STRING_APPEND(CMAKE_CXX_FLAGS " -Wl,-z,now")
 STRING_APPEND(CMAKE_CXX_FLAGS " -Wl,-z,nodelete")
-SET(DAAC_LIB_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../../daac_lib)
-SET(MYSQL_CLIENT_STATIC_LIB_PATH ${CMAKE_BINARY_DIR}/archive_output_directory/)
+SET(DAAC_LIB_PATH /home/regress/CantianKernel/daac_lib)
+  message(STATUS "lz: current binary dir is ${CMAKE_BINARY_DIR}")
+SET(MYSQL_CLIENT_STATIC_LIB_PATH ${CMAKE_BINARY_DIR}/libmariadb/libmariadb/)
 LINK_DIRECTORIES(${DAAC_LIB_PATH})
 LINK_DIRECTORIES(${MYSQL_CLIENT_STATIC_LIB_PATH})
-INCLUDE_DIRECTORIES(SYSTEM ${BOOST_PATCHES_DIR} ${BOOST_INCLUDE_DIR})
+message(STATUS "lz: current BOOST INCLUDE DIR is ${BOOST_INCLUDE_DIR}")
+INCLUDE_DIRECTORIES(SYSTEM ${BOOST_PATCHES_DIR} ${BOOST_INCLUDE_DIR} ${CMAKE_SOURCE_DIR}/ ${CMAKE_SOURCE_DIR}/storage/tianchi/)
 
-SET(TSE_PROXY_SOURCES tse_proxy_util.cc tse_proxy_util.h tse_mysql_proxy.cc)
-SET(TSE_PROXY_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wl,-Bsymbolic")
-add_library(ctc_proxy SHARED ${TSE_PROXY_SOURCES})
-target_link_libraries(ctc_proxy libmysqlclient.a)
+#SET(TSE_PROXY_SOURCES tse_proxy_util.cc tse_proxy_util.h tse_mysql_proxy.cc)
+#SET(TSE_PROXY_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wl,-Bsymbolic")
+#add_library(ctc_proxy SHARED ${TSE_PROXY_SOURCES})
+#target_link_libraries(ctc_proxy libmysqlclient.a)
 # ctc_proxy link libmysqlclient.a function symbol rather than mysqld`s
-set_target_properties(ctc_proxy PROPERTIES COMPILE_FLAGS ${TSE_PROXY_CXX_FLAGS} LINK_FLAGS " -Wl,-Bsymbolic"
-    LIBRARY_OUTPUT_DIRECTORY ${DAAC_LIB_PATH})
+#set_target_properties(ctc_proxy PROPERTIES COMPILE_FLAGS ${TSE_PROXY_CXX_FLAGS} LINK_FLAGS " -Wl,-Bsymbolic"
+#    LIBRARY_OUTPUT_DIRECTORY ${DAAC_LIB_PATH})
 IF (WITH_DAAC)
     IF (WITH_TSE_STORAGE_ENGINE AND NOT WITHOUT_TSE_STORAGE_ENGINE)
         MYSQL_ADD_PLUGIN(ctc 
             ${TSE_SOURCES}
             STORAGE_ENGINE 
             MANDATORY
-            LINK_LIBRARIES libzecommon.so libzeclient.so libzeprotocol.so libprotobuf-c.a pcre2-8 ctc_proxy daac
+            LINK_LIBRARIES libzecommon.so libzeclient.so libzeprotocol.so libprotobuf-c.a pcre2-8 libmysqlclient.a daac
         )
     ELSEIF (NOT WITHOUT_TSE_STORAGE_ENGINE)
         MYSQL_ADD_PLUGIN(ctc 
             ${TSE_SOURCES} 
             STORAGE_ENGINE 
             MODULE_ONLY
-            LINK_LIBRARIES libzecommon.so libzeclient.so libzeprotocol.so libprotobuf-c.a pcre2-8 ctc_proxy daac
+            LINK_LIBRARIES libzecommon.so libzeclient.so libzeprotocol.so libprotobuf-c.a pcre2-8 libmysqlclient.a daac
         )
     ENDIF ()
 ELSE ()
@@ -75,14 +83,14 @@ ELSE ()
             ${TSE_SOURCES} 
             STORAGE_ENGINE 
             DEFAULT
-            LINK_LIBRARIES message_queue libprotobuf-c.a libsecurec.so ctc_proxy
+            LINK_LIBRARIES message_queue libprotobuf-c.a libsecurec.so libmysqlclient.a librt.so
         )
     ELSEIF (NOT WITHOUT_TSE_STORAGE_ENGINE)
         MYSQL_ADD_PLUGIN(ctc 
             ${TSE_SOURCES} 
             STORAGE_ENGINE 
             MODULE_ONLY
-            LINK_LIBRARIES message_queue libprotobuf-c.a libsecurec.so ctc_proxy
+            LINK_LIBRARIES message_queue libprotobuf-c.a libsecurec.so libmysqlclient.a librt.so
         )
     ENDIF ()
 ENDIF ()

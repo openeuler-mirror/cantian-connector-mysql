@@ -19,6 +19,7 @@
 #define __TSE_PROXY_UTIL_H__
 
 #include <mysql.h>
+#include <cstdint>
 
 #pragma GCC visibility push(default)
 

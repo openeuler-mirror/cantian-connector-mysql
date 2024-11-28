@@ -14,11 +14,13 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
 */
+#include "my_global.h"
 #include "sql/field.h"
 #include "typelib.h"
 #include "tse_log.h"
 #include "tse_error.h"
 #include "datatype_cnvrt_4_index_search.h"
+#include "sql/extra_defs.h"
 
 constexpr uint8 OFFSET_VARCHAR_TYPE = 2;
 
@@ -30,7 +32,7 @@ static void tse_convert_mysql_key_to_cantian(KEY_PART_INFO &key_part, const uint
 
   Field *field = key_part.field;
   uint16_t offset = 0;
-  if (field->is_nullable()) {
+  if (field->is_null()) {
     offset = 1;
   }
   bool check_blob = false;
@@ -38,16 +40,15 @@ static void tse_convert_mysql_key_to_cantian(KEY_PART_INFO &key_part, const uint
   uint32_t data_len = field->key_length();
   if (field->type() == MYSQL_TYPE_VARCHAR) {
     *data_field_len = offset + data_len + OFFSET_VARCHAR_TYPE;
-  } else if (field->is_flag_set(BLOB_FLAG) &&
-             field->part_of_prefixkey.to_ulonglong() &&
-             !field->part_of_key_not_extended.to_ulonglong()) {
+  } else if (field_has_flag(field, BLOB_FLAG) && field->part_of_key.to_ulonglong() != 0) {
+             //!field->part_of_key_not_extended.to_ulonglong()) {
     *data_field_len = key_part.store_length;
     check_blob = true;
   } else {
     *data_field_len = offset + data_len;
   }
 
-  if (field->is_nullable() && key[0] == 1) {
+  if (field->is_null() && key[0] == 1) {
     *is_key_null = true;
     *use_key_len = 0;
     return;
@@ -103,9 +104,9 @@ int tse_fill_index_key_info(TABLE *table, const uchar *key, uint key_len, const 
 
   index_key_info->key_num = 0;
   do {
-    if (index_key_info->key_num >= table->key_info[index_key_info->active_index].actual_key_parts) {
+    if (index_key_info->key_num >= table->key_info[index_key_info->active_index].user_defined_key_parts) {
       tse_log_error("tse_fill_index_key_info: colunm id(%d) is bigger than table key parts(%d).", 
-                    index_key_info->key_num, table->key_info[index_key_info->active_index].actual_key_parts);
+                    index_key_info->key_num, table->key_info[index_key_info->active_index].user_defined_key_parts);
       return ERR_GENERIC_INTERNAL_ERROR;
     }
 
@@ -131,7 +132,7 @@ int tse_fill_index_key_info(TABLE *table, const uchar *key, uint key_len, const 
     ++index_key_info->key_num;
   } while ((key < end_key) && (key_len != 0));
 
-  for (uint i = index_key_info->key_num; i < table->key_info[index_key_info->active_index].actual_key_parts; ++i) {
+  for (uint i = index_key_info->key_num; i < table->key_info[index_key_info->active_index].user_defined_key_parts; ++i) {
     index_key_info->key_info[i].is_key_null = true;
   }
 

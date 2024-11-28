@@ -14,40 +14,30 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
 */
-#include "storage/tianchi/ha_tse.h"
-#include "storage/tianchi/ha_tse_ddl.h"
-#include "storage/tianchi/ha_tsepart.h"
+#include "my_global.h"
+#include "ha_tse.h"
+#include "ha_tse_ddl.h"
+#include "ha_tsepart.h"
 #include <errno.h>
 
 #include <algorithm>
 #include <map>
-#include "my_sqlcommand.h"
-#include "sql/create_field.h"
-#include "sql/dd/collection.h"
-#include "sql/dd/dd_table.h"
-#include "sql/dd/types/table.h"
-#include "sql/sql_tablespace.h"
-#include "sql/dd/types/tablespace.h"
+#include "sql/sql_cmd.h"
+//#include "sql/create_field.h"
+//#include "sql/sql_tablespace.h"
 #include "sql/sql_class.h"
 #include "sql/sql_lex.h"
 #include "sql/strfunc.h"  // find_type2
 #include "protobuf/tc_db.pb-c.h"
-#include "scope_guard.h"                       // create_scope_guard
-#include "sql/dd/types/foreign_key.h"          // dd::Foreign_key
-#include "sql/dd/types/foreign_key_element.h"  // dd::Foreign_key_element
-#include "sql/dd/types/index.h"                // dd::Index
-#include "sql/dd/types/index_element.h"        // dd::Index_element
-#include "sql/sql_initialize.h"                // opt_initialize_insecure
-#include "sql/dd/types/partition.h"
-#include "sql/dd/types/partition_index.h"
-#include "sql/dd/types/partition_value.h"
-#include "sql/dd/types/partition_value.h"
+//#include "scope_guard.h"                       // create_scope_guard
+//#include "sql/sql_initialize.h"                // opt_initialize_insecure
 #include "sql/partition_info.h"
 #include "sql/partition_element.h"
-#include "sql/dd/impl/utils.h"
 #include "sql/sql_table.h"  // primary_key_name
 #include "sql/sql_partition.h"
 #include "sql/item_func.h"
+#include "sql/extra_defs.h"
+
 #include "my_time.h"
 #include "decimal.h"
 
@@ -59,7 +49,9 @@
 #include "tse_util.h"
 #include "tse_ddl_util.h"
 #include <mysql.h>
-#include <boost/algorithm/string.hpp>
+//#include <boost/algorithm/string.hpp>
+#include "sql/template_utils.h"
+#include "sql/field_common_properties.h"
 
 using namespace std;
 
@@ -77,7 +69,7 @@ extern handlerton *tse_hton;
 size_t tse_ddl_stack_mem::tse_ddl_req_msg_mem_max_size = 0;
 size_t tse_ddl_stack_mem::tse_ddl_req_msg_mem_use_heap_cnt = 0;
 
-int fill_delete_table_req(const char *full_path_name, const dd::Table *table_def, 
+int fill_delete_table_req(const char *full_path_name, TABLE *table_def,
   THD *thd, ddl_ctrl_t *ddl_ctrl, tse_ddl_stack_mem *stack_mem) {
   TcDb__TseDDLDropTableDef req;
 
@@ -88,14 +80,16 @@ int fill_delete_table_req(const char *full_path_name, const dd::Table *table_def
   char user_name[SMALL_RECORD_SIZE] = {0};
   char table_name[SMALL_RECORD_SIZE] = {0};
 
-  bool is_tmp_table = tse_is_temporary(table_def);
+  bool is_tmp_table;
   tse_split_normalized_name(full_path_name, db_name, SMALL_RECORD_SIZE, table_name, SMALL_RECORD_SIZE, &is_tmp_table);
   if (is_tmp_table) {
     ddl_ctrl->table_flags |= TSE_TMP_TABLE;
     req.name = table_name;
   } else {
-    req.name = const_cast<char *>(table_def->name().c_str());
+    req.name = table_name;
+//    req.name = const_cast<char *>();
   }
+
   tse_copy_name(user_name, db_name, SMALL_RECORD_SIZE);
 
   req.user = user_name;
@@ -111,15 +105,16 @@ int fill_delete_table_req(const char *full_path_name, const dd::Table *table_def
   if (is_tmp_table) { // 删除临时表不需要广播
     req.sql_str = nullptr;
   } else {
-    drop_sql = string(thd->query().str).substr(0, thd->query().length);
+    drop_sql = std::string(thd->query()).substr(0, thd->query_length());
     req.sql_str = const_cast<char *>(drop_sql.c_str());
   }
 
   if (thd->variables.option_bits & OPTION_NO_FOREIGN_KEY_CHECKS) {
     req.options |= TSE_DROP_NO_CHECK_FK;
-  } else if (table_def && !table_def->foreign_key_parents().empty()) {
+ // }
+//  else if (table_def && !table_def->foreign_key_parents().empty()) {
     // broadcasted mysql need set to ignore FKs and cantian also ignore FKs
-    req.options |= (TSE_DROP_NO_CHECK_FK_FOR_CANTIAN_AND_BROADCAST | TSE_DROP_NO_CHECK_FK);
+//    req.options |= (TSE_DROP_NO_CHECK_FK_FOR_CANTIAN_AND_BROADCAST | TSE_DROP_NO_CHECK_FK);
   }
 
   size_t msg_len = tc_db__tse_ddldrop_table_def__get_packed_size(&req);
@@ -137,6 +132,7 @@ int fill_delete_table_req(const char *full_path_name, const dd::Table *table_def
   return 0;
 }
 
+#if 0
 static int tse_init_create_tablespace_def(TcDb__TseDDLSpaceDef *req, char **mem_start,
                                       char *mem_end) {
   tc_db__tse_ddlspace_def__init(req);
@@ -162,7 +158,9 @@ static int tse_init_create_tablespace_def(TcDb__TseDDLSpaceDef *req, char **mem_
   tc_db__tse_ddlauto_extend_def__init(datafile->autoextend);
   return 0;
 }
+#endif
 
+#ifdef SUPPORT_ALTER_TABLESPACE
 static void tse_ddl_fill_datafile_by_alter_info(TcDb__TseDDLDataFileDef *datafile, st_alter_tablespace *alter_info) {
   datafile->name = const_cast<char *>(alter_info->data_file_name);
   datafile->size = 1024 * 1024; // 8 * 1024 * 1024
@@ -177,8 +175,7 @@ static void tse_ddl_fill_datafile_by_alter_info(TcDb__TseDDLDataFileDef *datafil
 }
 
 static int tse_create_tablespace_handler(handlerton *hton, THD *thd,
-                                    st_alter_tablespace *alter_info,
-                                    dd::Tablespace *dd_space MY_ATTRIBUTE((unused))) {
+                                    st_alter_tablespace *alter_info) {
   if (engine_ddl_passthru(thd)) {
     return CT_SUCCESS;
   }
@@ -201,7 +198,7 @@ static int tse_create_tablespace_handler(handlerton *hton, THD *thd,
     TSE_RETURN_IF_NOT_ZERO(check_tse_identifier_name(alter_info->tablespace_name));
     req.name = const_cast<char *>(alter_info->tablespace_name);
     req.db_name = TSE_GET_THD_DB_NAME(thd);
-    string sql = string(thd->query().str).substr(0, thd->query().length);
+    string sql = string(thd->query()).substr(0, thd->query_length());
     req.sql_str = const_cast<char *>(sql.c_str());
 
     // fill datafile parameter
@@ -237,7 +234,6 @@ static int tse_create_tablespace_handler(handlerton *hton, THD *thd,
 
 static int tse_alter_tablespace_handler(handlerton *hton, THD *thd,
                                         st_alter_tablespace *alter_info,
-                                        const dd::Tablespace *old_dd_space,
                                         dd::Tablespace *new_dd_space) {
   // 只支持修改表空间名称 以及设置属性
   if (alter_info->ts_alter_tablespace_type != ALTER_TABLESPACE_RENAME &&
@@ -282,7 +278,7 @@ static int tse_alter_tablespace_handler(handlerton *hton, THD *thd,
     req.new_name = const_cast<char *>(to);
 
     req.db_name = TSE_GET_THD_DB_NAME(thd);
-    string sql = string(thd->query().str).substr(0, thd->query().length);
+    string sql = string(thd->query()).substr(0, thd->query_length());
     req.sql_str = const_cast<char *>(sql.c_str());
     if (alter_info->autoextend_size != 0 && alter_info->autoextend_size.has_value()) {
       req.auto_extend_size = (uint64_t)alter_info->autoextend_size.value();
@@ -311,8 +307,7 @@ static int tse_alter_tablespace_handler(handlerton *hton, THD *thd,
 }
 
 static int tse_drop_tablespace_handler(handlerton *hton, THD *thd,
-                                       st_alter_tablespace *alter_info,
-                                       const dd::Tablespace *dd_space  MY_ATTRIBUTE((unused))) {
+                                       st_alter_tablespace *alter_info) {
   if (engine_ddl_passthru(thd)) {
     return CT_SUCCESS;
   }
@@ -328,7 +323,7 @@ static int tse_drop_tablespace_handler(handlerton *hton, THD *thd,
     req.obj_name = const_cast<char *>(alter_info->tablespace_name);
     
     req.db_name = TSE_GET_THD_DB_NAME(thd);
-    string sql = string(thd->query().str).substr(0, thd->query().length);
+    string sql = string(thd->query()).substr(0, thd->query_length());
     req.sql_str = const_cast<char *>(sql.c_str());
 
 
@@ -365,10 +360,10 @@ static int tse_drop_tablespace_handler(handlerton *hton, THD *thd,
  @return: 0 if succeeds
 */
 int tsebase_alter_tablespace(handlerton *hton, THD *thd,
-                             st_alter_tablespace *alter_info,
-                             const dd::Tablespace *old_ts_def,
-                             dd::Tablespace *new_ts_def) {
-  DBUG_TRACE;
+                             st_alter_tablespace *alter_info
+                             //dd::Tablespace *new_ts_def
+							 ) {
+  
 
   // TODO：只读模式和强制恢复模式不能修改表空间
   switch (alter_info->ts_cmd_type) {
@@ -400,6 +395,8 @@ int tsebase_alter_tablespace(handlerton *hton, THD *thd,
 
   return HA_ADMIN_NOT_IMPLEMENTED;
 }
+#endif  // SUPPORT_ALTER_TABLESPACE
+
 
 static bool tse_fill_column_precision_and_scale(TcDb__TseDDLColumnDef *column, Field *field) {
   switch (field->real_type()) {
@@ -460,8 +457,8 @@ static void tse_set_unsigned_column(Field *field, uint32 *is_unsigned) {
 static bool tse_ddl_fill_column_by_field_fill_type(TcDb__TseDDLColumnDef *column, Field *field) {
   if (!tse_ddl_get_data_type_from_mysql_type(field, field->type(), &column->datatype->datatype)) {
     char info[300]; // max column name length(64) * max_mb_size(4) + redundancy
-    sprintf(info, "column name: %s", field->field_name);
-    my_error(ER_FEATURE_UNSUPPORTED, MYF(0), "*DataType Conversion*", info);
+    sprintf(info, "column name: %s", field->field_name.str);
+    my_error(ER_NOT_SUPPORTED_YET, MYF(0), "*DataType Conversion*", info);
     return false;
   }
 
@@ -484,27 +481,28 @@ static bool tse_ddl_fill_column_by_field_fill_type(TcDb__TseDDLColumnDef *column
   return true;
 }
 
+#if 0
 static int tse_prepare_enum_field_impl(THD *thd, Create_field *sql_field, String *def) {
-  DBUG_TRACE;
-  assert(sql_field->sql_type == MYSQL_TYPE_ENUM);
+  
+  //assert(sql_field->field->real_type() == MYSQL_TYPE_ENUM);
   if (!sql_field->charset) {
     sql_field->charset = &my_charset_bin;
   }
   /* SQL "NULL" maps to NULL */
   if (def == nullptr) {
       if ((sql_field->flags & NOT_NULL_FLAG) != 0) {
-        my_error(ER_INVALID_DEFAULT, MYF(0), sql_field->field_name);
+        my_error(ER_INVALID_DEFAULT, MYF(0), sql_field->field_name.str);
         return TSE_ENUM_DEFAULT_NULL;
       }
   } else {
     def->length(sql_field->charset->cset->lengthsp(sql_field->charset, def->ptr(), def->length()));
-    TYPELIB *interval = sql_field->interval;
+    TYPELIB *interval = const_cast<TYPELIB *>(sql_field->interval);
     if (!interval) {
       interval = create_typelib(thd->mem_root, sql_field);
     }
     uint enum_index = find_type2(interval, def->ptr(), def->length(), sql_field->charset);
     if (enum_index == 0) {
-      my_error(ER_INVALID_DEFAULT, MYF(0), sql_field->field_name);
+      my_error(ER_INVALID_DEFAULT, MYF(0), sql_field->field_name.str);
       return TSE_ENUM_DEFAULT_INVALID;
     }
     return enum_index;
@@ -512,16 +510,18 @@ static int tse_prepare_enum_field_impl(THD *thd, Create_field *sql_field, String
   my_error(ER_INVALID_DEFAULT, MYF(0), "constant default is null");
   return TSE_ENUM_DEFAULT_INVALID;
 }
+#endif
 
+#if 0
 static bool tse_prepare_set_field_impl(THD *thd, Create_field *sql_field, ulonglong *set_bitmap, 
                                        String *def, TcDb__TseDDLColumnDef *column) {
-  DBUG_TRACE;
-  assert(sql_field->sql_type == MYSQL_TYPE_SET);
+  
+//  assert(sql_field->field->real_type() == MYSQL_TYPE_SET);
 
   if (!sql_field->charset) {
     sql_field->charset = &my_charset_bin;
   }
-  TYPELIB *interval = sql_field->interval;
+  TYPELIB *interval = const_cast<TYPELIB *>(sql_field->interval);
   if (!interval) {
     /*
       Create the typelib in runtime memory - we will free the
@@ -558,7 +558,7 @@ static bool tse_prepare_set_field_impl(THD *thd, Create_field *sql_field, ulongl
   // SQL "NULL" maps to NULL  
   if (def == nullptr) {
     if ((sql_field->flags & NOT_NULL_FLAG) != 0) {
-      my_error(ER_INVALID_DEFAULT, MYF(0), sql_field->field_name);
+      my_error(ER_INVALID_DEFAULT, MYF(0), sql_field->field_name.str);
       return false;
     } else {
       // else, NULL is an allowed value 
@@ -570,17 +570,29 @@ static bool tse_prepare_set_field_impl(THD *thd, Create_field *sql_field, ulongl
   }
 
   if (not_found) {
-    my_error(ER_INVALID_DEFAULT, MYF(0), sql_field->field_name);
+    my_error(ER_INVALID_DEFAULT, MYF(0), sql_field->field_name.str);
     return false;
   }
 
   return true;
 }
+#endif
 
+#if 0
+static void replace_all(string& str, const string& from, const string& to) {
+  size_t start_pos = 0;
+  while ((start_pos = str.find(from, start_pos)) != std::string::npos) {
+    str.replace(start_pos, from.length(), to);
+    start_pos += to.length();
+  }
+}
+#endif
+
+#if 0
 static bool tse_process_string_default_value(TcDb__TseDDLColumnDef *column, string &expr_str,
                                              char **mem_start, char *mem_end, bool is_blob_type) {
   if (!is_blob_type) {
-    boost::algorithm::replace_all(expr_str, "'", "''");
+    replace_all(expr_str, "'", "''");
     column->default_text = (char *)tse_ddl_alloc_mem(mem_start, mem_end, expr_str.length() + 1);
     if (column->default_text == nullptr) {
       tse_log_error("alloc mem for bit default text failed, mem_start is null");
@@ -602,9 +614,11 @@ static bool tse_process_string_default_value(TcDb__TseDDLColumnDef *column, stri
   }
   return true;
 }
+#endif
 
+#if 0
 static bool tse_get_bit_default_value(
-    THD *thd, TcDb__TseDDLColumnDef *column, Field *field, const Create_field *fld, const dd::Column *col_obj,
+    THD *thd, TcDb__TseDDLColumnDef *column, Field *field, const Create_field *fld,
     char **mem_start, char *mem_end, bool is_expr_value) {
   column->is_unsigned = 1;
   longlong num = 0;
@@ -656,9 +670,11 @@ static bool tse_get_bit_default_value(
 
   return true;
 }
+#endif
 
+#if 0
 static bool tse_get_datetime_default_value(
-    TcDb__TseDDLColumnDef *column, Field *field, const Create_field *fld, const dd::Column *col_obj,
+    TcDb__TseDDLColumnDef *column, Field *field, const Create_field *fld,
     char **mem_start, char *mem_end, tse_column_option_set_bit *option_set, bool is_expr_value) {
   if (field->has_insert_default_datetime_value_expression()) {
     // current_timestamp (or with ON UPDATE CURRENT_TIMESTAMP) 
@@ -689,7 +705,7 @@ static bool tse_get_datetime_default_value(
       expr_str = (field->m_default_val_expr->expr_item->val_str(&str))->c_ptr();
     }
     MYSQL_TIME_STATUS status;
-    str_to_datetime(expr_str.c_str(), expr_str.length(), &ltime, TIME_FRAC_TRUNCATE | TIME_FUZZY_DATE,
+    str_to_datetime(expr_str.c_str(), expr_str.length(), &ltime, TIME_FRAC_TRUNCATE | TIME_FUZZY_DATES,
       &status);
   } else {
     expr_str = const_cast<char *>(col_obj->default_value_utf8().data());
@@ -751,13 +767,15 @@ static bool tse_get_datetime_default_value(
   }
   return true;
 }
+#endif
 
+#if 0
 static int tse_prepare_enum_field(THD *thd, Field *field, const Create_field *fld,
                                   const CHARSET_INFO *field_cs) {
   int is_enum = 0;
-  String default_str;
-  String *def;
   Create_field* sql_field;
+  String *def;
+  String default_str;
   // fld == nullptr 为create，此时field_charset 为空值需处理置位
   if (fld == nullptr) {
     Create_field sql_field_local(field, field);
@@ -785,9 +803,12 @@ static int tse_prepare_enum_field(THD *thd, Field *field, const Create_field *fl
   is_enum = tse_prepare_enum_field_impl(thd, sql_field, def);
   return is_enum;
 }
+#endif
 
+#if 0
 static bool tse_get_enum_default_value(
-    THD *thd, TcDb__TseDDLColumnDef *column, const dd::Column *col_obj, Field *field, const Create_field *fld,
+    THD *thd, TcDb__TseDDLColumnDef *column,
+	Field *field, const Create_field *fld,
     char **mem_start, char *mem_end, const CHARSET_INFO *field_cs) {
   int is_enum;
   column->is_unsigned = 1;
@@ -818,7 +839,9 @@ static bool tse_get_enum_default_value(
   }
   return true;
 }
+#endif
 
+#if 0
 static bool tse_prepare_set_field(THD *thd, Field *field, const Create_field *fld, const CHARSET_INFO *field_cs,
                                   ulonglong *set_bitmap, TcDb__TseDDLColumnDef *column) {
   bool is_get_set_bitmap = 0;
@@ -850,7 +873,9 @@ static bool tse_prepare_set_field(THD *thd, Field *field, const Create_field *fl
   is_get_set_bitmap = tse_prepare_set_field_impl(thd, sql_field, set_bitmap, def, column);
   return is_get_set_bitmap;
 }
+#endif
 
+#if 0
 static bool tse_get_set_default_value(
     THD *thd, TcDb__TseDDLColumnDef *column, Field *field, const Create_field *fld, char **mem_start, 
     char *mem_end, const CHARSET_INFO *field_cs) {
@@ -875,7 +900,9 @@ static bool tse_get_set_default_value(
 
   return true;
 }
+#endif
 
+#if 0
 static bool tse_verify_string_default_length(TcDb__TseDDLColumnDef *column, String* default_str, Field *field,
                                              const Create_field *fld) {
   if (column->datatype->datatype == TSE_DDL_TYPE_CLOB) {
@@ -890,9 +917,11 @@ static bool tse_verify_string_default_length(TcDb__TseDDLColumnDef *column, Stri
   }
   return true;
 }
+#endif
 
+#if 0
 static bool tse_get_string_default_value(
-    TcDb__TseDDLColumnDef *column, Field *field, const dd::Column *col_obj, const Create_field *fld,
+    TcDb__TseDDLColumnDef *column, Field *field, const Create_field *fld,
     char **mem_start, char *mem_end, bool is_blob_type) {
   char *field_default_string = nullptr;
   if (fld == nullptr) {
@@ -928,10 +957,13 @@ static bool tse_get_string_default_value(
   }
   string expr_str(field_default_string);
   return tse_process_string_default_value(column, expr_str, mem_start, mem_end, is_blob_type);
+  return true;
 }
+#endif
 
+#if 0
 static bool tse_get_numeric_default_value(
-    TcDb__TseDDLColumnDef *column, Field *field, const dd::Column *col_obj, const Create_field *fld,
+    TcDb__TseDDLColumnDef *column, Field *field, const Create_field *fld,
     char **mem_start, char *mem_end, bool is_expr_value)
 {
   char *field_default_string = nullptr;
@@ -971,7 +1003,9 @@ static bool tse_get_numeric_default_value(
   }
   return true;
 }
+#endif
 
+#if 0
 static bool tse_check_expression_default_value(TcDb__TseDDLColumnDef *column, Field *field, const Create_field *fld,
   tse_column_option_set_bit *option_set, bool* is_expr_value) {
   if ((field != nullptr && !field->m_default_val_expr) ||
@@ -1004,10 +1038,12 @@ static bool tse_check_expression_default_value(TcDb__TseDDLColumnDef *column, Fi
   }
   return true;
 }
+#endif
 
 
+#if 0
 static bool tse_ddl_fill_column_default_value(
-  THD *thd, TcDb__TseDDLColumnDef *column, Field *field, const Create_field *fld, const dd::Column *col_obj,
+  THD *thd, TcDb__TseDDLColumnDef *column, Field *field, const Create_field *fld,
   tse_column_option_set_bit *option_set, char **mem_start, char *mem_end, const CHARSET_INFO *field_cs) {
   option_set->is_default = true;
   option_set->is_default_null = false;
@@ -1029,11 +1065,11 @@ static bool tse_ddl_fill_column_default_value(
   bool is_blob_type = false;
   switch (field->real_type()) {
     case MYSQL_TYPE_BIT:
-      TSE_RETURN_IF_ERROR(tse_get_bit_default_value(thd, column, field, fld, col_obj, mem_start, mem_end, is_expr_value), false);
+      TSE_RETURN_IF_ERROR(tse_get_bit_default_value(thd, column, field, fld, mem_start, mem_end, is_expr_value), false);
       break;
     case MYSQL_TYPE_BLOB:
       is_blob_type = (column->datatype->datatype != TSE_DDL_TYPE_CLOB);
-    case MYSQL_TYPE_JSON:
+    /*case MYSQL_TYPE_JSON:
       if (!is_expr_value) {
         char *default_value = const_cast<char *>(col_obj->default_value_utf8().data());
         int len = strlen(default_value);
@@ -1044,7 +1080,7 @@ static bool tse_ddl_fill_column_default_value(
         }
         strncpy(column->default_text, default_value, len + 1);
         break;
-      }
+      }*/
     case MYSQL_TYPE_STRING:
     case MYSQL_TYPE_VARCHAR:
       TSE_RETURN_IF_ERROR(tse_get_string_default_value(column, field, col_obj, fld, mem_start, mem_end, is_blob_type), false);
@@ -1068,6 +1104,7 @@ static bool tse_ddl_fill_column_default_value(
   }
   return true;
 }
+#endif
 
 static void tse_fill_column_option_set(TcDb__TseDDLColumnDef *column, Field *field,
                                        TABLE *form, tse_column_option_set_bit *option_set) {
@@ -1076,17 +1113,17 @@ static void tse_fill_column_option_set(TcDb__TseDDLColumnDef *column, Field *fie
   option_set->primary = false;
   option_set->is_default_null = false;
   option_set->has_null = true; // 保证nullable的值是准确的
-  option_set->nullable = (field->is_flag_set(NOT_NULL_FLAG)) ? 0 : 1;
+  option_set->nullable = (field_has_flag(field, NOT_NULL_FLAG)) ? 0 : 1;
 
-  if (field->is_flag_set(PRI_KEY_FLAG)) {
+  if (field_has_flag(field, PRI_KEY_FLAG)) {
     option_set->primary = true;
     option_set->has_null = true;
     option_set->nullable = false;
   }
-  option_set->unique = field->is_flag_set(UNIQUE_KEY_FLAG);
+  option_set->unique = field_has_flag(field, UNIQUE_KEY_FLAG);
   column->cons_name = option_set->primary ? const_cast<char *>("PRIMARY") : 
         (option_set->unique ? column->name : nullptr);
-  option_set->is_serial = field->is_flag_set(AUTO_INCREMENT_FLAG);
+  option_set->is_serial = field_has_flag(field, AUTO_INCREMENT_FLAG);
   option_set->is_comment = field->comment.length > 0;
   column->comment = option_set->is_comment ? const_cast<char *>(field->comment.str) : nullptr;
 
@@ -1109,25 +1146,28 @@ static void tse_fill_column_option_set(TcDb__TseDDLColumnDef *column, Field *fie
 
 static bool tse_ddl_fill_column_by_field(
     THD *thd, TcDb__TseDDLColumnDef *column, Field *field,
-    const dd::Table *table_def, TABLE *form, const Create_field *fld,
+    TABLE *form, const Create_field *fld,
     tse_alter_column_alter_mode alter_mode, char **mem_start, char *mem_end, const CHARSET_INFO *field_cs) {
-  const dd::Column *col_obj = NULL;
-  col_obj = table_def ? table_def->get_column(field->field_name) : nullptr; // create view中创临时表，table_def为空
+#if 0
+  auto col_obj = table_def ? table_def->get_column(field->field_name.str) : nullptr; // create view中创临时表，table_def为空
+#endif
   /*
     We need this to get default values from the table
     We have to restore the read_set if we are called from insert in case
     of row based replication.
   */
-  my_bitmap_map *old_map = tmp_use_all_columns(form, form->read_set);
+#if 0
+  MY_BITMAP *old_map = tmp_use_all_columns(form, &form->read_set);
   auto grd = create_scope_guard(
-      [&]() { tmp_restore_column_map(form->read_set, old_map); });
-  if (fld != NULL && fld->change != NULL) {
-      column->name = const_cast<char *>(fld->change);
-      if (strcmp(fld->change, field->field_name) != 0) {
-        column->new_name = const_cast<char *>(field->field_name);
+      [&]() { tmp_restore_column_map(&form->read_set, old_map); });
+#endif
+  if (fld != NULL && fld->change.str != NULL) {
+      column->name = const_cast<char *>(fld->change.str);
+      if (strcmp(fld->change.str, field->field_name.str) != 0) {
+        column->new_name = const_cast<char *>(field->field_name.str);
       } 
   } else {
-      column->name = const_cast<char *>(field->field_name);
+      column->name = const_cast<char *>(field->field_name.str);
   }
   
   TSE_RETURN_IF_ERROR(tse_ddl_fill_column_by_field_fill_type(column, field), false);
@@ -1135,21 +1175,24 @@ static bool tse_ddl_fill_column_by_field(
   tse_column_option_set_bit option_set;
   tse_fill_column_option_set(column, field, form, &option_set);
 
-  if (tse_is_with_default_value(field, col_obj)) {
-    TSE_RETURN_IF_ERROR(tse_ddl_fill_column_default_value(thd, column, field, fld, col_obj, 
+#if 0
+  if (!has_no_default_value(thd, field, NULL)) {
+    TSE_RETURN_IF_ERROR(tse_ddl_fill_column_default_value(thd, column, field, fld,
                                                           &option_set, mem_start, mem_end, field_cs), false);
   } else {
+#endif
     option_set.is_default = 0;
     option_set.is_default_func = 0;
     option_set.is_curr_timestamp = 0;
     option_set.is_default_null = 1;
-  }
+//  }
   // 这句代码要放在所有设置option_set的后面
   column->is_option_set = option_set.is_option_set;
   column->alter_mode = alter_mode; // tse_alter_column_alter_mode
   return true;
 }
 
+#if 0
 static int tse_ddl_alter_table_fill_foreign_key_info(TcDb__TseDDLForeignKeyDef *fk_def, const Foreign_key_spec *fk,
                                                      char **mem_start, char *mem_end)
 {
@@ -1176,14 +1219,14 @@ static int tse_ddl_alter_table_fill_foreign_key_info(TcDb__TseDDLForeignKeyDef *
 }
 
 static int tse_ddl_create_table_fill_foreign_key_info(TcDb__TseDDLCreateTableDef *req,
-  const dd::Table *table_def, char **mem_start, char *mem_end) {
+  char **mem_start, char *mem_end) {
   if (req->n_fk_list == 0) {
     return CT_SUCCESS;
   }
   for (uint i = 0; i < req->n_fk_list; i++) {
     TcDb__TseDDLForeignKeyDef *fk_def = req->fk_list[i];
     assert(table_def != nullptr);
-    const dd::Foreign_key *fk = table_def->foreign_keys().at(i);
+    //const dd::Foreign_key *fk = table_def->foreign_keys().at(i);
     TSE_RETURN_IF_NOT_ZERO(check_tse_identifier_name(fk->name().data()));
     fk_def->name = const_cast<char *>(fk->name().data());
 
@@ -1199,7 +1242,7 @@ static int tse_ddl_create_table_fill_foreign_key_info(TcDb__TseDDLCreateTableDef
         const_cast<char *>(fk->referenced_table_name().data());
     for (uint j = 0; j < fk_def->n_elements; j++) {
       TcDb__TseDDLForeignKeyElementDef *fk_ele = fk_def->elements[j];
-      const dd::Foreign_key_element *fk_col_obj = fk->elements().at(j);
+      //const dd::Foreign_key_element *fk_col_obj = fk->elements().at(j);
       fk_ele->src_column_name =
           const_cast<char *>(fk_col_obj->column().name().data());
       fk_ele->ref_column_name =
@@ -1208,33 +1251,35 @@ static int tse_ddl_create_table_fill_foreign_key_info(TcDb__TseDDLCreateTableDef
   }
   return CT_SUCCESS;
 }
+#endif
 
 static void tse_fill_prefix_func_key_part(TcDb__TseDDLTableKeyPart *req_key_part,
                                           const Field *field, uint16 prefix_len) {
   req_key_part->is_func = true;
   if (field->real_type() == MYSQL_TYPE_BLOB && field->charset() == &my_charset_bin &&
-      field->is_flag_set(BINARY_FLAG)) {
+      field_has_flag(field, BINARY_FLAG)) {
     req_key_part->func_name = const_cast<char *>("substrb");
     snprintf(req_key_part->func_text, FUNC_TEXT_MAX_LEN - 1, "substrb(%s,1,%d)",
-            field->field_name, prefix_len);
+            field->field_name.str, prefix_len);
   } else {
     req_key_part->func_name = const_cast<char *>("substr");
     snprintf(req_key_part->func_text, FUNC_TEXT_MAX_LEN - 1, "substr(%s,1,%d)",
-            field->field_name, prefix_len);
+            field->field_name.str, prefix_len);
   }
   return;
 }
 
-static uint32_t tse_fill_func_key_part(TABLE *form, THD *thd, TcDb__TseDDLTableKeyPart *req_key_part, Value_generator *gcol_info)
+#if 0
+static uint32_t tse_fill_func_key_part(TABLE *form, THD *thd, TcDb__TseDDLTableKeyPart *req_key_part, Virtual_column_info *vcol_info)
 {
-  Item_func *func_expr_item = dynamic_cast<Item_func *>(gcol_info->expr_item);
+  Item_func *func_expr_item = dynamic_cast<Item_func *>(vcol_info->expr);
   if (func_expr_item == nullptr) {
     my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
           "[TSE_CREATE_TABLE]: CTC do not support this functional index.");    
     return CT_ERROR;
   }
 
-  uint32_t arg_count = func_expr_item->arg_count;
+  uint32_t arg_count = func_expr_item->argument_count();
   if (arg_count == 0) {
     my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
           "[TSE_CREATE_TABLE]: There is no functional index.");    
@@ -1247,7 +1292,7 @@ static uint32_t tse_fill_func_key_part(TABLE *form, THD *thd, TcDb__TseDDLTableK
   uint32_t col_item_count = 0;
   Field *field = nullptr;
   for (uint32_t i = 0; i < arg_count; i++) {
-    field = tse_get_field_by_name(form, const_cast<char *>(args[i]->item_name.ptr()));
+    field = tse_get_field_by_name(form, const_cast<char *>(args[i]->name.str));
     if (field && field->is_gcol()) {
       my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
         "Cantian does not support index on generated column.");
@@ -1259,14 +1304,16 @@ static uint32_t tse_fill_func_key_part(TABLE *form, THD *thd, TcDb__TseDDLTableK
           "Cantian does not support function indexes with multiple columns of arguments.");
         return CT_ERROR;
       }
-      req_key_part->name = const_cast<char *>(args[i]->item_name.ptr());
+      req_key_part->name = const_cast<char *>(args[i]->name.str);
       col_item_count++;
     }
   }
   
   char buffer[FUNC_TEXT_MAX_LEN] = {0};
   String gc_expr(buffer, sizeof(buffer), &my_charset_bin);
-  gcol_info->print_expr(thd, &gc_expr);
+#if 0
+  vcol_info->print_expr(thd, &gc_expr);
+#endif
   string expr_str(buffer);
   expr_str.erase(remove(expr_str.begin(), expr_str.end(), '`'), expr_str.end());
   // 处理json_value建索引，只允许returning char
@@ -1283,25 +1330,27 @@ static uint32_t tse_fill_func_key_part(TABLE *form, THD *thd, TcDb__TseDDLTableK
   strncpy(req_key_part->func_text, expr_str.c_str(), FUNC_TEXT_MAX_LEN - 1);
   return CT_SUCCESS;
 }
+#endif
 
 static bool tse_ddl_create_table_fill_add_key(TcDb__TseDDLCreateTableDef *req, THD *thd,
-                                              const dd::Table *table_def, TABLE *form, char *user) {
+                                              TABLE *form, char *user) {
   if (req->n_key_list == 0) {
     return true;
   }
-
+#if 0
   if (table_def == nullptr) {
+#endif
     for (uint i = 0; i < req->n_key_list; i++) {
       TcDb__TseDDLTableKey *req_key_def = req->key_list[i];
       const KEY *key = form->key_info + i;
       if (key->key_length == 0) {
-        my_error(ER_WRONG_KEY_COLUMN, MYF(0), key->key_part->field->field_name);
+        my_error(ER_WRONG_KEY_COLUMN, MYF(0), key->key_part->field->field_name.str);
         return ER_WRONG_KEY_COLUMN;
       }
       req_key_def->user = user;
       req_key_def->table = req->name;
-      TSE_RETURN_IF_NOT_ZERO(check_tse_identifier_name(key->name));
-      req_key_def->name = const_cast<char *>(key->name);
+      TSE_RETURN_IF_NOT_ZERO(check_tse_identifier_name(key->name.str));
+      req_key_def->name = const_cast<char *>(key->name.str);
       req_key_def->space = NULL;
       TSE_RETURN_IF_ERROR(get_tse_key_type(key, &req_key_def->key_type), false);
       TSE_RETURN_IF_ERROR(get_tse_key_algorithm(key->algorithm, &req_key_def->algorithm), false);
@@ -1316,12 +1365,13 @@ static bool tse_ddl_create_table_fill_add_key(TcDb__TseDDLCreateTableDef *req, T
         }
         bool is_prefix_key = false;
         assert(key_part != NULL);
-        Field *fld = form->field[key_part->field->field_index()];
+        Field *fld = form->field[key_part->field->field_index];
         assert(fld != nullptr);
-        if (fld->is_field_for_functional_index()) {
-          req_key_def->is_func = true;
-          TSE_RETURN_IF_ERROR(tse_fill_func_key_part(form, thd, req_key_part, fld->gcol_info) == CT_SUCCESS, false);
-        } else {
+
+        //if (fld->is_field_for_functional_index()) {
+        //  req_key_def->is_func = true;
+        //  TSE_RETURN_IF_ERROR(tse_fill_func_key_part(form, thd, req_key_part, fld->vcol_info) == CT_SUCCESS, false);
+        //} else {
           if (fld->is_virtual_gcol()) {
             my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
               "Cantian does not support index on virtual generated column.");
@@ -1336,23 +1386,24 @@ static bool tse_ddl_create_table_fill_add_key(TcDb__TseDDLCreateTableDef *req, T
             req_key_part->is_func = false;
             req_key_part->func_text = nullptr;
           }
-          req_key_part->name = const_cast<char *>(key_part->field->field_name);
-        }
+          req_key_part->name = const_cast<char *>(key_part->field->field_name.str);
+        //}
         req_key_part->length = key_part->length;
         tse_ddl_get_data_type_from_mysql_type(fld, fld->type(), &req_key_part->datatype);
         tse_set_unsigned_column(fld, &req_key_part->is_unsigned);
-        if (is_prefix_key && fld->is_flag_set(BLOB_FLAG)) {
+        if (is_prefix_key && field_has_flag(fld, BLOB_FLAG)) {
           req_key_part->datatype = TSE_DDL_TYPE_VARCHAR;
         }
       }
     }
     return true;
+  #if 0
   }
 
   for (uint i = 0; i < req->n_key_list; i++) {
     TcDb__TseDDLTableKey *req_key_def = req->key_list[i];
     assert(table_def != nullptr);
-    const dd::Index *idx = table_def->indexes().at(i);
+    //const dd::Index *idx = table_def->indexes().at(i);
     req_key_def->user = user;
     req_key_def->table = req->name;
     TSE_RETURN_IF_NOT_ZERO(check_tse_identifier_name(idx->name().data()));
@@ -1363,7 +1414,7 @@ static bool tse_ddl_create_table_fill_add_key(TcDb__TseDDLCreateTableDef *req, T
 
     for (uint j = 0; j < req_key_def->n_columns; j++) {
       TcDb__TseDDLTableKeyPart *req_key_part = req_key_def->columns[j];
-      const dd::Index_element *key_part = idx->elements().at(j);
+      //const dd::Index_element *key_part = idx->elements().at(j);
       if (key_part->order() == dd::Index_element::ORDER_DESC) {
         req_key_def->is_dsc = true;
       }
@@ -1374,7 +1425,7 @@ static bool tse_ddl_create_table_fill_add_key(TcDb__TseDDLCreateTableDef *req, T
 
       if (fld->is_field_for_functional_index()) {
         req_key_def->is_func = true;
-        TSE_RETURN_IF_ERROR(tse_fill_func_key_part(form, thd, req_key_part, fld->gcol_info) == CT_SUCCESS, false);
+        TSE_RETURN_IF_ERROR(tse_fill_func_key_part(form, thd, req_key_part, fld->vcol_info) == CT_SUCCESS, false);
       } else {
         if (fld->is_virtual_gcol()) {
           my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
@@ -1395,15 +1446,16 @@ static bool tse_ddl_create_table_fill_add_key(TcDb__TseDDLCreateTableDef *req, T
       req_key_part->length = key_part->length();
       tse_ddl_get_data_type_from_mysql_type(fld, fld->type(), &req_key_part->datatype);
       tse_set_unsigned_column(fld, &req_key_part->is_unsigned);
-      if (is_prefix_key && fld->is_flag_set(BLOB_FLAG)) {
+      if (is_prefix_key && field_has_flag(fld, BLOB_FLAG)) {
         req_key_part->datatype = TSE_DDL_TYPE_VARCHAR;
       }
     }
-  }
+#endif
   return true;
 }
 
-static int tse_ddl_fill_partition_table_info(const dd::Partition *pt, char **mem_start, char *mem_end,
+#if 0
+static int tse_ddl_fill_partition_table_info(char **mem_start, char *mem_end,
   TcDb__TseDDLPartitionDef *part_def, uint32_t part_id)
 {
   TcDb__TseDDLPartitionTableDef *part_table = part_def->part_table_list[part_id]; 
@@ -1430,7 +1482,9 @@ static int tse_ddl_fill_partition_table_info(const dd::Partition *pt, char **mem
   }
   return 0;
 }
+#endif
  
+#if 0
 static int tse_ddl_prepare_create_partition_info(TcDb__TseDDLCreateTableDef *req, const dd::Table *table_def,
   char **mem_start, char *mem_end)
 {
@@ -1471,6 +1525,7 @@ static int tse_ddl_prepare_create_partition_info(TcDb__TseDDLCreateTableDef *req
  
   return 0;
 }
+#endif
 
 static int tse_ddl_init_column_def(TcDb__TseDDLCreateTableDef *req, char **mem_start, char *mem_end) {
   req->columns = (TcDb__TseDDLColumnDef **)tse_ddl_alloc_mem(
@@ -1498,6 +1553,7 @@ static int tse_ddl_init_column_def(TcDb__TseDDLCreateTableDef *req, char **mem_s
   return 0;
 }
 
+#if 0
 static int tse_ddl_init_foreign_key_def(TcDb__TseDDLCreateTableDef *req, const dd::Table *table_def,
                                         char **mem_start, char *mem_end) {
   req->fk_list = (TcDb__TseDDLForeignKeyDef **)tse_ddl_alloc_mem(
@@ -1533,7 +1589,7 @@ static int tse_ddl_init_foreign_key_def(TcDb__TseDDLCreateTableDef *req, const d
   return 0;
 }
 
-static int tse_ddl_init_index_def(TcDb__TseDDLCreateTableDef *req, const dd::Table *table_def,
+static int tse_ddl_init_index_def(TcDb__TseDDLCreateTableDef *req,
                                   char **mem_start, char *mem_end) {
   req->key_list = (TcDb__TseDDLTableKey **)tse_ddl_alloc_mem(
       mem_start, mem_end, sizeof(TcDb__TseDDLTableKey*) * req->n_key_list);
@@ -1548,8 +1604,8 @@ static int tse_ddl_init_index_def(TcDb__TseDDLCreateTableDef *req, const dd::Tab
     }
     TcDb__TseDDLTableKey *req_key = req->key_list[i];
     tc_db__tse_ddltable_key__init(req_key);
-    const dd::Index *idx = table_def->indexes().at(i);
-    assert(idx != NULL);
+    //const dd::Index *idx = table_def->indexes().at(i);
+    //assert(idx != NULL);
     req_key->n_columns = idx->elements().size();
     req_key->columns = (TcDb__TseDDLTableKeyPart **)tse_ddl_alloc_mem(
         mem_start, mem_end, sizeof(TcDb__TseDDLTableKeyPart*) * req_key->n_columns);
@@ -1570,6 +1626,7 @@ static int tse_ddl_init_index_def(TcDb__TseDDLCreateTableDef *req, const dd::Tab
   }
   return 0;
 }
+#endif
 
 static int tse_ddl_init_index_form(TcDb__TseDDLCreateTableDef *req, TABLE *form,
                                   char **mem_start, char *mem_end) {
@@ -1585,7 +1642,7 @@ static int tse_ddl_init_index_form(TcDb__TseDDLCreateTableDef *req, TABLE *form,
     for (uint i = 0; i < req->n_key_list; i++) {
       const KEY *key = form->key_info + i;
       if (key->key_length == 0) {
-        my_error(ER_WRONG_KEY_COLUMN, MYF(0), key->key_part->field->field_name);
+        my_error(ER_WRONG_KEY_COLUMN, MYF(0), key->key_part->field->field_name.str);
         return ER_WRONG_KEY_COLUMN;
       }
       req->key_list[i] = (TcDb__TseDDLTableKey *)tse_ddl_alloc_mem(
@@ -1620,14 +1677,14 @@ static int tse_ddl_init_index_form(TcDb__TseDDLCreateTableDef *req, TABLE *form,
 
 static int tse_ddl_init_create_table_def(TcDb__TseDDLCreateTableDef *req,
                                  TABLE *form, THD *thd,
-                                 const dd::Table *table_def, char **mem_start,
+                                 char **mem_start,
                                  char *mem_end) {
   uint fields = form->s->fields;
   tc_db__tse_ddlcreate_table_def__init(req);
   DBUG_EXECUTE_IF("tse_create_table_max_column", { fields = REC_MAX_N_USER_FIELDS + 1; });
   if (fields > REC_MAX_N_USER_FIELDS) {
     tse_log_system("Max filed %d > %d, sql:%s", fields, REC_MAX_N_USER_FIELDS,
-              thd->query().str);
+              thd->query());
     return HA_ERR_TOO_MANY_FIELDS;
   }
   req->n_columns = fields;
@@ -1635,10 +1692,11 @@ static int tse_ddl_init_create_table_def(TcDb__TseDDLCreateTableDef *req,
     TSE_RETURN_IF_NOT_ZERO(tse_ddl_init_column_def(req, mem_start, mem_end));
   }
 
-  if (table_def == nullptr) {
-    return tse_ddl_init_index_form(req, form, mem_start, mem_end);
-  }
+//  if (table_def == nullptr) {
+    TSE_RETURN_IF_NOT_ZERO(tse_ddl_init_index_form(req, form, mem_start, mem_end));
+//  }
 
+#if 0
   req->n_key_list = table_def->indexes().size();
   if (req->n_key_list > 0) {
     TSE_RETURN_IF_NOT_ZERO(tse_ddl_init_index_def(req, table_def, mem_start, mem_end));
@@ -1662,6 +1720,7 @@ static int tse_ddl_init_create_table_def(TcDb__TseDDLCreateTableDef *req,
       return ret;
     }
   }
+#endif
   return 0;
 }
 
@@ -1684,7 +1743,7 @@ int ha_tse_truncate_table(tianchi_handler_t *tch, THD *thd, const char *db_name,
     if (is_tmp_table) { // truncate临时表不需要广播
       req.sql_str = nullptr;
     } else {
-      sql = string(thd->query().str).substr(0, thd->query().length);
+      sql = string(thd->query()).substr(0, thd->query_length());
       req.sql_str = const_cast<char *>(sql.c_str());
     }
     if (thd->variables.option_bits & OPTION_NO_FOREIGN_KEY_CHECKS) {
@@ -1737,13 +1796,13 @@ static int fill_create_table_req_base_info(HA_CREATE_INFO *create_info, char *db
   }
 
   if (is_alter_copy) {
-    req->alter_table_name = const_cast<char *>(thd->lex->query_tables->table_name);
+    req->alter_table_name = const_cast<char *>(thd->lex->query_tables->table_name.str);
   } else {
     req->alter_table_name = table_name;
   }
 
   req->auto_increment_value = create_info->auto_increment_value;
-  if (create_info->options & HA_LEX_CREATE_IF_NOT_EXISTS) {
+  if (down_cast<Table_specification_st*>(create_info)->if_not_exists()) {
     req->options |= TSE_CREATE_IF_NOT_EXISTS;
   }
 
@@ -1752,11 +1811,13 @@ static int fill_create_table_req_base_info(HA_CREATE_INFO *create_info, char *db
   }
 
   req->db_name = TSE_GET_THD_DB_NAME(thd);
+#if 0
   req->is_create_as_select = !thd->lex->query_block->field_list_is_empty();
+#endif
   return 0;
 }
 
-static int fill_create_table_req_columns_info(HA_CREATE_INFO *create_info, dd::Table *table_def, TABLE *form,
+static int fill_create_table_req_columns_info(HA_CREATE_INFO *create_info, TABLE *form,
            THD *thd, ddl_ctrl_t *ddl_ctrl, TcDb__TseDDLCreateTableDef *req, char **mem_start, char *mem_end) {
   uint32_t tse_col_idx = 0;
   uint32_t mysql_col_idx = 0;
@@ -1774,10 +1835,10 @@ static int fill_create_table_req_columns_info(HA_CREATE_INFO *create_info, dd::T
     }
 
     TcDb__TseDDLColumnDef *column = req->columns[tse_col_idx];
-    const Create_field *fld_charset = tse_get_create_field_by_column_name(thd, field->field_name);
-    const CHARSET_INFO *field_cs = fld_charset != nullptr ? get_sql_field_charset(fld_charset, create_info) : nullptr;
+    const Create_field *fld_charset = tse_get_create_field_by_column_name(thd, field->field_name.str);
+    const CHARSET_INFO *field_cs = fld_charset->charset != nullptr ? fld_charset->charset : create_info->default_table_charset;
     TSE_RETURN_IF_ERROR(
-        tse_ddl_fill_column_by_field(thd, column, field, table_def, form, NULL, TSE_ALTER_COLUMN_ALTER_ADD_COLUMN,
+        tse_ddl_fill_column_by_field(thd, column, field, form, NULL, TSE_ALTER_COLUMN_ALTER_ADD_COLUMN,
                                      mem_start, mem_end, field_cs), HA_ERR_WRONG_COMMAND);
     tse_col_idx++;
     mysql_col_idx++;
@@ -1792,13 +1853,13 @@ static int fill_create_table_req_columns_info(HA_CREATE_INFO *create_info, dd::T
   return 0;
 }
 
-int fill_create_table_req(HA_CREATE_INFO *create_info, dd::Table *table_def, char *db_name, char *table_name,
+int fill_create_table_req(HA_CREATE_INFO *create_info, char *db_name, char *table_name,
                           TABLE *form, THD *thd, ddl_ctrl_t *ddl_ctrl, tse_ddl_stack_mem *stack_mem) {
   lock_guard<mutex> lock(m_tse_ddl_protobuf_mem_mutex);
   char *req_mem_start = tse_ddl_req_mem;
   char *req_mem_end = req_mem_start + TSE_DDL_PROTOBUF_MEM_SIZE;
   TcDb__TseDDLCreateTableDef req;
-  int ret = tse_ddl_init_create_table_def(&req, form, thd, table_def, &req_mem_start, req_mem_end);
+  int ret = tse_ddl_init_create_table_def(&req, form, thd, &req_mem_start, req_mem_end);
   assert(req_mem_start <= req_mem_end);
   if (ret != 0) {
     return ret;
@@ -1808,7 +1869,7 @@ int fill_create_table_req(HA_CREATE_INFO *create_info, dd::Table *table_def, cha
   if (create_info->options & HA_LEX_CREATE_TMP_TABLE) { // 创建临时表不需要广播
     req.sql_str = nullptr;
   } else {
-    sql = string(thd->query().str).substr(0, thd->query().length);
+    sql = string(thd->query()).substr(0, thd->query_length());
     req.sql_str = const_cast<char *>(sql.c_str());
   }
   ret = fill_create_table_req_base_info(create_info, db_name, table_name, thd, &req,
@@ -1819,13 +1880,15 @@ int fill_create_table_req(HA_CREATE_INFO *create_info, dd::Table *table_def, cha
   
   assert(form->s->row_type == create_info->row_type);
 
-  ret = fill_create_table_req_columns_info(create_info, table_def, form, thd, ddl_ctrl, &req, &req_mem_start, req_mem_end);
+  ret = fill_create_table_req_columns_info(create_info, form, thd, ddl_ctrl, &req, &req_mem_start, req_mem_end);
   if (ret != 0) {
     return ret;
   }
 
-  TSE_RETURN_IF_NOT_ZERO(tse_ddl_create_table_fill_foreign_key_info(&req, table_def, &req_mem_start, req_mem_end));
-  TSE_RETURN_IF_ERROR(tse_ddl_create_table_fill_add_key(&req, thd, table_def, form, req.schema), HA_ERR_WRONG_COMMAND);
+#if 0
+  TSE_RETURN_IF_NOT_ZERO(tse_ddl_create_table_fill_foreign_key_info(&req, &req_mem_start, req_mem_end));
+#endif
+  TSE_RETURN_IF_ERROR(tse_ddl_create_table_fill_add_key(&req, thd, form, req.schema), HA_ERR_WRONG_COMMAND);
 
   size_t msg_len = tc_db__tse_ddlcreate_table_def__get_packed_size(&req);
   stack_mem->set_mem_size(msg_len + sizeof(ddl_ctrl_t));
@@ -1844,6 +1907,7 @@ int fill_create_table_req(HA_CREATE_INFO *create_info, dd::Table *table_def, cha
 }
 
 
+#if 0
 static int tse_ddl_fill_add_part_table_info(TcDb__TseDDLPartitionTableDef *add_part, partition_element &part,
   char **mem_start, char *mem_end)
 {
@@ -1879,7 +1943,9 @@ static int tse_ddl_fill_add_part_table_info(TcDb__TseDDLPartitionTableDef *add_p
   }
   return 0;
 }
+#endif
 
+#if 0
 static int tse_prepare_alter_partition_init_part_list(TcDb__TseDDLAlterTableDef *req, Alter_inplace_info *alter_info,
                                                       char **mem_start, char *mem_end) {
   List<partition_element> part_list = alter_info->modified_part_info->partitions;
@@ -1898,10 +1964,12 @@ static int tse_prepare_alter_partition_init_part_list(TcDb__TseDDLAlterTableDef 
   }
   return 0;
 }
+#endif
 
 static int tse_ddl_prepare_alter_partition_info(TcDb__TseDDLAlterTableDef *req,
                                                 Alter_inplace_info *alter_info, char **mem_start, char *mem_end)
 {
+#if 0
   req->n_drop_partition_names = 0;
   req->n_add_part_list = 0;
   req->hash_coalesce_count = 0;
@@ -1946,6 +2014,7 @@ static int tse_ddl_prepare_alter_partition_info(TcDb__TseDDLAlterTableDef *req,
         return 1;
     }
   }
+#endif
   return 0;
 }
 
@@ -2067,6 +2136,7 @@ static int init_drop_key_list_4alter_table(TcDb__TseDDLAlterTableDef *req, char 
 
 static int init_foreign_key_list_4alter_table(TcDb__TseDDLAlterTableDef *req, Alter_inplace_info *ha_alter_info,
                                               char **mem_start, char *mem_end) {
+#if 0
   req->add_foreign_key_list = (TcDb__TseDDLForeignKeyDef **)tse_ddl_alloc_mem(
        mem_start, mem_end, sizeof(TcDb__TseDDLForeignKeyDef*) * ha_alter_info->alter_info->key_list.size());
   if (req->add_foreign_key_list == NULL) {
@@ -2102,6 +2172,7 @@ static int init_foreign_key_list_4alter_table(TcDb__TseDDLAlterTableDef *req, Al
     TSE_RETURN_IF_NOT_ZERO(tse_ddl_alter_table_fill_foreign_key_info(fk_def, fk, mem_start, mem_end));
     req->n_add_foreign_key_list++;
   }
+#endif
   return 0;
 }
 
@@ -2125,26 +2196,26 @@ static int init_alter_index_list_4alter_table(TcDb__TseDDLAlterTableDef *req, ch
 static int init_tse_ddl_alter_table_def(TcDb__TseDDLAlterTableDef *req, Alter_inplace_info *ha_alter_info, 
   THD *thd, TABLE *altered_table, char **mem_start, char *mem_end, size_t *rename_cols) {
   tc_db__tse_ddlalter_table_def__init(req);
-  uint32_t create_fields = (uint32_t)ha_alter_info->alter_info->create_list.size();
+  uint32_t create_fields = (uint32_t)ha_alter_info->alter_info->create_list.elements;
   DBUG_EXECUTE_IF("tse_alter_table_max_column", { create_fields = REC_MAX_N_USER_FIELDS + 1; });
   if (create_fields > REC_MAX_N_USER_FIELDS) {
     tse_log_system("Max filed %d > %u, sql:%s", (uint32_t)create_fields,
-              REC_MAX_N_USER_FIELDS, thd->query().str);
+              REC_MAX_N_USER_FIELDS, thd->query());
     my_error(ER_TOO_MANY_FIELDS, MYF(0));
     return HA_ERR_TOO_MANY_FIELDS;
   }
-  req->n_drop_list = (uint32_t)ha_alter_info->alter_info->drop_list.size();   
-  for (size_t i = 0; i < ha_alter_info->alter_info->alter_list.size(); i++) {
-    const Alter_column *alter_column = ha_alter_info->alter_info->alter_list.at((size_t)i);
-    if (alter_column->change_type() == Alter_column::Type::RENAME_COLUMN) {
+  req->n_drop_list = (uint32_t)ha_alter_info->alter_info->drop_list.elements;   
+  for (size_t i = 0; i < ha_alter_info->alter_info->alter_list.elements; i++) {
+    Alter_column *alter_column = ha_alter_info->alter_info->alter_list.elem((size_t)i);
+    if (alter_column->is_rename()) {
       (*rename_cols)++;
     }
   }
-  req->n_alter_list = (uint32_t)ha_alter_info->alter_info->alter_list.size() + *rename_cols;
+  req->n_alter_list = (uint32_t)ha_alter_info->alter_info->alter_list.elements + *rename_cols;
   req->n_create_list = create_fields;
   req->n_add_key_list = ha_alter_info->index_add_count;
   req->n_drop_key_list = ha_alter_info->index_drop_count;
-  req->n_alter_index_list = ha_alter_info->index_rename_count;
+  req->n_alter_index_list = ha_alter_info->rename_keys.size();
 
   // 分区表
   if (ha_alter_info->modified_part_info != NULL) {
@@ -2172,7 +2243,7 @@ static int init_tse_ddl_alter_table_def(TcDb__TseDDLAlterTableDef *req, Alter_in
   tc_db__tse_ddlalter_table_porp__init(req->table_def);
 
   // 添加索引
-  if ((ha_alter_info->handler_flags & Alter_inplace_info::ADD_STORED_BASE_COLUMN) && 
+  if ((ha_alter_info->handler_flags & ALTER_ADD_STORED_BASE_COLUMN) && 
        thd->lex->sql_command == SQLCOM_ALTER_TABLE) {
     req->n_add_key_list = 0;
   }
@@ -2186,13 +2257,13 @@ static int init_tse_ddl_alter_table_def(TcDb__TseDDLAlterTableDef *req, Alter_in
   }
 
   // 增加外键
-  if (ha_alter_info->handler_flags & Alter_inplace_info::ADD_FOREIGN_KEY) {
+  if (ha_alter_info->handler_flags & ALTER_ADD_FOREIGN_KEY) {
     TSE_RETURN_IF_NOT_ZERO(init_foreign_key_list_4alter_table(req, ha_alter_info, mem_start, mem_end));
   }
 
   // 自增
   if ((altered_table->found_next_number_field != nullptr)
-    && (ha_alter_info->handler_flags & Alter_inplace_info::CHANGE_CREATE_OPTION)
+    && (ha_alter_info->handler_flags & ALTER_CHANGE_CREATE_OPTION)
     && (ha_alter_info->create_info->used_fields & HA_CREATE_USED_AUTO)) {
     req->new_auto_increment_value = ha_alter_info->create_info->auto_increment_value;
   }
@@ -2230,14 +2301,14 @@ static uint32_t tse_fill_key_part(THD *thd,
                                   const Create_field *create_field,
                                   TABLE *form,
                                   const KEY_PART_INFO *key_part) {
-  Field *field = tse_get_field_by_name(form, create_field->field_name);
+  Field *field = tse_get_field_by_name(form, create_field->field_name.str);
   assert(field != nullptr);
   bool is_prefix_key = false;
 
-  if (field->is_field_for_functional_index()) {
-    req_key_def->is_func = true;
-    TSE_RETURN_IF_ERROR(tse_fill_func_key_part(form, thd, req_key_part, create_field->gcol_info) == CT_SUCCESS, CT_ERROR);
-  } else {
+  //if (field->is_field_for_functional_index()) {
+  //  req_key_def->is_func = true;
+  //  TSE_RETURN_IF_ERROR(tse_fill_func_key_part(form, thd, req_key_part, create_field->vcol_info) == CT_SUCCESS, CT_ERROR);
+  //} else {
     if (field->is_virtual_gcol()) {
       my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
         "Cantian does not support index on virtual generated column.");
@@ -2252,15 +2323,15 @@ static uint32_t tse_fill_key_part(THD *thd,
       req_key_part->is_func = false;
       req_key_part->func_text = nullptr;
     }
-    req_key_part->name = const_cast<char *>(create_field->field_name);
-  }
+    req_key_part->name = const_cast<char *>(create_field->field_name.str);
+  //}
 
-  tse_ddl_get_data_type_from_mysql_type(field, create_field->sql_type, &req_key_part->datatype);
+  tse_ddl_get_data_type_from_mysql_type(field, create_field->real_field_type(), &req_key_part->datatype);
   tse_set_unsigned_column(field, &req_key_part->is_unsigned);
-  if (is_prefix_key && field->is_flag_set(BLOB_FLAG)) {
+  if (is_prefix_key && field_has_flag(field, BLOB_FLAG)) {
     req_key_part->datatype = TSE_DDL_TYPE_VARCHAR;
   }
-  req_key_part->length = (uint32_t)create_field->key_length();
+  req_key_part->length = (uint32_t)field->pack_length();//create_field->key_length();
   
   return CT_SUCCESS;
 }
@@ -2273,9 +2344,9 @@ bool tse_ddl_fill_add_key(THD *thd, TABLE *form, TcDb__TseDDLAlterTableDef *req,
     const KEY *key = &ha_alter_info->key_info_buffer[ha_alter_info->index_add_buffer[i]];
     assert(key != nullptr);
     req_key_def->user = user;
-    req_key_def->table = const_cast<char *>(thd->lex->query_tables->table_name);
-    TSE_RETURN_IF_NOT_ZERO(check_tse_identifier_name(key->name));
-    req_key_def->name = const_cast<char *>(key->name);
+    req_key_def->table = const_cast<char *>(thd->lex->query_tables->table_name.str);
+    TSE_RETURN_IF_NOT_ZERO(check_tse_identifier_name(key->name.str));
+    req_key_def->name = const_cast<char *>(key->name.str);
     req_key_def->space = NULL;
     TSE_RETURN_IF_ERROR(get_tse_key_type(key, &req_key_def->key_type), false);
     if (req_key_def->key_type == TSE_KEYTYPE_PRIMARY || req_key_def->key_type == TSE_KEYTYPE_UNIQUE) {
@@ -2296,41 +2367,45 @@ bool tse_ddl_fill_add_key(THD *thd, TABLE *form, TcDb__TseDDLAlterTableDef *req,
   return true;
 }
 
-static int tse_ddl_fill_drop_key(Alter_inplace_info *ha_alter_info, const dd::Table *old_table_def,
+static int tse_ddl_fill_drop_key(Alter_inplace_info *ha_alter_info,
   TcDb__TseDDLAlterTableDef *req)
 {
+#if 0
   for (uint tse_drop_key_idx = 0; tse_drop_key_idx < req->n_drop_key_list; tse_drop_key_idx++) {
     TcDb__TseDDLAlterTableDropKey *req_drop = req->drop_key_list[tse_drop_key_idx];
     const KEY *key = ha_alter_info->index_drop_buffer[tse_drop_key_idx];
-    req_drop->name = const_cast<char *>(key->name);
+    req_drop->name = const_cast<char *>(key->name.str);
     req_drop->drop_type = TSE_ALTER_TABLE_DROP_KEY;
 
-    const dd::Index *idx = tse_ddl_get_index_by_name(old_table_def, req_drop->name);
-    assert(idx != nullptr);
+    //const dd::Index *idx = tse_ddl_get_index_by_name(req_drop->name);
+//    assert(idx != nullptr);
     TSE_RETURN_IF_ERROR(tse_ddl_get_create_key_type(idx->type(), &req_drop->key_type), CT_ERROR);
   }
+#endif
   
   return CT_SUCCESS;
 }
 
-static int fill_tse_alter_drop_list(Alter_inplace_info *ha_alter_info, const dd::Table *old_table_def,
+static int fill_tse_alter_drop_list(Alter_inplace_info *ha_alter_info,
   TcDb__TseDDLAlterTableDef *req)
 {
   uint32_t tse_drop_idx = 0;
   uint32_t mysql_drop_idx = 0;
   while (tse_drop_idx < req->n_drop_list) {
     TcDb__TseDDLAlterTableDrop *req_drop = req->drop_list[tse_drop_idx];
-    const Alter_drop *drop = ha_alter_info->alter_info->drop_list.at((size_t)mysql_drop_idx);
+    const Alter_drop *drop = ha_alter_info->alter_info->drop_list.elem((size_t)mysql_drop_idx);
     req_drop->name = const_cast<char *>(drop->name);
     req_drop->drop_type = tse_ddl_get_drop_type_from_mysql_type(drop->type);
     if (req_drop->drop_type == TSE_ALTER_TABLE_DROP_COLUMN) {
-      const dd::Column *col = tse_ddl_get_column_by_name(old_table_def, drop->name);
+#if 0
+      const Field*col = tse_ddl_get_column_by_name(drop->name);
       assert(col != nullptr);
-      if (col->is_virtual()) {
+      if (col->is_virtual_gcol()) {
         req->n_drop_list--;
         mysql_drop_idx++;
         continue;
       }
+#endif
     } else if (req_drop->drop_type == TSE_ALTER_TABLE_DROP_FOREIGN_KEY) {
       req_drop->key_type = TSE_KEYTYPE_FOREIGN;
     } else if (req_drop->drop_type == TSE_ALTER_TABLE_DROP_KEY) {
@@ -2346,8 +2421,9 @@ static int fill_tse_alter_drop_list(Alter_inplace_info *ha_alter_info, const dd:
   return CT_SUCCESS;
 }
 
+#if 0
 static int fill_tse_alter_create_list(THD *thd, TABLE *altered_table, Alter_inplace_info *ha_alter_info,
-  dd::Table *new_table_def, TcDb__TseDDLAlterTableDef *req, ddl_ctrl_t *ddl_ctrl, char **mem_start, char *mem_end)
+  TcDb__TseDDLAlterTableDef *req, ddl_ctrl_t *ddl_ctrl, char **mem_start, char *mem_end)
 {
   uint32_t tse_col_idx = 0;
   uint32_t mysql_col_idx = 0;
@@ -2356,9 +2432,9 @@ static int fill_tse_alter_create_list(THD *thd, TABLE *altered_table, Alter_inpl
     const Create_field *fld = ha_alter_info->alter_info->create_list[mysql_col_idx];
 
     /* Generate Columns Not Processed */
-    if (fld->is_gcol()) {
+    if (fld->field->is_gcol()) {
       ddl_ctrl->table_flags |= TSE_TABLE_CONTAINS_VIRCOL;
-      if (fld->is_virtual_gcol()) {
+      if (fld->field->is_virtual_gcol()) {
         req->n_create_list--;
         mysql_col_idx++;
         continue;
@@ -2373,12 +2449,12 @@ static int fill_tse_alter_create_list(THD *thd, TABLE *altered_table, Alter_inpl
     if (fld->field == NULL) {
       alter_mode = TSE_ALTER_COLUMN_ALTER_ADD_COLUMN;
     }
-    if (fld->change != NULL) {
+    if (fld->change.str != NULL) {
       alter_mode = TSE_ALTER_COLUMN_ALTER_MODIFY_COLUMN;
     }
     const CHARSET_INFO *field_cs = get_sql_field_charset(fld, ha_alter_info->create_info);
     TSE_RETURN_IF_ERROR(tse_ddl_fill_column_by_field(thd, req_create_column, altered_table->s->field[mysql_col_idx],
-                        ((const dd::Table *)new_table_def), altered_table, fld, alter_mode, mem_start, mem_end, field_cs), 
+						altered_table, fld, alter_mode, mem_start, mem_end, field_cs), 
                         CT_ERROR);
     tse_col_idx++;
     mysql_col_idx++;
@@ -2392,8 +2468,10 @@ static int fill_tse_alter_create_list(THD *thd, TABLE *altered_table, Alter_inpl
 
   return CT_SUCCESS;
 }
+#endif
 
 static void fill_sys_cur_timestamp(THD *thd, TcDb__TseDDLAlterTableDef *req) {
+#if 0
   date_detail_t date_detail;
   MYSQL_TIME ltime;
 #ifdef FEATURE_X_FOR_MYSQL_32
@@ -2401,56 +2479,58 @@ static void fill_sys_cur_timestamp(THD *thd, TcDb__TseDDLAlterTableDef *req) {
 #elif defined(FEATURE_X_FOR_MYSQL_26)
   timeval tm = thd->query_start_timeval_trunc(0);
 #endif
-  my_tz_UTC->gmt_sec_to_TIME(&ltime, tm);
+  my_tz_UTC->gmt_sec_to_TIME(&ltime, tm.tv_sec);
   assign_mysql_date_detail(MYSQL_TYPE_TIMESTAMP, ltime, &date_detail);
   cm_encode_date(&date_detail, &req->systimestamp);
 
   MYSQL_TIME ltime2;
-  thd->time_zone()->gmt_sec_to_TIME(&ltime2, tm);
+  thd->variables.time_zone->gmt_sec_to_TIME(&ltime2, tm.tv_sec);
   longlong seconds_diff;
   long microsec_diff;
   bool negative = calc_time_diff(ltime2, ltime, 1, &seconds_diff, &microsec_diff);
   req->tz_offset_utc = negative ? -(seconds_diff / 60) : seconds_diff / 60;
   return;
+#endif
 }
 
-static void fill_alter_list_4alter_table(dd::Table *new_table_def, Alter_inplace_info *ha_alter_info,
+
+#if 0
+static void fill_alter_list_4alter_table(Alter_inplace_info *ha_alter_info,
             TcDb__TseDDLAlterTableDef *req, size_t rename_cols, uint32_t thd_id, char **req_mem_start, char *req_mem_end) {
   TcDb__TseDDLAlterTableAlterColumn *req_alter = NULL;
   uint32_t copy_rm_num = 0;
   for (uint32_t i = 0; i < req->n_alter_list - rename_cols; i++) {
     req_alter = req->alter_list[i];
     
-    const Alter_column *alter_column = ha_alter_info->alter_info->alter_list.at((size_t)i);
-    if (alter_column->change_type() == Alter_column::Type::SET_DEFAULT ||
-        alter_column->change_type() == Alter_column::Type::DROP_DEFAULT ||
-        alter_column->change_type() == Alter_column::Type::SET_COLUMN_VISIBLE ||
-        alter_column->change_type() == Alter_column::Type::SET_COLUMN_INVISIBLE ||
-        alter_column->change_type() == Alter_column::Type::RENAME_COLUMN) {
-      req_alter->name = const_cast<char *>(alter_column->name);
-      req_alter->new_name = const_cast<char *>(alter_column->m_new_name);
-      req_alter->type = tse_ddl_get_alter_column_type_from_mysql_type(alter_column->change_type());
-      if (alter_column->change_type() == Alter_column::Type::RENAME_COLUMN) {
+    Alter_column *alter_column = ha_alter_info->alter_info->alter_list.elem(i);
+
+    {
+      req_alter->name = const_cast<char *>(alter_column->name.str);
+      req_alter->new_name = const_cast<char *>(alter_column->new_name.str);
+      req_alter->type = tse_ddl_get_alter_column_type_from_mysql_type(alter_column);
+
+      if (alter_column->is_rename()) {
         uint32_t copy_rm_index = req->n_alter_list - rename_cols + copy_rm_num;
         req_alter->new_name = (char *)tse_ddl_alloc_mem(req_mem_start, req_mem_end, TSE_MAX_COLUMN_LEN);
         sprintf(req_alter->new_name, "TMPCOLUMN4CANTIAN_%d_%d", copy_rm_index, thd_id);
         // for rename swap columns:
         // column a to b, b to c, c to x... or a to b, b to a
-        req->alter_list[copy_rm_index]->name = req_alter->new_name;
-        req->alter_list[copy_rm_index]->new_name = const_cast<char *>(alter_column->m_new_name);
+        req->alter_list[copy_rm_index]->name = const_cast<char *>(req_alter->new_name);
+        req->alter_list[copy_rm_index]->new_name = const_cast<char *>(alter_column->new_name.str);
         req->alter_list[copy_rm_index]->type = req_alter->type;
         copy_rm_num++;
         continue;
       }
-      const dd::Column *new_col = new_table_def->get_column(alter_column->name);
+      //const dd::Column *new_col = new_table_def->get_column(alter_column->name);
       req_alter->has_no_default = new_col->has_no_default() ? true : false;
       req_alter->is_default_null = new_col->is_default_value_null() ? true : false;
     }
-  }
+  }	
 }
+#endif
 
-int fill_alter_table_req(TABLE *altered_table, Alter_inplace_info *ha_alter_info, const dd::Table *old_table_def,
-    dd::Table *new_table_def, THD *thd, ddl_ctrl_t *ddl_ctrl, tse_ddl_stack_mem *stack_mem) {
+int fill_alter_table_req(TABLE *altered_table, Alter_inplace_info *ha_alter_info,
+    THD *thd, ddl_ctrl_t *ddl_ctrl, tse_ddl_stack_mem *stack_mem) {
   lock_guard<mutex> lock(m_tse_ddl_protobuf_mem_mutex);
   TcDb__TseDDLAlterTableDef req;
 
@@ -2469,22 +2549,23 @@ int fill_alter_table_req(TABLE *altered_table, Alter_inplace_info *ha_alter_info
     tse_copy_name(user_name_str, altered_table->s->db.str, SMALL_RECORD_SIZE);
   }
   req.user = user_name_str;
-  req.name = const_cast<char *>(thd->lex->query_tables->table_name);
+  req.name = const_cast<char *>(thd->lex->query_tables->table_name.str);
   fill_sys_cur_timestamp(thd, &req);
-  TSE_RETURN_IF_ERROR((fill_tse_alter_drop_list(ha_alter_info, old_table_def, &req) == CT_SUCCESS), CT_ERROR);
+  TSE_RETURN_IF_ERROR((fill_tse_alter_drop_list(ha_alter_info, &req) == CT_SUCCESS), CT_ERROR);
   if (thd->variables.option_bits & OPTION_NO_FOREIGN_KEY_CHECKS) {
       req.options |= TSE_CREATE_TYPE_NO_CHECK_CONS;
   }
   // 删除索引相关逻辑填充
   if (ha_alter_info->index_drop_count) {
     assert(ha_alter_info->handler_flags &
-          (Alter_inplace_info::DROP_INDEX |
-           Alter_inplace_info::DROP_UNIQUE_INDEX |
-           Alter_inplace_info::DROP_PK_INDEX));
+          (ALTER_DROP_NON_UNIQUE_NON_PRIM_INDEX |
+           ALTER_DROP_UNIQUE_INDEX |
+           ALTER_DROP_PK_INDEX));
 
-    TSE_RETURN_IF_ERROR((tse_ddl_fill_drop_key(ha_alter_info, old_table_def, &req) == CT_SUCCESS), CT_ERROR);
+    TSE_RETURN_IF_ERROR((tse_ddl_fill_drop_key(ha_alter_info, &req) == CT_SUCCESS), CT_ERROR);
   }
   
+#if 0
   if (req.n_alter_list > 0) {
     fill_alter_list_4alter_table(new_table_def, ha_alter_info, &req,
                                  rename_cols, ddl_ctrl->tch.thd_id, &req_mem_start, req_mem_end);
@@ -2492,23 +2573,26 @@ int fill_alter_table_req(TABLE *altered_table, Alter_inplace_info *ha_alter_info
 
   TSE_RETURN_IF_ERROR((fill_tse_alter_create_list(thd, altered_table, ha_alter_info,
                        new_table_def, &req, ddl_ctrl, &req_mem_start, req_mem_end) == CT_SUCCESS), CT_ERROR);
+#endif
 
   // 创建索引相关逻辑填充
   TSE_RETURN_IF_ERROR(tse_ddl_fill_add_key(thd, altered_table, &req, ha_alter_info, req.user), true);
   assert(req_mem_start <= req_mem_end);
 
+#if 0
   // rename索引
   for (uint32_t i = 0; i < req.n_alter_index_list; ++i) {
       TcDb__TseDDLAlterIndexDef *req_alter_index_def = req.alter_index_list[i];
 
       req_alter_index_def->user = user_name_str;
-      req_alter_index_def->table = const_cast<char *>(thd->lex->query_tables->table_name);
+      req_alter_index_def->table = const_cast<char *>(thd->lex->query_tables->table_name.str);
       req_alter_index_def->name = const_cast<char *>(ha_alter_info->index_rename_buffer[i].old_key->name);
       req_alter_index_def->new_name = const_cast<char *>(ha_alter_info->index_rename_buffer[i].new_key->name);
       TSE_RETURN_IF_ERROR(get_tse_key_type(ha_alter_info->index_rename_buffer[i].old_key, &req_alter_index_def->key_type), true);
   }
+#endif
   req.db_name = TSE_GET_THD_DB_NAME(thd);
-  string sql = string(thd->query().str).substr(0, thd->query().length);
+  string sql = string(thd->query()).substr(0, thd->query_length());
   req.sql_str = const_cast<char *>(sql.c_str());
 
   size_t msg_len = tc_db__tse_ddlalter_table_def__get_packed_size(&req);
@@ -2527,6 +2611,7 @@ int fill_alter_table_req(TABLE *altered_table, Alter_inplace_info *ha_alter_info
   return 0;
 }
 
+#if 0
 static void tse_fill_rename_constraints(TcDb__TseDDLRenameTableDef *req, const char *old_cons_name,
   const char *new_cons_name, char **mem_start, char *mem_end) {
   req->old_constraints_name[req->n_old_constraints_name] = (char *)tse_ddl_alloc_mem(mem_start, mem_end,
@@ -2538,9 +2623,11 @@ static void tse_fill_rename_constraints(TcDb__TseDDLRenameTableDef *req, const c
   strcpy(req->old_constraints_name[req->n_old_constraints_name], old_cons_name);
   strcpy(req->new_constraints_name[req->n_new_constraints_name], new_cons_name);
 }
+#endif
 
+#if 0
 static int init_tse_ddl_rename_constraints_def(THD *thd, TcDb__TseDDLRenameTableDef *req,
-  const dd::Table *from_table_def, dd::Table *to_table_def, char **mem_start, char *mem_end) {
+  char **mem_start, char *mem_end) {
   size_t constraint_size = from_table_def->foreign_keys().size();
   handlerton *tse_handlerton = get_tse_hton();
   size_t generated_cons = 0;  // The number of default constraints
@@ -2550,9 +2637,9 @@ static int init_tse_ddl_rename_constraints_def(THD *thd, TcDb__TseDDLRenameTable
     return 0;
   }
 
-  const char *from_tbl_name = is_alter_copy ? thd->lex->query_tables->table_name :
+  const char *from_tbl_name = is_alter_copy ? thd->lex->query_tables->table_name.str :
                               from_table_def->name().c_str();
-  size_t tbl_name_length = is_alter_copy ? strlen(thd->lex->query_tables->table_name) :
+  size_t tbl_name_length = is_alter_copy ? strlen(thd->lex->query_tables->table_name.str) :
                             from_table_def->name().length();
   bool is_rename_table = ((thd->lex->sql_command == SQLCOM_RENAME_TABLE) ||                     // sql_command
                           (from_table_def->tablespace_id() != to_table_def->tablespace_id()) || // copy rename cross db
@@ -2585,9 +2672,11 @@ static int init_tse_ddl_rename_constraints_def(THD *thd, TcDb__TseDDLRenameTable
 
   return 0;
 }
+#endif
 
-int fill_rename_table_req(const char *from, const char *to, const dd::Table *from_table_def,
-  dd::Table *to_table_def, THD *thd, ddl_ctrl_t *ddl_ctrl, tse_ddl_stack_mem *stack_mem) {
+int fill_rename_table_req(const char *from, const char *to, 
+  THD *thd, ddl_ctrl_t *ddl_ctrl, tse_ddl_stack_mem *stack_mem) {
+#if 0
   char old_db[SMALL_RECORD_SIZE] = { 0 };
   char new_db[SMALL_RECORD_SIZE] = { 0 };
   char user_name[SMALL_RECORD_SIZE] = { 0 };
@@ -2596,7 +2685,7 @@ int fill_rename_table_req(const char *from, const char *to, const dd::Table *fro
   tse_split_normalized_name(to, new_db, SMALL_RECORD_SIZE, nullptr, 0, nullptr);
   tse_copy_name(user_name, old_db, SMALL_RECORD_SIZE);
   tse_copy_name(new_user_name, new_db, SMALL_RECORD_SIZE);
-  
+
   char *req_mem_start = tse_ddl_req_mem;
   char *req_mem_end = req_mem_start + TSE_DDL_PROTOBUF_MEM_SIZE;
   TcDb__TseDDLRenameTableDef req;
@@ -2615,7 +2704,7 @@ int fill_rename_table_req(const char *from, const char *to, const dd::Table *fro
   req.new_table_name = const_cast<char *>(to_table_def->name().c_str());
   req.current_db_name = const_cast<char *>(TSE_GET_THD_DB_NAME(thd));
 
-  string sql = string(thd->query().str).substr(0, thd->query().length);
+  string sql = string(thd->query()).substr(0, thd->query_length());
   req.sql_str = const_cast<char *>(sql.c_str());
 
   size_t msg_len = tc_db__tse_ddlrename_table_def__get_packed_size(&req);
@@ -2630,10 +2719,12 @@ int fill_rename_table_req(const char *from, const char *to, const dd::Table *fro
   }
 
   ddl_ctrl->msg_len = msg_len;
+#endif
   return 0;
 }
 
-static int fill_partition_info_4truncate(TcDb__TseDDLTruncateTablePartitionDef *req, dd::Table *dd_table,
+#if 0
+static int fill_partition_info_4truncate(TcDb__TseDDLTruncateTablePartitionDef *req,
                                          partition_info *part_info, char **mem_start, char *mem_end) {
   uint32_t part_num = 0;
   if (part_info->is_sub_partitioned()) {
@@ -2678,9 +2769,11 @@ static int fill_partition_info_4truncate(TcDb__TseDDLTruncateTablePartitionDef *
   }
   return 0;
 }
+#endif
 
 int fill_truncate_partition_req(const char *full_name, partition_info *part_info,
-  dd::Table *dd_table, THD *thd, ddl_ctrl_t *ddl_ctrl, tse_ddl_stack_mem *stack_mem) {
+  THD *thd, ddl_ctrl_t *ddl_ctrl, tse_ddl_stack_mem *stack_mem) {
+#if 0
   lock_guard<mutex> lock(m_tse_ddl_protobuf_mem_mutex);
   char *req_mem_start = tse_ddl_req_mem;
   char *req_mem_end = req_mem_start + TSE_DDL_PROTOBUF_MEM_SIZE;
@@ -2694,7 +2787,7 @@ int fill_truncate_partition_req(const char *full_name, partition_info *part_info
   req.user = user_name;
   req.db_name = TSE_GET_THD_DB_NAME(thd);
   req.table_name = const_cast<char *>(table_name_str);
-  string sql = string(thd->query().str).substr(0, thd->query().length);
+  string sql = string(thd->query()).substr(0, thd->query_length());
   req.sql_str = const_cast<char *>(sql.c_str());
 
   req.n_partition_id = 0;
@@ -2726,6 +2819,7 @@ int fill_truncate_partition_req(const char *full_name, partition_info *part_info
 
   ddl_ctrl->msg_len = msg_len + sizeof(ddl_ctrl_t);
   memcpy(tse_ddl_req_msg_mem, ddl_ctrl, sizeof(ddl_ctrl_t));
+#endif
   return 0;
 }
 
@@ -2760,7 +2854,7 @@ int fill_rebuild_index_req(TABLE *table, THD *thd, ddl_ctrl_t *ddl_ctrl, tse_ddl
   char table_name[SMALL_RECORD_SIZE] = { 0 };
 
   tse_copy_name(db_name, thd->lex->query_tables->get_db_name(), SMALL_RECORD_SIZE);
-  tse_copy_name(table_name, thd->lex->query_tables->table_name, SMALL_RECORD_SIZE);
+  tse_copy_name(table_name, thd->lex->query_tables->table_name.str, SMALL_RECORD_SIZE);
 
   ret = init_tse_optimize_table_def(&req, table, &req_mem_start, req_mem_end);
   if (ret != 0) {
@@ -2773,10 +2867,10 @@ int fill_rebuild_index_req(TABLE *table, THD *thd, ddl_ctrl_t *ddl_ctrl, tse_ddl
     TcDb__TseDDLAlterIndexDef *req_alter_index_def = req.alter_index_list[i];
     req_alter_index_def->user = db_name;
     req_alter_index_def->table = table_name;
-    req_alter_index_def->name = const_cast<char*> (table->key_info[i].name);
+    req_alter_index_def->name = const_cast<char*> (table->key_info[i].name.str);
   }
   req.db_name = TSE_GET_THD_DB_NAME(thd);
-  string sql = string(thd->query().str).substr(0, thd->query().length);
+  string sql = string(thd->query()).substr(0, thd->query_length());
   req.sql_str = const_cast<char *>(sql.c_str());
   size_t msg_len = tc_db__tse_ddlalter_table_def__get_packed_size(&req);
   stack_mem->set_mem_size(msg_len + sizeof(ddl_ctrl_t));

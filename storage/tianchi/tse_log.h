@@ -20,9 +20,7 @@
 #include <regex>
 #include "sql/log.h"
 #include "sql/mysqld.h"
-#include <mysql/components/services/log_builtins.h>
 #include "my_dbug.h"
-#include "mysqld_error.h"
 
 #ifndef __TSE_LOG_H__
 #define __TSE_LOG_H__
@@ -31,6 +29,7 @@
 #define UNUSED_PARAM(_p) (void(_p))  // supress warning declared but not used
 #define __FILENAME__ (strrchr("/" __FILE__, '/') + 1)
 
+#if 0
 typedef enum en_regex_type_e
 {
   REGEX_LINE,
@@ -63,60 +62,19 @@ static void replace_all(char *filter_str, const char *regex) {
   filter_str[s.length()] = '\0';
   return;
 }
-
-static void do_security_filter(char *filter_str) {
-  for (uint index = 0; index < sizeof(g_regex_conf) / sizeof(g_regex_conf[0]); index++) {
-    replace_all(filter_str, g_regex_conf[index].regex);
-  }
-}
-
-/*
-  Print message to MySQL Server's error log(s)  
-
-  @param loglevel    Selects the loglevel used when
-                     printing the message to log.
-  @param[in]  fmt    printf-like format string
-  @param[in]  ap     Arguments
-
-*/
-
-inline void tse_log_print(enum loglevel loglevel, const char *fmt, ...) MY_ATTRIBUTE((format(printf, 2, 3)));
-
-void tse_log_print(enum loglevel loglevel, const char *fmt, ...) {
-  if (log_error_verbosity < loglevel) return;
-  assert(fmt);
-  va_list args;
-  char msg_buf[TSE_LOG_SIZE];
-
-  va_start(args, fmt);
-  int res = vsnprintf(msg_buf, sizeof(msg_buf), fmt, args);
-  va_end(args);
-
-  assert(res);
-  if (res >= TSE_LOG_SIZE) {
-    msg_buf[TSE_LOG_SIZE - 2] = '.';
-    msg_buf[TSE_LOG_SIZE - 3] = '.';
-    msg_buf[TSE_LOG_SIZE - 4] = '.';
-  }
-
-  if (!opt_general_log_raw) { //配置文件中的log-raw
-    do_security_filter(msg_buf);
-  }
-
-  LogErr(loglevel, ER_IB_MSG_1381, msg_buf);
-}
+#endif
 
 /* System Level log */
-#define tse_log_system(fmt, args...) tse_log_print(SYSTEM_LEVEL, "[%s:%s(%d)]" fmt, __FILENAME__, __FUNCTION__, __LINE__, ##args)
+#define tse_log_system(fmt, args...) sql_print_information("[%s:%s(%d)]" fmt, __FILENAME__, __FUNCTION__, __LINE__, ##args)
 
 /* Error Level log */
-#define tse_log_error(fmt, args...) tse_log_print(ERROR_LEVEL, "[%s:%s(%d)]" fmt, __FILENAME__, __FUNCTION__, __LINE__, ##args)
+#define tse_log_error(fmt, args...) sql_print_error("[%s:%s(%d)]" fmt, __FILENAME__, __FUNCTION__, __LINE__, ##args)
 
 /* Warning Level log */
-#define tse_log_warning(fmt, args...) tse_log_print(WARNING_LEVEL, "[%s:%s(%d)]" fmt, __FILENAME__, __FUNCTION__, __LINE__, ##args)
+#define tse_log_warning(fmt, args...) sql_print_warning("[%s:%s(%d)]" fmt, __FILENAME__, __FUNCTION__, __LINE__, ##args)
 
 /* note Level log */
-#define tse_log_note(fmt, args...) tse_log_print(INFORMATION_LEVEL, "[%s:%s(%d)]" fmt, __FILENAME__, __FUNCTION__, __LINE__, ##args)
+#define tse_log_note(fmt, args...) sql_print_information("[%s:%s(%d)]" fmt, __FILENAME__, __FUNCTION__, __LINE__, ##args)
 #define tse_log_verbose tse_log_note
 #define tse_log_info    tse_log_note
 #define tse_log_trivia  tse_log_note
@@ -128,7 +86,7 @@ void tse_log_print(enum loglevel loglevel, const char *fmt, ...) {
 #define TSE_ENGINE_ERROR(message)                           \
   do {                                                      \
     tse_log_error(message);                                 \
-    my_error(ER_IB_MSG_1381, MYF(0), message);  \
+    my_error(ER_CTC_ENGINE_ERROR, MYF(0), message);  \
   } while (0)
 
 #define TSE_RETURN_IF_ERROR(_expVal, retVal)                \
