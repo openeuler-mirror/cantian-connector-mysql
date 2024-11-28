@@ -552,7 +552,10 @@ static typename std::enable_if<!CHECK_HAS_MEMBER_FUNC(T, invalidates), int>::typ
   return 0;
 }
 
-int ctc_invalidate_mysql_dd_cache(ctc_handler_t *tch, ctc_invalidate_broadcast_request *broadcast_req, int *err_code) {
+int ctc_invalidate_mysql_dd_cache_req(ctc_handler_t *tch,
+                                      ctc_invalidate_broadcast_request *broadcast_req,
+                                      int *err_code)
+{
   return (int)ctc_invalidate_mysql_dd_cache_impl<THD>(tch, broadcast_req, err_code);
 }
 

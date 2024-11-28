@@ -482,6 +482,12 @@ static int ctc_reg_instance() {
                    CTC_START_TIMEOUT);
     sleep(1);
   }
+#ifdef WITH_CANTIAN
+  ret = (ct_errno_t)init_mysql_lib();
+  if (ret == CT_SUCCESS) {
+    ctc_log_system("[CTC_INIT]:ctc reg mysql proxy lib in cantian success");
+  }
+#endif
   return convert_ctc_error_code_to_mysql(ret);
 }
 
@@ -4611,7 +4617,7 @@ void ctc_reset_mysql_read_only() {
   ctc_log_system("[Disaster Recovery] set super_read_only = false.");
 }
 
-int ctc_set_cluster_role_by_cantian(bool is_slave) {
+__attribute__((visibility("default"))) int ctc_set_cluster_role_by_cantian(bool is_slave) {
   lock_guard<mutex> lock(m_ctc_cluster_role_mutex);
   if (is_slave) {
     ctc_cluster_role = (int32_t)dis_cluster_role::STANDBY;
