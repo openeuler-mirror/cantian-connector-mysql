@@ -20,11 +20,14 @@
 #ifndef __HA_TSEPART_H__
 #define __HA_TSEPART_H__
 
+#include "my_global.h"
 #include "ha_tse.h"
 #include "tse_srv.h"
 #include "tse_util.h"
-#include "sql/partitioning/partition_handler.h"
-#include "sql/dd/string_type.h"
+#include "sql/ha_partition.h"
+
+//#include "sql/partitioning/partition_handler.h"
+#if NEED_TSE_PART_HANDLER
 
 class Tsepart_share : public Partition_share {
  public:
@@ -63,9 +66,9 @@ class ha_tsepart : public ha_tse,
 
     @sa Partition_handler::truncate_partition().
   */
-  int truncate_partition_low(dd::Table *dd_table) override;
+  //int truncate_partition_low(dd::Table *dd_table) override;
 
-  bool check_unsupported_indexdir(dd::Table *table_def);
+  //bool check_unsupported_indexdir(dd::Table *table_def);
 
   /** Write a row in specific partition.
   Stores a row in an TSE database, to the table specified in this
@@ -220,8 +223,7 @@ class ha_tsepart : public ha_tse,
   @param[in]	table_def	dd::Table describing table to be opened
   @retval 1 if error
   @retval 0 if success */
-  int open(const char *name, int mode, uint test_if_locked,
-           const dd::Table *table_def) override;
+  int open(const char *name, int mode, uint test_if_locked) override;
 
   int close() override;
 
@@ -250,6 +252,7 @@ class ha_tsepart : public ha_tse,
   void part_autoinc_has_expl_non_null_value_update_row(uchar *new_data);
 #ifdef METADATA_NORMALIZED
   int write_row(uchar *record, bool write_through MY_ATTRIBUTE((unused)) = false) override {
+
 #else
   int write_row(uchar *record) override {
 #endif
@@ -370,15 +373,13 @@ class ha_tsepart : public ha_tse,
 
   int optimize(THD *thd, HA_CHECK_OPT *check_opt) override;
 
-  int create(const char *name, TABLE *form, HA_CREATE_INFO *create_info,
-             dd::Table *table_def) override; 
+  int create(const char *name, TABLE *form, HA_CREATE_INFO *create_info) override; 
 
   /* Get partition row type
   @param[in] partition_table partition table
   @param[in] part_id Id of partition for which row type to be retrieved
   @return Partition row type. */
-  enum row_type get_partition_row_type(const dd::Table *partition_table,
-                                       uint part_id) override;
+  enum row_type get_partition_row_type(uint part_id) override;
   
   Partition_handler *get_partition_handler() override {
     return (static_cast<Partition_handler *>(this));
@@ -441,5 +442,7 @@ static inline bool cursor_is_set(int *cursor_set, uint bit) {
 static inline void cursor_clear_bit(int *cursor_set, uint bit) {
   (cursor_set)[bit / 8] &= ~(1 << (bit & 7));
 }
+
+#endif // !NEED_TSE_PART_HANDLER
 
 #endif /* ha_tsepart_h */

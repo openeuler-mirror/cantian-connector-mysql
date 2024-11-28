@@ -14,7 +14,9 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
 */
+#include "my_global.h"
 #include <unordered_map>
+#include "mysqld_error.h"
 #include "tse_error.h"
 #include "my_base.h"
 #include "tse_log.h"
@@ -44,7 +46,7 @@ static std::unordered_map<ct_errno_t, int> err_code_lookup_map = {
   /* If prefix is true then a 768-byte prefix is stored
   locally for BLOB fields. Refer to dict_table_get_format().
   We limit max record size to 16k for 64k page size. */
-  {ERR_RECORD_SIZE_OVERFLOW, HA_ERR_TOO_BIG_ROW},
+  {ERR_RECORD_SIZE_OVERFLOW, HA_ERR_TO_BIG_ROW},
   /* Be cautious with returning this error, since
   mysql could re-enter the storage layer to get
   duplicated key info, the operation requires a
@@ -57,7 +59,7 @@ static std::unordered_map<ct_errno_t, int> err_code_lookup_map = {
   {ERR_DEF_CHANGED, HA_ERR_TABLE_DEF_CHANGED},
   {ERR_SAVEPOINT_NOT_EXIST, HA_ERR_NO_SAVEPOINT},
   {ERR_NO_MORE_LOCKS, HA_ERR_LOCK_TABLE_FULL},
-  {ERR_FILE_NOT_EXIST, HA_ERR_WRONG_FILE_NAME},
+  //{ERR_FILE_NOT_EXIST, HA_ERR_WRONG_FILE_NAME},
   {ERR_SPACE_NOT_EXIST, HA_ERR_TABLESPACE_MISSING},
   {ERR_SPACE_ALREADY_EXIST, HA_ERR_TABLESPACE_EXISTS},
   {ERR_BTREE_LEVEL_EXCEEDED, HA_ERR_INTERNAL_ERROR},
@@ -65,8 +67,8 @@ static std::unordered_map<ct_errno_t, int> err_code_lookup_map = {
   {ERR_DC_INVALIDATED, HA_ERR_NO_SUCH_TABLE},
   {ERR_INDEX_INVALID, HA_ERR_WRONG_INDEX},
   {ERR_CONNECTION_FAILED, HA_ERR_NO_CONNECTION},
-  {ERR_ALLOC_MEMORY, HA_ERR_SE_OUT_OF_MEMORY},
-  {ERR_ROW_LOCKED_NOWAIT, HA_ERR_NO_WAIT_LOCK},
+  {ERR_ALLOC_MEMORY, HA_ERR_OUT_OF_MEM},
+  //{ERR_ROW_LOCKED_NOWAIT, HA_ERR_NO_WAIT_LOCK},
   {ERR_OPERATION_CANCELED, HA_ERR_QUERY_INTERRUPTED},
   {ERR_SEM_FAULT, HA_ERR_INTERNAL_ERROR},
   {ERR_BATCH_DATA_HANDLE_FAILED, HA_ERR_INTERNAL_ERROR},

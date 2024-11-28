@@ -16,7 +16,7 @@
 */
 #include <limits.h>
 #include "my_dbug.h"
-#include "my_inttypes.h"
+#include <cstdint>
 #include "string.h"
 
 #ifndef DECIMAL_CONVERT_H

@@ -15,6 +15,7 @@
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
 */
 
+#include "my_global.h"
 #include "srv_mq_msg.h"
 #include "tse_srv_mq_module.h"
 #include "message_queue/dsw_shm.h"
@@ -134,6 +135,7 @@ int tse_write_row(tianchi_handler_t *tch, const record_info_t *record_info,
   req->record = record_info->record;
   req->serial_column_offset = serial_column_offset;
   req->flag = flag;
+
   int result = ERR_CONNECTION_FAILED;
   int ret = CT_SUCCESS;
   ret = tse_mq_deal_func(shm_inst, TSE_FUNC_TYPE_WRITE_ROW, req, tch->msg_buf);
@@ -160,6 +162,7 @@ int tse_bulk_write(tianchi_handler_t *tch, const record_info_t *record_info, uin
   req->record_len = record_info->record_len;
   req->record_num = rec_num;
   req->flag = flag;
+
   memcpy(req->record, record_info->record, record_info->record_len * rec_num);
   if (part_ids != nullptr) {
     memcpy(req->part_ids, part_ids, rec_num * sizeof(ctc_part_t));
@@ -193,6 +196,7 @@ int tse_update_row(tianchi_handler_t *tch, uint16_t new_record_len, const uint8_
   req->col_num = col_num;
   req->new_record = const_cast<uint8_t *>(new_record);
   req->flag = flag;
+
   memcpy(req->upd_cols, upd_cols, sizeof(uint16_t) * col_num);
   int result = ERR_CONNECTION_FAILED;
   int ret = tse_mq_deal_func(shm_inst, TSE_FUNC_TYPE_UPDATE_ROW, req, tch->msg_buf);
@@ -215,6 +219,7 @@ int tse_delete_row(tianchi_handler_t *tch, uint16_t record_len, dml_flag_t flag)
   req->tch = *tch;
   req->record_len = record_len;
   req->flag = flag;
+
   int result = ERR_CONNECTION_FAILED;
   int ret = tse_mq_deal_func(shm_inst, TSE_FUNC_TYPE_DELETE_ROW, req, tch->msg_buf);
   *tch = req->tch;
@@ -409,6 +414,7 @@ int tse_delete_all_rows(tianchi_handler_t *tch, dml_flag_t flag) {
   }
   req->tch = *tch;
   req->flag = flag;
+
   int result = ERR_CONNECTION_FAILED;
   int ret = tse_mq_deal_func(shm_inst, TSE_FUNC_TYPE_DELETE_ALL_ROWS, req, tch->msg_buf);
   *tch = req->tch;
@@ -683,7 +689,7 @@ int tse_free_session_cursors(tianchi_handler_t *tch, uint64_t *cursors, int32_t 
   req->tch = *tch;
   req->csize = csize;
   req->cursors = cursors;
- 
+
   int result = ERR_CONNECTION_FAILED;
   int ret = tse_mq_deal_func(shm_inst, TSE_FUNC_TYPE_FREE_CURSORS, req, tch->msg_buf);
   *tch = req->tch;
@@ -1087,7 +1093,7 @@ int tse_lock_table(tianchi_handler_t *tch, const char *db_name, tse_lock_table_i
       tse_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, len);
       return ERR_ALLOC_MEMORY;
   }
-  
+
   memset(req, 0, len);
   if (db_name != nullptr) {
     strncpy(req->db_name, db_name, SMALL_RECORD_SIZE - 1);
@@ -1150,6 +1156,7 @@ int tse_unlock_table(tianchi_handler_t *tch, uint32_t mysql_insert_id, tse_lock_
   req->tch = *tch;
   req->mysql_inst_id = mysql_insert_id;
   req->lock_info = *lock_info;
+
   int result = ERR_CONNECTION_FAILED;
   int ret = tse_mq_deal_func(shm_inst, TSE_FUNC_TYPE_UNLOCK_TABLE, req, tch->msg_buf);
   *tch = req->tch;
@@ -1342,6 +1349,7 @@ int tse_execute_mysql_ddl_sql(tianchi_handler_t *tch, tse_ddl_broadcast_request 
   memcpy(&req->broadcast_req, broadcast_req, sizeof(tse_ddl_broadcast_request));
   req->tch = *tch;
   req->allow_fail = allow_fail;
+
   int result = ERR_CONNECTION_FAILED;
   int ret = tse_mq_deal_func(shm_inst, TSE_FUNC_TYPE_EXCUTE_MYSQL_DDL_SQL, req, tch->msg_buf);
   *tch = req->tch;
@@ -1363,6 +1371,7 @@ int tse_broadcast_mysql_dd_invalidate(tianchi_handler_t *tch, tse_invalidate_bro
   }
   memcpy(&req->broadcast_req, broadcast_req, sizeof(tse_invalidate_broadcast_request));
   req->tch = *tch;
+
   int result = ERR_CONNECTION_FAILED;
   int ret = tse_mq_deal_func(shm_inst, TSE_FUNC_TYPE_INVALIDATE_OBJECT, req, tch->msg_buf);
   *tch = req->tch;
@@ -1385,6 +1394,7 @@ int tse_broadcast_rewrite_sql(tianchi_handler_t *tch, tse_ddl_broadcast_request 
   memcpy(&req->broadcast_req, broadcast_req, sizeof(tse_ddl_broadcast_request));
   req->tch = *tch;
   req->allow_fail = allow_fail;
+
   int result = ERR_CONNECTION_FAILED;
   int ret = tse_mq_deal_func(shm_inst, TSE_FUNC_TYPE_BROADCAST_REWRITE_SQL, req, tch->msg_buf);
   *tch = req->tch;
@@ -1409,6 +1419,7 @@ int tse_get_serial_value(tianchi_handler_t *tch, uint64_t *value, dml_flag_t fla
   req->flag.auto_inc_step = flag.auto_inc_step;
   req->flag.auto_inc_offset = flag.auto_inc_offset;
   req->flag.auto_increase = flag.auto_increase;
+
   int result = ERR_CONNECTION_FAILED;
   int ret = tse_mq_deal_func(shm_inst, TSE_FUNC_TYPE_GET_SERIAL_VALUE, req, tch->msg_buf);
   *tch = req->tch;
@@ -1517,6 +1528,7 @@ int tse_lock_instance(bool *is_mysqld_starting, tse_lock_table_mode_t lock_type,
   req->tch = *tch;
   req->lock_type = lock_type;
   req->is_mysqld_starting = *is_mysqld_starting;
+
   int result = ERR_CONNECTION_FAILED;
   int ret = tse_mq_deal_func(shm_inst, TSE_FUNC_LOCK_INSTANCE, req, tch->msg_buf);
   *tch = req->tch;
@@ -1538,6 +1550,7 @@ int tse_unlock_instance(bool *is_mysqld_starting, tianchi_handler_t *tch) {
 
   req->tch = *tch;
   req->is_mysqld_starting = *is_mysqld_starting;
+
   int result = ERR_CONNECTION_FAILED;
   int ret = tse_mq_deal_func(shm_inst, TSE_FUNC_UNLOCK_INSTANCE, req, tch->msg_buf);
   *tch = req->tch;

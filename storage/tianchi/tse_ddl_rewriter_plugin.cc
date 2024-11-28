@@ -15,6 +15,7 @@
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
 */
 
+#include "my_global.h"
 #include <string>
 #include <string_view>
 #include <functional>
@@ -22,13 +23,13 @@
 #include <mysql/plugin.h>
 #include <mysql/plugin_audit.h>
 #include <mysql/psi/mysql_memory.h>
-#include <mysql/service_mysql_alloc.h>
+//#include <mysql/service_mysql_alloc.h>
 #include <regex>
 #include <unordered_map>
 #include <algorithm>
-#include "my_inttypes.h"
-#include "my_psi_config.h"
-#include "my_thread.h"  // my_thread_handle needed by mysql_memory.h
+#include <cstdint>
+//#include "my_psi_config.h"
+//#include "my_thread.h"  // my_thread_handle needed by mysql_memory.h
 #include "sql/sql_class.h"
 #include "sql/sql_lex.h"
 #include "sql/sql_error.h"
@@ -39,30 +40,27 @@
 #include "tse_error.h"
 #include "ha_tse.h"
 #include "ha_tse_ddl.h"
-#include "sql/sql_initialize.h"  // opt_initialize_insecure
+//#include "sql/sql_initialize.h"  // opt_initialize_insecure
 #include "sql/sql_list.h"
 #include "sql/set_var.h"
-#include "sql/dd/types/schema.h"
-#include "sql/dd/cache/dictionary_client.h"
 #include "sql/lock.h"
-#include "sql/auth/auth_common.h"
 #include <queue>
 #include <mutex>
-#include "sql/sql_tablespace.h"
+//#include "sql/sql_tablespace.h"
 #include "sql/sql_lex.h"
 #include "sql/sql_db.h"  // check_schema_readonly
-#include "sql/sql_backup_lock.h"
-#include "mysql/plugin_auth.h"
-#include "sql/auth/sql_auth_cache.h"
-#include "sql/auth/auth_internal.h"
+//#include "sql/sql_backup_lock.h"
 #include "sql/sql_parse.h"
 #ifdef FEATURE_X_FOR_MYSQL_32
 #include "sql/sys_vars_shared.h"  // intern_find_sys_var
 #endif
+#include "sql_plugin.h"
 
+class ACL_USER;
 using namespace std;
+bool check_readonly(THD *thd, bool err_if_readonly);
 
-static SYS_VAR *tse_rewriter_system_variables[] = {
+static st_mysql_sys_var *tse_rewriter_system_variables[] = {
   nullptr
 };
 
@@ -83,7 +81,7 @@ int check_default_engine(set_var *setvar, bool &need_forward MY_ATTRIBUTE((unuse
       return 0;
   }
 
-  if (setvar->value->item_name.ptr() == nullptr) {
+  if (setvar->value->name.str == nullptr) {
     if (user_val_str == "") {
       return 0;
     }
@@ -98,7 +96,7 @@ int check_default_engine(set_var *setvar, bool &need_forward MY_ATTRIBUTE((unuse
     return -1;
   }
 
-  if (strcasecmp(setvar->value->item_name.ptr(), tse_hton_name) != 0) {
+  if (strcasecmp(setvar->value->name.str, tse_hton_name) != 0) {
     my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
       "Once the CTC is loaded, it must be set as the default engine. To modify the setting, uninstall the CTC first.");
     return -1;
@@ -117,7 +115,7 @@ int check_session_pool_volume(set_var *setvar, bool &need_forward MY_ATTRIBUTE((
       return -1;
     }
 
-    if (setvar->value->item_name.ptr() == nullptr) {
+    if (setvar->value->name.str == nullptr) {
       if (user_val_str == "") {
         return 0;
       }
@@ -138,7 +136,7 @@ int check_session_pool_volume(set_var *setvar, bool &need_forward MY_ATTRIBUTE((
       return 0;
     }
 
-    int num_max_conns = atoi(setvar->value->item_name.ptr());
+    int num_max_conns = atoi(setvar->value->name.str);
     if (num_max_conns > (int)max_sessions) {
       my_printf_error(ER_DISALLOWED_OPERATION, "Current SE can only provide %d connections for one mysql-server", MYF(0), max_sessions);
       return -1;
@@ -170,12 +168,12 @@ int unsupport_tx_isolation_level(set_var *setvar, bool &need_forward MY_ATTRIBUT
   
   if (setvar->value->result_type() == STRING_RESULT) {
     // 对应 SET @@global.transaction_isolation = @global_start_value;的写法
-    if (setvar->value->item_name.ptr() == nullptr) {
+    if (setvar->value->name.str == nullptr) {
       transform(user_val_str.begin(), user_val_str.end(), user_val_str.begin(), ::tolower);
       if (user_val_str == "read-committed" || user_val_str == "1") {
         return 0;
       } else if (user_val_str == "repeatable-read" || user_val_str == "2") {
-        push_warning_printf(current_thd, Sql_condition::SL_WARNING, ER_DISALLOWED_OPERATION,
+        push_warning_printf(current_thd, Sql_condition::WARN_LEVEL_WARN, ER_DISALLOWED_OPERATION,
                             "CTC: The Function of REPEATABLE READ transaction isolation is in progress.");
         return 0;
       }
@@ -186,10 +184,10 @@ int unsupport_tx_isolation_level(set_var *setvar, bool &need_forward MY_ATTRIBUT
     }
 
     // 对应set transaction_isolation='read-committed' 写法
-    if (strcasecmp(setvar->value->item_name.ptr(), "read-committed") == 0) {
+    if (strcasecmp(setvar->value->name.str, "read-committed") == 0) {
       return 0;
-    } else if (strcasecmp(setvar->value->item_name.ptr(), "repeatable-read") == 0) {
-      push_warning_printf(current_thd, Sql_condition::SL_WARNING, ER_DISALLOWED_OPERATION,
+    } else if (strcasecmp(setvar->value->name.str, "repeatable-read") == 0) {
+      push_warning_printf(current_thd, Sql_condition::WARN_LEVEL_WARN, ER_DISALLOWED_OPERATION,
                         "CTC: The Function of REPEATABLE READ transaction isolation is in progress.");
       return 0;
     }
@@ -199,7 +197,7 @@ int unsupport_tx_isolation_level(set_var *setvar, bool &need_forward MY_ATTRIBUT
     if (tx_isol == ISO_READ_COMMITTED) {
       return 0;
     } else if (tx_isol == ISO_REPEATABLE_READ) {
-      push_warning_printf(current_thd, Sql_condition::SL_WARNING, ER_DISALLOWED_OPERATION,
+      push_warning_printf(current_thd, Sql_condition::WARN_LEVEL_WARN, ER_DISALLOWED_OPERATION,
                         "CTC: The Function of REPEATABLE READ transaction isolation is in progress.");
       return 0;
     }
@@ -213,7 +211,7 @@ int unsupport_tx_isolation_level(set_var *setvar, bool &need_forward MY_ATTRIBUT
 int tse_check_opt_forward(set_var *setvar MY_ATTRIBUTE((unused)), bool &need_forward,
   string user_val_str MY_ATTRIBUTE((unused))) {
   need_forward = false;
-  push_warning_printf(current_thd, Sql_condition::SL_WARNING, ER_DISALLOWED_OPERATION,
+  push_warning_printf(current_thd, Sql_condition::WARN_LEVEL_WARN, ER_DISALLOWED_OPERATION,
                         "CTC: This parameter will not be broadcast to other nodes.");
   return 0;
 }
@@ -233,10 +231,11 @@ static int tse_get_user_var_string(MYSQL_THD thd, Item_func_get_user_var *itemFu
 
   String str;
   user_var_entry *var_entry;
-  var_entry = find_or_nullptr(thd->user_vars, itemFunc->name.ptr());
+  auto usrvarname = itemFunc->get_name();
+  var_entry = get_variable(&thd->user_vars, &usrvarname, false);
   if (var_entry == nullptr) {
-    tse_log_system("user var:%s have no value. no need to broadcast.", itemFunc->name.ptr());
-    my_printf_error(ER_DISALLOWED_OPERATION, "[CTC]:Please make sure %s has value in it.", MYF(0), itemFunc->name.ptr());
+    tse_log_system("user var:%s have no value. no need to broadcast.", usrvarname.str);
+    my_printf_error(ER_DISALLOWED_OPERATION, "[CTC]:Please make sure %s has value in it.", MYF(0), usrvarname.str);
     mysql_mutex_unlock(&thd->LOCK_thd_data);
     return -1;
   }
@@ -255,8 +254,9 @@ static int tse_get_user_var_string(MYSQL_THD thd, Item_func_get_user_var *itemFu
 
 static int allow_sqlcmd(MYSQL_THD thd, string session_var_name) {
   String str;
-  user_var_entry *var_entry = find_or_nullptr(thd->user_vars, session_var_name);
-  if(var_entry == nullptr || var_entry->ptr() == nullptr) {
+  LEX_CSTRING name{session_var_name.c_str(), session_var_name.length()};
+  auto var_entry = get_variable(&thd->user_vars, &name, false);
+  if(var_entry == nullptr || var_entry->value == nullptr) {
     return 0;
   }
   bool is_var_null;
@@ -271,9 +271,9 @@ static int allow_sqlcmd(MYSQL_THD thd, string session_var_name) {
 }
 
 static int tse_check_dcl(string &, MYSQL_THD thd, bool &need_forward) {
-  if (check_readonly(thd, false) ||
-      (thd->lex->query_tables != nullptr &&
-       check_schema_readonly(thd, thd->lex->query_tables->table_name))) {
+  if (check_readonly(thd, false) 
+      /* || (thd->lex->query_tables != nullptr && //mariadb database has no readonly property
+       check_schema_readonly(thd, thd->lex->query_tables->table_name.str)) */) {
     need_forward = false;
   }
   if (allow_sqlcmd(thd, "ctc_dcl_disabled") != 0) {
@@ -284,39 +284,9 @@ static int tse_check_dcl(string &, MYSQL_THD thd, bool &need_forward) {
 }
 
 // reference for 'validate_password_require_current' function
-int tse_verify_password4existed_user(MYSQL_THD thd, const LEX_USER *existed_user, bool &res) {
-  ACL_USER *acl_user = nullptr;
-  plugin_ref plugin = nullptr;
-  int is_error = 0;
-  Acl_cache_lock_guard acl_cache_lock(thd, Acl_cache_lock_mode::WRITE_MODE);
-  if (!acl_cache_lock.lock()) {
-    tse_log_error("tse_verify_password failed, lock acl cache failed");
-    return -1;
-  }
-  acl_user = find_acl_user(existed_user->host.str, existed_user->user.str, true);
-  if (!acl_user) {
-    tse_log_error("tse_verify_password failed, find acl user failed");
-    return -1;
-  }
-  plugin = my_plugin_lock_by_name(nullptr, acl_user->plugin, MYSQL_AUTHENTICATION_PLUGIN);
-  if (!plugin) {
-    tse_log_error("tse_verify_password failed, lock plugin %s failed", acl_user->plugin.str ? acl_user->plugin.str : "");
-    return -1;
-  }
-  st_mysql_auth *auth = (st_mysql_auth *)plugin_decl(plugin)->info;
+// moved to sql_acl.cc because ACL_USER is defined there. let's not expose ACL_USER  class.
+int tse_verify_password4existed_user(MYSQL_THD thd, const LEX_USER *existed_user, bool &res);
 
-  if (acl_user->credentials[PRIMARY_CRED].m_auth_string.length == 0 && existed_user->current_auth.length > 0) {
-    res = false;
-  } else if ((auth->authentication_flags & AUTH_FLAG_USES_INTERNAL_STORAGE) && auth->compare_password_with_hash &&
-              auth->compare_password_with_hash(acl_user->credentials[PRIMARY_CRED].m_auth_string.str,
-              (unsigned long)acl_user->credentials[PRIMARY_CRED].m_auth_string.length, existed_user->current_auth.str,
-              (unsigned long)existed_user->current_auth.length, &is_error) && !is_error) {
-    res = false;
-  }
-  res = true;
-  plugin_unlock(nullptr, plugin);
-  return 0;
-}
 
 void tse_remove_replace_clause4sql(string &sql_str) {
   // match: replace "xxx" | replace 'xxx'
@@ -339,24 +309,27 @@ static int tse_rewrite_alter_user4update_passwd(MYSQL_THD thd, string &sql_str) 
   while ((tmp_user = user_list++)) {
     /* If it is an empty lex_user update it with current user */
     if (!tmp_user->host.str && !tmp_user->user.str) {
-      assert(sctx->priv_host().str);
-      tmp_user->host.str = sctx->priv_host().str;
-      tmp_user->host.length = strlen(sctx->priv_host().str);
-      assert(sctx->user().str);
-      tmp_user->user.str = sctx->user().str;
-      tmp_user->user.length = strlen(sctx->user().str);
+      assert(sctx->priv_host);
+      tmp_user->host.str = sctx->priv_host;
+      tmp_user->host.length = strlen(sctx->priv_host);
+      assert(sctx->user);
+      tmp_user->user.str = sctx->user;
+      tmp_user->user.length = strlen(sctx->user);
     }
     user = get_current_user(thd, tmp_user);
-    bool is_self = !strcmp(sctx->user().length ? sctx->user().str : "", user->user.str) &&
-                   !my_strcasecmp(&my_charset_latin1, user->host.str, sctx->priv_host().str);
-    if (user->uses_replace_clause) {
+    bool is_self = !strcmp((sctx->user && strlen(sctx->user)) ? sctx->user : "", user->user.str) &&
+                   !my_strcasecmp(&my_charset_latin1, user->host.str, sctx->priv_host);
+    // mariadb has no REPLACE password feature
+    bool user_uses_replace_clause = false;
+
+    if (user_uses_replace_clause) {
       if (is_self) {
         bool is_password_matched = false;
         if (tse_verify_password4existed_user(thd, user, is_password_matched)) {
           return -1;
         }
         if (!is_password_matched) {
-          my_error(ER_INCORRECT_CURRENT_PASSWORD, MYF(0));
+          my_error(ER_NOT_VALID_PASSWORD, MYF(0));
           return -1;
         }
       } else {
@@ -368,10 +341,10 @@ static int tse_rewrite_alter_user4update_passwd(MYSQL_THD thd, string &sql_str) 
     tse_remove_replace_clause4sql(rw_query_sql);
   }
   regex current_user_pattern(" \\s*current_user[(][)] ", regex_constants::icase);
-  string current_user_name(sctx->user().str);
+  string current_user_name(sctx->user);
   current_user_name = tse_deserilize_username_with_single_quotation(current_user_name);
   string user2host("");
-  user2host = " '" + current_user_name + "'@'" + string(sctx->priv_host().str) + "'";
+  user2host = " '" + current_user_name + "'@'" + string(sctx->priv_host) + "'";
   rw_query_sql = regex_replace(rw_query_sql, current_user_pattern, user2host.c_str());
   sql_str = rw_query_sql;
   return 0;
@@ -385,6 +358,7 @@ static int tse_check_alter_user(string &sql_str, MYSQL_THD thd, bool &need_forwa
   return tse_rewrite_alter_user4update_passwd(thd, sql_str);
 }
 
+#if 0
 static int tse_rewrite_setpasswd(MYSQL_THD thd, string &sql_str) {
   // match: set password = | set password to | set password for current_user()，but 'to' and '=' dont match for replacing
   regex add_or_rewrite_for_pattern("^set \\s*password\\s*((?=to|=)|for \\s*current_user[(][)])", regex_constants::icase);
@@ -397,15 +371,19 @@ static int tse_rewrite_setpasswd(MYSQL_THD thd, string &sql_str) {
   set_var_base *var;
   while ((var = it++)) {
     set_var_password *set_passwd = static_cast<set_var_password *>(var);
-    const LEX_USER *user_for_setpasswd = set_passwd->get_user();
-    string username(user_for_setpasswd->user.str);
+    const LEX_USER *user_for_setpasswd = set_passwd->user;
+    const char *cname = user_for_setpasswd->user.str;
+    string username(cname);
+
     username = tse_deserilize_username_with_single_quotation(username);
     user2host = "SET PASSWORD FOR '" + username + "'@'" + string(user_for_setpasswd->host.str) + "' ";
     rw_query_sql = regex_replace(rw_query_sql, add_or_rewrite_for_pattern, user2host.c_str());
 
     // 为当前用户设置密码，为不报错不加replace
-    if (user_for_setpasswd->uses_replace_clause && 
-        !strcmp(thd->m_main_security_ctx.priv_user().str, user_for_setpasswd->user.str)) {
+    // mariadb has no REPLACE password feature
+    bool user_uses_replace_clause = false;
+    if (user_uses_replace_clause && 
+        !strcmp(thd->main_security_ctx.priv_user, cname)) {
       // check replacing old password is correct or not 
       bool is_password_matched = false;
       if (tse_verify_password4existed_user(thd, user_for_setpasswd, is_password_matched)) {
@@ -414,7 +392,7 @@ static int tse_rewrite_setpasswd(MYSQL_THD thd, string &sql_str) {
       if (is_password_matched) {
         tse_remove_replace_clause4sql(rw_query_sql);
       } else {
-        my_error(ER_INCORRECT_CURRENT_PASSWORD, MYF(0));
+        my_error(ER_NOT_VALID_PASSWORD, MYF(0));
         return -1;
       }
     }
@@ -422,7 +400,9 @@ static int tse_rewrite_setpasswd(MYSQL_THD thd, string &sql_str) {
   sql_str = rw_query_sql;
   return 0;
 }
+#endif
 
+#if 0
 static int tse_check_set_password(SENSI_INFO string &sql_str, MYSQL_THD thd, bool &need_forward) {
   if (tse_check_dcl(sql_str, thd, need_forward) != 0) {
     return -1;
@@ -430,6 +410,7 @@ static int tse_check_set_password(SENSI_INFO string &sql_str, MYSQL_THD thd, boo
 
   return tse_rewrite_setpasswd(thd, sql_str);
 }
+#endif
 
 static int tse_check_flush(string &, MYSQL_THD thd, bool &need_forward) {
   need_forward = thd->lex->type & (REFRESH_FOR_EXPORT | REFRESH_READ_LOCK | REFRESH_GRANT);
@@ -459,12 +440,13 @@ static uint32_t tse_set_var_option(bool is_null_value, bool is_set_default_value
   if (is_set_default_value) {
     options |= TSE_SET_VARIABLE_TO_DEFAULT;
   }
+  /*
   if (setvar->type == OPT_PERSIST_ONLY) {
     options |= TSE_SET_VARIABLE_PERSIST_ONLY;
   }
   if (setvar->type == OPT_PERSIST) {
     options |= TSE_SET_VARIABLE_PERSIST;
-  }
+  }*/
   return options;
 }
 
@@ -478,8 +460,8 @@ static int tse_set_var_meta(MYSQL_THD thd, uint32_t options, const char* base_na
 
   tse_ddl_broadcast_request broadcast_req {{0}, {0}, {0}, {0}, 0, 0, 0, 0, {0}};
   broadcast_req.options |= TSE_NOT_NEED_CANTIAN_EXECUTE;
-  broadcast_req.options |= (thd->lex->contains_plaintext_password ? TSE_CURRENT_SQL_CONTAIN_PLAINTEXT_PASSWORD : 0);
-  string sql = string(thd->query().str).substr(0, thd->query().length);
+  //broadcast_req.options |= (thd->lex->contains_plaintext_password ? TSE_CURRENT_SQL_CONTAIN_PLAINTEXT_PASSWORD : 0);
+  string sql = string(thd->query()).substr(0, thd->query_length());
 
   // user_name存变量名，user_ip存变量值
   FILL_BROADCAST_BASE_REQ(broadcast_req, sql.c_str(), var_name.c_str(),
@@ -518,6 +500,7 @@ static int tse_get_variables_value_string(MYSQL_THD thd, string &sql_str, set_va
     String* new_str;
     String str;
     tse_log_system("[TSE_DDL_REWRITE]:get system var value. %s", sql_str.c_str());
+#if 0
 #ifdef FEATURE_X_FOR_MYSQL_26
     if (itemFuncSys->bind(thd)) {
       need_forward = false;
@@ -525,13 +508,16 @@ static int tse_get_variables_value_string(MYSQL_THD thd, string &sql_str, set_va
     }
 #endif
     itemFuncSys->fixed = true;
+#endif
     new_str = itemFuncSys->val_str(&str);
     if (!new_str) {
       is_null_value = true;
       val_str = "null";
+#if 0
     } else if (new_str == itemFuncSys->error_str()) {
       need_forward = false;
       return -1;
+#endif
     } else {
       val_str = new_str->c_ptr();
     }
@@ -597,12 +583,13 @@ static int tse_check_set_opt(string &sql_str, MYSQL_THD thd, bool &need_forward)
       };
       setvar->m_var_tracker.access_system_variable<bool>(thd, f).value_or(true);
       name_str = setvar->m_var_tracker.get_var_name();
-#elif defined(FEATURE_X_FOR_MYSQL_26)
+//#elif defined(FEATURE_X_FOR_MYSQL_26)
+#else
     if (setvar && setvar->var) {
-      need_forward = !setvar->var->is_readonly() && setvar->is_global_persist();
+      need_forward = !setvar->var->is_readonly() && false /*setvar->is_global_persist()*/ ;
       name_str = setvar->var->name.str;
 #endif
-      
+
       if (!contain_subselect) {
         /* get user value (@xxxxx) as string */
         if (!setvar->value) {
@@ -626,10 +613,11 @@ static int tse_check_set_opt(string &sql_str, MYSQL_THD thd, bool &need_forward)
     if(IS_METADATA_NORMALIZATION() && !contain_subselect && need_forward && setvar) {
       if (setvar->check(thd) == 0) {
         uint32_t options = tse_set_var_option(is_null_value, is_set_default_value, setvar);
-#ifdef FEATURE_X_FOR_MYSQL_26
-        ret = tse_set_var_meta(thd, options, setvar->base.str, name_str, val_str);
-#elif defined(FEATURE_X_FOR_MYSQL_32)
+#ifdef FEATURE_X_FOR_MYSQL_32
         ret = tse_set_var_meta(thd, options, setvar->m_var_tracker.get_var_name(), name_str, val_str);
+//#elif defined(FEATURE_X_FOR_MYSQL_26)
+#else
+        ret = tse_set_var_meta(thd, options, setvar->base.str, name_str, val_str);
 #endif
       } else {
         thd->clear_error();
@@ -660,17 +648,17 @@ static int tse_check_ddl_engine(string &, MYSQL_THD thd, bool &need_forward) {
   tse_name.str = tse_hton_name;
   tse_name.length = strlen(tse_hton_name);
   handlerton *tse_handlerton = nullptr;
-  // 获取TSE引擎handlerton指针，如果thd->lex->create_info->db_type和TSE引擎指针不相等，那么必然不是TSE引擎
+  // 获取TSE引擎handlerton指针，如果thd->lex->create_info.db_type和TSE引擎指针不相等，那么必然不是TSE引擎
   plugin_ref plugin = ha_resolve_by_name(thd, &tse_name, false);
   if (plugin) {
-    tse_handlerton = plugin_data<handlerton *>(plugin);
+    tse_handlerton = plugin_data(plugin, handlerton *);
   }
 
   // 检查ddl语句是否显示指定非CTC
-  if (thd->lex->create_info != nullptr &&
-      thd->lex->create_info->db_type != nullptr &&
-      thd->lex->create_info->db_type != tse_handlerton &&
-      !(thd->lex->create_info->options & HA_LEX_CREATE_TMP_TABLE)) {
+  if (
+      thd->lex->create_info.db_type != nullptr &&
+      thd->lex->create_info.db_type != tse_handlerton &&
+      !(thd->lex->create_info.options & HA_LEX_CREATE_TMP_TABLE)) {
     my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
       "Once the CTC is loaded, it must be used as the default engine. To specify other engine for table, uninstall the CTC first.");
     return -1;
@@ -680,16 +668,15 @@ static int tse_check_ddl_engine(string &, MYSQL_THD thd, bool &need_forward) {
     // create like table 检查是否是系统库
     if (thd->lex->query_tables != nullptr &&
         thd->lex->query_tables->next_global != nullptr &&
-        thd->lex->create_info != nullptr &&
-        thd->lex->create_info->options & HA_LEX_CREATE_TABLE_LIKE &&
-        !(thd->lex->create_info->options & HA_LEX_CREATE_TMP_TABLE) &&
-        !thd->lex->drop_temporary) {
-      const char *ddl_db = thd->lex->query_tables->next_global->db;
+        thd->lex->create_info.like() &&
+        !(thd->lex->create_info.tmp_table())) {
+      const char *ddl_db = thd->lex->query_tables->next_global->db.str;
       return is_system_db(ddl_db);
     }
   }
 
   // create tablespace 检查是否为engine=Innodb情况
+#ifdef SUPPORTS_ALTER_TABLESPACE
   if (thd->lex->sql_command == SQLCOM_ALTER_TABLESPACE) {
     const Sql_cmd_tablespace *sct = dynamic_cast<const Sql_cmd_create_tablespace *>(thd->lex->m_sql_cmd);
     if (sct != nullptr &&
@@ -700,13 +687,12 @@ static int tse_check_ddl_engine(string &, MYSQL_THD thd, bool &need_forward) {
       return -1;
     }
   }
-
+#endif
   if (!IS_METADATA_NORMALIZATION()) {
     // create表 && drop表/库 (检查是否是系统库上ddl)
     if (thd->lex->query_tables != nullptr &&
-        (thd->lex->create_info != nullptr && !(thd->lex->create_info->options & HA_LEX_CREATE_TMP_TABLE)) &&
-        !thd->lex->drop_temporary) {
-      const char *ddl_db = thd->lex->query_tables->db;
+        !thd->lex->create_info.tmp_table()) {
+      const char *ddl_db = thd->lex->query_tables->db.str;
       return is_system_db(ddl_db);
     }
   }
@@ -725,9 +711,9 @@ static int tse_check_unspport_ddl(string &, MYSQL_THD, bool &) {
 }
 
 static int tse_read_only_ddl(string &, MYSQL_THD thd, bool &need_forward) {
-  if (check_readonly(thd, true) ||
-      (thd->lex->query_tables != nullptr &&
-       check_schema_readonly(thd, thd->lex->query_tables->table_name))) {
+  if (check_readonly(thd, true) /* ||
+      (thd->lex->query_tables != nullptr &&//mariadb database has no readonly property
+       check_schema_readonly(thd, thd->lex->query_tables->table_name.str))*/ ) {
     need_forward = false;
   }
   return 0;
@@ -745,7 +731,8 @@ static int tse_lock_tables_ddl(string &, MYSQL_THD thd, bool &) {
 #ifdef FEATURE_X_FOR_MYSQL_32
   Table_ref *tables = thd->lex->query_tables;
   for (Table_ref *table = tables; table != NULL; table = table->next_global) {
-#elif defined(FEATURE_X_FOR_MYSQL_26)
+#else
+//#elif defined(FEATURE_X_FOR_MYSQL_26)
   TABLE_LIST *tables = thd->lex->query_tables;
   for (TABLE_LIST *table = tables; table != NULL; table = table->next_global) {
 #endif
@@ -755,7 +742,7 @@ static int tse_lock_tables_ddl(string &, MYSQL_THD thd, bool &) {
 
     TSE_RETURN_IF_NOT_ZERO(get_tch_in_handler_data(hton, thd, tch));
     int32_t mdl_type = 0;
-    auto desc_type = table->lock_descriptor().type;
+    auto desc_type = table->lock_type;
     if (desc_type >= TL_READ_DEFAULT && desc_type <= TL_READ_NO_INSERT) {
       mdl_type = (int32_t)MDL_SHARED_READ_ONLY;
     } else if (desc_type >= TL_WRITE_ALLOW_WRITE && desc_type <= TL_WRITE_ONLY) {
@@ -765,8 +752,8 @@ static int tse_lock_tables_ddl(string &, MYSQL_THD thd, bool &) {
     }
     tse_lock_table_info lock_info = {{0}, {0}, {0}, {0}, SQLCOM_LOCK_TABLES, mdl_type};
     FILL_USER_INFO_WITH_THD(lock_info, thd);
-    strncpy(lock_info.db_name, table->db, SMALL_RECORD_SIZE - 1);
-    strncpy(lock_info.table_name, table->table_name, SMALL_RECORD_SIZE - 1);
+    strncpy(lock_info.db_name, table->db.str, SMALL_RECORD_SIZE - 1);
+    strncpy(lock_info.table_name, table->table_name.str, SMALL_RECORD_SIZE - 1);
     int err_code = 0;
     ret = tse_lock_table(&tch, lock_info.db_name, &lock_info, &err_code);
     if (ret != 0) {
@@ -779,7 +766,8 @@ static int tse_lock_tables_ddl(string &, MYSQL_THD thd, bool &) {
   if (ret != 0) {
 #ifdef FEATURE_X_FOR_MYSQL_32
   for (Table_ref *table = tables; table != NULL; table = table->next_global) {
-#elif defined(FEATURE_X_FOR_MYSQL_26)
+#else
+//#elif defined(FEATURE_X_FOR_MYSQL_26)
   for (TABLE_LIST *table = tables; table != NULL; table = table->next_global) {
 #endif
       tianchi_handler_t tch;
@@ -789,8 +777,8 @@ static int tse_lock_tables_ddl(string &, MYSQL_THD thd, bool &) {
       TSE_RETURN_IF_NOT_ZERO(get_tch_in_handler_data(hton, thd, tch));
       tse_lock_table_info lock_info = {{0}, {0}, {0}, {0}, SQLCOM_LOCK_TABLES, (int32_t)TL_UNLOCK};
       FILL_USER_INFO_WITH_THD(lock_info, thd);
-      strncpy(lock_info.db_name, table->db, SMALL_RECORD_SIZE - 1);
-      strncpy(lock_info.table_name, table->table_name, SMALL_RECORD_SIZE - 1);
+      strncpy(lock_info.db_name, table->db.str, SMALL_RECORD_SIZE - 1);
+      strncpy(lock_info.table_name, table->table_name.str, SMALL_RECORD_SIZE - 1);
       ret = tse_unlock_table(&tch, ctc_instance_id, &lock_info);
       if (ret != 0) {
         tse_log_error("[TSE_DDL_REWRITE]:unlock table failed, table:%s.%s", lock_info.db_name, lock_info.table_name);
@@ -834,13 +822,13 @@ static unordered_map<enum enum_sql_command, ddl_broadcast_cmd>
     {SQLCOM_RENAME_USER, {false, tse_check_dcl}},
     {SQLCOM_REVOKE_ALL, {false, tse_check_dcl}},
     {SQLCOM_ALTER_USER, {false, tse_check_alter_user}},
-    {SQLCOM_ALTER_USER_DEFAULT_ROLE, {false, tse_check_dcl}},
+    //{SQLCOM_ALTER_USER_DEFAULT_ROLE, {false, tse_check_dcl}},
     {SQLCOM_CREATE_ROLE, {false, tse_check_dcl}},
     {SQLCOM_DROP_ROLE, {false, tse_check_dcl}},
-    {SQLCOM_SET_ROLE, {false, tse_check_dcl}},
+    //{SQLCOM_SET_ROLE, {false, tse_check_dcl}},
     {SQLCOM_GRANT_ROLE, {false, tse_check_dcl}},
     {SQLCOM_REVOKE_ROLE, {false, tse_check_dcl}},
-    {SQLCOM_SET_PASSWORD, {false, tse_check_set_password}},
+    //{SQLCOM_SET_PASSWORD, {false, tse_check_set_password}},
 
     // prepare statement
     {SQLCOM_PREPARE, {false, tse_check_ddl}},
@@ -867,8 +855,8 @@ static unordered_map<enum enum_sql_command, ddl_broadcast_cmd>
     // Locking, broadcast
     {SQLCOM_LOCK_TABLES, {true, tse_lock_tables_ddl}},
     {SQLCOM_UNLOCK_TABLES, {true, tse_unlock_tables_ddl}},
-    {SQLCOM_LOCK_INSTANCE, {false, NULL}},
-    {SQLCOM_UNLOCK_INSTANCE, {false, NULL}},
+    //{SQLCOM_LOCK_INSTANCE, {false, NULL}},
+    //{SQLCOM_UNLOCK_INSTANCE, {false, NULL}},
 
     // analyze broardcast for share cbo
     {SQLCOM_ANALYZE, {true, NULL}},
@@ -885,7 +873,7 @@ static unordered_map<enum enum_sql_command, ddl_broadcast_cmd>
     {SQLCOM_OPTIMIZE, {false, tse_check_ddl}},
     {SQLCOM_CHECK, {false, tse_check_ddl}},
     {SQLCOM_RENAME_TABLE, {false, tse_check_ddl}},
-    {SQLCOM_ALTER_TABLESPACE, {false, tse_check_ddl_engine}},
+    //{SQLCOM_ALTER_TABLESPACE, {false, tse_check_ddl_engine}},
 
     // drop table operations, do not broadcast in rewriter
     {SQLCOM_DROP_TABLE, {false, tse_check_ddl_engine}},
@@ -910,20 +898,20 @@ static unordered_map<enum enum_sql_command, ddl_broadcast_cmd>
     {SQLCOM_ALTER_SERVER, {false, tse_check_unspport_ddl}},
 
     // 不支持alter instance
-    {SQLCOM_ALTER_INSTANCE, {false, tse_check_unspport_ddl}},
+    //{SQLCOM_ALTER_INSTANCE, {false, tse_check_unspport_ddl}},
 
     // 不支持import table
-    {SQLCOM_IMPORT, {false, tse_check_unspport_ddl}},
+    //{SQLCOM_IMPORT, {false, tse_check_unspport_ddl}},
 
     // 不支持创建，删除SRS
-    {SQLCOM_CREATE_SRS, {false, tse_check_unspport_ddl}},
-    {SQLCOM_DROP_SRS, {false, tse_check_unspport_ddl}},
+    //{SQLCOM_CREATE_SRS, {false, tse_check_unspport_ddl}},
+    //{SQLCOM_DROP_SRS, {false, tse_check_unspport_ddl}},
 
     // 不支持创建，修改，删除，设置资源组
-    {SQLCOM_CREATE_RESOURCE_GROUP, {false, tse_check_unspport_ddl}},
-    {SQLCOM_ALTER_RESOURCE_GROUP, {false, tse_check_unspport_ddl}},
-    {SQLCOM_DROP_RESOURCE_GROUP, {false, tse_check_unspport_ddl}},
-    {SQLCOM_SET_RESOURCE_GROUP, {false, tse_check_unspport_ddl}},
+    //{SQLCOM_CREATE_RESOURCE_GROUP, {false, tse_check_unspport_ddl}},
+    //{SQLCOM_ALTER_RESOURCE_GROUP, {false, tse_check_unspport_ddl}},
+    //{SQLCOM_DROP_RESOURCE_GROUP, {false, tse_check_unspport_ddl}},
+    //{SQLCOM_SET_RESOURCE_GROUP, {false, tse_check_unspport_ddl}},
 
     // XA operations - unsupported
     {SQLCOM_XA_START, {false, tse_check_unspport_ddl}},
@@ -952,9 +940,10 @@ bool is_dcl_sql_cmd(enum_sql_command sql_cmd) {
   if (sql_cmd == SQLCOM_GRANT || sql_cmd == SQLCOM_REVOKE ||
       sql_cmd == SQLCOM_CREATE_USER || sql_cmd == SQLCOM_DROP_USER || 
       sql_cmd == SQLCOM_RENAME_USER || sql_cmd == SQLCOM_REVOKE_ALL || 
-      sql_cmd == SQLCOM_ALTER_USER || sql_cmd == SQLCOM_ALTER_USER_DEFAULT_ROLE || 
+      sql_cmd == SQLCOM_ALTER_USER || //sql_cmd == SQLCOM_ALTER_USER_DEFAULT_ROLE || 
       sql_cmd == SQLCOM_CREATE_ROLE || sql_cmd == SQLCOM_DROP_ROLE ||
-      sql_cmd == SQLCOM_SET_ROLE || sql_cmd ==SQLCOM_GRANT_ROLE || 
+      //sql_cmd == SQLCOM_SET_ROLE || 
+	  sql_cmd ==SQLCOM_GRANT_ROLE || 
       sql_cmd == SQLCOM_REVOKE_ROLE) {
     return true;
   }
@@ -966,7 +955,7 @@ bool is_dcl_sql_cmd(enum_sql_command sql_cmd) {
 static PSI_memory_key key_memory_tse_ddl_rewriter;
 
 static PSI_memory_info all_rewrite_memory[] = {
-    {&key_memory_tse_ddl_rewriter, "ctc_ddl_rewriter", 0, 0, PSI_DOCUMENT_ME}};
+    {&key_memory_tse_ddl_rewriter, "ctc_ddl_rewriter", 0}};
 
 static int plugin_init(MYSQL_PLUGIN) {
   const char *category = "rewriter";
@@ -995,10 +984,10 @@ static void tse_ddl_rewrite_handle_error(MYSQL_THD thd, int ret, tse_ddl_broadca
     sql_without_plaintext_password(&broadcast_req).c_str(), broadcast_req.user_name, broadcast_req.err_code, broadcast_req.err_msg);
 
   // unlock when lock instance failed
-  if (sql_cmd == SQLCOM_LOCK_INSTANCE) {
+  /*if (sql_cmd == SQLCOM_LOCK_INSTANCE) {
     tse_check_unlock_instance(thd);
   }
-
+*/
   return;
 }
 
@@ -1012,9 +1001,9 @@ int ddl_broadcast_and_wait(MYSQL_THD thd, string &query_str,
 
   tse_ddl_broadcast_request broadcast_req {{0}, {0}, {0}, {0}, 0, 0, 0, 0, {0}};
 
-  if (thd->db().str != NULL && strlen(thd->db().str) > 0 &&
+  if (thd->db.str != NULL && strlen(thd->db.str) > 0 &&
       broadcast_cmd.need_select_db) {
-    strncpy(broadcast_req.db_name, thd->db().str, SMALL_RECORD_SIZE - 1);
+    strncpy(broadcast_req.db_name, thd->db.str, SMALL_RECORD_SIZE - 1);
   }
 
   if (sql_cmd == SQLCOM_SET_OPTION) {
@@ -1022,10 +1011,10 @@ int ddl_broadcast_and_wait(MYSQL_THD thd, string &query_str,
     broadcast_req.options |= TSE_SET_VARIABLE_WITH_SUBSELECT;
   }
   broadcast_req.options |= TSE_NOT_NEED_CANTIAN_EXECUTE;
-  broadcast_req.options |= (thd->lex->contains_plaintext_password ? TSE_CURRENT_SQL_CONTAIN_PLAINTEXT_PASSWORD : 0);
-  FILL_BROADCAST_BASE_REQ(broadcast_req, query_str.c_str(), thd->m_main_security_ctx.priv_user().str,
-    thd->m_main_security_ctx.priv_host().str, ctc_instance_id, sql_cmd);
-  
+  //broadcast_req.options |= (thd->lex->contains_plaintext_password ? TSE_CURRENT_SQL_CONTAIN_PLAINTEXT_PASSWORD : 0);
+  FILL_BROADCAST_BASE_REQ(broadcast_req, query_str.c_str(), thd->main_security_ctx.priv_user,
+    thd->main_security_ctx.priv_host, ctc_instance_id, sql_cmd);
+
   vector<MDL_ticket*> ticket_list;
   if (sql_cmd == SQLCOM_LOCK_TABLES) {
     int pre_lock_ret = tse_lock_table_pre(thd, ticket_list);
@@ -1081,14 +1070,14 @@ bool plugin_ddl_passthru(MYSQL_THD thd,
 
 bool check_agent_connection(MYSQL_THD thd) {
   // Only user from localhost/127.0.0.1 or % can be proxied remotely
-  if (strcmp(thd->m_main_security_ctx.priv_host().str, my_localhost) != 0 &&
-      strcmp(thd->m_main_security_ctx.priv_host().str, "127.0.0.1") != 0 &&
-      strcmp(thd->m_main_security_ctx.priv_host().str, "%") != 0 &&
-      strcmp(thd->m_main_security_ctx.priv_host().str, "skip-grants host") != 0) {
+  if (strcmp(thd->main_security_ctx.priv_host, my_localhost) != 0 &&
+      strcmp(thd->main_security_ctx.priv_host, "127.0.0.1") != 0 &&
+      strcmp(thd->main_security_ctx.priv_host, "%") != 0 &&
+      strcmp(thd->main_security_ctx.priv_host, "skip-grants host") != 0) {
     my_printf_error(ER_DISALLOWED_OPERATION,
                     "%s@%s is not allowed for DDL remote execution!", MYF(0),
-                    thd->m_main_security_ctx.priv_user().str,
-                    thd->m_main_security_ctx.priv_host().str);
+                    thd->main_security_ctx.priv_user,
+                    thd->main_security_ctx.priv_host);
     return true;
   }
 
@@ -1114,21 +1103,21 @@ int ctc_record_sql(MYSQL_THD thd, bool need_select_db) {
 
   tse_ddl_broadcast_request broadcast_req {{0}, {0}, {0}, {0}, 0, 0, 0, 0, {0}};
 
-  if (thd->db().str != NULL && strlen(thd->db().str) > 0 && need_select_db) {
-    strncpy(broadcast_req.db_name, thd->db().str, SMALL_RECORD_SIZE - 1);
+  if (thd->db.str != NULL && strlen(thd->db.str) > 0 && need_select_db) {
+    strncpy(broadcast_req.db_name, thd->db.str, SMALL_RECORD_SIZE - 1);
   }
 
   broadcast_req.options |= TSE_NOT_NEED_CANTIAN_EXECUTE;
-  broadcast_req.options |= (thd->lex->contains_plaintext_password ? TSE_CURRENT_SQL_CONTAIN_PLAINTEXT_PASSWORD : 0);
-  string sql = string(thd->query().str).substr(0, thd->query().length);
+  //broadcast_req.options |= (thd->lex->contains_plaintext_password ? TSE_CURRENT_SQL_CONTAIN_PLAINTEXT_PASSWORD : 0);
+  string sql = string(thd->query()).substr(0, thd->query_length());
 
-  FILL_BROADCAST_BASE_REQ(broadcast_req, sql.c_str(), thd->m_main_security_ctx.priv_user().str,
-    thd->m_main_security_ctx.priv_host().str, ctc_instance_id, (uint8_t)thd->lex->sql_command);
-  
+  FILL_BROADCAST_BASE_REQ(broadcast_req, sql.c_str(), thd->main_security_ctx.priv_user,
+    thd->main_security_ctx.priv_host, ctc_instance_id, (uint8_t)thd->lex->sql_command);
+
   int ret = ctc_record_sql_for_cantian(&tch, &broadcast_req, false);
   update_sess_ctx_by_tch(tch, hton, thd);
 
-  tse_log_system("[TSE_REWRITE_META]:ret:%d, query:%s", ret, sql_without_plaintext_password(&broadcast_req).c_str());
+  //tse_log_system("[TSE_REWRITE_META]:ret:%d, query:%s", ret, sql_without_plaintext_password(&broadcast_req).c_str()); this causes a crash...
 
   return ret;
 }
@@ -1179,16 +1168,17 @@ bool plugin_ddl_block(MYSQL_THD thd,
   return false;
 }
 
-// due to MDL_key::BACKUP_LOCK`s MDL_INTENTION_EXCLUSIVE comflicts with MDL_key::BACKUP_LOCK`s MDL_SHARED (user execute STMT `lock instance for backup`)
+#if 0
+// due to MDL_key::BACKUP`s MDL_INTENTION_EXCLUSIVE comflicts with MDL_key::BACKUP`s MDL_SHARED (user execute STMT `lock instance for backup`)
 static bool tse_is_instance_locked_by_backup(MYSQL_THD thd) {
-  MDL_request mdl_request;
-  MDL_key key(MDL_key::BACKUP_LOCK, "", "");
   // check this conn whether has backup S lock
-  if (thd->mdl_context.owns_equal_or_stronger_lock(&key, MDL_SHARED)) {
+  if (thd->mdl_context.is_lock_owner(MDL_key::BACKUP, "", "", MDL_SHARED)) {
           return true;
   }
+
+  MDL_request mdl_request;
   // check other conn whether has backup S lock
-  MDL_REQUEST_INIT(&mdl_request, MDL_key::BACKUP_LOCK, "", "", MDL_INTENTION_EXCLUSIVE, MDL_EXPLICIT);
+  MDL_REQUEST_INIT(&mdl_request, MDL_key::BACKUP, "", "", MDL_INTENTION_EXCLUSIVE, MDL_EXPLICIT);
   if (thd->mdl_context.acquire_lock(&mdl_request, 0)) {
     thd->clear_error(); // clear lock failed error
     return true;
@@ -1197,7 +1187,9 @@ static bool tse_is_instance_locked_by_backup(MYSQL_THD thd) {
     return false;
   }
 }
+#endif
 
+#if 0
 static bool tse_is_have_global_read_lock(MYSQL_THD thd) {
   // check if current connetion hold global read lock, let it go
   if (thd->global_read_lock.is_acquired()) {
@@ -1211,11 +1203,13 @@ static bool tse_is_have_global_read_lock(MYSQL_THD thd) {
 
   return false;
 }
+#endif
 
 static inline bool tse_is_broadcast_by_storage_engine(ddl_broadcast_cmd broadcast_cmd) {
   return broadcast_cmd.pre_func == tse_check_ddl || broadcast_cmd.pre_func == tse_check_ddl_engine;
 }
 
+#if 0
 static bool tse_is_set_session_var(MYSQL_THD thd, string &query_str) {
   if (thd->lex->sql_command != SQLCOM_SET_OPTION) {
     return false;
@@ -1242,7 +1236,9 @@ static bool tse_is_set_session_var(MYSQL_THD thd, string &query_str) {
 
   return false;
 }
+#endif
 
+#if 0
 static int tse_check_metadata_switch() {
   metadata_switchs metadata_switch = (metadata_switchs)tse_get_metadata_switch();
   switch (metadata_switch) {
@@ -1265,7 +1261,9 @@ static int tse_check_metadata_switch() {
       return -1;
   }
 }
+#endif
 
+#ifdef SUPPORTS_PARSE_CLASS_EVENTS
 static int tse_ddl_rewrite(MYSQL_THD thd, mysql_event_class_t event_class,
                            const void *event) {
   if (is_meta_version_initialize()) {
@@ -1301,14 +1299,16 @@ static int tse_ddl_rewrite(MYSQL_THD thd, mysql_event_class_t event_class,
   if (check_metadata_switch_result != 1 && !(need_forward && sql_cmd == SQLCOM_SET_OPTION)) {
     return check_metadata_switch_result;
   }
-  
+#ifdef SUPPORTS_LOCK_INSTANCE_STMT
   if (sql_cmd == SQLCOM_LOCK_INSTANCE) {
     if (tse_check_lock_instance(thd, need_forward)) {
       return -1;
     }
   } else if (sql_cmd == SQLCOM_UNLOCK_INSTANCE) {
     tse_check_unlock_instance(thd);
-  } else if (!IS_METADATA_NORMALIZATION() && (need_forward || tse_is_broadcast_by_storage_engine(it->second))) {
+  } else 
+#endif
+  if (!IS_METADATA_NORMALIZATION() && (need_forward || tse_is_broadcast_by_storage_engine(it->second))) {
     // block ddl when instance has exclusive backup lock (LOCK INSTANCE FOR BACKUP), ref sql_backup_lock.cc
     if (tse_is_instance_locked_by_backup(thd)) {
 
@@ -1333,16 +1333,46 @@ static int tse_ddl_rewrite(MYSQL_THD thd, mysql_event_class_t event_class,
   return need_forward && ddl_broadcast_and_wait(thd, query_str, (uint8_t)sql_cmd, broadcast_cmd);  // 0: success other: fail
 }
 
+#else
+
+static void tse_ddl_rewrite(MYSQL_THD thd, uint event_class,
+                           const void *event) {
+
+}
+#endif
+
+ACL_USER* find_acl_user(const char *host, const char *user, bool exact);
+
+
+int tse_verify_password4existed_user(MYSQL_THD thd, const LEX_USER *existed_user, bool &res) {
+  ACL_USER *acl_user = nullptr;
+  //plugin_ref plugin = nullptr;
+  //int is_error = 0;
+  acl_user = find_acl_user(existed_user->host.str, existed_user->user.str, true);
+  if (!acl_user) {
+    sql_print_error("tse_verify_password failed, find acl user failed");
+    return -1;
+  }
+  res = false;
+  // TODO: do simple password verification
+  //mariadb has no multiple auth plugins or multiple credentials per user
+  return 0;
+}
+
 /* Audit plugin descriptor. */
 static struct st_mysql_audit tse_ddl_rewriter_descriptor = {
   MYSQL_AUDIT_INTERFACE_VERSION, /* interface version */
   nullptr,                       /* release_thd()     */
   tse_ddl_rewrite,               /* event_notify()    */
+#ifdef SUPPORTS_PARSE_CLASS_EVENTS
   {
     0,
     0,
-    (unsigned long)MYSQL_AUDIT_PARSE_POSTPARSE,
+    (unsigned long)MYSQL_AUDIT_PARSE_POSTPARSE
   }                              /* class mask        */
+#else
+  {0}
+#endif
 };
 
 #if !defined __STRICT_ANSI__ && defined __GNUC__ && !defined __clang__
@@ -1383,7 +1413,7 @@ struct st_mysql_plugin g_tse_ddl_rewriter_plugin = {
 
     /* the function to invoke when plugin is un installed */
     /* int (*)(void*); */
-    nullptr,
+    ///nullptr,
 
     /* the function to invoke when plugin is unloaded */
     /* int (*)(void*); */
@@ -1405,5 +1435,5 @@ struct st_mysql_plugin g_tse_ddl_rewriter_plugin = {
 
     /* Plugin flags */
     /* unsigned long */
-    STRUCT_FLD(flags, PLUGIN_OPT_ALLOW_EARLY),
+    STRUCT_FLD(flags, 0),
 };

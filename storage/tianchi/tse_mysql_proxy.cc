@@ -21,8 +21,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+
+#include "my_global.h"
 #include "my_md5.h"
-#include "my_md5_size.h"
 #include "mysql.h"
 #include "sql/mysqld.h" // mysql_port, my_localhost
 #include "tse_log.h"
@@ -36,19 +37,14 @@
 #include "sql/sql_handler.h"
 #include "sql/sql_base.h"
 #include "sql/sql_class.h"
-#include "sql/dd/cache/dictionary_client.h"
-#include "sql/mysqld_thd_manager.h"
-#include "sql/dd/types/procedure.h"
-#include "sql/dd/types/function.h"
-#include "sql/dd/types/routine.h"
+//#include "sql/mysqld_thd_manager.h"
 #include "sql/mdl.h"
-#include "sql/dd/types/event.h"
-#include "sql/dd/types/resource_group.h"
-#include "sql/dd/types/trigger.h"
-#include "sql/auth/auth_common.h"
+//#include "sql/auth/auth_common.h"
 #include "sql/sys_vars_shared.h"  // intern_find_sys_var
 #include "sql/sql_lex.h"          // lex_start/lex_end
 #include "sql/handler.h"          // ha_tse_commit
+
+#define MD5_HASH_SIZE 16 /* Hash size in bytes */
 
 using namespace std;
 
@@ -323,8 +319,7 @@ static void close_mysql_conn_by_inst_id(uint32_t inst_id, bool by_mysql_inst) {
 }
 
 static inline bool is_backup_lock_op(uint8_t sql_command) {
-  return sql_command == SQLCOM_LOCK_INSTANCE ||
-         sql_command == SQLCOM_UNLOCK_INSTANCE;
+  return sql_command == SQLCOM_BACKUP_LOCK;// mariadb uses this for both backup lock&unlock
 }
 
 static inline bool tse_use_proxy(uint8_t sql_command) {
@@ -391,7 +386,7 @@ __attribute__((visibility("default"))) int tse_ddl_execute_update(uint32_t thd_i
   }
 
   // 设置随机密码seed
-  if (broadcast_req->sql_command == SQLCOM_CREATE_USER || broadcast_req->sql_command == SQLCOM_ALTER_USER || broadcast_req->sql_command == SQLCOM_SET_PASSWORD) {
+  if (broadcast_req->sql_command == SQLCOM_CREATE_USER || broadcast_req->sql_command == SQLCOM_ALTER_USER ){ //|| broadcast_req->sql_command == SQLCOM_SET_PASSWORD) {
     ret = tse_mysql_query(curr_conn, ("set @random_password_seed = " + std::to_string(thd_id) + ";").c_str());
     if (ret != 0) {
       tse_log_error("tse_init_proxy_client set @random_password_seed failed, error_code:%d", mysql_errno(curr_conn));
@@ -440,7 +435,7 @@ __attribute__((visibility("default"))) int tse_ddl_execute_update(uint32_t thd_i
 
 static int tse_ddl_get_lock(MYSQL *curr_conn, const uint64_t &conn_map_key, const char *lock_name, int *err_code) {
   uchar digest[MD5_HASH_SIZE];
-  compute_md5_hash(pointer_cast<char *>(digest), lock_name, strlen(lock_name));
+  compute_md5_hash(digest, lock_name, strlen(lock_name));
 
   // + 1 for the null terminator
   char output[(MD5_HASH_SIZE * 2) + 1];

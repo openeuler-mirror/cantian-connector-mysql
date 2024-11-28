@@ -14,7 +14,7 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA 
 */
-
+#include "my_global.h"
 #include "tse_srv.h"
 #include "tse_util.h"
 #include "tse_log.h"
@@ -32,9 +32,84 @@
 #include "decimal_convert.h"
 #include "sql_string.h"
 #include "ha_tse_ddl.h"
+#include "sql/extra_defs.h"
+#include <memory>
 
 using namespace std;
 extern bool ctc_enable_x_lock_instance;
+
+void my_date_to_binary(const MYSQL_TIME *ltime, uchar *ptr) {
+  long tmp = ltime->day + ltime->month * 32 + ltime->year * 16 * 32;
+  int3store(ptr, tmp);
+}
+
+/**
+  Acquire either exclusive or shared Backup Lock.
+
+  @param[in] thd                    Current thread context
+  @param[in] mdl_type               Type of metadata lock to acquire for backup
+  @param[in] mdl_duration           Duration of metadata lock
+  @param[in] lock_wait_timeout      How many seconds to wait before timeout.
+
+  @return Operation status.
+    @retval false Success
+    @retval true  Failure
+*/
+
+static bool acquire_mdl_for_backup(THD *thd, enum_mdl_type mdl_type,
+                                   enum_mdl_duration mdl_duration,
+                                   ulong lock_wait_timeout) {
+  MDL_request mdl_request;
+
+  assert(mdl_type == MDL_SHARED || mdl_type == MDL_INTENTION_EXCLUSIVE);
+
+  MDL_REQUEST_INIT(&mdl_request, MDL_key::BACKUP, "", "", mdl_type,
+                   mdl_duration);
+
+  return thd->mdl_context.acquire_lock(&mdl_request, lock_wait_timeout);
+}
+
+/*
+  The following rationale is for justification of choice for specific lock
+  types to support BACKUP LOCK.
+
+  IX and S locks are mutually incompatible. On the other hand both these
+  lock types are compatible with themselves. IX lock has lower priority
+  than S locks. So we can use S lock for rare Backup operation which should
+  not be starved by more frequent DDL operations using IX locks.
+
+  From all listed above follows that S lock should be considered as Exclusive
+  Backup Lock and IX lock should be considered as Shared Backup Lock.
+*/
+
+bool acquire_exclusive_backup_lock(THD *thd, ulong lock_wait_timeout,
+                                   bool for_trx) {
+  enum_mdl_duration duration = (for_trx ? MDL_TRANSACTION : MDL_EXPLICIT);
+  return acquire_mdl_for_backup(thd, MDL_SHARED, duration, lock_wait_timeout);
+}
+
+/**
+  MDL_release_locks_visitor subclass to release MDL for BACKUP_LOCK.
+*/
+
+class Release_all_backup_locks : public MDL_release_locks_visitor {
+ public:
+  bool release(MDL_ticket *ticket) override {
+    return ticket->get_key()->mdl_namespace() == MDL_key::BACKUP;
+  }
+};
+
+
+void release_backup_lock(THD *thd) {
+  Release_all_backup_locks lock_visitor;
+  thd->mdl_context.release_locks(&lock_visitor);
+}
+
+
+/*
+  MariaDB has no Item_func_comparison, which in MySQL derives from Item_bool_func2.
+*/
+using Item_func_comparison = Item_bool_func2 ;
 
 string cnvrt_name_for_sql(string name) {
   string res = "";
@@ -55,8 +130,8 @@ void tse_print_cantian_err_msg(const ddl_ctrl_t *ddl_ctrl, ct_errno_t ret)
     case ERR_DUPLICATE_ENTRY:
         my_printf_error(ER_DUP_ENTRY, "%s", MYF(0), ddl_ctrl->error_msg);
         break;
-    case ERR_COL_TYPE_MISMATCH:
-        my_printf_error(ER_FK_INCOMPATIBLE_COLUMNS, "%s", MYF(0), ddl_ctrl->error_msg);
+    case ERR_COL_TYPE_MISMATCH:// there is no corresponding concrete error code in mariadb
+        my_printf_error(ER_WRONG_FK_DEF, "%s", MYF(0), ddl_ctrl->error_msg);
         break;
     default:
         my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0), ddl_ctrl->error_msg);
@@ -70,7 +145,7 @@ static uint32_t tse_convert_identifier_to_sysname(char *to, const char *from, si
   CHARSET_INFO *cs_to = system_charset_info;
 
   return (static_cast<uint32_t>(
-      strconvert(cs_from, from, cs_to, to, to_len, &errors_ignored)));
+      strconvert(cs_from, from, strlen(from), cs_to, to, to_len, &errors_ignored)));
 }
 
 void tse_split_normalized_name(const char *file_name, char db[], size_t db_buf_len,
@@ -135,7 +210,7 @@ string sql_without_plaintext_password(tse_ddl_broadcast_request* broadcast_req) 
 int16_t tse_get_column_by_field(Field **field, const char *col_name) {
   int16_t col_id; 
   for (col_id = 0; *field != nullptr; field++, col_id++) {
-    if (my_strcasecmp(system_charset_info, (*field)->field_name, col_name) == 0) {
+    if (my_strcasecmp(system_charset_info, (*field)->field_name.str, col_name) == 0) {
      return col_id;
     }
   }
@@ -210,8 +285,13 @@ int tse_fill_cond_field_data_num(tianchi_handler_t m_tch, Item *items, Field *my
       uchar *buff = new uchar[binary_size];
       Item_decimal *item_decimal = dynamic_cast<Item_decimal *>(item_func_comparison->arguments()[1]);
       TSE_RET_ERR_IF_NULL(item_decimal);
+
       my_decimal *d = item_decimal->val_decimal(nullptr);
-      my_decimal2binary(E_DEC_FATAL_ERROR, d, buff, prec, scale);
+      if (d->to_binary(buff, prec, scale, E_DEC_FATAL_ERROR) != E_DEC_OK) {
+        tse_log_error("[tse_copy_cond_field_data] Invalid decimal value.");
+        return CT_ERROR;
+	  }
+
       data = (uchar *)my_malloc(PSI_NOT_INSTRUMENTED, binary_size, MYF(MY_WME));
       if (data == nullptr) {
         tse_log_error("[tse_fill_cond_field_data_num]alloc mem failed, size(%d)", binary_size);
@@ -274,13 +354,13 @@ int tse_fill_cond_field_data_date(tianchi_handler_t m_tch, const field_cnvrt_aux
   longlong ll;
   switch (mysql_info->mysql_field_type) {
     case MYSQL_TYPE_TIME:
-      ll = TIME_to_longlong_time_packed(ltime);
+      ll = TIME_to_longlong_time_packed(&ltime);
       my_time_packed_to_binary(ll, my_ptr, DATETIME_MAX_DECIMALS);
       memcpy(cond->field_info.field_value, my_ptr, cond->field_info.field_size);
       return ret;
 
     case MYSQL_TYPE_DATETIME:
-      ll = TIME_to_longlong_datetime_packed(ltime);
+      ll = TIME_to_longlong_datetime_packed(&ltime);
       my_datetime_packed_to_binary(ll, my_ptr, DATETIME_MAX_DECIMALS);
       memcpy(cond->field_info.field_value, my_ptr, cond->field_info.field_size);
       return ret;
@@ -297,13 +377,13 @@ int tse_fill_cond_field_data_date(tianchi_handler_t m_tch, const field_cnvrt_aux
         int warnings = 0;
 #ifdef FEATURE_X_FOR_MYSQL_32
         struct my_timeval tm = {0, 0};
-        datetime_with_no_zero_in_date_to_timeval(&ltime, *thd->time_zone(), &tm, &warnings);
-#elif defined(FEATURE_X_FOR_MYSQL_26)
+        datetime_with_no_zero_in_date_to_timeval(&ltime, *thd->variables.time_zone, &tm, &warnings);
+#else
         struct timeval tm = {0, 0};
-        tse_datetime_with_no_zero_in_date_to_timeval(&ltime, *thd->time_zone(), &tm, &warnings);
+        tse_datetime_with_no_zero_in_date_to_timeval(&ltime, *thd->variables.time_zone, &tm, &warnings);
 #endif
         assert((warnings == EOK) || (warnings == MYSQL_TIME_WARN_TRUNCATED));
-        my_tz_UTC->gmt_sec_to_TIME(&ltime, tm);
+        my_tz_UTC->gmt_sec_to_TIME(&ltime, tm.tv_sec);
       }
       /* fall through */
     }
@@ -358,7 +438,7 @@ int tse_fill_cond_field_data_string(tianchi_handler_t m_tch, Item_func *item_fun
   TSE_RET_ERR_IF_NULL(item_string);
   String *item_str = item_string->val_str(nullptr);
   cond->field_info.field_size = item_str->length();
-  void *data = item_str->ptr();
+  const void *data = item_str->ptr();
   cond->field_info.field_value = tse_alloc_buf(&m_tch, cond->field_info.field_size);
   if (cond->field_info.field_size > 0 && cond->field_info.field_value == nullptr) {
     tse_log_error("tse_fill_cond_field: alloc field_data error, size(%u).", cond->field_info.field_size);
@@ -416,7 +496,7 @@ int tse_fill_cond_field_data(tianchi_handler_t m_tch, Item *items, Field *mysql_
         TSE_RET_ERR_IF_NULL(item_date_func);
         Item_date_literal *item_date_literal = (Item_date_literal *)(item_date_func);
         TSE_RET_ERR_IF_NULL(item_date_literal);
-        if (item_date_literal->get_date(&ltime, TIME_FUZZY_DATE)) {
+        if (item_date_literal->get_date(mysql_field->table->in_use, &ltime, date_mode_t((ulonglong)date_mode_t::FUZZY_DATES))) {
           return CT_ERROR;
         }
       }
@@ -439,7 +519,7 @@ int tse_fill_cond_field_data(tianchi_handler_t m_tch, Item *items, Field *mysql_
 int tse_fill_cond_field(tianchi_handler_t m_tch, Item *items, Field **field, tse_conds *cond, bool no_backslash) {
   Item_func *item_func = dynamic_cast<Item_func *>(items);
   TSE_RET_ERR_IF_NULL(item_func);
-  const char *field_name = item_func->arguments()[0]->item_name.ptr();
+  const char *field_name = item_func->arguments()[0]->name.str;
   cond->field_info.field_no = tse_get_column_by_field(field, field_name);
   if (cond->field_info.field_no == INVALID_MAX_COLUMN) {
     return CT_ERROR;
@@ -476,7 +556,7 @@ int tse_push_cond_list(tianchi_handler_t m_tch, Item *items, Field **field,
   Item_cond *item_cond = dynamic_cast<Item_cond *>(items);
   TSE_RET_ERR_IF_NULL(item_cond);
   List<Item> *argument_list = item_cond->argument_list();
-  uint16_t size = argument_list->size();
+  uint16_t size = argument_list->elements;
   list_node *node = argument_list->first_node();
 
   for (uint16_t i = 0; i < size; i++) {
@@ -720,7 +800,7 @@ static bool tse_is_ddl_processing() {
 }
 
 int tse_check_lock_instance(MYSQL_THD thd, bool &need_forward) {
-  if (thd->mdl_context.has_locks(MDL_key::BACKUP_LOCK)) {
+  if (thd->mdl_context.has_locks(MDL_key::BACKUP)) {
     need_forward = false;
     return 0;
   }
@@ -762,7 +842,7 @@ int tse_check_lock_instance(MYSQL_THD thd, bool &need_forward) {
 }
 
 int tse_check_unlock_instance(MYSQL_THD thd) {
-  if (!thd->mdl_context.has_locks(MDL_key::BACKUP_LOCK)) {
+  if (!thd->mdl_context.has_locks(MDL_key::BACKUP)) {
     return 0;
   }
 
@@ -775,9 +855,28 @@ int tse_check_unlock_instance(MYSQL_THD thd) {
   return 0;
 }
 
+/**
+  Check if a TABLE_LIST instance represents a pre-opened temporary table.
+*/
+
+static bool is_temporary_table(const TABLE_LIST *tl) {
+  if (tl->is_view() || tl->schema_table) return false;
+
+  if (!tl->table) return false;
+
+  /*
+    NOTE: 'table->s' might be NULL for specially constructed TABLE
+    instances. See SHOW TRIGGERS for example.
+  */
+
+  if (!tl->table->s) return false;
+
+  return tl->table->s->tmp_table != NO_TMP_TABLE;
+}
+
 #ifdef FEATURE_X_FOR_MYSQL_32
 static inline bool is_temporary_table_being_opened(const Table_ref *table)
-#elif defined(FEATURE_X_FOR_MYSQL_26)
+#else
 static inline bool is_temporary_table_being_opened(const TABLE_LIST *table)
 #endif
 {
@@ -791,7 +890,7 @@ int tse_lock_table_pre(MYSQL_THD thd, vector<MDL_ticket*>& ticket_list) {
   Table_ref *tables_start = thd->lex->query_tables;
   Table_ref *tables_end = thd->lex->first_not_own_table();
   Table_ref *table;
-#elif defined(FEATURE_X_FOR_MYSQL_26)
+#else
   TABLE_LIST *tables_start = thd->lex->query_tables;
   TABLE_LIST *tables_end = thd->lex->first_not_own_table();
   TABLE_LIST *table;
@@ -802,9 +901,9 @@ int tse_lock_table_pre(MYSQL_THD thd, vector<MDL_ticket*>& ticket_list) {
       continue;
     }
     MDL_request req;
-    MDL_REQUEST_INIT(&req, MDL_key::TABLE, table->db, table->table_name,
+    MDL_REQUEST_INIT(&req, MDL_key::TABLE, table->db.str, table->table_name.str,
                      MDL_SHARED_NO_READ_WRITE, MDL_EXPLICIT);
-    if (thd->mdl_context.acquire_lock(&req, 1)) {
+    if (thd->mdl_context.acquire_lock(&req, thd->variables.lock_wait_timeout)) {
       return 1;
     }
     ticket_list.push_back(req.ticket);

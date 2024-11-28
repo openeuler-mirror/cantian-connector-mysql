@@ -26,17 +26,18 @@
 #include <stdlib.h>  
 #include <regex>
 
+#include "my_global.h"
 #include "m_string.h"  // strlen
 #include "my_dbug.h"
 #include "my_dir.h"
-#include "my_inttypes.h"
+#include <cstdint>
 #include "my_io.h"
-#include "my_psi_config.h"
+//#include "my_psi_config.h"
 #include "my_sys.h"  // my_write, my_malloc
-#include "my_thread.h"
+//#include "my_thread.h"
 #include "mysql/psi/mysql_memory.h"
 #include "sql/sql_plugin.h"  // st_plugin_int
-#include "sql/sql_initialize.h" // opt_initialize_insecure
+//#include "sql/sql_initialize.h" // opt_initialize_insecure
 #include "tse_log.h"
 #include "ha_tse.h"
 #include "decimal_convert.h"
@@ -76,7 +77,7 @@ static std::string get_cantiand_home_dir() {
 }
 
 static void *mysql_daac_startup_thread(void *p) {
-  DBUG_TRACE;
+  
   struct mysql_daac_context *con = (struct mysql_daac_context *)p;
   if(con->daac_startup_thread.thread == 0) {
     tse_log_error("please create the nomont thread first!");
@@ -102,7 +103,6 @@ static void *mysql_daac_startup_thread(void *p) {
 
 struct mysql_daac_context *daac_context = NULL;
 int daemon_daac_plugin_init() {
-  DBUG_TRACE;
 
   // mysql with nometa does not need to start cantian startup thread in multiple process when initializing
   // but single process needs to start up cantian thread in both meat and nometa when initializing
@@ -145,7 +145,7 @@ int daemon_daac_plugin_init() {
 }
 
 int daemon_daac_plugin_deinit() {
-  DBUG_TRACE;
+  
   void *dummy_retval;
 
   if (daac_context == nullptr || daac_context->daac_startup_thread.thread == 0) {
