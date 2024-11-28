@@ -30,12 +30,12 @@
 
 #define BEGIN_RECORD_STATS    \
     uint64_t start_clock = 0;   \
-    if (ctc_stats::get_instance()->get_statistics_enabled()) {     \
+    if (SECUREC_UNLIKELY(ctc_stats::get_instance()->get_statistics_enabled())) {     \
         start_clock = rdtsc();    \
     }
 
 #define END_RECORD_STATS(type)    \
-    if (ctc_stats::get_instance()->get_statistics_enabled()) {   \
+    if (SECUREC_UNLIKELY(ctc_stats::get_instance()->get_statistics_enabled())) {   \
         ctc_stats::get_instance()->gather_stats(type, start_clock);    \
     }
 
