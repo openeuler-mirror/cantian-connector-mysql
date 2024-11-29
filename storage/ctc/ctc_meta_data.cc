@@ -841,9 +841,12 @@ static void ctc_set_var_type(uint32_t option, set_var *var) {
 }
 #endif
 
-static void ctc_init_thd_priv(THD** thd, Sctx_ptr<Security_context> *ctx) {
+static int ctc_init_thd_priv(THD** thd, Sctx_ptr<Security_context> *ctx) {
   my_thread_init();
   THD* new_thd = new (std::nothrow) THD;
+  if (new_thd == nullptr) {
+    return ERR_ALLOC_MEMORY;
+  }
   new_thd->set_new_thread_id();
   new_thd->thread_stack = (char *)&new_thd;
   new_thd->store_globals();
@@ -869,36 +872,17 @@ static void ctc_init_thd_priv(THD** thd, Sctx_ptr<Security_context> *ctx) {
   // Initializing session system variables.
   alloc_and_copy_thd_dynamic_variables(new_thd, true);
   (*thd) = new_thd;
+  return 0;
 }
 
-int ctc_set_sys_var(ctc_ddl_broadcast_request *broadcast_req) {
-  Sctx_ptr<Security_context> ctx;
-  THD *new_thd = nullptr;
-  ctc_init_thd_priv(&new_thd, &ctx);
-
-  Item *res = nullptr;
+int ctc_get_sys_var(THD *new_thd, ctc_set_opt_request *broadcast_req,
+                    set_opt_info_t *set_opt_info,
+                    List<set_var_base> &tmp_var_list,
+                    Item *res) {
   set_var *var = nullptr;
   sys_var *sysvar = nullptr;
-  string base_name_src = broadcast_req->db_name;
-  string var_name = broadcast_req->user_name;
-  // variable value is too long and exceeds the range of user_ip
-  string var_value = broadcast_req->sql_str;
-  List<set_var_base> tmp_var_list;
-  
-  bool is_default_value = ((broadcast_req->options) & (CTC_SET_VARIABLE_TO_DEFAULT)) > 0;
-  bool is_null_value = ((broadcast_req->options) & (CTC_SET_VARIABLE_TO_NULL)) > 0;
-  bool var_is_int = ((broadcast_req->user_ip[0] & 1) != 0);
-  enum_var_type type = OPT_GLOBAL;
-  if ((broadcast_req->options & CTC_SET_VARIABLE_PERSIST) > 0) {
-    type = OPT_PERSIST;
-  }
-  if ((broadcast_req->options & CTC_SET_VARIABLE_PERSIST_ONLY) > 0) {
-    type = OPT_PERSIST_ONLY;
-  }
-  LEX_CSTRING base_name = {nullptr, 0};
-  if (strlen(base_name_src.c_str())) {
-    base_name = {base_name_src.c_str(), strlen(base_name_src.c_str())};
-  }
+  string var_name = set_opt_info->var_name;
+  string var_value = set_opt_info->var_value;
 
   sysvar = intern_find_sys_var(var_name.c_str(), var_name.length());
   if (sysvar == nullptr) {
@@ -906,6 +890,22 @@ int ctc_set_sys_var(ctc_ddl_broadcast_request *broadcast_req) {
     strncpy(broadcast_req->err_msg, new_thd->get_stmt_da()->message_text(), ERROR_MESSAGE_LEN - 1);
     ctc_log_error("[ctc_set_sys_var]:sysvar is nullptr and var_name : %s", var_name.c_str());
     return ER_UNKNOWN_SYSTEM_VARIABLE;
+  }
+
+  string base_name_src = set_opt_info->base_name;
+  LEX_CSTRING base_name = {nullptr, 0};
+  if (strlen(base_name_src.c_str())) {
+    base_name = {base_name_src.c_str(), strlen(base_name_src.c_str())};
+  }
+  bool is_default_value = ((set_opt_info->options) & (CTC_SET_VARIABLE_TO_DEFAULT)) != 0;
+  bool is_null_value = ((set_opt_info->options) & (CTC_SET_VARIABLE_TO_NULL)) != 0;
+  bool var_is_int = set_opt_info->var_is_int;
+  enum_var_type type = OPT_GLOBAL;
+  if (set_opt_info->options & CTC_SET_VARIABLE_PERSIST) {
+    type = OPT_PERSIST;
+  }
+  if (set_opt_info->options & CTC_SET_VARIABLE_PERSIST_ONLY) {
+    type = OPT_PERSIST_ONLY;
   }
   ctc_get_set_var_item(new_thd, sysvar, &res, var_value, is_null_value, var_is_int);
   
@@ -917,26 +917,51 @@ int ctc_set_sys_var(ctc_ddl_broadcast_request *broadcast_req) {
   }
 #ifdef FEATURE_X_FOR_MYSQL_26
   var = new (new_thd->mem_root) set_var(type, sysvar, base_name, res);
-  ctc_set_var_type(broadcast_req->options, var);
+  ctc_set_var_type(set_opt_info->options, var);
 #elif defined(FEATURE_X_FOR_MYSQL_32)
   System_variable_tracker var_tracker =
       System_variable_tracker::make_tracker(var_name.c_str());
   var = new (new_thd->mem_root) set_var(type, var_tracker, res);
 #endif
   tmp_var_list.push_back(var);
-  int ret = sql_set_variables(new_thd, &tmp_var_list, false);
-  if (ret != 0) {
-    uint err_code = new_thd->get_stmt_da()->mysql_errno();
-    strncpy(broadcast_req->err_msg, new_thd->get_stmt_da()->message_text(), ERROR_MESSAGE_LEN - 1);
-    ctc_log_error("[ctc_set_sys_var]:set global opt fail; err_code: %u, var_name: %s, var_value: %s",
-		    err_code, var_name.c_str(), var_value.c_str());
-    return err_code;
+  return 0;
+}
+
+int ctc_set_sys_var(ctc_set_opt_request *broadcast_req) {
+  Sctx_ptr<Security_context> ctx;
+  THD *new_thd = nullptr;
+  int ret = 0;
+  ret = ctc_init_thd_priv(&new_thd, &ctx);
+  if (ret != 0 || new_thd == nullptr) {
+    ctc_log_error("[ctc_set_sys_var]:init thd fail; ret: %u", ret);
+    return ERR_ALLOC_MEMORY;
+  }
+  List<set_var_base> tmp_var_list;
+  Item *res = nullptr;
+  set_opt_info_t *set_opt_info = broadcast_req->set_opt_info;
+  for (uint32_t i = 0; i < broadcast_req->opt_num; i++) {
+    ret = ctc_get_sys_var(new_thd, broadcast_req, set_opt_info, tmp_var_list, res);
+    if (ret != 0) {
+      ctc_log_error("[ctc_get_sys_var]:get global var fail; ret: %u, var_name: %s, var_value: %s",
+          ret, set_opt_info->var_name, set_opt_info->var_value);
+      return ret;
+    }
+    ret = sql_set_variables(new_thd, &tmp_var_list, false);
+    if (ret != 0) {
+      uint err_code = new_thd->get_stmt_da()->mysql_errno();
+      strncpy(broadcast_req->err_msg, new_thd->get_stmt_da()->message_text(), ERROR_MESSAGE_LEN - 1);
+      ctc_log_error("[ctc_set_sys_var]:set global opt fail; err_code: %u, var_name: %s, var_value: %s",
+          err_code, set_opt_info->var_name, set_opt_info->var_value);
+      return err_code;
+    }
+    tmp_var_list.clear();
+    if (res) {
+      res->cleanup();
+    }
+    res = nullptr;
+    set_opt_info += 1;
   }
 
-  tmp_var_list.clear();
-  if (res) {
-    res->cleanup();
-  }
   new_thd->free_items();
   lex_end(new_thd->lex);
   new_thd->release_resources();

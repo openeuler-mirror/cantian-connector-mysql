@@ -56,9 +56,7 @@
 #include "sql/auth/sql_auth_cache.h"
 #include "sql/auth/auth_internal.h"
 #include "sql/sql_parse.h"
-#ifdef FEATURE_X_FOR_MYSQL_32
 #include "sql/sys_vars_shared.h"  // intern_find_sys_var
-#endif
 
 using namespace std;
 
@@ -425,7 +423,7 @@ static int ctc_check_flush(string &, MYSQL_THD thd, bool &need_forward) {
 }
 
 static uint32_t ctc_set_var_option(bool is_null_value, bool is_set_default_value,
-                                   set_var *setvar) {
+                                   enum_var_type type) {
   uint32_t options = 0;
   if (is_null_value) {
     options |= CTC_SET_VARIABLE_TO_NULL;
@@ -433,44 +431,54 @@ static uint32_t ctc_set_var_option(bool is_null_value, bool is_set_default_value
   if (is_set_default_value) {
     options |= CTC_SET_VARIABLE_TO_DEFAULT;
   }
-  if (setvar->type == OPT_PERSIST_ONLY) {
+  if (type == OPT_PERSIST_ONLY) {
     options |= CTC_SET_VARIABLE_PERSIST_ONLY;
   }
-  if (setvar->type == OPT_PERSIST) {
+  if (type == OPT_PERSIST) {
     options |= CTC_SET_VARIABLE_PERSIST;
   }
   return options;
 }
 
-static int ctc_set_var_meta(MYSQL_THD thd, uint32_t options, const char* base_name,
-                            string var_name, string var_value, bool var_real_type) {
+static int ctc_set_var_meta(MYSQL_THD thd, list<set_var_info> variables_info, ctc_set_opt_request *set_opt_request) {
   ctc_handler_t tch;
   tch.inst_id = ctc_instance_id;
   handlerton* hton = get_ctc_hton();
 
   CTC_RETURN_IF_NOT_ZERO(get_tch_in_handler_data(hton, thd, tch));
 
-  ctc_ddl_broadcast_request broadcast_req {{0}, {0}, {0}, {0}, 0, 0, 0, 0, {0}};
-  broadcast_req.options |= CTC_NOT_NEED_CANTIAN_EXECUTE;
-  broadcast_req.options |= (thd->lex->contains_plaintext_password ? CTC_CURRENT_SQL_CONTAIN_PLAINTEXT_PASSWORD : 0);
-  string sql = string(thd->query().str).substr(0, thd->query().length);
-  if (var_real_type) {
-    // actual value of the variable type int
-    broadcast_req.user_ip[0] |= 1;
+  set_opt_request->mysql_inst_id = ctc_instance_id;
+  set_opt_request->opt_num = variables_info.size();
+  set_opt_request->err_code = 0;
+  memset(set_opt_request->err_msg, 0, ERROR_MESSAGE_LEN);
+  set_opt_request->set_opt_info = (set_opt_info_t *)my_malloc(PSI_NOT_INSTRUMENTED,
+                                                              variables_info.size() * sizeof(set_opt_info_t),
+                                                              MYF(MY_WME));
+  if (set_opt_request->set_opt_info == nullptr) {
+    ctc_log_error("alloc mem failed, set_opt_info size(%lu)", variables_info.size() * sizeof(set_opt_info_t));
+    return HA_ERR_OUT_OF_MEM;
   }
-  // user_name存变量名，user_ip存变量值
-  FILL_BROADCAST_BASE_REQ(broadcast_req, var_value.c_str(), var_name.c_str(),
-                          broadcast_req.user_ip, ctc_instance_id, SQLCOM_SET_OPTION);
-  if(base_name != nullptr) {
-    strncpy(broadcast_req.db_name, base_name, SMALL_RECORD_SIZE - 1);
+  set_opt_info_t *set_opt_info_begin = set_opt_request->set_opt_info;
+  for (auto it = variables_info.begin(); it != variables_info.end(); ++it) {
+    auto var_info = *it;
+    strncpy(set_opt_info_begin->var_name, var_info.var_name, SMALL_RECORD_SIZE - 1);
+    strncpy(set_opt_info_begin->var_value, var_info.var_value, CTC_MAX_VAR_VALUE_LEN - 1);
+    set_opt_info_begin->options |= CTC_NOT_NEED_CANTIAN_EXECUTE;
+    set_opt_info_begin->options |= (thd->lex->contains_plaintext_password ?
+                                   CTC_CURRENT_SQL_CONTAIN_PLAINTEXT_PASSWORD : 0);
+    set_opt_info_begin->options |= var_info.options;
+    if (var_info.var_is_int) {
+      // actual value of the variable type int
+      set_opt_info_begin->var_is_int = true;
+    }
+    memset(set_opt_info_begin->base_name, 0, SMALL_RECORD_SIZE);
+    strncpy(set_opt_info_begin->base_name, var_info.base_name, SMALL_RECORD_SIZE - 1);
+    set_opt_info_begin += 1;
   }
-  broadcast_req.options |= options;
-  int ret = ctc_execute_mysql_ddl_sql(&tch, &broadcast_req, true);
+  int ret = ctc_execute_set_opt(&tch, set_opt_request, true);
   update_sess_ctx_by_tch(tch, hton, thd);
-  if (ret != 0 && broadcast_req.err_code != 0) {
-    string err_msg = broadcast_req.err_msg;
-    my_printf_error(broadcast_req.err_code, "%s", MYF(0), err_msg.c_str());
-  }
+  my_free(set_opt_request->set_opt_info);
+  set_opt_request->set_opt_info = nullptr;
   return ret;
 }
 
@@ -566,6 +574,17 @@ static int ctc_set_user_var_flag(MYSQL_THD thd, string name, string value) {
   return 0;
 }
 
+static void ctc_set_var_info(set_var_info *var_info, const char *base_name, string name,
+                             string value, uint32_t options, bool var_is_int) {
+  if (base_name != nullptr) {
+    strncpy(var_info->base_name, base_name, SMALL_RECORD_SIZE - 1);
+  }
+  strncpy(var_info->var_name, name.c_str(), SMALL_RECORD_SIZE - 1);
+  strncpy(var_info->var_value, value.c_str(), CTC_MAX_VAR_VALUE_LEN - 1);
+  var_info->options = options;
+  var_info->var_is_int = var_is_int;
+}
+
 static int check_non_system_var(set_var_base *var, bool& need_forward, MYSQL_THD thd) {
   need_forward = false;
   if (typeid(*var) != typeid(set_var_user)) {
@@ -604,67 +623,80 @@ static int check_non_system_var(set_var_base *var, bool& need_forward, MYSQL_THD
 }
 
 static int check_system_var(set_var_base *var, string &sql_str, MYSQL_THD thd,
-                            bool& need_forward, bool& contain_subselect) {
+                            bool &need_forward, bool &contain_subselect,
+                            list<set_var_info> &variables_info) {
   set_var *setvar = dynamic_cast<set_var *>(var);
   bool is_set_default_value = false;
   bool is_null_value = false;
   int ret = 0;
   string name_str;
   string val_str;
+  set_var_info var_info;
+  memset(&var_info, 0, sizeof(var_info));
 #ifdef FEATURE_X_FOR_MYSQL_32
-    if (setvar) {
-      std::function<bool(const System_variable_tracker &, sys_var *)> f = [&thd, &need_forward, setvar]
-      (const System_variable_tracker &, sys_var *system_var) {
-        if (system_var) {
-          need_forward = !system_var->is_readonly() && setvar->is_global_persist();
-        }
-        return true;
-      };
-      setvar->m_var_tracker.access_system_variable<bool>(thd, f).value_or(true);
-      name_str = setvar->m_var_tracker.get_var_name();
+  if (setvar) {
+    std::function<bool(const System_variable_tracker &, sys_var *)> f = [&thd, &need_forward, setvar]
+    (const System_variable_tracker &, sys_var *system_var) {
+      if (system_var) {
+        need_forward = !system_var->is_readonly() && setvar->is_global_persist();
+      }
+      return true;
+    };
+    setvar->m_var_tracker.access_system_variable<bool>(thd, f).value_or(true);
+    name_str = setvar->m_var_tracker.get_var_name();
 #elif defined(FEATURE_X_FOR_MYSQL_26)
-    if (setvar && setvar->var) {
-      need_forward = !setvar->var->is_readonly() && setvar->is_global_persist()
-	      && setvar->var->check_scope(OPT_GLOBAL);
-      name_str = setvar->var->name.str;
+  if (setvar && setvar->var) {
+    need_forward = !setvar->var->is_readonly() && setvar->is_global_persist() &&
+                   setvar->var->check_scope(OPT_GLOBAL);
+    name_str = setvar->var->name.str;
 #endif
-      
-      if (!contain_subselect) {
-        /* get user value (@xxxxx) as string */
-        if (!setvar->value) {
-          is_set_default_value = true;
-          val_str = "";
-        } else {
-          ret = ctc_get_variables_value_string(thd, sql_str, setvar, val_str, is_null_value, need_forward);
-        }
-        ret |= ctc_check_set_opt_rule(setvar, name_str, val_str, need_forward);
-      }
-    }
-    if (need_forward && allow_sqlcmd(thd, "ctc_setopt_disabled") != 0) {
-      my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
-                      "Set global variable query is not allowed (ctc_setopt_disabled = true)");
-      return -1;
-    }
-
-    if (IS_METADATA_NORMALIZATION() && !contain_subselect && need_forward && setvar) {
-      if (setvar->check(thd) == 0) {
-        bool var_real_type = false;
-        if (setvar->value && setvar->value->result_type() == INT_RESULT) {
-          var_real_type = true;
-        }
-        uint32_t options = ctc_set_var_option(is_null_value, is_set_default_value, setvar);
-#ifdef FEATURE_X_FOR_MYSQL_26
-        ret = ctc_set_var_meta(thd, options, setvar->base.str, name_str, val_str, var_real_type);
-#elif defined(FEATURE_X_FOR_MYSQL_32)
-        ret = ctc_set_var_meta(thd, options, setvar->m_var_tracker.get_var_name(),
-		       	name_str, val_str, var_real_type);
-#endif
+    if (!contain_subselect) {
+      /* get user value (@xxxxx) as string */
+      if (!setvar->value) {
+        is_set_default_value = true;
+        val_str = "";
       } else {
-        thd->clear_error();
-        need_forward = false;  // 值校验失败, ctc不进行广播并返回成功, 后续报错由MySQL完成
+        ret = ctc_get_variables_value_string(thd, sql_str, setvar, val_str, is_null_value, need_forward);
       }
+      ret |= ctc_check_set_opt_rule(setvar, name_str, val_str, need_forward);
     }
-    return ret;
+  }
+  if (val_str.c_str() == nullptr) {
+    my_printf_error(ER_DISALLOWED_OPERATION, "Set the variable '%s' failed: value is invalid",
+                    MYF(0), name_str.c_str());
+    return -1;
+  }
+  if (strlen(val_str.c_str()) > CTC_MAX_VAR_VALUE_LEN) {
+    my_printf_error(ER_DISALLOWED_OPERATION, "Set the variable '%s' failed: value is too long",
+                    MYF(0), name_str.c_str());
+    return -1;
+  }
+  if (need_forward && allow_sqlcmd(thd, "ctc_setopt_disabled") != 0) {
+    my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
+                    "Set global variable query is not allowed (ctc_setopt_disabled = true)");
+    return -1;
+  }
+
+  if (IS_METADATA_NORMALIZATION() && !contain_subselect && need_forward && setvar) {
+    if (setvar->check(thd) == 0) {
+      bool var_is_int = false;
+      if (setvar->value && setvar->value->result_type() == INT_RESULT) {
+        var_is_int = true;
+      }
+      uint32_t options = ctc_set_var_option(is_null_value, is_set_default_value, setvar->type);
+#ifdef FEATURE_X_FOR_MYSQL_26
+      const char *base_name = setvar->base.str;
+#elif defined(FEATURE_X_FOR_MYSQL_32)
+      const char *base_name = setvar->m_var_tracker.get_var_name();
+#endif
+      ctc_set_var_info(&var_info, base_name, name_str, val_str, options, var_is_int);
+      variables_info.emplace_back(var_info);
+    } else {
+      thd->clear_error();
+      need_forward = false;  // 值校验失败, ctc不进行广播并返回成功, 后续报错由MySQL完成
+    }
+  }
+  return ret;
 }
 
 /* 参考set_var.cc: sql_set_variables */
@@ -680,13 +712,31 @@ static int ctc_check_set_opt(string &sql_str, MYSQL_THD thd, bool &need_forward)
     contain_subselect = true;
   }
   var_it.rewind();
+  list<set_var_info> variables_info;
   while ((var = var_it++)) {
     if (typeid(*var) != typeid(set_var)) {
       ret = check_non_system_var(var, need_forward, thd);
+      if (ret != 0) {
+        ctc_log_error("check non system var failed, set option %s", sql_str.c_str());
+        return -1;
+      }
     } else {
-      ret = check_system_var(var, sql_str, thd, need_forward, contain_subselect);
+      ret = check_system_var(var, sql_str, thd, need_forward, contain_subselect, variables_info);
+      if (ret != 0) {
+        ctc_log_error("check system var failed, set option %s", sql_str.c_str());
+        return -1;
+      }
     }
     ctc_log_debug("set option %s, need_forward: %d", sql_str.c_str(), need_forward);
+  }
+  if (!variables_info.empty()) {
+    ctc_set_opt_request set_opt_request;
+    ret = ctc_set_var_meta(thd, variables_info, &set_opt_request);
+    if (ret != 0 && set_opt_request.err_code != 0) {
+      string err_msg = set_opt_request.err_msg;
+      my_printf_error(set_opt_request.err_code, "execute set opt failed, error_message:%s", MYF(0), err_msg.c_str());
+      return ret;
+    }
   }
   if (IS_METADATA_NORMALIZATION() && !contain_subselect) {
     need_forward = false;

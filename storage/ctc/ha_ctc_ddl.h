@@ -170,6 +170,14 @@ static map<const int, const int> mysql_collate_num_to_ctc_type = {
   {76, COLLATE_UTF8_TOLOWER_CI},
 };
 
+typedef struct {
+    char base_name[SMALL_RECORD_SIZE];
+    char var_name[SMALL_RECORD_SIZE];
+    char var_value[CTC_MAX_VAR_VALUE_LEN];
+    uint32_t options;
+    bool var_is_int;
+} set_var_info;
+
 static map<enum ts_alter_tablespace_type, ctc_altspace_action_t> g_ctc_alter_tablespace_map = {
   {ALTER_TABLESPACE_ADD_FILE, CTC_ALTSPACE_ADD_DATAFILE},
   {ALTER_TABLESPACE_DROP_FILE, CTC_ALTSPACE_DROP_DATAFILE},
