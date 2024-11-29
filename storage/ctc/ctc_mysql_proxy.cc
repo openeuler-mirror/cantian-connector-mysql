@@ -368,12 +368,10 @@ __attribute__((visibility("default"))) int ctc_ddl_execute_update(uint32_t thd_i
     return 0;
   }
 
-  bool is_meta_normalization = IS_METADATA_NORMALIZATION();
-  if (is_meta_normalization && broadcast_req->sql_command != SQLCOM_SET_OPTION) {
+  if (IS_METADATA_NORMALIZATION() &&
+    (broadcast_req->sql_command != SQLCOM_SET_OPTION ||
+    !(broadcast_req->options & CTC_SET_VARIABLE_WITH_SUBSELECT))) {
     return 0;
-  } else if (is_meta_normalization && broadcast_req->sql_command == SQLCOM_SET_OPTION
-              && (broadcast_req->options & CTC_SET_VARIABLE_WITH_SUBSELECT) == 0){
-    return ctc_set_sys_var(broadcast_req);
   }
 
   bool use_proxy = ctc_use_proxy(broadcast_req->sql_command);
@@ -436,6 +434,23 @@ __attribute__((visibility("default"))) int ctc_ddl_execute_update(uint32_t thd_i
   *allow_fail = false;
   mysql_free_result(mysql_store_result(curr_conn));
   return 0;
+}
+
+__attribute__((visibility("default"))) int ctc_ddl_execute_set_opt(ctc_set_opt_request *broadcast_req,
+                                                                   bool allow_fail) {
+  // 相同节点不用执行
+  if (broadcast_req->mysql_inst_id == ctc_instance_id) {
+    ctc_log_note("ctc_ddl_execute_set_opt curnode not need execute, mysql_inst_id:%u", broadcast_req->mysql_inst_id);
+    return 0;
+  }
+
+  int ret = ctc_set_sys_var(broadcast_req);
+  if (ret != 0) {
+    ctc_log_note("ctc_ddl_execute_set_opt curnode execute fail, cur_mysql_inst_id:%u, allow_fail:%d",
+                 ctc_instance_id, allow_fail);
+  }
+
+  return ret;
 }
 
 static int ctc_ddl_get_lock(MYSQL *curr_conn, const uint64_t &conn_map_key, const char *lock_name, int *err_code) {

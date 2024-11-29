@@ -55,7 +55,7 @@ using namespace std;
   "." INT_TO_STR(CTC_CLIENT_VERSION_BUGFIX)
 
 // 版本号规则：十六进制后两位为小数点后数字，前面为小数点前数字，0x0310 --> 显示为3.16
-#define CTC_CLIENT_VERSION_NUMBER 0x0300u
+#define CTC_CLIENT_VERSION_NUMBER 0x0301u
 
 
 #define CT_NULL_VALUE_LEN   (uint16)0xFFFF

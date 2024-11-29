@@ -28,7 +28,7 @@
 int close_ctc_mdl_thd(uint32_t thd_id, uint32_t mysql_inst_id);
 int ctc_mdl_lock_thd(ctc_handler_t *tch, ctc_lock_table_info *lock_info, int *err_code);
 void ctc_mdl_unlock_thd(ctc_handler_t *tch, ctc_lock_table_info *lock_info);
-int ctc_set_sys_var(ctc_ddl_broadcast_request *broadcast_req);
+int ctc_set_sys_var(ctc_set_opt_request *broadcast_req);
 int ctc_ddl_execute_lock_tables_by_req(ctc_handler_t *tch, ctc_lock_table_info *lock_info, int *err_code);
 void ctc_mdl_unlock_tables_thd(ctc_handler_t *tch);
 

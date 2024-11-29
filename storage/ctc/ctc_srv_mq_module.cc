@@ -68,9 +68,15 @@ static void* mq_msg_handler(void *arg) {
       req->result = ctc_ddl_execute_update(req->thd_id, &req->broadcast_req, &req->allow_fail);
       ctc_log_system("[Disaster Recovery] execute_ddl_mysql_sql : db:%s, sql_txt:%s,result:%d", req->broadcast_req.db_name,
                    req->broadcast_req.sql_str, req->result);
-      ctc_log_note("execute_ddl_mysql_sql : db:%s, sql_txt:%s,result:%d", req->broadcast_req.db_name,
-                   req->broadcast_req.sql_str, req->result);
       CTC_IGNORE_ERROR_WHEN_MYSQL_SHUTDOWN(req, "ctc_ddl_execute_update");
+      break;
+    }
+    case CTC_FUNC_TYPE_MYSQL_EXECUTE_SET_OPT: {
+      execute_mysql_set_opt_request *req =
+          (execute_mysql_set_opt_request *)message_block->seg_buf[0];
+      req->result = ctc_ddl_execute_set_opt(&req->broadcast_req, req->allow_fail);
+      ctc_log_system("[Disaster Recovery] execute_mysql_set_opt : result:%d", req->result);
+      CTC_IGNORE_ERROR_WHEN_MYSQL_SHUTDOWN(req, "ctc_ddl_execute_set_opt");
       break;
     }
     case CTC_FUNC_TYPE_CLOSE_MYSQL_CONNECTION: {
