@@ -436,18 +436,20 @@ __attribute__((visibility("default"))) int ctc_ddl_execute_update(uint32_t thd_i
   return 0;
 }
 
-__attribute__((visibility("default"))) int ctc_ddl_execute_set_opt(ctc_set_opt_request *broadcast_req,
+__attribute__((visibility("default"))) int ctc_ddl_execute_set_opt(uint32_t thd_id,
+                                                                   ctc_set_opt_request *broadcast_req,
                                                                    bool allow_fail) {
   // 相同节点不用执行
   if (broadcast_req->mysql_inst_id == ctc_instance_id) {
-    ctc_log_note("ctc_ddl_execute_set_opt curnode not need execute, mysql_inst_id:%u", broadcast_req->mysql_inst_id);
+    ctc_log_note("ctc_ddl_execute_set_opt curnode not need execute, mysql_inst_id:%u, conn_id:%u",
+                 broadcast_req->mysql_inst_id, thd_id);
     return 0;
   }
 
   int ret = ctc_set_sys_var(broadcast_req);
   if (ret != 0) {
-    ctc_log_note("ctc_ddl_execute_set_opt curnode execute fail, cur_mysql_inst_id:%u, allow_fail:%d",
-                 ctc_instance_id, allow_fail);
+    ctc_log_note("ctc_ddl_execute_set_opt curnode execute fail, cur_mysql_inst_id:%u, conn_id:%u, allow_fail:%d",
+                 ctc_instance_id, thd_id, allow_fail);
   }
 
   return ret;
