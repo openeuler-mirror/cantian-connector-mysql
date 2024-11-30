@@ -3901,6 +3901,8 @@ int ha_ctc::index_prev(uchar *buf) {
 int ha_ctc::index_first(uchar *buf) {
   DBUG_TRACE;
   ha_statistic_increment(&System_status_var::ha_read_first_count);
+  m_tch.cursor_addr = INVALID_VALUE64;
+  m_tch.cursor_valid = false;
   int error = index_read(buf, nullptr, 0, HA_READ_AFTER_KEY);
   /* MySQL does not seem to allow this to return HA_ERR_KEY_NOT_FOUND */
   if (error == HA_ERR_KEY_NOT_FOUND) {
