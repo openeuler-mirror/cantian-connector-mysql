@@ -74,7 +74,7 @@ static void* mq_msg_handler(void *arg) {
     case CTC_FUNC_TYPE_MYSQL_EXECUTE_SET_OPT: {
       execute_mysql_set_opt_request *req =
           (execute_mysql_set_opt_request *)message_block->seg_buf[0];
-      req->result = ctc_ddl_execute_set_opt(&req->broadcast_req, req->allow_fail);
+      req->result = ctc_ddl_execute_set_opt(req->thd_id, &req->broadcast_req, req->allow_fail);
       ctc_log_system("[Disaster Recovery] execute_mysql_set_opt : result:%d", req->result);
       CTC_IGNORE_ERROR_WHEN_MYSQL_SHUTDOWN(req, "ctc_ddl_execute_set_opt");
       break;
