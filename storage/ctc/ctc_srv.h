@@ -631,7 +631,7 @@ int close_mysql_connection(uint32_t thd_id, uint32_t mysql_inst_id);
 int ctc_ddl_execute_lock_tables(ctc_handler_t *tch, char *db_name, ctc_lock_table_info *lock_info, int *err_code);
 int ctc_ddl_execute_unlock_tables(ctc_handler_t *tch, uint32_t mysql_inst_id, ctc_lock_table_info *lock_info);
 EXTER_ATTACK int ctc_ddl_execute_update(uint32_t thd_id, ctc_ddl_broadcast_request *broadcast_req, bool *allow_fail);
-EXTER_ATTACK int ctc_ddl_execute_set_opt(ctc_set_opt_request *broadcast_req, bool allow_fail);
+EXTER_ATTACK int ctc_ddl_execute_set_opt(uint32_t thd_id, ctc_set_opt_request *broadcast_req, bool allow_fail);
 EXTER_ATTACK int ctc_execute_mysql_ddl_sql(ctc_handler_t *tch, ctc_ddl_broadcast_request *broadcast_req, bool allow_fail);
 EXTER_ATTACK int ctc_execute_set_opt(ctc_handler_t *tch, ctc_set_opt_request *broadcast_req, bool allow_fail);
 int ctc_execute_rewrite_open_conn(uint32_t thd_id, ctc_ddl_broadcast_request *broadcast_req);

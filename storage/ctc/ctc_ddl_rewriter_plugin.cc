@@ -458,6 +458,7 @@ static int ctc_set_var_meta(MYSQL_THD thd, list<set_var_info> variables_info, ct
     ctc_log_error("alloc mem failed, set_opt_info size(%lu)", variables_info.size() * sizeof(set_opt_info_t));
     return HA_ERR_OUT_OF_MEM;
   }
+  memset(set_opt_request->set_opt_info, 0, variables_info.size() * sizeof(set_opt_info_t));
   set_opt_info_t *set_opt_info_begin = set_opt_request->set_opt_info;
   for (auto it = variables_info.begin(); it != variables_info.end(); ++it) {
     auto var_info = *it;

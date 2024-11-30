@@ -773,32 +773,33 @@ int close_ctc_mdl_thd(uint32_t thd_id, uint32_t mysql_inst_id) {
   return 0;
 }
 
-static void ctc_get_set_var_item(THD* new_thd, sys_var* sysvar, Item** res MY_ATTRIBUTE((unused)), string& var_value,
-                                 bool is_null_value, bool var_is_int) {
+static void ctc_get_set_var_item(THD* new_thd, sys_var* sysvar, Item** res MY_ATTRIBUTE((unused)),
+                                 const char* var_value, bool is_null_value, bool var_is_int) {
+  string val_str = string(var_value, strlen(var_value));
   switch (sysvar->show_type()) {
     case SHOW_INT:
     case SHOW_LONG:
     case SHOW_LONGLONG:
     case SHOW_HA_ROWS:
-      if (var_value.c_str()[0] != '-') {
+      if (var_value[0] != '-') {
         *res = new (new_thd->mem_root)
-          Item_uint(var_value.c_str(), (uint)var_value.length());
+          Item_uint(var_value, (uint)strlen(var_value));
         break;
       }
     case SHOW_SIGNED_INT:
     case SHOW_SIGNED_LONG:
     case SHOW_SIGNED_LONGLONG:
       *res = new (new_thd->mem_root)
-        Item_int(var_value.c_str(), (uint)var_value.length());
+        Item_int(var_value, (uint)strlen(var_value));
       break;
     case SHOW_BOOL:
     case SHOW_MY_BOOL:
-      if(var_value == "1" || var_value == "0") {
+      if(val_str == "1" || val_str == "0") {
         *res = new (new_thd->mem_root)
-          Item_int(var_value.c_str(), (uint)var_value.length());
+          Item_int(var_value, (uint)strlen(var_value));
       } else {
         *res = new (new_thd->mem_root)
-            Item_string(var_value.c_str(), var_value.length(),
+            Item_string(var_value, strlen(var_value),
                         &my_charset_utf8mb4_bin);
       }
       break;
@@ -806,10 +807,10 @@ static void ctc_get_set_var_item(THD* new_thd, sys_var* sysvar, Item** res MY_AT
     case SHOW_LEX_STRING:
       if (var_is_int) {
 	*res = new (new_thd->mem_root)
-          Item_int(var_value.c_str(), (uint)var_value.length());
+          Item_int(var_value, (uint)strlen(var_value));
       } else {
         *res = new (new_thd->mem_root)
-          Item_string(var_value.c_str(), var_value.length(),
+          Item_string(var_value, strlen(var_value),
                       &my_charset_utf8mb4_bin);
       }
       break;
@@ -818,12 +819,12 @@ static void ctc_get_set_var_item(THD* new_thd, sys_var* sysvar, Item** res MY_AT
         *res = new (new_thd->mem_root) Item_null();
       else
         *res = new (new_thd->mem_root)
-            Item_string(var_value.c_str(), var_value.length(),
+            Item_string(var_value, strlen(var_value),
                         &my_charset_utf8mb4_bin);
       break;
     case SHOW_DOUBLE:
       *res = new (new_thd->mem_root)
-          Item_float(var_value.c_str(), (uint)var_value.length());
+          Item_float(var_value, (uint)strlen(var_value));
       break;
     default:
       my_error(ER_UNKNOWN_SYSTEM_VARIABLE, MYF(0), sysvar->name.str);
@@ -882,7 +883,6 @@ int ctc_get_sys_var(THD *new_thd, ctc_set_opt_request *broadcast_req,
   set_var *var = nullptr;
   sys_var *sysvar = nullptr;
   string var_name = set_opt_info->var_name;
-  string var_value = set_opt_info->var_value;
 
   sysvar = intern_find_sys_var(var_name.c_str(), var_name.length());
   if (sysvar == nullptr) {
@@ -907,7 +907,7 @@ int ctc_get_sys_var(THD *new_thd, ctc_set_opt_request *broadcast_req,
   if (set_opt_info->options & CTC_SET_VARIABLE_PERSIST_ONLY) {
     type = OPT_PERSIST_ONLY;
   }
-  ctc_get_set_var_item(new_thd, sysvar, &res, var_value, is_null_value, var_is_int);
+  ctc_get_set_var_item(new_thd, sysvar, &res, set_opt_info->var_value, is_null_value, var_is_int);
   
   if (is_default_value) {
     if (res) {
