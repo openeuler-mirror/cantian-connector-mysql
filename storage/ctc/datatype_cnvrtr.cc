@@ -562,13 +562,9 @@ void convert_dec4_to_mydec(dec4_t *from, my_decimal *to)
   decimal(prec,scale):prec indicates the maximum number of significant digits,
   scale indicates the maximum number of decimal places that can be stored.
 */
-int decimal_mysql_to_cantian(const uint8_t *mysql_ptr, uchar *cantian_ptr, Field *mysql_field, uint32 *length)
+int decimal_mysql_to_cantian(const uint8_t *mysql_ptr, uchar *cantian_ptr, const int prec, const int scale, uint32 *length)
 {
   int ret = 0;
-  const int scale = mysql_field->decimals();
-  Field_new_decimal *f = dynamic_cast<Field_new_decimal *>(mysql_field);
-  CTC_RET_ERR_IF_NULL(f);
-  const int prec = f->precision;
   my_decimal d;
   ret = binary2my_decimal(E_DEC_FATAL_ERROR, mysql_ptr, &d, prec, scale);
   if (ret != E_DEC_OK) {
@@ -957,9 +953,12 @@ int convert_numeric_to_cantian(const field_cnvrt_aux_t *mysql_info, const uchar 
     case MYSQL_TYPE_LONGLONG:
       *(int64_t *)cantian_ptr = *(const int64_t *)mysql_ptr;
       break;
-    case MYSQL_TYPE_NEWDECIMAL:
-      res = decimal_mysql_to_cantian(mysql_ptr, cantian_ptr, mysql_field, length);
-      break;
+    case MYSQL_TYPE_NEWDECIMAL: {
+        Field_new_decimal *f = dynamic_cast<Field_new_decimal *>(mysql_field);
+        CTC_RET_ERR_IF_NULL(f);
+        res = decimal_mysql_to_cantian(mysql_ptr, cantian_ptr, f->precision, f->dec, length);
+        break;
+      }
     default:
       ctc_log_error("[mysql2cantian]unsupport numeric datatype %d", mysql_info->mysql_field_type);
       assert(0);

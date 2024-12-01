@@ -663,6 +663,305 @@ a,d
 a,d
 a,d
 drop table if exists myset;
+drop table if exists t1;
+CREATE TABLE t1(c1 tinyint, c2 tinyint not null, c3 tinyint signed, c4 tinyint unsigned, c5 int, c6 long, c7 bigint);
+INSERT INTO t1 VALUES (1,1,1,1,1,1,1), (2,2,2,2,2,2,2);
+INSERT INTO t1 VALUES (null, 5, null, null, null, null, null);
+INSERT INTO t1 VALUES (3,3,3,3,3,3,3), (4,4,4,4,4,4,4);
+INSERT INTO t1 VALUES (null, 7, null, null, null, null, null);
+INSERT INTO t1 VALUES (8,8,127,255,8,8,8);
+select * from t1;
+c1	c2	c3	c4	c5	c6	c7
+1	1	1	1	1	1	1
+2	2	2	2	2	2	2
+NULL	5	NULL	NULL	NULL	NULL	NULL
+3	3	3	3	3	3	3
+4	4	4	4	4	4	4
+NULL	7	NULL	NULL	NULL	NULL	NULL
+8	8	127	255	8	8	8
+select * from t1 where c1 % 2 = 0;
+c1	c2	c3	c4	c5	c6	c7
+2	2	2	2	2	2	2
+4	4	4	4	4	4	4
+8	8	127	255	8	8	8
+select * from t1 where c2 % 2 = 0;
+c1	c2	c3	c4	c5	c6	c7
+2	2	2	2	2	2	2
+4	4	4	4	4	4	4
+8	8	127	255	8	8	8
+select * from t1 where c3 % 2 = 0;
+c1	c2	c3	c4	c5	c6	c7
+2	2	2	2	2	2	2
+4	4	4	4	4	4	4
+select * from t1 where c4 % 2 = 0;
+c1	c2	c3	c4	c5	c6	c7
+2	2	2	2	2	2	2
+4	4	4	4	4	4	4
+select * from t1 where c5 % 2 = 0;
+c1	c2	c3	c4	c5	c6	c7
+2	2	2	2	2	2	2
+4	4	4	4	4	4	4
+8	8	127	255	8	8	8
+select * from t1 where c6 % 2 = 0;
+c1	c2	c3	c4	c5	c6	c7
+2	2	2	2	2	2	2
+4	4	4	4	4	4	4
+8	8	127	255	8	8	8
+select * from t1 where c7 % 2 = 0;
+c1	c2	c3	c4	c5	c6	c7
+2	2	2	2	2	2	2
+4	4	4	4	4	4	4
+8	8	127	255	8	8	8
+select * from t1 where c1 / 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+2	2	2	2	2	2	2
+select * from t1 where c2 / 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+2	2	2	2	2	2	2
+select * from t1 where c3 / 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+2	2	2	2	2	2	2
+select * from t1 where c4 / 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+2	2	2	2	2	2	2
+select * from t1 where c5 / 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+2	2	2	2	2	2	2
+select * from t1 where c6 / 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+2	2	2	2	2	2	2
+select * from t1 where c7 / 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+2	2	2	2	2	2	2
+select * from t1 where c1 * 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+select * from t1 where c2 * 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+select * from t1 where c3 * 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+select * from t1 where c4 * 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+select * from t1 where c5 * 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+select * from t1 where c6 * 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+select * from t1 where c7 * 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+select * from t1 where c1 + 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+select * from t1 where c2 + 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+select * from t1 where c3 + 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+select * from t1 where c4 + 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+select * from t1 where c5 + 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+select * from t1 where c6 + 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+select * from t1 where c7 + 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+select * from t1 where c1 - 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+3	3	3	3	3	3	3
+select * from t1 where c2 - 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+3	3	3	3	3	3	3
+select * from t1 where c3 - 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+3	3	3	3	3	3	3
+select * from t1 where c4 - 2 = 1;
+ERROR 22003: BIGINT UNSIGNED value is out of range in '(`test`.`t1`.`c4` - 2)'
+select * from t1 where c4 - 1 = 1;
+c1	c2	c3	c4	c5	c6	c7
+2	2	2	2	2	2	2
+select * from t1 where c5 - 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+3	3	3	3	3	3	3
+select * from t1 where c6 - 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+3	3	3	3	3	3	3
+select * from t1 where c7 - 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+3	3	3	3	3	3	3
+create table t16 (a int, b int unsigned);
+insert into t16 values (1,2),(2,1),(NULL,NULL),(1,NULL),(NULL,1);
+select * from t16;
+a	b
+1	2
+2	1
+NULL	NULL
+1	NULL
+NULL	1
+select * from t16 where -a < 0;
+a	b
+1	2
+2	1
+1	NULL
+select * from t16 where a - '2' >= 0;
+a	b
+2	1
+select * from t16 where a % 0 = 0;
+a	b
+Warnings:
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+select * from t16 where a / 0 = 0;
+a	b
+Warnings:
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+select * from t16 where a + 9223372036854775807 > 0;
+ERROR 22003: BIGINT value is out of range in '(`test`.`t16`.`a` + 9223372036854775807)'
+select * from t16 where a + 9223372036854775808 > 0;
+a	b
+1	2
+2	1
+1	NULL
+select * from t16 where a + 18446744073709551615 > 0;
+ERROR 22003: BIGINT UNSIGNED value is out of range in '(`test`.`t16`.`a` + 18446744073709551615)'
+select * from t16 where a + 18446744073709551616 > 0;
+a	b
+1	2
+2	1
+1	NULL
+select * from t16 where a > 1;
+a	b
+2	1
+select * from t16 where a >= 1;
+a	b
+1	2
+2	1
+1	NULL
+select * from t16 where a < 2;
+a	b
+1	2
+1	NULL
+select * from t16 where a <= 2;
+a	b
+1	2
+2	1
+1	NULL
+select * from t16 where a;
+a	b
+1	2
+2	1
+1	NULL
+select * from t16 where a <> 0;
+a	b
+1	2
+2	1
+1	NULL
+select * from t16 where a != 0;
+a	b
+1	2
+2	1
+1	NULL
+select * from t16 where !a;
+a	b
+Warnings:
+Warning	1287	'!' is deprecated and will be removed in a future release. Please use NOT instead
+select * from t16 where NOT a;
+a	b
+select * from t16 where NOT NOT a;
+a	b
+1	2
+2	1
+1	NULL
+select * from t16 where a <> NULL;
+a	b
+select * from t16 where a != NULL;
+a	b
+select * from t16 where a <=> 2;
+a	b
+2	1
+select * from t16 where a <=> NULL;
+a	b
+NULL	NULL
+NULL	1
+select * from t16 where a = 2;
+a	b
+2	1
+select * from t16 where a = NULL;
+a	b
+select * from t16 where a + b > 1;
+a	b
+1	2
+2	1
+select * from t16 where 1 < a;
+a	b
+2	1
+select * from t16 where a - 1;
+a	b
+2	1
+select * from t16 where a - 2;
+a	b
+1	2
+1	NULL
+select * from t16 where (a > 1) and (b > 1);
+a	b
+select * from t16 where (a > 1) && (b > 1);
+a	b
+Warnings:
+Warning	1287	'&&' is deprecated and will be removed in a future release. Please use AND instead
+select * from t16 where (a > 1) or (b > 1);
+a	b
+1	2
+2	1
+select * from t16 where (a > 1) || (b > 1);
+a	b
+1	2
+2	1
+Warnings:
+Warning	1287	'|| as a synonym for OR' is deprecated and will be removed in a future release. Please use OR instead
+select * from t16 where ((a > 1) and (b > 1)) < 1;
+a	b
+1	2
+2	1
+1	NULL
+NULL	1
+select * from t16 where ((a > 1) + (b > 1)) > 1;
+a	b
+select * from t16 where ((a > 1) XOR (b > 1)) < 1;
+a	b
+select * from t16 where a = 2 is null;
+a	b
+NULL	NULL
+NULL	1
+select * from t16 where a = 2 = null;
+a	b
+select * from t16 where a <=> NULL = 1;
+a	b
+NULL	NULL
+NULL	1
+select * from t16 where a + (-2) >= 0;
+a	b
+2	1
+create table t17 (a int, b int GENERATED ALWAYS AS (a + 1));
+insert into t17(a) values (NULL),(1),(2);
+select * from t17 where a > 1;
+a	b
+2	3
+select * from t17 where b > 1;
+a	b
+1	2
+2	3
+select * from t17 where (a > 1) AND (b > 1);
+a	b
+2	3
+select * from t17 where (a > 1) OR (b > 1);
+a	b
+1	2
+2	3
+select * from t17 where ((a > 1) AND (b > 1)) = 1;
+a	b
+2	3
+select * from t17 where ((a > 1) OR (b > 1)) = 1;
+a	b
+1	2
+2	3
 drop table t1;
 drop table t2;
 drop table t3;
@@ -678,3 +977,26 @@ drop table t12;
 drop table t13;
 drop table t14;
 drop table t15;
+drop table t16;
+drop table t17;
+create table tb_cache(a int);
+insert into tb_cache values(null);
+insert into tb_cache values(1);
+insert into tb_cache values(0);
+prepare stmt1 from 'select a from tb_cache where a <=> ?';
+set @arg1 = null;
+execute stmt1 using @arg1;
+a
+NULL
+set @arg2 = 1;
+execute stmt1 using @arg2;
+a
+1
+set @arg3 = 'a';
+execute stmt1 using @arg3;
+a
+0
+Warnings:
+Warning	1292	Truncated incorrect INTEGER value: 'a'
+Warning	1292	Truncated incorrect INTEGER value: 'a'
+drop table tb_cache;

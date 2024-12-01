@@ -239,7 +239,7 @@ void decode_mysql_datetime(MYSQL_TIME& ltime, const field_cnvrt_aux_t* mysql_inf
 
 int convert_datetime_to_cantian(const field_cnvrt_aux_t* mysql_info , uchar *cantian_ptr,
                                 const uchar *mysql_ptr, Field *mysql_field);
-int decimal_mysql_to_cantian(const uint8_t *mysql_ptr, uchar *cantian_ptr, Field *mysql_field, uint32 *length);
+int decimal_mysql_to_cantian(const uint8_t *mysql_ptr, uchar *cantian_ptr, const int prec, const int scale, uint32 *length);
 int convert_numeric_to_cantian(const field_cnvrt_aux_t *mysql_info, const uchar *mysql_ptr, uchar *cantian_ptr,
                                Field *mysql_field, uint32_t *length);
 void cm_encode_date(const date_detail_t *detail, date_t *date);

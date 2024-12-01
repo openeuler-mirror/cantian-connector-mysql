@@ -182,7 +182,7 @@ a
 15:15:12
 explain select * from tbl_time where a < "15:15:13";
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	tbl_time	NULL	range	key_a	key_a	4	NULL	2	100.00	Using where; Using pushed condition (`test`.`tbl_time`.`a` < TIME'15:15:13'); Using index
+1	SIMPLE	tbl_time	NULL	range	key_a	key_a	4	NULL	2	100.00	Using where; Using index
 Warnings:
 Note	1003	/* select#1 */ select `test`.`tbl_time`.`a` AS `a` from `test`.`tbl_time` where (`test`.`tbl_time`.`a` < TIME'15:15:13')
 drop table tbl_time;
