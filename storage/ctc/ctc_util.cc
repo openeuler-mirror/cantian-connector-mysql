@@ -849,3 +849,18 @@ longlong get_session_variable_int_value_with_range(THD *thd,
   }
   return var_value;
 }
+
+int32_t ctc_cmp_cantian_rowid(const rowid_t *rowid1, const rowid_t *rowid2) {
+  int32_t result = rowid1->file > rowid2->file ? 1 : (rowid1->file < rowid2->file ? (-1) : 0);
+  if (result != 0) {
+    return result;
+  }
+
+  result = rowid1->page > rowid2->page ? 1 : (rowid1->page < rowid2->page ? (-1) : 0);
+  if (result != 0) {
+    return result;
+  }
+
+  result = rowid1->slot > rowid2->slot ? 1 : (rowid1->slot < rowid2->slot ? (-1) : 0);
+  return result;
+}

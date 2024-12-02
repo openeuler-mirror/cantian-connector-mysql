@@ -192,6 +192,35 @@ drop trigger if exists trg_bug28502_ad;
 drop table t1, t1_op_log;
 drop view v1;
 
+CREATE TABLE `t1` (
+  a int,
+  b int,
+  KEY `idx_a` (a),
+  KEY `idx_b` (b)
+);
+insert into t1(a, b)  values(2, 3), (1, 3), (1, 3);
+set global ctc_select_prefetch = 0;
+select /*+ INDEX_MERGE(t1 idx_a, idx_b) */ count(*) from t1 where a = 1 and b = 3;
+set global ctc_select_prefetch = 1;
+select /*+ INDEX_MERGE(t1 idx_a, idx_b) */ count(*) from t1 where a = 1 and b = 3;
+
+create table t2(
+ id int, 
+ char_col char(20), 
+ enum_col enum('x-small','small','medium','large','x-large'), 
+ primary key (id), 
+ key idx_char_col (char_col), 
+ key idx_enum_col (enum_col));
+insert into t2 values(84, 'apple', 'x-large'), (417, 'apple' , 'x-large'), (439, 'qpple', 'x-large'), (847, 'apple', 'x-large');
+select count(*) from t2 where enum_col = 'x-large' and char_col  = 'apple';
+set global ctc_select_prefetch = 0;
+select /*+ INDEX_MERGE(t2 idx_char_col,idx_enum_col) */ count(*) from t2 where enum_col = 'x-large' and char_col  = 'apple';
+set global ctc_select_prefetch = 1;
+select /*+ INDEX_MERGE(t2 idx_char_col,idx_enum_col) */ count(*) from t2 where enum_col = 'x-large' and char_col  = 'apple';
+
+drop table t1;
+drop table t2;
+
 create database db_trigger;
 use db_trigger;
 SET @old_sql_mode := @@sql_mode ;
