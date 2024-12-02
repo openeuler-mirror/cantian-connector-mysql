@@ -36,6 +36,7 @@
 #include "sql/dd/types/schema.h"
 #include "sql/dd/types/object_table_definition.h"
 #include "sql/dd/string_type.h"
+#include "sql/sql_optimizer.h"
 #include "clientbuild/include/mysql_version.h"
 
 #pragma GCC visibility push(default)
@@ -491,6 +492,8 @@ public:
 
   int index_end() override;
 
+  int cmp_ref(const uchar *ref1, const uchar *ref2) const override;
+
   int index_read(uchar *buf, const uchar *key, uint key_len,
                  ha_rkey_function find_flag) override;
   int index_read_last(uchar *buf, const uchar *key_ptr, uint key_len) override;
@@ -854,6 +857,10 @@ public:
   virtual void free_cbo_stats();
 
   virtual int get_cbo_stats_4share();
+
+  bool m_ror_intersect = false;
+
+  void set_ror_intersect();
 
   /** Pointer to Cond pushdown */
   ctc_conds *m_cond = nullptr;

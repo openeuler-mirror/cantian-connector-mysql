@@ -2991,6 +2991,20 @@ bool ha_ctc::is_record_buffer_wanted(ha_rows *const max_rows) const {
   return false;
 }
 
+void ha_ctc::set_ror_intersect() {
+#ifdef FEATURE_X_FOR_MYSQL_32
+  if (table->reginfo.qep_tab && table->reginfo.qep_tab->access_path() &&
+      table->reginfo.qep_tab->access_path()->type == AccessPath::ROWID_INTERSECTION) {
+    m_ror_intersect = true;
+  }
+#elif defined(FEATURE_X_FOR_MYSQL_26)
+  if (table->reginfo.qep_tab && table->reginfo.qep_tab->quick() &&
+      table->reginfo.qep_tab->quick()->get_type() == QUICK_SELECT_I::QS_TYPE_ROR_INTERSECT) {
+    m_ror_intersect = true;
+  }
+#endif
+}
+
 // @ref set_record_buffer
 int ha_ctc::set_prefetch_buffer() {
   if (m_rec_buf) {
@@ -3189,6 +3203,7 @@ int ha_ctc::rnd_init(bool) {
     return 0;
   }
 
+  set_ror_intersect();
   ct_errno_t ret = (ct_errno_t)set_prefetch_buffer();
   if (ret != CT_SUCCESS) {
     END_RECORD_STATS(EVENT_TYPE_RND_INIT)
@@ -3662,6 +3677,7 @@ int ha_ctc::rnd_end() {
 int ha_ctc::index_init(uint index, bool sorted) {
   DBUG_TRACE;
   BEGIN_RECORD_STATS
+  set_ror_intersect();
   ct_errno_t ret = (ct_errno_t)set_prefetch_buffer();
   if (ret != CT_SUCCESS) {
     return ret;
@@ -3699,6 +3715,11 @@ int ha_ctc::index_end() {
   return ret;
 }
 
+int ha_ctc::cmp_ref(const uchar *ref1, const uchar *ref2) const {
+  DBUG_TRACE;
+  return ctc_cmp_cantian_rowid((const rowid_t *)ref1, (const rowid_t *)ref2);
+}
+
 int ha_ctc::process_cantian_record(uchar *buf, record_info_t *record_info, ct_errno_t ct_ret, int rc_ret) {
   int ret = CT_SUCCESS;
   check_error_code_to_mysql(ha_thd(), &ct_ret);
@@ -3731,6 +3752,7 @@ EXTER_ATTACK int ha_ctc::index_read(uchar *buf, const uchar *key, uint key_len, 
     reset_rec_buf();
   }
 
+  m_is_covering_index = m_ror_intersect ? false : m_is_covering_index;
   m_action = m_is_covering_index ? EXP_CURSOR_ACTION_INDEX_ONLY : EXP_CURSOR_ACTION_SELECT;
   if (m_select_lock == lock_mode::EXCLUSIVE_LOCK) {
     enum_sql_command sql_command = (enum_sql_command)thd_sql_command(ha_thd());
