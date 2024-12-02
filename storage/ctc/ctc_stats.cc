@@ -121,7 +121,7 @@ bool ctc_stats::get_statistics_enabled() {
 
 void ctc_stats::set_statistics_enabled(const bool enabled) {
     if (enabled && !m_statistics_enabled.load()) {
-        for (int i = 0; i < CTC_FUNC_TYPE_NUMBER; i++) {
+        for (int i = 0; i < EVENT_TYPE_COUNT; i++) {
             for (int hash_id = 0; hash_id < EVENT_TRACKING_GROUP; hash_id++) {
                 m_calls[i][hash_id] = 0;
                 m_use_time[i][hash_id] = 0;
@@ -134,7 +134,6 @@ void ctc_stats::set_statistics_enabled(const bool enabled) {
 
 void ctc_stats::gather_stats(const enum EVENT_TRACKING type, const uint64_t start_cycles) {
     if (clock_frequency == 0) {
-        ctc_log_error("[TSE STATS] clock frequency is not initialized.");
         return;
     }
     uint64_t use_time = rdtsc() - start_cycles;
