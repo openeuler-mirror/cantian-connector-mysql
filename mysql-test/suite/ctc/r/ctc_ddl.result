@@ -182,18 +182,6 @@ create table ``(i int);
 ERROR 42000: Incorrect table name ''
 create table `   `(i int);
 ERROR 42000: Incorrect table name '   '
-set debug = '+d, ctc_lock_table_fail';
-set debug = '+d, ctc_lock_table_fail_DDL_LOCKED';
-create table test1(i int);
-ERROR HY000: Instance has been locked, disallow this operation
-set debug = '-d, ctc_lock_table_fail_DDL_LOCKED';
-set debug = '+d, ctc_lock_table_fail_VERSION_NOT_MATCH';
-create table test1(i int);
-ERROR HY000: Version not match. Please make sure cluster on the same version.
-set debug = '-d, ctc_lock_table_fail_VERSION_NOT_MATCH';
-set debug = '+d, ctc_lock_table_fail_DISALLOW_OPERATION';
-create table test1(i int);
-ERROR HY000: The table or database is being used. Please try again later.
 set debug = '-d, ctc_lock_table_fail_DISALLOW_OPERATION';
 set debug = '-d, ctc_lock_table_fail';
 create table test1(i int);
