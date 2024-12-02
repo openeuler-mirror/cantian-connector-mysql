@@ -36,7 +36,11 @@ static unordered_set<string> mysql_system_db{"information_schema", "mysql", "per
 
 #define CTC_GET_THD_DB_NAME(thd) (thd->db().str == NULL) ? nullptr : const_cast<char *>(thd->db().str)
 
-#define CBO_STRING_MAX_LEN 16
+#ifndef WITH_CANTIAN
+    #define CBO_STRING_MAX_LEN 16
+#else
+    #define CBO_STRING_MAX_LEN 64
+#endif
 
 #define OFFSET_VARCHAR_TYPE 2
 
