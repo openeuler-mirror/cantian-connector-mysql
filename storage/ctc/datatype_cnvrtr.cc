@@ -450,12 +450,16 @@ void convert_digital_to_dec4(dec4_t *d4, uint8 *digits, bool sign, int start, in
     cell_idx++;
   }
   // remaining numbers
-  while (digidx <= end) {
+  int non_zero_end = end;
+  while (non_zero_end >= 0 && digits[non_zero_end] == 0) {
+    non_zero_end--;
+  }
+  while (digidx <= non_zero_end) {
     d4->cells[cell_idx] = 0;
-    if (digidx + DIG_PER_DEC4 <= end) {
+    if (digidx + DIG_PER_DEC4 <= non_zero_end) {
       d4->cells[cell_idx] = restore_digital(digits, digidx, digidx + DIG_PER_DEC4 - 1, DIG_PER_DEC4);
     } else {
-      d4->cells[cell_idx] = restore_digital(digits, digidx, end, DIG_PER_DEC4);
+      d4->cells[cell_idx] = restore_digital(digits, digidx, non_zero_end, DIG_PER_DEC4);
     }
       digidx += DIG_PER_DEC4;
       cell_idx++;
@@ -487,6 +491,9 @@ void convert_dec4_to_digital(dec4_t *dec4, uint8 *digits, int &start, int &point
     j++;
   }
   end = i * DIG_PER_DEC4 - 1; // the last number index
+  if (dec4->expn > dec4->ncells - 1) { // corresponding format：d * 10^x
+    end = point;
+  }
   // remove leading zero
   while (end >= point && digits[end] == 0) {
     end--;
