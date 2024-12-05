@@ -578,7 +578,7 @@ static double calc_hist_between_density(ctc_cbo_stats_table_t *cbo_stats,
 }
 
 double calc_density_by_cond(ctc_cbo_stats_table_t *cbo_stats, KEY_PART_INFO cur_index_part, ctc_range_key *key,
-                            uint32_t key_offset, uint32_t col_id, const CHARSET_INFO *cs)
+                            uint32_t key_offset, uint32_t col_id, const CHARSET_INFO *cs, bool *continue_calc)
 {
   double density = DEFAULT_RANGE_DENSITY;
   ctc_key *min_key = key->min_key;
@@ -601,11 +601,17 @@ double calc_density_by_cond(ctc_cbo_stats_table_t *cbo_stats, KEY_PART_INFO cur_
   }
   extract_boundary_value(min_key, &cur_index_part, &min_key_val, low_val, key_offset);
   extract_boundary_value(max_key, &cur_index_part, &max_key_val, high_val, key_offset);
+
+  en_ctc_compare_type comapare_value = compare(&max_key_val, &min_key_val, cur_index_part.field, cs);
+  if (comapare_value != EQUAL) {
+    // 联合索引上下界不同时，当前列为范围查询，下一列开始不符合联合索引的最左匹配原则，无需继续计算
+    *continue_calc = false;
+  }
   if (compare(&max_key_val, low_val, cur_index_part.field, cs) == LESS ||
       compare(&min_key_val, high_val, cur_index_part.field, cs) == GREAT) {
     return 0;
   }
-  en_ctc_compare_type comapare_value = compare(&max_key_val, &min_key_val, cur_index_part.field, cs);
+
   if (comapare_value == EQUAL && min_key->cmp_type == CMP_TYPE_CLOSE_INTERNAL &&
       max_key->cmp_type == CMP_TYPE_CLOSE_INTERNAL) {
     return calc_hist_equal_density(cbo_stats, &max_key_val, col_id, cur_index_part.field, cs);
@@ -633,7 +639,8 @@ void calc_accumulate_gcol_num(uint num_fields, Field** field, uint32_t *acc_gcol
 }
 
 double calculate_column_selectivity(ctc_cbo_stats_table_t *cbo_stats, ctc_range_key* key, KEY_PART_INFO *cur_index_part,
-                                    uint32_t ctc_col_id,  uint32_t key_offset, bool is_nullable, const CHARSET_INFO *cs)
+                                    uint32_t ctc_col_id,  uint32_t key_offset, bool is_nullable, const CHARSET_INFO *cs,
+                                    bool *continue_calc)
 {
     double col_selectivity = 0.0;
 
@@ -648,7 +655,8 @@ double calculate_column_selectivity(ctc_cbo_stats_table_t *cbo_stats, ctc_range_
         /*when the col of min_key and max_key both have null-val --> select * from table where col is null*/
         col_selectivity = calc_equal_null_density(cbo_stats, ctc_col_id);
     } else {
-        col_selectivity = calc_density_by_cond(cbo_stats, *cur_index_part, key, key_offset, ctc_col_id, cs);
+        col_selectivity = calc_density_by_cond(cbo_stats, *cur_index_part, key, key_offset,
+                                               ctc_col_id, cs, continue_calc);
     }
 
     return col_selectivity;
@@ -704,7 +712,8 @@ double calc_density_one_table(uint16_t idx_id, ctc_range_key *key,
   * For all columns in used index,
   * density = 1.0 / (column[0]->num_distinct * ... * column[n]->num_distinct)
   */
-  for (uint32_t idx_col_num = 0; idx_col_num < cur_index.actual_key_parts; idx_col_num++) {
+  bool continue_calc = true;
+  for (uint32_t idx_col_num = 0; idx_col_num < cur_index.actual_key_parts && continue_calc; idx_col_num++) {
     double col_selectivity = 0.0;
     if ((valid_map & ((uint64_t)1 << idx_col_num)) == 0) {
       break;
@@ -723,7 +732,8 @@ double calc_density_one_table(uint16_t idx_id, ctc_range_key *key,
 
     set_key_boundary_types(key, idx_col_num, min_key_cmp_type, max_key_cmp_type);
     col_selectivity = calculate_column_selectivity(cbo_stats, key, &cur_index_part, ctc_col_id, 
-                                                   key_offset, null_offset, table.field[mysql_col_id]->charset());
+                                                   key_offset, null_offset, table.field[mysql_col_id]->charset(),
+                                                   &continue_calc);
     col_selectivity = eval_density_result(col_selectivity);
 
     key_offset += (varchar_offset + null_offset + cur_index_part.field->key_length());
