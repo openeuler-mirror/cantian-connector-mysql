@@ -27,6 +27,8 @@
 #include "ctc_log.h"
 #include "decimal_convert.h"
 #include "ctc_srv.h"
+#include "mysql/plugin.h"
+
 #ifdef FEATURE_X_FOR_MYSQL_26
 #include "sql/json_dom.h"
 #elif defined(FEATURE_X_FOR_MYSQL_32)
@@ -1760,6 +1762,33 @@ int mysql_record_to_cantian_record(const TABLE &table, record_buf_info_t *record
   row_head->column_count = is_update ? n_fields : n_fields - virtual_gcol_cnt;
   row_head->flags = 0;
   return 0;
+}
+
+void generate_mysql_record_row_desc(const TABLE &table, ulong *ncols, ulong *row_len,
+                                    ulong *offsets, ulong *null_bit_mask, ulong *null_bit_offsets,
+                                    MY_BITMAP *read_set)
+{
+  UNUSED_PARAM(read_set);
+  *ncols = 0;
+  // read_set optimize OFF route or mysql side don't provide read_set
+  *ncols = table.s->fields;
+
+  for (uint column_id = 0; column_id < *ncols; column_id++) {
+    Field *field = table.field[column_id];
+    offsets[column_id] = field->offset(table.record[0]);
+
+    if (field->pack_length() + field->offset(table.record[0]) > *row_len) {
+      *row_len = field->pack_length() + field->offset(table.record[0]);
+    }
+
+    if (field->is_nullable()) {
+      null_bit_mask[column_id] = field->null_bit;
+      null_bit_offsets[column_id] = field->null_offset();
+    } else {
+      null_bit_mask[column_id] = 0;
+      null_bit_offsets[column_id] = 0;
+    }
+  }
 }
 
 void copy_column_data_to_mysql(field_info_t *field_info, const field_cnvrt_aux_t* mysql_info,

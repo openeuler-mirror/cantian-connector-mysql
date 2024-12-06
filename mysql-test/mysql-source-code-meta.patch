@@ -279,7 +279,7 @@ index d08718a1..e7d00b24 100644
      if (ddse->dict_set_server_version == nullptr ||
          ddse->dict_set_server_version()) {
 diff --git a/sql/dd/impl/cache/dictionary_client.cc b/sql/dd/impl/cache/dictionary_client.cc
-index 80638063..c649fa53 100644
+index 80638063..8ef10d3a 100644
 --- a/sql/dd/impl/cache/dictionary_client.cc
 +++ b/sql/dd/impl/cache/dictionary_client.cc
 @@ -93,6 +93,7 @@
@@ -771,7 +771,7 @@ index 065400f1..da58b045 100644
  
    for (System_tables::Const_iterator it =
 diff --git a/sql/dd/impl/upgrade/server.cc b/sql/dd/impl/upgrade/server.cc
-index 1e3ce91c..48125691 100644
+index 1e3ce91c..009423b8 100644
 --- a/sql/dd/impl/upgrade/server.cc
 +++ b/sql/dd/impl/upgrade/server.cc
 @@ -518,12 +518,12 @@ static void create_upgrade_file() {
@@ -866,7 +866,7 @@ index ebda371e..6310acc5 100644
    // Read stage of upgrade from the file.
    Upgrade_status upgrade_status;
 diff --git a/sql/handler.cc b/sql/handler.cc
-index 217a0c19..fe900ebd 100644
+index 217a0c19..5e93df0f 100644
 --- a/sql/handler.cc
 +++ b/sql/handler.cc
 @@ -769,11 +769,13 @@ int ha_initialize_handlerton(st_plugin_int *plugin) {
@@ -1107,6 +1107,18 @@ index 0530ca15..bab9b083 100644
                           enum_binlog_command binlog_command, const char *query,
                           size_t query_length, const char *db,
                           const char *table_name);
+diff --git a/sql/locking_service.cc b/sql/locking_service.cc
+index 9ca8e21a..ef215f3d 100644
+--- a/sql/locking_service.cc
++++ b/sql/locking_service.cc
+@@ -56,7 +56,6 @@ class Locking_service_deadlock_error_handler : public Internal_error_handler {
+       my_error(ER_LOCKING_SERVICE_DEADLOCK, MYF(0));
+       return true;
+     } else if (sql_errno == ER_LOCK_WAIT_TIMEOUT) {
+-      my_error(ER_LOCKING_SERVICE_TIMEOUT, MYF(0));
+       return true;
+     }
+ 
 diff --git a/sql/log.cc b/sql/log.cc
 index 4da945ac..fc6f9c5b 100644
 --- a/sql/log.cc
@@ -1158,7 +1170,7 @@ index 4da945ac..fc6f9c5b 100644
      goto err;
    }
 diff --git a/sql/mdl.cc b/sql/mdl.cc
-index da9ff9ed..410b686d 100644
+index da9ff9ed..3e7643c1 100644
 --- a/sql/mdl.cc
 +++ b/sql/mdl.cc
 @@ -1654,6 +1654,25 @@ bool MDL_lock::needs_hton_notification(
@@ -1209,61 +1221,7 @@ index da9ff9ed..410b686d 100644
  
  retry:
    /*
-@@ -3034,6 +3057,26 @@ retry:
-     m_ticket_store.push_front(mdl_request->duration, ticket);
-     mdl_request->ticket = ticket;
- 
-+    if ((mdl_request->type == MDL_EXCLUSIVE &&
-+      MDL_lock::needs_hton_notification(key->mdl_namespace())) ||
-+      is_notify_ctc_se(mdl_request->type, key->mdl_namespace())) {
-+
-+      mysql_mdl_set_status(ticket->m_psi, MDL_ticket::PRE_ACQUIRE_NOTIFY);
-+
-+      bool victimized;
-+      if (m_owner->notify_hton_pre_acquire_exclusive(key, &victimized)) {
-+
-+        ticket->m_hton_notified = false;
-+        release_lock(mdl_request->duration, ticket);
-+        mdl_request->ticket = nullptr;
-+        my_error(victimized ? ER_LOCK_DEADLOCK : ER_LOCK_REFUSED_BY_ENGINE,
-+                MYF(0));
-+        return true;
-+      }
-+
-+      ticket->m_hton_notified = true;
-+      mysql_mdl_set_status(ticket->m_psi, MDL_ticket::PENDING);
-+    }
-     mysql_mdl_set_status(ticket->m_psi, MDL_ticket::GRANTED);
-     return false;
-   }
-@@ -3147,6 +3190,26 @@ slow_path:
-     m_ticket_store.push_front(mdl_request->duration, ticket);
-     mdl_request->ticket = ticket;
- 
-+    if ((mdl_request->type == MDL_EXCLUSIVE &&
-+      MDL_lock::needs_hton_notification(key->mdl_namespace())) ||
-+      is_notify_ctc_se(mdl_request->type, key->mdl_namespace())) {
-+
-+      mysql_mdl_set_status(ticket->m_psi, MDL_ticket::PRE_ACQUIRE_NOTIFY);
-+
-+      bool victimized;
-+      if (m_owner->notify_hton_pre_acquire_exclusive(key, &victimized)) {
-+
-+        ticket->m_hton_notified = false;
-+        release_lock(mdl_request->duration, ticket);
-+        mdl_request->ticket = nullptr;
-+        my_error(victimized ? ER_LOCK_DEADLOCK : ER_LOCK_REFUSED_BY_ENGINE,
-+                MYF(0));
-+        return true;
-+      }
-+      ticket->m_hton_notified = true;
-+      mysql_mdl_set_status(ticket->m_psi, MDL_ticket::PENDING);
-+    }
-+
-     mysql_mdl_set_status(ticket->m_psi, MDL_ticket::GRANTED);
-   } else
-     *out_ticket = ticket;
-@@ -3207,10 +3270,11 @@ bool MDL_context::clone_ticket(MDL_request *mdl_request) {
+@@ -3207,10 +3230,11 @@ bool MDL_context::clone_ticket(MDL_request *mdl_request) {
      of storage engines we need to notify/get permission from SEs similarly
      to situation when lock acquired.
    */
@@ -1278,7 +1236,7 @@ index da9ff9ed..410b686d 100644
      mysql_mdl_set_status(ticket->m_psi, MDL_ticket::PRE_ACQUIRE_NOTIFY);
  
      bool victimized;
-@@ -3224,6 +3288,7 @@ bool MDL_context::clone_ticket(MDL_request *mdl_request) {
+@@ -3224,6 +3248,7 @@ bool MDL_context::clone_ticket(MDL_request *mdl_request) {
      ticket->m_hton_notified = true;
  
      mysql_mdl_set_status(ticket->m_psi, MDL_ticket::PENDING);
@@ -1286,64 +1244,192 @@ index da9ff9ed..410b686d 100644
    }
  
    ticket->m_lock = mdl_request->ticket->m_lock;
-@@ -3275,6 +3340,28 @@ bool MDL_context::clone_ticket(MDL_request *mdl_request) {
+@@ -3275,6 +3300,7 @@ bool MDL_context::clone_ticket(MDL_request *mdl_request) {
  
    mdl_request->ticket = ticket;
    m_ticket_store.push_front(mdl_request->duration, ticket);
 +
-+  if ((mdl_request->type == MDL_EXCLUSIVE &&
-+      MDL_lock::needs_hton_notification(mdl_request->key.mdl_namespace())) ||
-+      is_notify_ctc_se(mdl_request->type, mdl_request->key.mdl_namespace())) {
-+
-+    mysql_mdl_set_status(ticket->m_psi, MDL_ticket::PRE_ACQUIRE_NOTIFY);
-+
-+    bool victimized;
-+    if (m_owner->notify_hton_pre_acquire_exclusive(&mdl_request->key,
-+                                                   &victimized)) {
-+      ticket->m_hton_notified = false;
-+      release_lock(mdl_request->duration, ticket);
-+      mdl_request->ticket = nullptr;
-+      my_error(victimized ? ER_LOCK_DEADLOCK : ER_LOCK_REFUSED_BY_ENGINE,
-+              MYF(0));
-+      return true;
-+    }
-+    ticket->m_hton_notified = true;
-+
-+    mysql_mdl_set_status(ticket->m_psi, MDL_ticket::PENDING);
-+  }
-+
    mysql_mdl_set_status(ticket->m_psi, MDL_ticket::GRANTED);
  
    return false;
-@@ -3576,6 +3663,27 @@ bool MDL_context::acquire_lock(MDL_request *mdl_request,
-   m_ticket_store.push_front(mdl_request->duration, ticket);
-   mdl_request->ticket = ticket;
+@@ -3342,43 +3368,67 @@ void MDL_lock::object_lock_notify_conflicting_locks(MDL_context *ctx,
+   }
+ }
  
+-/**
+-  Acquire one lock with waiting for conflicting locks to go away if needed.
+ 
+-  @param [in,out] mdl_request Lock request object for lock to be acquired
++bool MDL_context::acquire_lock_without_wait(MDL_request *mdl_request) {
+ 
+-  @param lock_wait_timeout Seconds to wait before timeout.
++  MDL_ticket *ticket = nullptr;
++
++  if (try_acquire_lock(mdl_request)) return true;
++
++  if (!mdl_request->ticket) {
++    /* We have failed to acquire lock instantly. */
++    DEBUG_SYNC(get_thd(), "mdl_acquire_lock_wait");
++    my_error(ER_LOCK_WAIT_TIMEOUT, MYF(0));
++    return true;
++  }
++  
++  ticket = mdl_request->ticket;
++  if (acquire_lock_remote(mdl_request, ticket)) return true;
++
++  if (mdl_request->ticket) return false;
++  
++  return true;
++}
+ 
++/*
+   @retval  false   Success. MDL_request::ticket points to the ticket
+                    for the lock.
+   @retval  true    Failure (Out of resources or waiting is aborted),
+ */
++bool MDL_context::acquire_lock_remote(MDL_request *mdl_request, MDL_ticket *ticket) {
 +  if ((mdl_request->type == MDL_EXCLUSIVE &&
-+      MDL_lock::needs_hton_notification(mdl_request->key.mdl_namespace())) ||
-+      is_notify_ctc_se(mdl_request->type, mdl_request->key.mdl_namespace())) {
-+
++       MDL_lock::needs_hton_notification(mdl_request->key.mdl_namespace())) ||
++       is_notify_ctc_se(mdl_request->type, mdl_request->key.mdl_namespace())) {
+ 
+-bool MDL_context::acquire_lock(MDL_request *mdl_request,
+-                               Timeout_type lock_wait_timeout) {
+-  if (lock_wait_timeout == 0) {
+-    /*
+-      Resort to try_acquire_lock() in case of zero timeout.
+-
+-      This allows to avoid unnecessary deadlock detection attempt and "fake"
+-      deadlocks which might result from it.
+-      In case of failure to acquire lock, try_acquire_lock() preserves
+-      invariants by updating MDL_lock::fast_path_state and obtrusive locks
+-      count. It also performs SE notification if needed.
+-    */
+-    if (try_acquire_lock(mdl_request)) return true;
+-
+-    if (!mdl_request->ticket) {
+-      /* We have failed to acquire lock instantly. */
+-      DEBUG_SYNC(get_thd(), "mdl_acquire_lock_wait");
+-      my_error(ER_LOCK_WAIT_TIMEOUT, MYF(0));
+-      return true;
 +    mysql_mdl_set_status(ticket->m_psi, MDL_ticket::PRE_ACQUIRE_NOTIFY);
-+
 +    bool victimized;
-+    if (m_owner->notify_hton_pre_acquire_exclusive(&mdl_request->key,
-+                                                   &victimized)) {
-+      ticket->m_hton_notified = false;
-+      release_lock(mdl_request->duration, ticket);
-+      mdl_request->ticket = nullptr;
-+      my_error(victimized ? ER_LOCK_DEADLOCK : ER_LOCK_REFUSED_BY_ENGINE,
-+               MYF(0));
++    if (m_owner->notify_hton_pre_acquire_exclusive(&mdl_request->key, &victimized)) {
++        ticket->m_hton_notified = false;
++        release_lock(mdl_request->duration, ticket);
++        mdl_request->ticket = nullptr;
++        return true;
+     }
+-    return false;
++    ticket->m_hton_notified = true;
++    mysql_mdl_set_status(ticket->m_psi, MDL_ticket::PENDING);
+   }
++  mysql_mdl_set_status(ticket->m_psi, MDL_ticket::GRANTED);
++  return false;
++}
+ 
+-  /* Normal, non-zero timeout case. */
++/**
++  Acquire one lock with waiting for conflicting locks to go away if needed.
++
++  @param [in,out] mdl_request Lock request object for lock to be acquired
++
++  @param lock_wait_timeout Seconds to wait before timeout.
++
++  @retval  false   Success. MDL_request::ticket points to the ticket
++                   for the lock.
++  @retval  true    Failure (Out of resources or waiting is aborted),
++*/
+ 
++bool MDL_context::acquire_lock_local(MDL_request *mdl_request,
++                                     Timeout_type lock_wait_timeout) {
+   MDL_lock *lock;
+   MDL_ticket *ticket = nullptr;
+   struct timespec abs_timeout;
+@@ -3484,7 +3534,6 @@ bool MDL_context::acquire_lock(MDL_request *mdl_request,
+       /* abs_timeout is far away. Wait a short while and notify locks. */
+       wait_status = m_wait.timed_wait(m_owner, &abs_shortwait, false,
+                                       mdl_request->key.get_wait_state_name());
+-
+       if (wait_status != MDL_wait::WS_EMPTY) break;
+ 
+       if (lock->needs_connection_check() && !m_owner->is_connected()) {
+@@ -3581,6 +3630,75 @@ bool MDL_context::acquire_lock(MDL_request *mdl_request,
+   return false;
+ }
+ 
++/**
++  Acquire lock from both nodes
++
++  @param [in,out] mdl_request Lock request object for lock to be acquired
++
++  @param lock_wait_timeout Seconds to wait before timeout.
++
++  @retval  false   Success. MDL_request::ticket points to the ticket
++                   for the lock.
++  @retval  true    Failure (Out of resources or waiting is aborted),
++*/
++
++bool MDL_context::acquire_lock(MDL_request *mdl_request, Timeout_type lock_wait_timeout) {
++
++  /*
++      Resort to try_acquire_lock() in case of zero timeout.
++
++      This allows to avoid unnecessary deadlock detection attempt and "fake"
++      deadlocks which might result from it.
++      In case of failure to acquire lock, try_acquire_lock() preserves
++      invariants by updating MDL_lock::fast_path_state and obtrusive locks
++      count. It also performs SE notification if needed.
++  */
++  if (lock_wait_timeout == 0) {
++    if (acquire_lock_without_wait(mdl_request)) {
 +      return true;
 +    }
-+    ticket->m_hton_notified = true;
-+
-+    mysql_mdl_set_status(ticket->m_psi, MDL_ticket::PENDING);
++    fprintf(stderr, "\n[MDL_CONTEXT]:get lock without wait time success (both local and remote), db = %s, name = %s, ticket->type = %d\n",
++        mdl_request->ticket->m_lock->key.db_name(), mdl_request->ticket->m_lock->key.name(), mdl_request->ticket->get_type());
++    return false;
 +  }
 +
-   mysql_mdl_set_status(ticket->m_psi, MDL_ticket::GRANTED);
- 
-   return false;
-@@ -4234,6 +4342,29 @@ void MDL_context::release_locks_stored_before(enum_mdl_duration duration,
++  /*non-zero timeout case*/
++  struct timespec abs_start_time;
++  struct timespec abs_end_time;
++  set_timespec(&abs_start_time, 0);
++  set_timespec(&abs_end_time, lock_wait_timeout);
++  Timeout_type remaining_wait_time = lock_wait_timeout;
++  MDL_ticket *ticket = nullptr;
++
++  while (cmp_timespec(&abs_start_time, &abs_end_time) <= 0) {
++    set_timespec(&abs_start_time, 0);
++    remaining_wait_time = static_cast<Timeout_type>(diff_timespec(&abs_end_time, &abs_start_time) / 1000000000ULL);
++    if (lock_wait_timeout == 1) {
++      remaining_wait_time += 1;
++    }
++    if(remaining_wait_time <= 0) break;
++
++    if (acquire_lock_local(mdl_request, remaining_wait_time)) return true;
++    ticket = mdl_request->ticket;
++    if (acquire_lock_remote(mdl_request, ticket)) {
++      srand(static_cast<unsigned int>(time(0)));
++      my_sleep(rand() % 1000001);
++      continue;
++    } else {
++      if (mdl_request->ticket) {
++        fprintf(stderr, "\n[MDL_CONTEXT]:get lock success (both local and remote), db = %s, name = %s, ticket->type = %d, lock_wait_timeout = %u\n",
++            ticket->m_lock->key.db_name(), ticket->m_lock->key.name(), ticket->get_type(), static_cast<unsigned int>(lock_wait_timeout));
++        return false;
++      }
++      my_error(ER_LOCK_REFUSED_BY_ENGINE, MYF(0));
++      return true;
++    }
++  }
++
++  if(mdl_request->ticket) return false;
++  return true;
++}
++
+ class MDL_request_cmp {
+  public:
+   bool operator()(const MDL_request *req1, const MDL_request *req2) {
+@@ -4234,6 +4352,29 @@ void MDL_context::release_locks_stored_before(enum_mdl_duration duration,
    }
  }
  
@@ -1374,10 +1460,20 @@ index da9ff9ed..410b686d 100644
    Release all explicit locks in the context which correspond to the
    same name/object as this lock request.
 diff --git a/sql/mdl.h b/sql/mdl.h
-index f1f49f06..0127906c 100644
+index f1f49f06..a3ccc8be 100644
 --- a/sql/mdl.h
 +++ b/sql/mdl.h
-@@ -1444,6 +1444,14 @@ class MDL_context {
+@@ -1416,6 +1416,9 @@ class MDL_context {
+   MDL_context();
+   void destroy();
+ 
++  bool acquire_lock_without_wait(MDL_request *mdl_request);
++  bool acquire_lock_remote(MDL_request *mdl_request, MDL_ticket *ticket);
++  bool acquire_lock_local(MDL_request *mdl_request, Timeout_type lock_wait_timeout);
+   bool try_acquire_lock(MDL_request *mdl_request);
+   bool acquire_lock(MDL_request *mdl_request, Timeout_type lock_wait_timeout);
+   bool acquire_locks(MDL_request_list *requests,
+@@ -1444,6 +1447,14 @@ class MDL_context {
    void release_all_locks_for_name(MDL_ticket *ticket);
    void release_locks(MDL_release_locks_visitor *visitor);
    void release_lock(MDL_ticket *ticket);
@@ -1393,7 +1489,7 @@ index f1f49f06..0127906c 100644
    bool owns_equal_or_stronger_lock(const MDL_key *mdl_key,
                                     enum_mdl_type mdl_type);
 diff --git a/sql/mysqld.cc b/sql/mysqld.cc
-index 50b76e2f..080fdf93 100644
+index 50b76e2f..2410960a 100644
 --- a/sql/mysqld.cc
 +++ b/sql/mysqld.cc
 @@ -1216,6 +1216,7 @@ handlerton *heap_hton;
@@ -1431,7 +1527,7 @@ index 50b76e2f..080fdf93 100644
    /*
      Set opt_super_readonly here because if opt_super_readonly is set
 diff --git a/sql/mysqld.h b/sql/mysqld.h
-index 0d7d41c4..b3f86eb6 100644
+index 0d7d41c4..52ce7864 100644
 --- a/sql/mysqld.h
 +++ b/sql/mysqld.h
 @@ -358,6 +358,7 @@ extern handlerton *myisam_hton;
@@ -1443,7 +1539,7 @@ index 0d7d41c4..b3f86eb6 100644
  extern ulong opt_server_id_mask;
  extern const char *load_default_groups[];
 diff --git a/sql/mysqld_thd_manager.cc b/sql/mysqld_thd_manager.cc
-index 902fe2b2..2fad578e 100644
+index 902fe2b2..d1c5fbdd 100644
 --- a/sql/mysqld_thd_manager.cc
 +++ b/sql/mysqld_thd_manager.cc
 @@ -48,6 +48,7 @@
@@ -1740,7 +1836,7 @@ index 662f5222..68e3ddd2 100644
        Now we can try removing database directory.
  
 diff --git a/sql/sql_insert.cc b/sql/sql_insert.cc
-index 70d9c1ff..b98e6ecb 100644
+index 70d9c1ff..c4a54c69 100644
 --- a/sql/sql_insert.cc
 +++ b/sql/sql_insert.cc
 @@ -2681,8 +2681,8 @@ static TABLE *create_table_from_items(THD *thd, HA_CREATE_INFO *create_info,
@@ -1941,7 +2037,7 @@ index 7bd705b4..17c49cea 100644
        /*
          If RENAME TABLE is non-atomic but we have not committed the above
 diff --git a/sql/sql_select.cc b/sql/sql_select.cc
-index 5963cf6e..3218795f 100644
+index 5963cf6e..0479852f 100644
 --- a/sql/sql_select.cc
 +++ b/sql/sql_select.cc
 @@ -2755,7 +2755,7 @@ void QEP_TAB::push_index_cond(const JOIN_TAB *join_tab, uint keyno,
@@ -2114,7 +2210,7 @@ index 04bc666a..76602d92 100644
      thd->locked_tables_list.rename_locked_table(
          table_list, alter_ctx.new_db, alter_ctx.new_name,
 diff --git a/sql/sql_tmp_table.cc b/sql/sql_tmp_table.cc
-index 2063261b..1c71f772 100644
+index 2063261b..faa2d3d6 100644
 --- a/sql/sql_tmp_table.cc
 +++ b/sql/sql_tmp_table.cc
 @@ -558,12 +558,15 @@ class Cache_temp_engine_properties {
@@ -2304,7 +2400,7 @@ index 9f955ad4..178d46e1 100644
        (thd->variables.option_bits & OPTION_TABLE_LOCK)) {
      /* Safety if one did "drop table" on locked tables */
 diff --git a/sql/window_iterators.cc b/sql/window_iterators.cc
-index cb0f1409..a6da7249 100644
+index cb0f1409..64c02879 100644
 --- a/sql/window_iterators.cc
 +++ b/sql/window_iterators.cc
 @@ -159,7 +159,7 @@ bool buffer_record_somewhere(THD *thd, Window *w, int64 rowno) {

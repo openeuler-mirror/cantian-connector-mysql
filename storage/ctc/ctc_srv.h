@@ -57,6 +57,7 @@ extern "C" {
 #define MAX_BULK_INSERT_PART_ROWS 128
 #define SESSION_CURSOR_NUM (8192 * 2)
 #define MAX_MESSAGE_SIZE 4194304  // 共享内存最大可申请空间大小
+#define CT_MAX_PARAL_QUERY 256
 
 // for broadcast_req.options
 #define CTC_SET_VARIABLE_PERSIST (0x1 << 8)
@@ -357,6 +358,10 @@ enum CTC_FUNC_TYPE {
     CTC_FUNC_KILL_CONNECTION,
     CTC_FUNC_TYPE_INVALIDATE_OBJECT,
     CTC_FUNC_TYPE_RECORD_SQL,
+    CTC_FUNC_TYPE_GET_PARAL_SCHEDULE,
+    CTC_FUNC_TYPE_GET_INDEX_PARAL_SCHEDULE,
+    CTC_FUNC_TYPE_PQ_INDEX_READ,
+    CTC_FUNC_TYPE_PQ_SET_CURSOR_RANGE,
     /* for instance registration, should be the last but before duplex */
     CTC_FUNC_TYPE_REGISTER_INSTANCE,
     CTC_FUNC_QUERY_SHM_FILE_NUM,
@@ -511,6 +516,49 @@ typedef struct en_ctc_cond_list_t {
     uint16_t elements;
 } ctc_cond_list;
 
+// parallel to knl_scan_key_t
+typedef struct en_ctc_scan_key {
+    uint8_t flags[16];
+    uint16_t offsets[16];
+    char *buf;
+} ctc_scan_key_t;
+
+typedef union en_ctc_page_id {
+    uint32_t vmid;
+    struct {
+        uint32_t page;
+        uint16_t file;
+        uint16_t aligned;
+    };
+} ctc_page_id_t;
+
+// guaranteed to be parallel to knl_scan_range_t
+typedef struct en_ctc_scan_range {
+    union {
+        struct {
+            char l_buf[4096]; // 4096 as CT_KEY_BUF_SIZE
+            char r_buf[4096];
+            char org_buf[4096];
+            ctc_scan_key_t l_key;
+            ctc_scan_key_t r_key;
+            ctc_scan_key_t org_key;
+            uint32_t is_equal;
+        };
+
+        struct {
+            ctc_page_id_t l_page;
+            ctc_page_id_t r_page;
+        };
+    };
+} ctc_scan_range_t;
+
+// splitting at most to CT_MAX_PARAL_QUERY part, single index scan range should not have more part than this
+// by-page scan shall also be wrapped in this as response type
+typedef struct en_ctc_index_paral_range {
+    uint32_t workers;
+    ctc_scan_range_t *range[CT_MAX_PARAL_QUERY];
+} ctc_index_paral_range_t;
+
 typedef struct {
     uint64_t ignore : 1;
     uint64_t no_foreign_key_check : 1;
@@ -534,6 +582,13 @@ typedef struct {
     uint32_t part_id;
     uint32_t subpart_id;
 } ctc_part_t;
+
+typedef struct en_ctcpart_scan_range {
+    ctc_scan_range_t range;
+    ctc_part_t part;
+    uint64_t query_scn;
+    uint64_t ssn;
+} ctcpart_scan_range_t;
 
 /* General Control Interface */
 int srv_wait_instance_startuped(void);
@@ -648,6 +703,20 @@ int ctc_broadcast_mysql_dd_invalidate(ctc_handler_t *tch, ctc_invalidate_broadca
 int ctc_set_cluster_role_by_cantian(bool is_slave);
 
 int ctc_record_sql_for_cantian(ctc_handler_t *tch, ctc_ddl_broadcast_request *broadcast_req, bool allow_fail);
+
+/* Parallel Query Related Interface */
+int ctc_get_index_paral_schedule(ctc_handler_t *tch, uint64_t *query_scn, int *worker_count,
+                                 char* index_name, bool reverse, bool is_index_full,
+                                 ctc_scan_range_t *origin_scan_range, ctc_index_paral_range_t *index_paral_range);
+int ctc_pq_index_read(ctc_handler_t *tch, record_info_t *record_info, index_key_info_t *index_info,
+                      ctc_scan_range_t scan_range, ctc_select_mode_t mode, ctc_conds *cond, const bool is_replace,
+                      uint64_t query_scn);
+
+int ctc_get_paral_schedule(ctc_handler_t *tch, uint64_t *query_scn, uint64_t *ssn, int *worker,
+                           ctc_index_paral_range_t *paral_range);
+int ctc_pq_set_cursor_range(ctc_handler_t *tch, ctc_page_id_t l_page, ctc_page_id_t r_page, uint64_t query_scn,
+                            uint64_t ssn);
+
 int ctc_query_cluster_role(bool *is_slave, bool *cantian_cluster_ready);
 int ctc_query_shm_file_num(uint32_t *shm_file_num);
 int ctc_query_shm_usage(uint32_t *shm_usage);

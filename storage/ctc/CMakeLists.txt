@@ -15,7 +15,8 @@
 SET(CTC_PLUGIN_DYNAMIC "ha_ctc")
 SET(CTC_SOURCES ctc_log.h ha_ctc.cc ha_ctc.h ha_ctcpart.h ha_ctcpart.cc ha_ctc_ddl.cc ha_ctc_ddl.h ctc_ddl_util.cc ctc_ddl_util.h datatype_cnvrtr.cc datatype_cnvrtr.h ctc_error.cc ctc_error.h
                 decimal_convert.cc decimal_convert.h ctc_cbo.cc ctc_cbo.h datatype_cnvrt_4_index_search.cc datatype_cnvrt_4_index_search.h ctc_ddl_rewriter_plugin.cc
-                ctc_meta_data.cc ctc_meta_data.h ctc_stats.h ctc_stats.cc ctc_srv.h ctc_util.h ctc_util.cc protobuf/tc_db.pb-c.c protobuf/tc_db.pb-c.h)
+                ctc_meta_data.cc ctc_meta_data.h ctc_stats.h ctc_stats.cc ctc_srv.h ctc_util.h ctc_util.cc protobuf/tc_db.pb-c.c protobuf/tc_db.pb-c.h
+                ha_ctc_pq.cc ha_ctc_pq.h)
 option(WITH_CANTIAN OFF)
 IF (WITH_CANTIAN)
     add_definitions(-DWITH_CANTIAN)
@@ -24,6 +25,14 @@ IF (WITH_CANTIAN)
 ELSE ()
     list(APPEND CTC_SOURCES ctc_srv_mq_stub.cc ctc_srv_mq_module.cc ctc_srv_mq_module.h srv_mq_msg.h message_queue/dsw_shm.h 
                             message_queue/dsw_list.h message_queue/dsw_message.h message_queue/dsw_typedef.h)
+ENDIF ()
+option(FEATURE_FOR_EVERSQL OFF)
+IF (FEATURE_FOR_EVERSQL)
+    add_definitions(-DFEATURE_FOR_EVERSQL=1)
+    message(STATUS "ADD FEATURE FOR EVERSQL")
+ELSE ()
+    add_definitions(-DFEATURE_FOR_EVERSQL=0)
+    message(STATUS "Dummy Feature For EverSQL, Mock class added")
 ENDIF ()
 ADD_DEFINITIONS(-DMYSQL_SERVER)
 ADD_DEFINITIONS(-DMYSQL_DYNAMIC_PLUGIN)

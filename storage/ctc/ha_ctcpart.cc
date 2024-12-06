@@ -57,8 +57,6 @@
 #include "sql/dd/types/partition.h"
 #include "sql/dd/string_type.h"
 
-#define INVALID_PART_ID (uint32)0xFFFFFFFF;
-
 extern handlerton *get_ctc_hton();
 extern uint32_t ctc_update_analyze_time;
 
@@ -75,8 +73,9 @@ static uint32_t get_ct_part_no(uint num_subparts, uint part_id) {
   return (uint32_t)part_no;
 }
 
-static bool get_used_partitions(partition_info *part_info,
-                                uint32_t **part_ids,uint32_t **subpart_ids, uint32_t *used_parts) {
+bool get_used_partitions(partition_info *part_info,
+                         uint32_t **part_ids, uint32_t **subpart_ids, uint32_t *used_parts)
+{
   *used_parts = part_info->num_partitions_used();
   if (*used_parts > 0) {
     *part_ids = (uint32_t *)my_malloc(PSI_NOT_INSTRUMENTED, (*used_parts) * sizeof(uint32_t), MYF(MY_WME));
