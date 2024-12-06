@@ -36,6 +36,29 @@ extern "C" {
 #define REG_MISMATCH_CTC_VERSION   501
 #define REG_ALLOC_INST_ID_FAILED   502
 
+// duplicate req->worker_count and req->index_paral_range->workers, intent to do so to align with knl api.
+struct get_index_paral_schedule_request {
+    ctc_handler_t tch;
+    int worker_count; // in and out param, expected DOP (degree of parallel), out as actually scheduled worker count.
+    char index_name[CTC_MAX_KEY_NAME_LENGTH + 1]; // in param, indicating the slot id used to fetch index param
+    ctc_scan_range_t *scan_range; // in param
+    ctc_index_paral_range_t *index_paral_range; // out param
+    uint64_t query_scn; // query_scn is of scn type, out param for first request, drop for the rest
+    bool reverse;
+    bool is_index_full;
+    int result;
+};
+
+// duplicate req->worker_count and req->paral_range->workers, intent to do so to align with knl api.
+struct get_paral_schedule_request {
+    ctc_handler_t tch;
+    int worker_count; // in and out pararm
+    ctc_index_paral_range_t *paral_range; // out param, point to a range on shared memory allocated with ctc_malloc
+    uint64_t query_scn; // query_scn is of scn type, out param for first request, drop for the rest
+    uint64_t ssn;
+    int result;
+};
+
 struct register_instance_request {
     uint32_t ctc_version; // ctc支持多版本的接口，格式为1.1.3=1001003，00作为点标记
     int group_num;
@@ -249,6 +272,34 @@ struct index_read_request {
     ctc_conds *cond;
     bool is_replace;
     bool index_skip_scan;
+};
+
+struct pq_index_read_request {
+    bool sorted;
+    bool need_init;
+    uint8_t *record;
+    uint16_t record_len;
+    uint16_t find_flag;
+    char index_name[CTC_MAX_KEY_NAME_LENGTH + 1];
+    uint16_t key_num;
+    int action;
+    int result;
+    ctc_handler_t tch;
+    ctc_select_mode_t mode;
+    ctc_conds *cond;
+    bool is_replace;
+    bool index_skip_scan;
+    ctc_scan_range_t scan_range;
+    uint64_t query_scn;
+};
+
+struct set_cursor_range_requst {
+    ctc_handler_t tch;
+    ctc_page_id_t l_page;
+    ctc_page_id_t r_page;
+    uint64_t query_scn;
+    uint64_t ssn;
+    int result;
 };
 
 struct index_end_request {

@@ -444,4 +444,6 @@ static inline void cursor_clear_bit(int *cursor_set, uint bit) {
   (cursor_set)[bit / 8] &= ~(1 << (bit & 7));
 }
 
+bool get_used_partitions(partition_info *part_info,
+                         uint32_t **part_ids, uint32_t **subpart_ids, uint32_t *used_parts);
 #endif /* ha_ctcpart_h */

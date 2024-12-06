@@ -220,6 +220,8 @@ void cantian_record_to_mysql_record(const TABLE &table, index_info_t *index, rec
 int mysql_record_to_cantian_record(const TABLE &table, record_buf_info_t *record_buf,
                                    ctc_handler_t &tch, uint16_t *serial_column_offset,
                                    std::vector<uint16_t> *fields=nullptr);
+void generate_mysql_record_row_desc(const TABLE &table, ulong *ncols, ulong *row_len, ulong *offsets,
+                                    ulong *null_bit_mask, ulong *null_bit_offsets, MY_BITMAP *read_set);
 void cal_gcol_cnts_for_update(Field **field, uint column_id, uint32_t *virtual_gcol_cnt);
 void cantian_index_record_to_mysql_record(const TABLE &table, index_info_t *index, record_buf_info_t *record_buf,
                                           ctc_handler_t &tch, record_info_t *record_info);
