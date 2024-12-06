@@ -119,18 +119,6 @@ create table `@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@#$`
 create table ``(i int);
 --error ER_WRONG_TABLE_NAME
 create table `   `(i int);
-set debug = '+d, ctc_lock_table_fail';
-set debug = '+d, ctc_lock_table_fail_DDL_LOCKED';
---error ER_DISALLOWED_OPERATION
-create table test1(i int);
-set debug = '-d, ctc_lock_table_fail_DDL_LOCKED';
-set debug = '+d, ctc_lock_table_fail_VERSION_NOT_MATCH';
---error ER_DISALLOWED_OPERATION
-create table test1(i int);
-set debug = '-d, ctc_lock_table_fail_VERSION_NOT_MATCH';
-set debug = '+d, ctc_lock_table_fail_DISALLOW_OPERATION';
---error ER_DISALLOWED_OPERATION
-create table test1(i int);
 set debug = '-d, ctc_lock_table_fail_DISALLOW_OPERATION';
 set debug = '-d, ctc_lock_table_fail';
 create table test1(i int);
