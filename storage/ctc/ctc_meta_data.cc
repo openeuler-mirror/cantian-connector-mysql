@@ -776,7 +776,6 @@ int close_ctc_mdl_thd(uint32_t thd_id, uint32_t mysql_inst_id) {
 
 static void ctc_get_set_var_item(THD* new_thd, sys_var* sysvar, Item** res MY_ATTRIBUTE((unused)),
                                  const char* var_value, bool is_null_value, bool var_is_int) {
-  string val_str = string(var_value, strlen(var_value));
   switch (sysvar->show_type()) {
     case SHOW_INT:
     case SHOW_LONG:
@@ -795,7 +794,7 @@ static void ctc_get_set_var_item(THD* new_thd, sys_var* sysvar, Item** res MY_AT
       break;
     case SHOW_BOOL:
     case SHOW_MY_BOOL:
-      if(val_str == "1" || val_str == "0") {
+      if(strcmp(var_value, "1") == 0 || strcmp(var_value, "0") == 0) {
         *res = new (new_thd->mem_root)
           Item_int(var_value, (uint)strlen(var_value));
       } else {
@@ -967,7 +966,6 @@ int ctc_set_sys_var(ctc_set_opt_request *broadcast_req) {
   lex_end(new_thd->lex);
   new_thd->release_resources();
   delete new_thd;
-
   my_thread_end();
   
   return ret;
