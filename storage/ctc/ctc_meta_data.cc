@@ -620,9 +620,6 @@ int ctc_mdl_lock_thd(ctc_handler_t *tch, ctc_lock_table_info *lock_info, int *er
  
   if (thd->mdl_context.acquire_lock(&ctc_mdl_request, 1)) {
     *err_code = ER_LOCK_WAIT_TIMEOUT;
-    ctc_log_system("[CTC_MDL_LOCK]: Another node failed to get current node mdl lock,"
-                   "namespace:%d , db_name:%s and table_name:%s",
-                   lock_info->mdl_namespace, lock_info->db_name, lock_info->table_name);
     return true;
   }
 
@@ -992,9 +989,6 @@ int ctc_ddl_execute_lock_tables_by_req(ctc_handler_t *tch, ctc_lock_table_info *
  
   if (thd->mdl_context.acquire_lock(&ctc_mdl_request, 1)) {
     *err_code = ER_LOCK_WAIT_TIMEOUT;
-    ctc_log_system("[CTC_MDL_LOCK]: Another node failed to get current node mdl lock,"
-                   " namespace:%d, db_name:%s, table_name:%s",
-                   lock_info->mdl_namespace, lock_info->db_name, lock_info->table_name);
     return true;
   }
 

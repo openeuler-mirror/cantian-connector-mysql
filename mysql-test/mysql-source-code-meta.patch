@@ -1170,7 +1170,7 @@ index 4da945ac..fc6f9c5b 100644
      goto err;
    }
 diff --git a/sql/mdl.cc b/sql/mdl.cc
-index da9ff9ed..3e7643c1 100644
+index da9ff9ed..f4fe2b11 100644
 --- a/sql/mdl.cc
 +++ b/sql/mdl.cc
 @@ -1654,6 +1654,25 @@ bool MDL_lock::needs_hton_notification(
@@ -1353,7 +1353,7 @@ index da9ff9ed..3e7643c1 100644
        if (wait_status != MDL_wait::WS_EMPTY) break;
  
        if (lock->needs_connection_check() && !m_owner->is_connected()) {
-@@ -3581,6 +3630,75 @@ bool MDL_context::acquire_lock(MDL_request *mdl_request,
+@@ -3581,6 +3630,70 @@ bool MDL_context::acquire_lock(MDL_request *mdl_request,
    return false;
  }
  
@@ -1384,8 +1384,6 @@ index da9ff9ed..3e7643c1 100644
 +    if (acquire_lock_without_wait(mdl_request)) {
 +      return true;
 +    }
-+    fprintf(stderr, "\n[MDL_CONTEXT]:get lock without wait time success (both local and remote), db = %s, name = %s, ticket->type = %d\n",
-+        mdl_request->ticket->m_lock->key.db_name(), mdl_request->ticket->m_lock->key.name(), mdl_request->ticket->get_type());
 +    return false;
 +  }
 +
@@ -1413,11 +1411,8 @@ index da9ff9ed..3e7643c1 100644
 +      continue;
 +    } else {
 +      if (mdl_request->ticket) {
-+        fprintf(stderr, "\n[MDL_CONTEXT]:get lock success (both local and remote), db = %s, name = %s, ticket->type = %d, lock_wait_timeout = %u\n",
-+            ticket->m_lock->key.db_name(), ticket->m_lock->key.name(), ticket->get_type(), static_cast<unsigned int>(lock_wait_timeout));
 +        return false;
 +      }
-+      my_error(ER_LOCK_REFUSED_BY_ENGINE, MYF(0));
 +      return true;
 +    }
 +  }
@@ -1429,7 +1424,7 @@ index da9ff9ed..3e7643c1 100644
  class MDL_request_cmp {
   public:
    bool operator()(const MDL_request *req1, const MDL_request *req2) {
-@@ -4234,6 +4352,29 @@ void MDL_context::release_locks_stored_before(enum_mdl_duration duration,
+@@ -4234,6 +4347,29 @@ void MDL_context::release_locks_stored_before(enum_mdl_duration duration,
    }
  }
  
@@ -1460,7 +1455,7 @@ index da9ff9ed..3e7643c1 100644
    Release all explicit locks in the context which correspond to the
    same name/object as this lock request.
 diff --git a/sql/mdl.h b/sql/mdl.h
-index f1f49f06..a3ccc8be 100644
+index f1f49f06..b810f0ac 100644
 --- a/sql/mdl.h
 +++ b/sql/mdl.h
 @@ -1416,6 +1416,9 @@ class MDL_context {
@@ -1488,6 +1483,13 @@ index f1f49f06..a3ccc8be 100644
  
    bool owns_equal_or_stronger_lock(const MDL_key *mdl_key,
                                     enum_mdl_type mdl_type);
+@@ -1772,4 +1783,4 @@ class MDL_lock_is_owned_visitor : public MDL_context_visitor {
+   bool m_exists;
+ };
+ 
+-#endif
++#endif
+\ No newline at end of file
 diff --git a/sql/mysqld.cc b/sql/mysqld.cc
 index 50b76e2f..2410960a 100644
 --- a/sql/mysqld.cc
