@@ -1965,9 +1965,6 @@ static void ctc_lock_table_handle_error(int err_code, ctc_lock_table_info *lock_
       break;
 
     default:
-      ctc_log_system("[CTC_MDL_LOCK]: Another node get current lock failed,"
-                     "err=%d, lock_info=(%s, %s), sql=%s, conn_id=%u, ctc_instance_id=%u",
-                     err_code, lock_info->db_name, lock_info->table_name, thd->query().str, tch.thd_id, tch.inst_id);
       break;
   }
 
@@ -3410,167 +3407,6 @@ EXTER_ATTACK int ha_ctc::rnd_pos(uchar *buf, uchar *pos) {
   return ret;
 }
 
-EXTER_ATTACK int ha_ctc::split_rnd_scan(uint32_t part_id, uint32_t subpart_id, ctc_index_paral_range_t* paral_range,
-                                        int expected_parallel_degree, uint64_t *query_scn, uint64_t *ssn)
-{
-  THD *thd = ha_thd();
-  update_member_tch(m_tch, ctc_hton, thd);
-  m_tch.part_id = part_id;
-  m_tch.subpart_id = subpart_id;
-  paral_range->workers = 0;
-  // as we may have more than one partition in a table, which means dop guidance
-  //   from single ctc_get_paral_schedule don't make sense anymore.
-  int worker_count_placeholder = expected_parallel_degree;
-  int ret = CT_SUCCESS;
-  ret = ctc_get_paral_schedule(&m_tch, query_scn, ssn, &worker_count_placeholder, paral_range);
-  update_sess_ctx_by_tch(m_tch, ctc_hton, thd);
-  return ret;
-}
-
-ParallelReaderHandler* ha_ctc::create_parallel_reader_handler(Parallel_reader_handler_config_t *prh_config)
-{
-  auto tprh = (CtcParallelReaderHandler *)
-    my_malloc(PSI_NOT_INSTRUMENTED, sizeof(CtcParallelReaderHandler), MYF(MY_WME | MY_ZEROFILL));
-  if (tprh == nullptr) {
-    // out of memory scenario;
-    return nullptr;
-  }
-
-  tprh = new (tprh) CtcParallelReaderHandler;
-  // currently not passing all prh_config to CtcParallelReaderHandler side for following reason:
-  //   1. the config eversql side provided (m_thread_count, m_thread_count)
-  //     is literally all zero for now
-  //   2. the m_buf_size is fixed to 64k since the adjustable prefetch buffer size
-  //     is not configuable due to kernel capability
-  int ret = tprh->initialize(table, prh_config->m_thread_count, m_tch,
-                             THDVAR(ha_thd(), parallel_read_threads), ctc_parallel_max_read_threads);
-  if (ret != CT_SUCCESS) {
-    // CT_ERROR indicates failure in my_malloc during tprh->initialize()
-    tprh->deinitialize();
-    tprh->~CtcParallelReaderHandler();
-    my_free(tprh);
-    return nullptr;
-  }
-
-  uint64_t query_scn;
-  uint64_t ssn;
-  // paral_range is the scratchpad shared among multiple calls to ct side.
-  auto paral_range = (ctc_index_paral_range_t *)
-    ctc_alloc_buf(&m_tch, sizeof(ctc_index_paral_range_t));
-  // allocate multiple item in one run
-  ctc_scan_range_t *scan_range_base = (ctc_scan_range_t *)
-    ctc_alloc_buf(&m_tch, sizeof(ctc_scan_range_t) * CT_MAX_PARAL_QUERY);
-  if (paral_range == nullptr || scan_range_base == nullptr) {
-    tprh->deinitialize();
-    tprh->~CtcParallelReaderHandler();
-    my_free(tprh);
-    ctc_free_buf(&m_tch, (uint8_t *) scan_range_base);
-    ctc_free_buf(&m_tch, (uint8_t *) paral_range);
-    return nullptr;
-  }
-
-  for (int i = 0 ; i < CT_MAX_PARAL_QUERY; i++) {
-    paral_range->range[i] = scan_range_base + i;
-    paral_range->range[i]->l_key.buf = paral_range->range[i]->l_buf;
-    paral_range->range[i]->r_key.buf = paral_range->range[i]->r_buf;
-    paral_range->range[i]->org_key.buf = paral_range->range[i]->org_buf;
-  }
-
-  // a. split each partition, or each sub-partition if there are any, with
-  //   the degree of the m_worker_count
-  // b. and save all work into CtcParallelReaderHandler, which comes with an
-  //   extra partition field in the data part of LIST
-  int result = CT_SUCCESS;
-  if (table->part_info == nullptr) {
-    // not partitioned table scenario, using two INVALID_PART_ID as partition id
-    // just do a task-splitting for once and we are all set.
-    memset(scan_range_base, 0, sizeof(ctc_scan_range_t) * CT_MAX_PARAL_QUERY);
-    result = split_rnd_scan(INVALID_PART_ID, INVALID_PART_ID, paral_range,
-      tprh->m_worker_count, &query_scn, &ssn);
-    if (result == CT_SUCCESS) {
-      result = tprh->save_task(paral_range, INVALID_PART_ID, INVALID_PART_ID, query_scn, ssn);
-    }
-  } else {
-    uint32_t used_parts;
-    uint32_t *part_ids = nullptr;
-    uint32_t *subpart_ids = nullptr;
-    bool ret = get_used_partitions(table->part_info, &part_ids, &subpart_ids, &used_parts);
-    if (!ret) {
-      ctc_log_error("Failed to allocate memory when trying to get used partitions");
-      // in this scenario, we act as if there is no valid split task and use the normal clean up route
-    } else {
-      for (uint i = 0; i < used_parts; i++) {
-        memset(scan_range_base, 0, sizeof(ctc_scan_range_t) * CT_MAX_PARAL_QUERY);
-        result = split_rnd_scan(part_ids[i], subpart_ids[i], paral_range,
-          tprh->m_worker_count, &query_scn, &ssn);
-        if (result != CT_SUCCESS) {
-          break;
-        }
-        result = tprh->save_task(paral_range, part_ids[i], subpart_ids[i], query_scn, ssn);
-        if (result != CT_SUCCESS) {
-          break;
-        }
-      }
-
-      my_free(subpart_ids);
-      my_free(part_ids);
-    }
-  }
-
-  ctc_free_buf(&m_tch, (uint8_t *) scan_range_base);
-  ctc_free_buf(&m_tch, (uint8_t *) paral_range);
-  if (result != CT_SUCCESS) {
-    tprh->deinitialize();
-    tprh->~CtcParallelReaderHandler();
-    my_free(tprh);
-    return nullptr;
-  }
-  return tprh;
-}
-
-void ha_ctc::close_parallel_reader_handler(ParallelReaderHandler* prh)
-{
-  CtcParallelReaderHandler *tprh = static_cast<CtcParallelReaderHandler *>(prh);
-  tprh->deinitialize();
-  tprh->~CtcParallelReaderHandler();
-  my_free(tprh);
-}
-
-double ha_ctc::scan_time() {
-  DBUG_TRACE;
-  double data_page_num = 1.0;
-  if (m_share && m_share->cbo_stats != nullptr) {
-    data_page_num = m_share->cbo_stats->ctc_cbo_stats_table->blocks;
-  }
-  return data_page_num;
-}
-
-double ha_ctc::index_only_read_time(uint keynr, double records) {
-  double index_read_time;
-  uint32_t keys_per_block = (stats.block_size / 2 / 
-                              (table_share->key_info[keynr].key_length + ref_length) + 1);
-  index_read_time = ((double)(records + keys_per_block - 1) / (double)keys_per_block);
-  return index_read_time;
-}
-
-double ha_ctc::read_time(uint index, uint ranges, ha_rows rows) {
-  DBUG_TRACE;
-  if (index != table->s->primary_key) {
-    return (handler::read_time(index, ranges, rows));
-  }
-
-  if (rows <= 2) {
-    return ((double)rows);
-  }
-
-  double time_for_scan = scan_time();
-  if (stats.records < rows) {
-    return (time_for_scan);
-  }
-
-  return (ranges + (double)rows / (double)stats.records * time_for_scan);
-}
-
 /**
   @brief
   ::info() is used to return information to the optimizer. See my_base.h for
@@ -3613,8 +3449,6 @@ double ha_ctc::read_time(uint index, uint ranges, ha_rows rows) {
 void ha_ctc::info_low() {
   if (m_share && m_share->cbo_stats != nullptr) {
     stats.records = m_share->cbo_stats->ctc_cbo_stats_table->estimate_rows;
-    stats.mean_rec_length = m_share->cbo_stats->ctc_cbo_stats_table->avg_row_len;
-    stats.block_size = m_share->cbo_stats->page_size;
   }
 }
 
@@ -5814,7 +5648,7 @@ int ha_ctc::initialize_cbo_stats()
     END_RECORD_STATS(EVENT_TYPE_INITIALIZE_DBO)
     return ERR_ALLOC_MEMORY;
   }
-  *m_share->cbo_stats = {0, 0, 0, 0, 0, nullptr, 0, nullptr, nullptr, 0};
+  *m_share->cbo_stats = {0, 0, 0, 0, 0, nullptr, 0, nullptr, nullptr};
   m_share->cbo_stats->ctc_cbo_stats_table =
         (ctc_cbo_stats_table_t*)my_malloc(PSI_NOT_INSTRUMENTED, sizeof(ctc_cbo_stats_table_t), MYF(MY_WME));
   if (m_share->cbo_stats->ctc_cbo_stats_table == nullptr) {
@@ -5822,9 +5656,6 @@ int ha_ctc::initialize_cbo_stats()
     END_RECORD_STATS(EVENT_TYPE_INITIALIZE_DBO)
     return ERR_ALLOC_MEMORY;
   }
-  m_share->cbo_stats->ctc_cbo_stats_table->estimate_rows = 0;
-  m_share->cbo_stats->ctc_cbo_stats_table->avg_row_len = 0;
-  m_share->cbo_stats->ctc_cbo_stats_table->blocks = 0;
   m_share->cbo_stats->ctc_cbo_stats_table->columns =
     (ctc_cbo_stats_column_t*)my_malloc(PSI_NOT_INSTRUMENTED, table->s->fields * sizeof(ctc_cbo_stats_column_t), MYF(MY_WME));
   if (m_share->cbo_stats->ctc_cbo_stats_table->columns == nullptr) {

@@ -662,11 +662,6 @@ static int check_system_var(set_var_base *var, string &sql_str, MYSQL_THD thd,
       ret |= ctc_check_set_opt_rule(setvar, name_str, val_str, need_forward);
     }
   }
-  if (val_str.c_str() == nullptr) {
-    my_printf_error(ER_DISALLOWED_OPERATION, "Set the variable '%s' failed: value is invalid",
-                    MYF(0), name_str.c_str());
-    return -1;
-  }
   if (strlen(val_str.c_str()) > CTC_MAX_VAR_VALUE_LEN) {
     my_printf_error(ER_DISALLOWED_OPERATION, "Set the variable '%s' failed: value is too long",
                     MYF(0), name_str.c_str());
@@ -735,7 +730,7 @@ static int ctc_check_set_opt(string &sql_str, MYSQL_THD thd, bool &need_forward)
     ret = ctc_set_var_meta(thd, variables_info, &set_opt_request);
     if (ret != 0 && set_opt_request.err_code != 0) {
       string err_msg = set_opt_request.err_msg;
-      my_printf_error(set_opt_request.err_code, "execute set opt failed, error_message:%s", MYF(0), err_msg.c_str());
+      my_printf_error(set_opt_request.err_code, "%s", MYF(0), err_msg.c_str());
       return ret;
     }
   }

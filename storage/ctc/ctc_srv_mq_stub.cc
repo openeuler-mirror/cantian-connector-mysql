@@ -771,21 +771,16 @@ void ctc_cbo_stats_copy_from_shm(ctc_handler_t *tch, ctc_cbo_stats_table_t *ctc_
   bool is_part_table = stats->part_cnt ? true : false;
   stats->is_updated = req->stats->is_updated;
   stats->records = req->stats->records;
-  stats->page_size = req->stats->page_size;
   memcpy(stats->ndv_keys, req->stats->ndv_keys, stats->key_len);
   uint num_columns = req->stats->msg_len / sizeof(ctc_cbo_stats_column_t);
   if (!is_part_table) {
       *tch = req->tch;
       ctc_cbo_stats_table->estimate_rows = req->ctc_cbo_stats_table->estimate_rows;
-      ctc_cbo_stats_table->avg_row_len = req->ctc_cbo_stats_table->avg_row_len;
-      ctc_cbo_stats_table->blocks = req->ctc_cbo_stats_table->blocks;
       ctc_cbo_stats_columns_copy(ctc_cbo_stats_table->columns,
                                  req->ctc_cbo_stats_table->columns, stats, num_columns);
   } else {
     for (uint i = 0; i < req->num_part_fetch; i++) {
       ctc_cbo_stats_table[i].estimate_rows = req->ctc_cbo_stats_table[i].estimate_rows;
-      ctc_cbo_stats_table[i].avg_row_len = req->ctc_cbo_stats_table[i].avg_row_len;
-      ctc_cbo_stats_table[i].blocks = req->ctc_cbo_stats_table[i].blocks;
       ctc_cbo_stats_columns_copy(ctc_cbo_stats_table[i].columns,
                                  req->ctc_cbo_stats_table[i].columns, stats, num_columns);
     }
