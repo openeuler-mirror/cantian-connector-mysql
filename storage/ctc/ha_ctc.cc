@@ -1965,9 +1965,6 @@ static void ctc_lock_table_handle_error(int err_code, ctc_lock_table_info *lock_
       break;
 
     default:
-      ctc_log_system("[CTC_MDL_LOCK]: Another node get current lock failed,"
-                     "err=%d, lock_info=(%s, %s), sql=%s, conn_id=%u, ctc_instance_id=%u",
-                     err_code, lock_info->db_name, lock_info->table_name, thd->query().str, tch.thd_id, tch.inst_id);
       break;
   }
 
