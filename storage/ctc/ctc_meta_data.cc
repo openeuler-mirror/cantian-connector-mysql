@@ -583,6 +583,7 @@ static void ctc_init_mdl_request(ctc_lock_table_info *lock_info, MDL_request *md
       dd::Trigger::create_mdl_key(schema_name, name, &mdl_key);
       MDL_REQUEST_INIT_BY_KEY(mdl_request, &mdl_key, MDL_EXCLUSIVE, MDL_EXPLICIT);
       break;
+    case MDL_key::GLOBAL:
     case MDL_key::BACKUP_LOCK:
       MDL_REQUEST_INIT(mdl_request, ctc_mdl_namespace, lock_info->db_name, lock_info->table_name,
                        MDL_SHARED, MDL_EXPLICIT);
