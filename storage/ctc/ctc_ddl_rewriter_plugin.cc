@@ -463,7 +463,7 @@ static int ctc_set_var_meta(MYSQL_THD thd, list<set_var_info> variables_info, ct
   for (auto it = variables_info.begin(); it != variables_info.end(); ++it) {
     auto var_info = *it;
     strncpy(set_opt_info_begin->var_name, var_info.var_name, SMALL_RECORD_SIZE - 1);
-    strncpy(set_opt_info_begin->var_value, var_info.var_value, CTC_MAX_VAR_VALUE_LEN - 1);
+    strncpy(set_opt_info_begin->var_value, var_info.var_value, MAX_DDL_SQL_LEN - 1);
     set_opt_info_begin->options |= CTC_NOT_NEED_CANTIAN_EXECUTE;
     set_opt_info_begin->options |= (thd->lex->contains_plaintext_password ?
                                    CTC_CURRENT_SQL_CONTAIN_PLAINTEXT_PASSWORD : 0);
@@ -581,7 +581,7 @@ static void ctc_set_var_info(set_var_info *var_info, const char *base_name, stri
     strncpy(var_info->base_name, base_name, SMALL_RECORD_SIZE - 1);
   }
   strncpy(var_info->var_name, name.c_str(), SMALL_RECORD_SIZE - 1);
-  strncpy(var_info->var_value, value.c_str(), CTC_MAX_VAR_VALUE_LEN - 1);
+  strncpy(var_info->var_value, value.c_str(), MAX_DDL_SQL_LEN - 1);
   var_info->options = options;
   var_info->var_is_int = var_is_int;
 }
@@ -662,7 +662,7 @@ static int check_system_var(set_var_base *var, string &sql_str, MYSQL_THD thd,
       ret |= ctc_check_set_opt_rule(setvar, name_str, val_str, need_forward);
     }
   }
-  if (strlen(val_str.c_str()) > CTC_MAX_VAR_VALUE_LEN) {
+  if (strlen(val_str.c_str()) > MAX_DDL_SQL_LEN) {
     my_printf_error(ER_DISALLOWED_OPERATION, "Set the variable '%s' failed: value is too long",
                     MYF(0), name_str.c_str());
     return -1;

@@ -173,7 +173,7 @@ static map<const int, const int> mysql_collate_num_to_ctc_type = {
 typedef struct {
     char base_name[SMALL_RECORD_SIZE];
     char var_name[SMALL_RECORD_SIZE];
-    char var_value[CTC_MAX_VAR_VALUE_LEN];
+    char var_value[MAX_DDL_SQL_LEN];
     uint32_t options;
     bool var_is_int;
 } set_var_info;
