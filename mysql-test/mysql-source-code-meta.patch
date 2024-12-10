@@ -279,7 +279,7 @@ index d08718a1..e7d00b24 100644
      if (ddse->dict_set_server_version == nullptr ||
          ddse->dict_set_server_version()) {
 diff --git a/sql/dd/impl/cache/dictionary_client.cc b/sql/dd/impl/cache/dictionary_client.cc
-index 80638063..c649fa53 100644
+index 80638063..8ef10d3a 100644
 --- a/sql/dd/impl/cache/dictionary_client.cc
 +++ b/sql/dd/impl/cache/dictionary_client.cc
 @@ -93,6 +93,7 @@
@@ -771,7 +771,7 @@ index 065400f1..da58b045 100644
  
    for (System_tables::Const_iterator it =
 diff --git a/sql/dd/impl/upgrade/server.cc b/sql/dd/impl/upgrade/server.cc
-index 1e3ce91c..48125691 100644
+index 1e3ce91c..009423b8 100644
 --- a/sql/dd/impl/upgrade/server.cc
 +++ b/sql/dd/impl/upgrade/server.cc
 @@ -518,12 +518,12 @@ static void create_upgrade_file() {
@@ -866,7 +866,7 @@ index ebda371e..6310acc5 100644
    // Read stage of upgrade from the file.
    Upgrade_status upgrade_status;
 diff --git a/sql/handler.cc b/sql/handler.cc
-index 217a0c19..fe900ebd 100644
+index 217a0c19..5e93df0f 100644
 --- a/sql/handler.cc
 +++ b/sql/handler.cc
 @@ -769,11 +769,13 @@ int ha_initialize_handlerton(st_plugin_int *plugin) {
@@ -1393,7 +1393,7 @@ index f1f49f06..0127906c 100644
    bool owns_equal_or_stronger_lock(const MDL_key *mdl_key,
                                     enum_mdl_type mdl_type);
 diff --git a/sql/mysqld.cc b/sql/mysqld.cc
-index 50b76e2f..080fdf93 100644
+index 50b76e2f..2410960a 100644
 --- a/sql/mysqld.cc
 +++ b/sql/mysqld.cc
 @@ -1216,6 +1216,7 @@ handlerton *heap_hton;
@@ -1431,7 +1431,7 @@ index 50b76e2f..080fdf93 100644
    /*
      Set opt_super_readonly here because if opt_super_readonly is set
 diff --git a/sql/mysqld.h b/sql/mysqld.h
-index 0d7d41c4..b3f86eb6 100644
+index 0d7d41c4..52ce7864 100644
 --- a/sql/mysqld.h
 +++ b/sql/mysqld.h
 @@ -358,6 +358,7 @@ extern handlerton *myisam_hton;
@@ -1443,7 +1443,7 @@ index 0d7d41c4..b3f86eb6 100644
  extern ulong opt_server_id_mask;
  extern const char *load_default_groups[];
 diff --git a/sql/mysqld_thd_manager.cc b/sql/mysqld_thd_manager.cc
-index 902fe2b2..2fad578e 100644
+index 902fe2b2..d1c5fbdd 100644
 --- a/sql/mysqld_thd_manager.cc
 +++ b/sql/mysqld_thd_manager.cc
 @@ -48,6 +48,7 @@
@@ -1520,10 +1520,18 @@ index e16b39c4..efdfba2c 100644
        /* Compressing the gtid_executed table. */
        if (gtid_state->compress(thd)) {
 diff --git a/sql/sql_class.cc b/sql/sql_class.cc
-index c171f0bb..a34904db 100644
+index c171f0bb..6fc75f7c 100644
 --- a/sql/sql_class.cc
 +++ b/sql/sql_class.cc
-@@ -2890,6 +2890,17 @@ void THD::update_slow_query_status() {
+@@ -408,6 +408,7 @@ THD::THD(bool enable_plugins)
+       status_var_aggregated(false),
+       m_connection_attributes(),
+       m_current_query_cost(0),
++      pre_sess_addr(0),
+       m_current_query_partial_plans(0),
+       m_main_security_ctx(this),
+       m_security_ctx(&m_main_security_ctx),
+@@ -2890,6 +2891,17 @@ void THD::update_slow_query_status() {
      server_status |= SERVER_QUERY_WAS_SLOW;
  }
  
@@ -1542,7 +1550,7 @@ index c171f0bb..a34904db 100644
    Initialize the transactional ddl context when executing CREATE TABLE ...
    SELECT command with engine which supports atomic DDL.
 diff --git a/sql/sql_class.h b/sql/sql_class.h
-index 9f68530b..c7004b47 100644
+index 9f68530b..8a767cd7 100644
 --- a/sql/sql_class.h
 +++ b/sql/sql_class.h
 @@ -841,6 +841,7 @@ class THD : public MDL_context_owner,
@@ -1553,7 +1561,15 @@ index 9f68530b..c7004b47 100644
    MDL_context mdl_context;
  
    /**
-@@ -4417,6 +4418,29 @@ class THD : public MDL_context_owner,
+@@ -1019,6 +1020,7 @@ class THD : public MDL_context_owner,
+     @sa system_status_var::last_query_cost
+   */
+   double m_current_query_cost;
++  uint64_t pre_sess_addr;
+   /**
+     Current query partial plans.
+     @sa system_status_var::last_query_partial_plans
+@@ -4417,6 +4419,29 @@ class THD : public MDL_context_owner,
      @param thd parent session
    */
    void copy_table_access_properties(THD *thd);
@@ -1740,7 +1756,7 @@ index 662f5222..68e3ddd2 100644
        Now we can try removing database directory.
  
 diff --git a/sql/sql_insert.cc b/sql/sql_insert.cc
-index 70d9c1ff..b98e6ecb 100644
+index 70d9c1ff..c4a54c69 100644
 --- a/sql/sql_insert.cc
 +++ b/sql/sql_insert.cc
 @@ -2681,8 +2681,8 @@ static TABLE *create_table_from_items(THD *thd, HA_CREATE_INFO *create_info,
@@ -1874,7 +1890,7 @@ index 3860d342..e89ca4c0 100644
        if (test_plugin_options(&tmp_root, &tmp, argc, argv))
          tmp.state = PLUGIN_IS_DISABLED;
 diff --git a/sql/sql_rename.cc b/sql/sql_rename.cc
-index 7bd705b4..17c49cea 100644
+index 7bd705b4..b5e68b9d 100644
 --- a/sql/sql_rename.cc
 +++ b/sql/sql_rename.cc
 @@ -35,6 +35,7 @@
@@ -1906,7 +1922,7 @@ index 7bd705b4..17c49cea 100644
            }
          }
  
-+        hton->pre_sess_addr = *(uint64_t *)thd_get_ha_data(thd, hton);
++        thd->pre_sess_addr = *(uint64_t *)thd_get_ha_data(thd, hton);
          if (collect_and_lock_fk_tables_for_rename_table(
                  thd, ren_table->db, old_alias, from_table, new_db, new_alias,
                  hton, fk_invalidator)) {
@@ -1914,7 +1930,7 @@ index 7bd705b4..17c49cea 100644
              happen. So it is safe to clear invalidator.
            */
            fk_invalidator->clear();
-+          hton->pre_sess_addr = 0;
++          thd->pre_sess_addr = 0;
            return true;
          }
        }
@@ -1923,7 +1939,7 @@ index 7bd705b4..17c49cea 100644
 -                                                 from_table, new_db, new_alias))
 +                                                 from_table, new_db, new_alias)) {
 +                                                  
-+        hton->pre_sess_addr = 0;
++        thd->pre_sess_addr = 0;
          return true;
 +      }
  
@@ -1933,15 +1949,15 @@ index 7bd705b4..17c49cea 100644
            */
            fk_invalidator->clear();
          }
-+        hton->pre_sess_addr = 0;
++        thd->pre_sess_addr = 0;
          return true;
        }
-+      hton->pre_sess_addr = 0;
++      thd->pre_sess_addr = 0;
  
        /*
          If RENAME TABLE is non-atomic but we have not committed the above
 diff --git a/sql/sql_select.cc b/sql/sql_select.cc
-index 5963cf6e..3218795f 100644
+index 5963cf6e..0479852f 100644
 --- a/sql/sql_select.cc
 +++ b/sql/sql_select.cc
 @@ -2755,7 +2755,7 @@ void QEP_TAB::push_index_cond(const JOIN_TAB *join_tab, uint keyno,
@@ -2114,7 +2130,7 @@ index 04bc666a..76602d92 100644
      thd->locked_tables_list.rename_locked_table(
          table_list, alter_ctx.new_db, alter_ctx.new_name,
 diff --git a/sql/sql_tmp_table.cc b/sql/sql_tmp_table.cc
-index 2063261b..1c71f772 100644
+index 2063261b..faa2d3d6 100644
 --- a/sql/sql_tmp_table.cc
 +++ b/sql/sql_tmp_table.cc
 @@ -558,12 +558,15 @@ class Cache_temp_engine_properties {
@@ -2304,7 +2320,7 @@ index 9f955ad4..178d46e1 100644
        (thd->variables.option_bits & OPTION_TABLE_LOCK)) {
      /* Safety if one did "drop table" on locked tables */
 diff --git a/sql/window_iterators.cc b/sql/window_iterators.cc
-index cb0f1409..a6da7249 100644
+index cb0f1409..64c02879 100644
 --- a/sql/window_iterators.cc
 +++ b/sql/window_iterators.cc
 @@ -159,7 +159,7 @@ bool buffer_record_somewhere(THD *thd, Window *w, int64 rowno) {

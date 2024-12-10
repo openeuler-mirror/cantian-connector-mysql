@@ -1645,20 +1645,18 @@ static typename std::enable_if<!CHECK_HAS_MEMBER_FUNC(T, is_empty), void>::type
   // no action here
 }
 
-template <typename T>
-static typename std::enable_if<CHECK_HAS_MEMBER(T, get_inst_id)>::type
-attachable_trx_update_pre_addr(T *ctc_hton, THD *thd, ctc_handler_t *tch, bool set_to_pre_addr) {
+#ifdef METADATA_NORMALIZED
+static void attachable_trx_update_pre_addr(THD *thd, ctc_handler_t *tch, bool set_to_pre_addr) {
   if (thd->is_attachable_transaction_active() && (thd->tx_isolation == ISO_READ_UNCOMMITTED)
-      && (ctc_hton->pre_sess_addr != 0) && thd->query_plan.get_command() == SQLCOM_RENAME_TABLE) {
-    tch->pre_sess_addr = set_to_pre_addr ? ctc_hton->pre_sess_addr : 0;
+      && (thd->pre_sess_addr != 0) && thd->query_plan.get_command() == SQLCOM_RENAME_TABLE) {
+    tch->pre_sess_addr = set_to_pre_addr ? thd->pre_sess_addr : 0;
   }
 }
-
-template <typename T>
-static typename std::enable_if<!CHECK_HAS_MEMBER(T, get_inst_id)>::type
-attachable_trx_update_pre_addr(T *ctc_hton MY_ATTRIBUTE((unused)), THD *thd MY_ATTRIBUTE((unused)),
+#else
+static void attachable_trx_update_pre_addr(THD *thd MY_ATTRIBUTE((unused)),
                                ctc_handler_t *tch MY_ATTRIBUTE((unused)), bool set_to_pre_addr MY_ATTRIBUTE((unused))) {
 }
+#endif
 
 static void ctc_free_cursors_no_autocommit(THD *thd, ctc_handler_t *tch, thd_sess_ctx_s *sess_ctx) {
   if (!thd->in_multi_stmt_transaction_mode()) {
@@ -1712,7 +1710,7 @@ static int ctc_commit(handlerton *hton, THD *thd, bool commit_trx) {
 
   if (will_commit) {
     commit_preprocess(thd, &tch);
-    attachable_trx_update_pre_addr(ctc_hton, thd, &tch, true);
+    attachable_trx_update_pre_addr(thd, &tch, true);
 
     int32_t total_csize = sess_ctx->cursors_map->size();
     if (sess_ctx->invalid_cursors != nullptr) {
@@ -3786,11 +3784,11 @@ EXTER_ATTACK int ha_ctc::index_read(uchar *buf, const uchar *key, uint key_len, 
   update_member_tch(m_tch, ctc_hton, ha_thd());
   record_info_t record_info = {m_read_buf, 0, nullptr, nullptr};
 
-  attachable_trx_update_pre_addr(ctc_hton, ha_thd(), &m_tch, true);
+  attachable_trx_update_pre_addr(ha_thd(), &m_tch, true);
   ct_errno_t ct_ret = (ct_errno_t)ctc_index_read(&m_tch, &record_info, &index_key_info,
                                                  get_select_mode(), m_cond, m_is_replace || m_is_insert_dup);
   update_sess_ctx_by_tch(m_tch, ctc_hton, ha_thd());
-  attachable_trx_update_pre_addr(ctc_hton, ha_thd(), &m_tch, false);
+  attachable_trx_update_pre_addr(ha_thd(), &m_tch, false);
   if (index_key_info.need_init) {
     if (!(table_share->tmp_table != NO_TMP_TABLE && table_share->tmp_table != TRANSACTIONAL_TMP_TABLE)) {
       update_sess_ctx_cursor_by_tch(m_tch, ctc_hton, ha_thd());
@@ -3817,9 +3815,9 @@ int ha_ctc::index_fetch(uchar *buf) {
     ct_errno_t ct_ret = CT_SUCCESS;
     CTC_RETURN_IF_NOT_ZERO(ctc_alloc_ctc_buf_4_read());
     record_info_t record_info = {m_read_buf, 0, nullptr, nullptr};
-    attachable_trx_update_pre_addr(ctc_hton, ha_thd(), &m_tch, true);
+    attachable_trx_update_pre_addr(ha_thd(), &m_tch, true);
     ct_ret = (ct_errno_t)ctc_general_fetch(&m_tch, &record_info);
-    attachable_trx_update_pre_addr(ctc_hton, ha_thd(), &m_tch, false);
+    attachable_trx_update_pre_addr(ha_thd(), &m_tch, false);
     ret = process_cantian_record(buf, &record_info, ct_ret, HA_ERR_END_OF_FILE);
     END_RECORD_STATS(EVENT_TYPE_INDEX_FETCH)
     return ret;
@@ -3849,9 +3847,9 @@ int ha_ctc::index_fetch(uchar *buf) {
     }
   }
 
-  attachable_trx_update_pre_addr(ctc_hton, ha_thd(), &m_tch, true);
+  attachable_trx_update_pre_addr(ha_thd(), &m_tch, true);
   mysql_ret = prefetch_and_fill_record_buffer(buf, ctc_general_prefetch);
-  attachable_trx_update_pre_addr(ctc_hton, ha_thd(), &m_tch, false);
+  attachable_trx_update_pre_addr(ha_thd(), &m_tch, false);
 
   if (mysql_ret != 0) {
     set_my_errno(mysql_ret);
