@@ -280,7 +280,7 @@ c1	c2	c3	c4	c5
 2023	23:59:59	2012-01-01	2015-05-29 13:13:13	2020-03-04 11:21:14
 explain select * from t5 where c2 > '23:59:50';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t5	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t5`.`c2` > TIME'23:59:50')
+1	SIMPLE	t5	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where
 select * from t5 where c3 < '2012-01-01';
 c1	c2	c3	c4	c5
 1994	23:59:59	2000-01-01	2008-02-29 13:13:13	2012-03-04 11:21:14
@@ -366,3 +366,922 @@ explain select * from t7 where c4 != -39;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t7	NULL	ALL	NULL	NULL	NULL	NULL	3	66.67	Using where; Using pushed condition (`test`.`t7`.`c4` <> <cache>(-(39)))
 drop table t1, t2, t3, t4, t5, t6, t7;
+CREATE TABLE t1(c1 tinyint, c2 tinyint not null, c3 tinyint signed, c4 tinyint unsigned, c5 int, c6 long, c7 bigint);
+INSERT INTO t1 VALUES (1,1,1,1,1,1,1), (2,2,2,2,2,2,2);
+INSERT INTO t1 VALUES (null, 5, null, null, null, null, null);
+INSERT INTO t1 VALUES (3,3,3,3,3,3,3), (4,4,4,4,4,4,4);
+INSERT INTO t1 VALUES (null, 7, null, null, null, null, null);
+INSERT INTO t1 VALUES (8,8,127,255,8,8,8);
+INSERT INTO t1 VALUES (6,6,6,6,6,6,6), (7,7,7,7,7,7,7);
+INSERT INTO t1 VALUES (8,8,8,8,8,8,8), (6,2,3,9,8,4,1);
+INSERT INTO t1 VALUES (-1, -2, -4, 8, -16, -32, -20);
+explain select * from t1 where c1 % 2 = 0;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c1` % 2) = 0)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c1` % 2) = 0)
+explain select * from t1 where c2 % 2 = 0;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c2` % 2) = 0)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c2` % 2) = 0)
+explain select * from t1 where c3 % 2 = 0;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c3` % 2) = 0)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c3` % 2) = 0)
+explain select * from t1 where c4 % 2 = 0;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c4` % 2) = 0)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c4` % 2) = 0)
+explain select * from t1 where c5 % 2 = 0;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c5` % 2) = 0)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c5` % 2) = 0)
+explain select * from t1 where c6 % 2 = 0;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c6` % 2) = 0)
+explain select * from t1 where c7 % 2 = 0;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c7` % 2) = 0)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c7` % 2) = 0)
+explain select * from t1 where 2 % c1 = 0;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((2 % `test`.`t1`.`c1`) = 0)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((2 % `test`.`t1`.`c1`) = 0)
+explain select * from t1 where 2 % c2 = 0;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((2 % `test`.`t1`.`c2`) = 0)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((2 % `test`.`t1`.`c2`) = 0)
+explain select * from t1 where 2 % c3 = 0;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((2 % `test`.`t1`.`c3`) = 0)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((2 % `test`.`t1`.`c3`) = 0)
+explain select * from t1 where 2 % c4 = 0;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((2 % `test`.`t1`.`c4`) = 0)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((2 % `test`.`t1`.`c4`) = 0)
+explain select * from t1 where 2 % c5 = 0;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((2 % `test`.`t1`.`c5`) = 0)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((2 % `test`.`t1`.`c5`) = 0)
+explain select * from t1 where 2 % c6 = 0;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((2 % `test`.`t1`.`c6`) = 0)
+explain select * from t1 where 2 % c7 = 0;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((2 % `test`.`t1`.`c7`) = 0)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((2 % `test`.`t1`.`c7`) = 0)
+explain select * from t1 where 3 % c1 = 0;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((3 % `test`.`t1`.`c1`) = 0)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((3 % `test`.`t1`.`c1`) = 0)
+explain select * from t1 where 3 % c2 = 0;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((3 % `test`.`t1`.`c2`) = 0)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((3 % `test`.`t1`.`c2`) = 0)
+explain select * from t1 where 3 % c3 = 0;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((3 % `test`.`t1`.`c3`) = 0)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((3 % `test`.`t1`.`c3`) = 0)
+explain select * from t1 where 3 % c4 = 0;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((3 % `test`.`t1`.`c4`) = 0)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((3 % `test`.`t1`.`c4`) = 0)
+explain select * from t1 where 3 % c5 = 0;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((3 % `test`.`t1`.`c5`) = 0)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((3 % `test`.`t1`.`c5`) = 0)
+explain select * from t1 where 3 % c6 = 0;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((3 % `test`.`t1`.`c6`) = 0)
+explain select * from t1 where 3 % c7 = 0;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((3 % `test`.`t1`.`c7`) = 0)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((3 % `test`.`t1`.`c7`) = 0)
+explain select * from t1 where 3 % c1 = c1 % 3;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((3 % `test`.`t1`.`c1`) = (`test`.`t1`.`c1` % 3))
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((3 % `test`.`t1`.`c1`) = (`test`.`t1`.`c1` % 3))
+explain select * from t1 where 9 % c2 = 3 % c2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((9 % `test`.`t1`.`c2`) = (3 % `test`.`t1`.`c2`))
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((9 % `test`.`t1`.`c2`) = (3 % `test`.`t1`.`c2`))
+explain select * from t1 where 3 % c3 = 2 / 3;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((3 % `test`.`t1`.`c3`) = <cache>((2 / 3)))
+explain select * from t1 where 3 % c4 = 1 * 2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((3 % `test`.`t1`.`c4`) = <cache>((1 * 2)))
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((3 % `test`.`t1`.`c4`) = <cache>((1 * 2)))
+explain select * from t1 where 3 % c5 = c2 + c7;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((3 % `test`.`t1`.`c5`) = (`test`.`t1`.`c2` + `test`.`t1`.`c7`))
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((3 % `test`.`t1`.`c5`) = (`test`.`t1`.`c2` + `test`.`t1`.`c7`))
+explain select * from t1 where 3 % c6 = 0;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((3 % `test`.`t1`.`c6`) = 0)
+explain select * from t1 where 3 % c7 = 0;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((3 % `test`.`t1`.`c7`) = 0)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((3 % `test`.`t1`.`c7`) = 0)
+explain select * from t1 where c1 / 2 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c1` / 2) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c1` / 2) = 1)
+explain select * from t1 where c2 / 2 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c2` / 2) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c2` / 2) = 1)
+explain select * from t1 where c3 / 2 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c3` / 2) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c3` / 2) = 1)
+explain select * from t1 where c4 / 2 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c4` / 2) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c4` / 2) = 1)
+explain select * from t1 where c5 / 2 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c5` / 2) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c5` / 2) = 1)
+explain select * from t1 where c6 / 2 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c6` / 2) = 1)
+explain select * from t1 where c7 / 2 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c7` / 2) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c7` / 2) = 1)
+explain select * from t1 where c1 / 0 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c1` / 0) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c1` / 0) = 1)
+explain select * from t1 where c2 / 0 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c2` / 0) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c2` / 0) = 1)
+explain select * from t1 where c3 / 0 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c3` / 0) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c3` / 0) = 1)
+explain select * from t1 where c4 / 0 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c4` / 0) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c4` / 0) = 1)
+explain select * from t1 where c5 / 0 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c5` / 0) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c5` / 0) = 1)
+explain select * from t1 where c6 / 0 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c6` / 0) = 1)
+explain select * from t1 where c7 / 0 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c7` / 0) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c7` / 0) = 1)
+explain select * from t1 where 0 / c1 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((0 / `test`.`t1`.`c1`) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((0 / `test`.`t1`.`c1`) = 1)
+explain select * from t1 where 0 / c2 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((0 / `test`.`t1`.`c2`) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((0 / `test`.`t1`.`c2`) = 1)
+explain select * from t1 where 0 / c3 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((0 / `test`.`t1`.`c3`) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((0 / `test`.`t1`.`c3`) = 1)
+explain select * from t1 where 0 / c4 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((0 / `test`.`t1`.`c4`) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((0 / `test`.`t1`.`c4`) = 1)
+explain select * from t1 where 0 / c5 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((0 / `test`.`t1`.`c5`) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((0 / `test`.`t1`.`c5`) = 1)
+explain select * from t1 where 0 / c6 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((0 / `test`.`t1`.`c6`) = 1)
+explain select * from t1 where 0 / c7 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((0 / `test`.`t1`.`c7`) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((0 / `test`.`t1`.`c7`) = 1)
+explain select * from t1 where c1 / c2 = c3 * c7;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c1` / `test`.`t1`.`c2`) = (`test`.`t1`.`c3` * `test`.`t1`.`c7`))
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c1` / `test`.`t1`.`c2`) = (`test`.`t1`.`c3` * `test`.`t1`.`c7`))
+explain select * from t1 where c1 / c2 = c3;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition ((`test`.`t1`.`c1` / `test`.`t1`.`c2`) = `test`.`t1`.`c3`)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c1` / `test`.`t1`.`c2`) = `test`.`t1`.`c3`)
+INSERT INTO t1 VALUES (0,0,0,0,0,0,0);
+explain select * from t1 where c1 / 0 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c1` / 0) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c1` / 0) = 1)
+explain select * from t1 where c2 / 0 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c2` / 0) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c2` / 0) = 1)
+explain select * from t1 where c3 / 0 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c3` / 0) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c3` / 0) = 1)
+explain select * from t1 where c4 / 0 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c4` / 0) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c4` / 0) = 1)
+explain select * from t1 where c5 / 0 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c5` / 0) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c5` / 0) = 1)
+explain select * from t1 where c6 / 0 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c6` / 0) = 1)
+explain select * from t1 where c7 / 0 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c7` / 0) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c7` / 0) = 1)
+explain select * from t1 where 0 / c1 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((0 / `test`.`t1`.`c1`) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((0 / `test`.`t1`.`c1`) = 1)
+explain select * from t1 where 0 / c2 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((0 / `test`.`t1`.`c2`) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((0 / `test`.`t1`.`c2`) = 1)
+explain select * from t1 where 0 / c3 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((0 / `test`.`t1`.`c3`) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((0 / `test`.`t1`.`c3`) = 1)
+explain select * from t1 where 0 / c4 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((0 / `test`.`t1`.`c4`) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((0 / `test`.`t1`.`c4`) = 1)
+explain select * from t1 where 0 / c5 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((0 / `test`.`t1`.`c5`) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((0 / `test`.`t1`.`c5`) = 1)
+explain select * from t1 where 0 / c6 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((0 / `test`.`t1`.`c6`) = 1)
+explain select * from t1 where 0 / c7 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((0 / `test`.`t1`.`c7`) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((0 / `test`.`t1`.`c7`) = 1)
+explain select * from t1 where c1 * 2 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c1` * 2) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c1` * 2) = 1)
+explain select * from t1 where c2 * 2 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c2` * 2) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c2` * 2) = 1)
+explain select * from t1 where c3 * 2 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c3` * 2) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c3` * 2) = 1)
+explain select * from t1 where c4 * 2 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c4` * 2) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c4` * 2) = 1)
+explain select * from t1 where c5 * 2 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c5` * 2) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c5` * 2) = 1)
+explain select * from t1 where c6 * 2 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c6` * 2) = 1)
+explain select * from t1 where c7 * 2 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c7` * 2) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c7` * 2) = 1)
+explain select * from t1 where 2 * c1 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((2 * `test`.`t1`.`c1`) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((2 * `test`.`t1`.`c1`) = 1)
+explain select * from t1 where 2 * c2 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((2 * `test`.`t1`.`c2`) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((2 * `test`.`t1`.`c2`) = 1)
+explain select * from t1 where 2 * c3 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((2 * `test`.`t1`.`c3`) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((2 * `test`.`t1`.`c3`) = 1)
+explain select * from t1 where 2 * c4 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((2 * `test`.`t1`.`c4`) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((2 * `test`.`t1`.`c4`) = 1)
+explain select * from t1 where 2 * c5 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((2 * `test`.`t1`.`c5`) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((2 * `test`.`t1`.`c5`) = 1)
+explain select * from t1 where 2 * c6 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((2 * `test`.`t1`.`c6`) = 1)
+explain select * from t1 where 2 * c7 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((2 * `test`.`t1`.`c7`) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((2 * `test`.`t1`.`c7`) = 1)
+explain select * from t1 where 2 * c1 = c1 * 2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((2 * `test`.`t1`.`c1`) = (`test`.`t1`.`c1` * 2))
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((2 * `test`.`t1`.`c1`) = (`test`.`t1`.`c1` * 2))
+explain select * from t1 where 2 * c2 = c2 * 2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((2 * `test`.`t1`.`c2`) = (`test`.`t1`.`c2` * 2))
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((2 * `test`.`t1`.`c2`) = (`test`.`t1`.`c2` * 2))
+explain select * from t1 where 2 * c3 = c3 * 2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((2 * `test`.`t1`.`c3`) = (`test`.`t1`.`c3` * 2))
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((2 * `test`.`t1`.`c3`) = (`test`.`t1`.`c3` * 2))
+explain select * from t1 where 2 * c4 = c4 * 2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((2 * `test`.`t1`.`c4`) = (`test`.`t1`.`c4` * 2))
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((2 * `test`.`t1`.`c4`) = (`test`.`t1`.`c4` * 2))
+explain select * from t1 where 2 * c5 = c5 * 2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((2 * `test`.`t1`.`c5`) = (`test`.`t1`.`c5` * 2))
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((2 * `test`.`t1`.`c5`) = (`test`.`t1`.`c5` * 2))
+explain select * from t1 where 2 * c6 = c6 * 2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((2 * `test`.`t1`.`c6`) = (`test`.`t1`.`c6` * 2))
+explain select * from t1 where 2 * c7 = c7 * 2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((2 * `test`.`t1`.`c7`) = (`test`.`t1`.`c7` * 2))
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((2 * `test`.`t1`.`c7`) = (`test`.`t1`.`c7` * 2))
+explain select * from t1 where 2 * c1 = c1 * 2 * 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((2 * `test`.`t1`.`c1`) = ((`test`.`t1`.`c1` * 2) * 1))
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((2 * `test`.`t1`.`c1`) = ((`test`.`t1`.`c1` * 2) * 1))
+explain select * from t1 where 2 * c2 = c2 * 2 / 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((2 * `test`.`t1`.`c2`) = ((`test`.`t1`.`c2` * 2) / 1))
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((2 * `test`.`t1`.`c2`) = ((`test`.`t1`.`c2` * 2) / 1))
+explain select * from t1 where 2 * c3 = c3 * 2 / 2 * 2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((2 * `test`.`t1`.`c3`) = (((`test`.`t1`.`c3` * 2) / 2) * 2))
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((2 * `test`.`t1`.`c3`) = (((`test`.`t1`.`c3` * 2) / 2) * 2))
+explain select * from t1 where 2 * c4 = c4 * 2 / 3 * 3;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((2 * `test`.`t1`.`c4`) = (((`test`.`t1`.`c4` * 2) / 3) * 3))
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((2 * `test`.`t1`.`c4`) = (((`test`.`t1`.`c4` * 2) / 3) * 3))
+explain select * from t1 where 2 * c5 = c5 * 2 / 3 * 2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((2 * `test`.`t1`.`c5`) = (((`test`.`t1`.`c5` * 2) / 3) * 2))
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((2 * `test`.`t1`.`c5`) = (((`test`.`t1`.`c5` * 2) / 3) * 2))
+explain select * from t1 where 2 * c6 = c6 * 2 / 4 * 2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((2 * `test`.`t1`.`c6`) = (((`test`.`t1`.`c6` * 2) / 4) * 2))
+explain select * from t1 where 2 * c7 = c7 * 2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((2 * `test`.`t1`.`c7`) = (`test`.`t1`.`c7` * 2))
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((2 * `test`.`t1`.`c7`) = (`test`.`t1`.`c7` * 2))
+explain select * from t1 where c1 / 2 = c2 / 2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c1` / 2) = (`test`.`t1`.`c2` / 2))
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c1` / 2) = (`test`.`t1`.`c2` / 2))
+explain select * from t1 where c1 / 3 = c2 * 3;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c1` / 3) = (`test`.`t1`.`c2` * 3))
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c1` / 3) = (`test`.`t1`.`c2` * 3))
+explain select * from t1 where c1 * c2 = c3 * c6;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c1` * `test`.`t1`.`c2`) = (`test`.`t1`.`c3` * `test`.`t1`.`c6`))
+explain select * from t1 where c1 * c2 = c3 * c6 * c7;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c1` * `test`.`t1`.`c2`) = ((`test`.`t1`.`c3` * `test`.`t1`.`c6`) * `test`.`t1`.`c7`))
+explain select * from t1 where c1 + 2 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c1` + 2) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c1` + 2) = 1)
+explain select * from t1 where c2 + 2 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c2` + 2) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c2` + 2) = 1)
+explain select * from t1 where c3 + 2 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c3` + 2) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c3` + 2) = 1)
+explain select * from t1 where c4 + 2 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c4` + 2) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c4` + 2) = 1)
+explain select * from t1 where c5 + 2 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c5` + 2) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c5` + 2) = 1)
+explain select * from t1 where c6 + 2 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c6` + 2) = 1)
+explain select * from t1 where c7 + 2 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c7` + 2) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c7` + 2) = 1)
+explain select c1 + 2 + 2 from t1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select ((`test`.`t1`.`c1` + 2) + 2) AS `c1 + 2 + 2` from `test`.`t1`
+explain select * from t1 where c1 + 2 + 2 = 4;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition (((`test`.`t1`.`c1` + 2) + 2) = 4)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where (((`test`.`t1`.`c1` + 2) + 2) = 4)
+explain select c2 + 2 * 2 from t1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select (`test`.`t1`.`c2` + (2 * 2)) AS `c2 + 2 * 2` from `test`.`t1`
+explain select * from t1 where c2 + 2 * 2 = 8;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c2` + <cache>((2 * 2))) = 8)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c2` + <cache>((2 * 2))) = 8)
+explain select c3 + 2 / 3 from t1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select (`test`.`t1`.`c3` + (2 / 3)) AS `c3 + 2 / 3` from `test`.`t1`
+explain select * from t1 where c3 + 2 / 3 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c3` + <cache>((2 / 3))) = 1)
+explain select c4 + 2 / 4 from t1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select (`test`.`t1`.`c4` + (2 / 4)) AS `c4 + 2 / 4` from `test`.`t1`
+explain select * from t1 where c4 + 2 / 4 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c4` + <cache>((2 / 4))) = 1)
+explain select c5 + 4 / 2 from t1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select (`test`.`t1`.`c5` + (4 / 2)) AS `c5 + 4 / 2` from `test`.`t1`
+explain select * from t1 where c5 + 4 / 2 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c5` + <cache>((4 / 2))) = 1)
+explain select c5 + 4 / 2 from t1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select (`test`.`t1`.`c5` + (4 / 2)) AS `c5 + 4 / 2` from `test`.`t1`
+explain select * from t1 where c6 + 2 * c7 = 6;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c6` + (2 * `test`.`t1`.`c7`)) = 6)
+explain select * from t1 where 2 + c7 = -1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((2 + `test`.`t1`.`c7`) = <cache>(-(1)))
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((2 + `test`.`t1`.`c7`) = <cache>(-(1)))
+explain select * from t1 where c1 - 2 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c1` - 2) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c1` - 2) = 1)
+explain select * from t1 where c2 - 2 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c2` - 2) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c2` - 2) = 1)
+explain select * from t1 where c3 - 2 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c3` - 2) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c3` - 2) = 1)
+explain select * from t1 where c4 - 2 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c4` - 2) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c4` - 2) = 1)
+explain select * from t1 where c5 - 2 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c5` - 2) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c5` - 2) = 1)
+explain select * from t1 where c6 - 2 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c6` - 2) = 1)
+explain select * from t1 where c7 - 2 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c7` - 2) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c7` - 2) = 1)
+explain select * from t1 where 4 - c4 = 4 - c4;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((4 - `test`.`t1`.`c4`) = (4 - `test`.`t1`.`c4`))
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((4 - `test`.`t1`.`c4`) = (4 - `test`.`t1`.`c4`))
+explain select * from t1 where c4 - c1 = c4 - c1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c4` - `test`.`t1`.`c1`) = (`test`.`t1`.`c4` - `test`.`t1`.`c1`))
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c4` - `test`.`t1`.`c1`) = (`test`.`t1`.`c4` - `test`.`t1`.`c1`))
+explain select * from t1 where c3 - 2 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t1`.`c3` - 2) = 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3`,`test`.`t1`.`c4` AS `c4`,`test`.`t1`.`c5` AS `c5`,`test`.`t1`.`c6` AS `c6`,`test`.`t1`.`c7` AS `c7` from `test`.`t1` where ((`test`.`t1`.`c3` - 2) = 1)
+create table t16 (a int, b int unsigned);
+insert into t16 values (1,2),(2,1),(NULL,NULL),(1,NULL),(NULL,1);
+explain select * from t16;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16`
+explain select * from t16 where -a < 0;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where (-(`test`.`t16`.`a`) < 0)
+explain select * from t16 where a - '2' >= 0;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where ((`test`.`t16`.`a` - '2') >= 0)
+explain select * from t16 where a % 0 = 0;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t16`.`a` % 0) = 0)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where ((`test`.`t16`.`a` % 0) = 0)
+explain select * from t16 where a / 0 = 0;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t16`.`a` / 0) = 0)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where ((`test`.`t16`.`a` / 0) = 0)
+explain select * from t16 where a + 9223372036854775807 > 0;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t16`.`a` + 9223372036854775807) > 0)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where ((`test`.`t16`.`a` + 9223372036854775807) > 0)
+explain select * from t16 where a + 9223372036854775808 > 0;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t16`.`a` + 9223372036854775808) > 0)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where ((`test`.`t16`.`a` + 9223372036854775808) > 0)
+explain select * from t16 where a + 18446744073709551615 > 0;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t16`.`a` + 18446744073709551615) > 0)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where ((`test`.`t16`.`a` + 18446744073709551615) > 0)
+explain select * from t16 where a + 18446744073709551616 > 0;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where ((`test`.`t16`.`a` + 18446744073709551616) > 0)
+explain select * from t16 where a > 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t16`.`a` > 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where (`test`.`t16`.`a` > 1)
+explain select * from t16 where a >= 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t16`.`a` >= 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where (`test`.`t16`.`a` >= 1)
+explain select * from t16 where a < 2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t16`.`a` < 2)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where (`test`.`t16`.`a` < 2)
+explain select * from t16 where a <= 2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t16`.`a` <= 2)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where (`test`.`t16`.`a` <= 2)
+explain select * from t16 where a;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	66.67	Using where; Using pushed condition (0 <> `test`.`t16`.`a`)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where (0 <> `test`.`t16`.`a`)
+explain select * from t16 where a <> 0;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	66.67	Using where; Using pushed condition (`test`.`t16`.`a` <> 0)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where (`test`.`t16`.`a` <> 0)
+explain select * from t16 where a != 0;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	66.67	Using where; Using pushed condition (`test`.`t16`.`a` <> 0)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where (`test`.`t16`.`a` <> 0)
+explain select * from t16 where !a;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t16`.`a` = 0)
+Warnings:
+Warning	1287	'!' is deprecated and will be removed in a future release. Please use NOT instead
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where (`test`.`t16`.`a` = 0)
+explain select * from t16 where NOT a;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t16`.`a` = 0)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where (`test`.`t16`.`a` = 0)
+explain select * from t16 where NOT NOT a;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	66.67	Using where; Using pushed condition (0 <> `test`.`t16`.`a`)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where (0 <> `test`.`t16`.`a`)
+explain select * from t16 where a <> NULL;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	66.67	Using where; Using pushed condition (`test`.`t16`.`a` <> NULL)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where (`test`.`t16`.`a` <> NULL)
+explain select * from t16 where a != NULL;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	66.67	Using where; Using pushed condition (`test`.`t16`.`a` <> NULL)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where (`test`.`t16`.`a` <> NULL)
+explain select * from t16 where a <=> 2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t16`.`a` <=> 2)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where (`test`.`t16`.`a` <=> 2)
+explain select * from t16 where a <=> NULL;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t16`.`a` <=> NULL)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where (`test`.`t16`.`a` <=> NULL)
+explain select * from t16 where a = 2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t16`.`a` = 2)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where (`test`.`t16`.`a` = 2)
+explain select * from t16 where a = NULL;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t16`.`a` = NULL)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where (`test`.`t16`.`a` = NULL)
+explain select * from t16 where a + b > 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t16`.`a` + `test`.`t16`.`b`) > 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where ((`test`.`t16`.`a` + `test`.`t16`.`b`) > 1)
+explain select * from t16 where 1 < a;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (1 < `test`.`t16`.`a`)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where (1 < `test`.`t16`.`a`)
+explain select * from t16 where a - 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition (0 <> (`test`.`t16`.`a` - 1))
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where (0 <> (`test`.`t16`.`a` - 1))
+explain select * from t16 where a - 2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition (0 <> (`test`.`t16`.`a` - 2))
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where (0 <> (`test`.`t16`.`a` - 2))
+explain select * from t16 where (a > 1) and (b > 1);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition ((`test`.`t16`.`a` > 1) and (`test`.`t16`.`b` > 1))
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where ((`test`.`t16`.`a` > 1) and (`test`.`t16`.`b` > 1))
+explain select * from t16 where (a > 1) && (b > 1);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition ((`test`.`t16`.`a` > 1) and (`test`.`t16`.`b` > 1))
+Warnings:
+Warning	1287	'&&' is deprecated and will be removed in a future release. Please use AND instead
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where ((`test`.`t16`.`a` > 1) and (`test`.`t16`.`b` > 1))
+explain select * from t16 where (a > 1) or (b > 1);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	55.56	Using where; Using pushed condition ((`test`.`t16`.`a` > 1) or (`test`.`t16`.`b` > 1))
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where ((`test`.`t16`.`a` > 1) or (`test`.`t16`.`b` > 1))
+explain select * from t16 where (a > 1) || (b > 1);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	55.56	Using where; Using pushed condition ((`test`.`t16`.`a` > 1) or (`test`.`t16`.`b` > 1))
+Warnings:
+Warning	1287	'|| as a synonym for OR' is deprecated and will be removed in a future release. Please use OR instead
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where ((`test`.`t16`.`a` > 1) or (`test`.`t16`.`b` > 1))
+explain select * from t16 where ((a > 1) and (b > 1)) < 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where (((`test`.`t16`.`a` > 1) and (`test`.`t16`.`b` > 1)) < 1)
+explain select * from t16 where ((a > 1) + (b > 1)) > 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where (((`test`.`t16`.`a` > 1) + (`test`.`t16`.`b` > 1)) > 1)
+explain select * from t16 where ((a > 1) XOR (b > 1)) < 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where (((`test`.`t16`.`a` > 1) xor (`test`.`t16`.`b` > 1)) < 1)
+explain select * from t16 where a = 2 is null;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where ((`test`.`t16`.`a` = 2) is null)
+explain select * from t16 where a = 2 = null;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where ((`test`.`t16`.`a` = 2) = NULL)
+explain select * from t16 where a <=> NULL = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where ((`test`.`t16`.`a` <=> NULL) = 1)
+explain select * from t16 where a + (-2) >= 0;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t16`.`a` + <cache>(-(2))) >= 0)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where ((`test`.`t16`.`a` + <cache>(-(2))) >= 0)
+create table t17 (a int, b int GENERATED ALWAYS AS (a + 1));
+insert into t17(a) values (NULL),(1),(2);
+explain select * from t17 where a > 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t17	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t17`.`a` > 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t17`.`a` AS `a`,`test`.`t17`.`b` AS `b` from `test`.`t17` where (`test`.`t17`.`a` > 1)
+explain select * from t17 where b > 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t17	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t17`.`a` AS `a`,`test`.`t17`.`b` AS `b` from `test`.`t17` where (`test`.`t17`.`b` > 1)
+explain select * from t17 where (a > 1) AND (b > 1);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t17	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t17`.`a` > 1)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t17`.`a` AS `a`,`test`.`t17`.`b` AS `b` from `test`.`t17` where ((`test`.`t17`.`a` > 1) and (`test`.`t17`.`b` > 1))
+explain select * from t17 where (a > 1) OR (b > 1);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t17	NULL	ALL	NULL	NULL	NULL	NULL	3	55.56	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t17`.`a` AS `a`,`test`.`t17`.`b` AS `b` from `test`.`t17` where ((`test`.`t17`.`a` > 1) or (`test`.`t17`.`b` > 1))
+explain select * from t17 where ((a > 1) AND (b > 1)) = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t17	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t17`.`a` AS `a`,`test`.`t17`.`b` AS `b` from `test`.`t17` where (((`test`.`t17`.`a` > 1) and (`test`.`t17`.`b` > 1)) = 1)
+explain select * from t17 where ((a > 1) OR (b > 1)) = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t17	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t17`.`a` AS `a`,`test`.`t17`.`b` AS `b` from `test`.`t17` where (((`test`.`t17`.`a` > 1) or (`test`.`t17`.`b` > 1)) = 1)
+CREATE TABLE t18(c1 int, c2 int, key(c1,c2));
+INSERT INTO t18 VALUES (94,94),(64,64),(69,69),(97,97);
+explain select * from t18;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t18	NULL	index	NULL	c1	10	NULL	3	100.00	Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t18`.`c1` AS `c1`,`test`.`t18`.`c2` AS `c2` from `test`.`t18`
+drop table t1;
+drop table t16;
+drop table t17;
+drop table t18;
+create table tb_cache(a int);
+insert into tb_cache values(null);
+insert into tb_cache values(1);
+insert into tb_cache values(0);
+prepare stmt1 from 'explain select a from tb_cache where a <=> ?';
+set @arg1 = null;
+execute stmt1 using @arg1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tb_cache	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`tb_cache`.`a` <=> <cache>(NULL))
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tb_cache`.`a` AS `a` from `test`.`tb_cache` where (`test`.`tb_cache`.`a` <=> <cache>(NULL))
+set @arg2 = 1;
+execute stmt1 using @arg2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tb_cache	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`tb_cache`.`a` <=> <cache>(1))
+Warnings:
+Note	1003	/* select#1 */ select `test`.`tb_cache`.`a` AS `a` from `test`.`tb_cache` where (`test`.`tb_cache`.`a` <=> <cache>(1))
+set @arg3 = 'a';
+execute stmt1 using @arg3;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	tb_cache	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`tb_cache`.`a` <=> <cache>('a'))
+Warnings:
+Warning	1292	Truncated incorrect INTEGER value: 'a'
+Warning	1292	Truncated incorrect INTEGER value: 'a'
+Note	1003	/* select#1 */ select `test`.`tb_cache`.`a` AS `a` from `test`.`tb_cache` where (`test`.`tb_cache`.`a` <=> <cache>('a'))
+drop table tb_cache;
