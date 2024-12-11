@@ -1618,10 +1618,18 @@ index e16b39c4..efdfba2c 100644
        /* Compressing the gtid_executed table. */
        if (gtid_state->compress(thd)) {
 diff --git a/sql/sql_class.cc b/sql/sql_class.cc
-index c171f0bb..a34904db 100644
+index c171f0bb..6fc75f7c 100644
 --- a/sql/sql_class.cc
 +++ b/sql/sql_class.cc
-@@ -2890,6 +2890,17 @@ void THD::update_slow_query_status() {
+@@ -408,6 +408,7 @@ THD::THD(bool enable_plugins)
+       status_var_aggregated(false),
+       m_connection_attributes(),
+       m_current_query_cost(0),
++      pre_sess_addr(0),
+       m_current_query_partial_plans(0),
+       m_main_security_ctx(this),
+       m_security_ctx(&m_main_security_ctx),
+@@ -2890,6 +2891,17 @@ void THD::update_slow_query_status() {
      server_status |= SERVER_QUERY_WAS_SLOW;
  }
  
@@ -1640,7 +1648,7 @@ index c171f0bb..a34904db 100644
    Initialize the transactional ddl context when executing CREATE TABLE ...
    SELECT command with engine which supports atomic DDL.
 diff --git a/sql/sql_class.h b/sql/sql_class.h
-index 9f68530b..c7004b47 100644
+index 9f68530b..8a767cd7 100644
 --- a/sql/sql_class.h
 +++ b/sql/sql_class.h
 @@ -841,6 +841,7 @@ class THD : public MDL_context_owner,
@@ -1651,7 +1659,15 @@ index 9f68530b..c7004b47 100644
    MDL_context mdl_context;
  
    /**
-@@ -4417,6 +4418,29 @@ class THD : public MDL_context_owner,
+@@ -1019,6 +1020,7 @@ class THD : public MDL_context_owner,
+     @sa system_status_var::last_query_cost
+   */
+   double m_current_query_cost;
++  uint64_t pre_sess_addr;
+   /**
+     Current query partial plans.
+     @sa system_status_var::last_query_partial_plans
+@@ -4417,6 +4419,29 @@ class THD : public MDL_context_owner,
      @param thd parent session
    */
    void copy_table_access_properties(THD *thd);
@@ -1972,7 +1988,7 @@ index 3860d342..e89ca4c0 100644
        if (test_plugin_options(&tmp_root, &tmp, argc, argv))
          tmp.state = PLUGIN_IS_DISABLED;
 diff --git a/sql/sql_rename.cc b/sql/sql_rename.cc
-index 7bd705b4..17c49cea 100644
+index 7bd705b4..b5e68b9d 100644
 --- a/sql/sql_rename.cc
 +++ b/sql/sql_rename.cc
 @@ -35,6 +35,7 @@
@@ -2004,7 +2020,7 @@ index 7bd705b4..17c49cea 100644
            }
          }
  
-+        hton->pre_sess_addr = *(uint64_t *)thd_get_ha_data(thd, hton);
++        thd->pre_sess_addr = *(uint64_t *)thd_get_ha_data(thd, hton);
          if (collect_and_lock_fk_tables_for_rename_table(
                  thd, ren_table->db, old_alias, from_table, new_db, new_alias,
                  hton, fk_invalidator)) {
@@ -2012,7 +2028,7 @@ index 7bd705b4..17c49cea 100644
              happen. So it is safe to clear invalidator.
            */
            fk_invalidator->clear();
-+          hton->pre_sess_addr = 0;
++          thd->pre_sess_addr = 0;
            return true;
          }
        }
@@ -2021,7 +2037,7 @@ index 7bd705b4..17c49cea 100644
 -                                                 from_table, new_db, new_alias))
 +                                                 from_table, new_db, new_alias)) {
 +                                                  
-+        hton->pre_sess_addr = 0;
++        thd->pre_sess_addr = 0;
          return true;
 +      }
  
@@ -2031,10 +2047,10 @@ index 7bd705b4..17c49cea 100644
            */
            fk_invalidator->clear();
          }
-+        hton->pre_sess_addr = 0;
++        thd->pre_sess_addr = 0;
          return true;
        }
-+      hton->pre_sess_addr = 0;
++      thd->pre_sess_addr = 0;
  
        /*
          If RENAME TABLE is non-atomic but we have not committed the above
