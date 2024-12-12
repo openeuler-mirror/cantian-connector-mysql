@@ -468,6 +468,98 @@ count(*)
 3
 drop table t1;
 drop table t2;
+CREATE TABLE `t2` (
+id int,
+a int,
+b int,
+KEY `idx_a` (a),
+KEY `idx_b` (b)
+)
+PARTITION BY RANGE (`id`)
+(PARTITION p0 VALUES LESS THAN (10) ENGINE = CTC,
+PARTITION p1 VALUES LESS THAN (20) ENGINE = CTC,
+PARTITION p2 VALUES LESS THAN (30) ENGINE = CTC,
+PARTITION p4 VALUES LESS THAN MAXVALUE ENGINE = CTC);
+insert into t2  values(30, 2, 3), (20, 1, 3), (10, 1, 3), (null, 1, 3);
+explain select /*+ INDEX_MERGE(t2 idx_a, idx_b) */ count(*) from t2 where a = 1 and b = 3;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t2	p0,p1,p2,p4	index_merge	idx_a,idx_b	idx_a,idx_b	5,5	NULL	1	100.00	Using intersect(idx_a,idx_b); Using where; Using pushed condition ((`test`.`t2`.`b` = 3) and (`test`.`t2`.`a` = 1)); Using index
+Warnings:
+Note	1003	/* select#1 */ select /*+ INDEX_MERGE(`t2`@`select#1` `idx_a`, `idx_b`) */ count(0) AS `count(*)` from `test`.`t2` where ((`test`.`t2`.`b` = 3) and (`test`.`t2`.`a` = 1))
+select /*+ INDEX_MERGE(t2 idx_a, idx_b) */ count(*) from t2 where a = 1 and b = 3;
+count(*)
+3
+explain select count(*) from t2 ignore index(idx_b) where a = 1 and b = 3;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t2	p0,p1,p2,p4	ref	idx_a	idx_a	5	const	1	33.33	Using where; Using pushed condition (`test`.`t2`.`b` = 3)
+Warnings:
+Note	1003	/* select#1 */ select count(0) AS `count(*)` from `test`.`t2` IGNORE INDEX (`idx_b`) where ((`test`.`t2`.`b` = 3) and (`test`.`t2`.`a` = 1))
+select count(*) from t2 ignore index(idx_b) where a = 1 and b = 3;
+count(*)
+3
+explain select /*+ INDEX_MERGE(t2 idx_a, idx_b) */ count(*) from t2 where a = 1 or b = 3;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t2	p0,p1,p2,p4	index_merge	idx_a,idx_b	idx_a,idx_b	5,5	NULL	2	100.00	Using union(idx_a,idx_b); Using where; Using pushed condition ((`test`.`t2`.`a` = 1) or (`test`.`t2`.`b` = 3))
+Warnings:
+Note	1003	/* select#1 */ select /*+ INDEX_MERGE(`t2`@`select#1` `idx_a`, `idx_b`) */ count(0) AS `count(*)` from `test`.`t2` where ((`test`.`t2`.`a` = 1) or (`test`.`t2`.`b` = 3))
+select /*+ INDEX_MERGE(t2 idx_a, idx_b) */ count(*) from t2 where a = 1 or b = 3;
+count(*)
+4
+explain select count(*) from t2 ignore index(idx_b) where a = 1 or b = 3;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t2	p0,p1,p2,p4	ALL	idx_a	NULL	NULL	NULL	3	55.56	Using where; Using pushed condition ((`test`.`t2`.`a` = 1) or (`test`.`t2`.`b` = 3))
+Warnings:
+Note	1003	/* select#1 */ select count(0) AS `count(*)` from `test`.`t2` IGNORE INDEX (`idx_b`) where ((`test`.`t2`.`a` = 1) or (`test`.`t2`.`b` = 3))
+select count(*) from t2 ignore index(idx_b) where a = 1 or b = 3;
+count(*)
+4
+drop table t2;
+create table t8(
+id int, 
+char_col char(20), 
+enum_col enum('x-small','small','medium','large','x-large'), 
+primary key (id), 
+key idx_char_col (char_col), 
+key idx_enum_col (enum_col))
+PARTITION BY RANGE (`id`)
+(PARTITION p0 VALUES LESS THAN (90) ENGINE = CTC,
+PARTITION p1 VALUES LESS THAN (420) ENGINE = CTC,
+PARTITION p2 VALUES LESS THAN (510) ENGINE = CTC,
+PARTITION p4 VALUES LESS THAN MAXVALUE ENGINE = CTC);
+insert into t8 values(84, 'apple', 'x-large'), (417, 'apple' , 'x-large'), (439, 'qpple', 'x-large'), (847, 'apple', 'x-large');
+explain select /*+ INDEX_MERGE(t8 idx_char_col, idx_enum_col) */ count(*) from t8 where enum_col = 'x-large' and char_col  = 'apple';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t8	p0,p1,p2,p4	index_merge	idx_char_col,idx_enum_col	idx_char_col,idx_enum_col	81,2	NULL	1	100.00	Using intersect(idx_char_col,idx_enum_col); Using where; Using pushed condition (`test`.`t8`.`char_col` = 'apple'); Using index
+Warnings:
+Note	1003	/* select#1 */ select /*+ INDEX_MERGE(`t8`@`select#1` `idx_char_col`, `idx_enum_col`) */ count(0) AS `count(*)` from `test`.`t8` where ((`test`.`t8`.`char_col` = 'apple') and (`test`.`t8`.`enum_col` = 'x-large'))
+select /*+ INDEX_MERGE(t8 idx_char_col, idx_enum_col) */ count(*) from t8 where enum_col = 'x-large' and char_col  = 'apple';
+count(*)
+3
+explain select count(*) from t8 ignore index(idx_enum_col) where enum_col = 'x-large' and char_col  = 'apple';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t8	p0,p1,p2,p4	ref	idx_char_col	idx_char_col	81	const	1	33.33	Using where; Using pushed condition (`test`.`t8`.`char_col` = 'apple')
+Warnings:
+Note	1003	/* select#1 */ select count(0) AS `count(*)` from `test`.`t8` IGNORE INDEX (`idx_enum_col`) where ((`test`.`t8`.`char_col` = 'apple') and (`test`.`t8`.`enum_col` = 'x-large'))
+select count(*) from t8 ignore index(idx_enum_col) where enum_col = 'x-large' and char_col  = 'apple';
+count(*)
+3
+explain select /*+ INDEX_MERGE(t8 idx_char_col, idx_enum_col) */ count(*) from t8 where enum_col = 'x-large' or char_col  = 'apple';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t8	p0,p1,p2,p4	index_merge	idx_char_col,idx_enum_col	idx_enum_col,idx_char_col	2,81	NULL	2	100.00	Using union(idx_enum_col,idx_char_col); Using where
+Warnings:
+Note	1003	/* select#1 */ select /*+ INDEX_MERGE(`t8`@`select#1` `idx_char_col`, `idx_enum_col`) */ count(0) AS `count(*)` from `test`.`t8` where ((`test`.`t8`.`enum_col` = 'x-large') or (`test`.`t8`.`char_col` = 'apple'))
+select /*+ INDEX_MERGE(t8 idx_char_col, idx_enum_col) */ count(*) from t8 where enum_col = 'x-large' or char_col  = 'apple';
+count(*)
+4
+explain select count(*) from t8 ignore index(idx_enum_col) where enum_col = 'x-large' or char_col  = 'apple';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t8	p0,p1,p2,p4	ALL	idx_char_col	NULL	NULL	NULL	3	55.56	Using where
+Warnings:
+Note	1003	/* select#1 */ select count(0) AS `count(*)` from `test`.`t8` IGNORE INDEX (`idx_enum_col`) where ((`test`.`t8`.`enum_col` = 'x-large') or (`test`.`t8`.`char_col` = 'apple'))
+select count(*) from t8 ignore index(idx_enum_col) where enum_col = 'x-large' or char_col  = 'apple';
+count(*)
+4
+drop table t8;
 CREATE TABLE `test` (
 `a` int NOT NULL,
 `b` int NOT NULL,
