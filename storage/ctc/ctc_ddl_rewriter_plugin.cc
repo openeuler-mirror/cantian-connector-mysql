@@ -726,6 +726,10 @@ static int ctc_check_set_opt(string &sql_str, MYSQL_THD thd, bool &need_forward)
     ctc_log_debug("set option %s, need_forward: %d", sql_str.c_str(), need_forward);
   }
   if (!variables_info.empty()) {
+    if (variables_info.size() > CTC_MAX_SET_VAR_NUM) {
+      my_printf_error(ER_DISALLOWED_OPERATION, "Only %d variables can be set at a time", MYF(0), CTC_MAX_SET_VAR_NUM);
+      return -1;
+    }
     ctc_set_opt_request set_opt_request;
     ret = ctc_set_var_meta(thd, variables_info, &set_opt_request);
     if (ret != 0 && set_opt_request.err_code != 0) {
