@@ -213,6 +213,12 @@ class ha_ctcpart : public ha_ctc,
                                  const uchar *key, key_part_map keypart_map,
                                  enum ha_rkey_function find_flag) override;
 
+  static int key_and_rowid_cmp(KEY **key_info, uchar *a, uchar *b);
+
+  int extra(enum ha_extra_function operation) override;
+
+  int cmp_ref(const uchar *ref1, const uchar *ref2) const override;
+
   /** Open an CTC table.
   @param[in]	name		table name
   @param[in]	mode		access mode

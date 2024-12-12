@@ -404,6 +404,32 @@ void ha_ctcpart::position_in_last_part(uchar *ref_arg, const uchar *record) {
   reset_partition(part_id);
 }
 
+int ha_ctcpart::key_and_rowid_cmp(KEY **key_info, uchar *a, uchar *b) {
+  int cmp = key_rec_cmp(key_info, a, b);
+  if (cmp != 0) {
+    return (cmp);
+  }
+
+  /* We must compare by rowid, which is added before the record, in the priority queue. */
+  return (ctc_cmp_cantian_rowid((rowid_t *)(a - ROW_ID_LENGTH), (rowid_t *)(b - ROW_ID_LENGTH)));
+}
+
+int ha_ctcpart::extra(enum ha_extra_function operation) {
+  if (operation == HA_EXTRA_SECONDARY_SORT_ROWID) {
+    m_ref_usage = Partition_helper::REF_USED_FOR_SORT;
+    m_queue->m_fun = key_and_rowid_cmp;
+    return (0);
+  }
+  return (ha_ctc::extra(operation));
+}
+
+int ha_ctcpart::cmp_ref(const uchar *ref1, const uchar *ref2) const {
+  DBUG_TRACE;
+  int cmp = ha_ctc::cmp_ref(ref1 + PARTITION_BYTES_IN_POS, ref2 + PARTITION_BYTES_IN_POS);
+
+  return (cmp);
+}
+
 /**
  Get a row from a position.
  Fetches a row from the table based on a row reference.
