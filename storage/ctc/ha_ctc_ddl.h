@@ -54,6 +54,8 @@ just having n_fields, n_uniq and the lengths of the columns. */
 #define CTC_DDL_PROTOBUF_MSG_STACK_SIZE (4 * 1024)  //  < 4kb用栈内存，大于4kb用堆内存
 #define CTC_DDL_PROTOBUF_MSG_SIZE (1024 * 1024 * 10) // 10M
 
+#define CTC_MAX_SET_VAR_NUM 8
+
 typedef enum {
     CTC_CREATE_IF_NOT_EXISTS = 0x00000001,
     CTC_CREATE_OR_REPLACE = 0x00000002,
