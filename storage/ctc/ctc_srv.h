@@ -234,6 +234,10 @@ typedef struct {
 } ctc_invalidate_broadcast_request;
 
 typedef struct {
+    int result;
+} mysql_init_lib_request;
+
+typedef struct {
     bool is_key_null;        // 该列数据是否为null
     uint8_t *left_key;       // 指向索引查询条件的左值
     uint8_t *right_key;      // 指向索引查询条件的右值
@@ -342,6 +346,7 @@ enum CTC_FUNC_TYPE {
     CTC_FUNC_TYPE_GET_MAX_SESSIONS,
     CTC_FUNC_LOCK_INSTANCE,
     CTC_FUNC_UNLOCK_INSTANCE,
+    CTC_FUNC_INIT_MYSQL_LIB,
     CTC_FUNC_CHECK_TABLE_EXIST,
     CTC_FUNC_SEARCH_METADATA_SWITCH,
     CTC_FUNC_QUERY_SHM_USAGE,
@@ -468,7 +473,6 @@ typedef struct ctc_db_infos {
 } ctc_db_infos_t;
 
 typedef enum en_ctc_func_type_t {
-    CTC_UNKNOWN_FUNC,
     CTC_EQ_FUNC,
     CTC_EQUAL_FUNC,
     CTC_NE_FUNC,
@@ -479,11 +483,29 @@ typedef enum en_ctc_func_type_t {
     CTC_LIKE_FUNC,
     CTC_ISNULL_FUNC,
     CTC_ISNOTNULL_FUNC,
-    CTC_NOT_FUNC,
     CTC_COND_AND_FUNC,
     CTC_COND_OR_FUNC,
-    CTC_XOR_FUNC
+    CTC_XOR_FUNC,
+    CTC_MOD_FUNC,
+    CTC_PLUS_FUNC,
+    CTC_MINUS_FUNC,
+    CTC_MUL_FUNC,
+    CTC_DIV_FUNC,
+    CTC_DATE_FUNC,
+    CTC_UNKNOWN_FUNC
 } ctc_func_type_t;
+
+typedef enum en_ctc_cond_type_t {
+    CTC_FIELD_EXPR,
+    CTC_CONST_EXPR,
+    CTC_NULL_EXPR,
+    CTC_LIKE_EXPR,
+    CTC_CMP_EXPR,
+    CTC_LOGIC_EXPR,
+    CTC_ARITHMATIC_EXPR,
+    CTC_DATE_EXPR,
+    CTC_UNKNOWN_EXPR
+} ctc_cond_type_t;
 
 typedef struct en_ctc_cond_field_t {
     uint16_t field_no;
@@ -491,6 +513,7 @@ typedef struct en_ctc_cond_field_t {
     uint16_t field_size;
     void *field_value;
     bool null_value;
+    bool is_unsigned;
     uint32_t collate_id;
     bool col_updated;
     bool index_only_invalid_col; // col in cond but not in index while select with index_only
@@ -499,6 +522,7 @@ typedef struct en_ctc_cond_field_t {
 
 struct en_ctc_cond_list_t;
 typedef struct en_ctc_cond_t {
+    ctc_cond_type_t cond_type;
     ctc_func_type_t func_type;
     ctc_cond_field field_info;
     struct en_ctc_cond_list_t *cond_list;
@@ -589,6 +613,9 @@ typedef struct en_ctcpart_scan_range {
 int srv_wait_instance_startuped(void);
 int ctc_alloc_inst_id(uint32_t *inst_id);
 int ctc_release_inst_id(uint32_t inst_id);
+#ifdef WITH_CANTIAN
+int init_mysql_lib(void);
+#endif
 
 int ctc_open_table(ctc_handler_t *tch, const char *table_name, const char *user_name);
 int ctc_close_table(ctc_handler_t *tch);
@@ -690,7 +717,6 @@ int ctc_broadcast_rewrite_sql(ctc_handler_t *tch, ctc_ddl_broadcast_request *bro
 /* Metadata Related Interface */
 int ctc_check_db_table_exists(const char *db, const char *name, bool *is_exists);
 int ctc_search_metadata_status(bool *cantian_metadata_switch, bool *cantian_cluster_ready);
-
 int ctc_invalidate_mysql_dd_cache(ctc_handler_t *tch, ctc_invalidate_broadcast_request *broadcast_req, int *err_code);
 int ctc_broadcast_mysql_dd_invalidate(ctc_handler_t *tch, ctc_invalidate_broadcast_request *broadcast_req);
 

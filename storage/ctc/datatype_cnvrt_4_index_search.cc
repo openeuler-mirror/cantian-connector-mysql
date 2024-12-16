@@ -180,7 +180,9 @@ int ctc_convert_key_from_mysql_to_cantian(Field *field, uint8_t **mysql_ptr, dec
   }
 
   if (field->type() == MYSQL_TYPE_DECIMAL || field->type() == MYSQL_TYPE_NEWDECIMAL) {
-    ret = decimal_mysql_to_cantian(*mysql_ptr, reinterpret_cast<uchar *>(cantian_ptr), field, len);
+    Field_new_decimal *f = dynamic_cast<Field_new_decimal *>(field);
+    CTC_RET_ERR_IF_NULL(f);
+    ret = decimal_mysql_to_cantian(*mysql_ptr, reinterpret_cast<uchar *>(cantian_ptr), f->precision, f->dec, len);
     if (ret != CT_SUCCESS) {
       ctc_log_error("ctc convert index decimal to cantian failed.");
       return ret;

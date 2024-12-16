@@ -562,13 +562,9 @@ void convert_dec4_to_mydec(dec4_t *from, my_decimal *to)
   decimal(prec,scale):prec indicates the maximum number of significant digits,
   scale indicates the maximum number of decimal places that can be stored.
 */
-int decimal_mysql_to_cantian(const uint8_t *mysql_ptr, uchar *cantian_ptr, Field *mysql_field, uint32 *length)
+int decimal_mysql_to_cantian(const uint8_t *mysql_ptr, uchar *cantian_ptr, const int prec, const int scale, uint32 *length)
 {
   int ret = 0;
-  const int scale = mysql_field->decimals();
-  Field_new_decimal *f = dynamic_cast<Field_new_decimal *>(mysql_field);
-  CTC_RET_ERR_IF_NULL(f);
-  const int prec = f->precision;
   my_decimal d;
   ret = binary2my_decimal(E_DEC_FATAL_ERROR, mysql_ptr, &d, prec, scale);
   if (ret != E_DEC_OK) {
@@ -923,27 +919,36 @@ void bit_cnvt_cantian_mysql(const uchar *cantian_ptr, uchar *mysql_ptr, Field *m
       return;
   }
 }
+template <typename U, typename SU, typename T, typename S>
+void convert_numeric_datatype(uchar *target_ptr, const uchar *source_ptr, bool is_unsigned) {
+  if (is_unsigned) {
+    *(U *)target_ptr = static_cast<U>(*(const SU *)source_ptr);
+  } else {
+    *(T *)target_ptr = *(const S *)source_ptr;
+  }
+}
 
-/**
-  @brief
-  convert numeric data from mysql to cantian
-*/
 int convert_numeric_to_cantian(const field_cnvrt_aux_t *mysql_info, const uchar *mysql_ptr, uchar *cantian_ptr,
-                             Field *mysql_field, uint32_t *length)
+                               Field *mysql_field, uint32_t *length)
 {
   int res = 0;
+  bool is_unsigned = mysql_field->is_unsigned();
   switch (mysql_info->mysql_field_type) {
     case MYSQL_TYPE_TINY:
-      *(int32_t *)cantian_ptr = *(const int8_t *)mysql_ptr;
+      convert_numeric_datatype<uint32_t, uint8_t, int32_t, int8_t>(cantian_ptr, mysql_ptr, is_unsigned);
       break;
     case MYSQL_TYPE_SHORT:
-      *(int32_t *)cantian_ptr = *(const int16_t *)mysql_ptr;
+      convert_numeric_datatype<uint32_t, uint16_t, int32_t, int16_t>(cantian_ptr, mysql_ptr, is_unsigned);
       break;
     case MYSQL_TYPE_INT24:
-      *(int32_t *)cantian_ptr = sint3korr(mysql_ptr);
+      if (is_unsigned) {
+        *(uint32_t *)cantian_ptr = uint3korr(mysql_ptr);
+      } else {
+        *(int32_t *)cantian_ptr = sint3korr(mysql_ptr);
+      }
       break;
     case MYSQL_TYPE_LONG:
-      *(int32_t *)cantian_ptr = *(const int32_t *)mysql_ptr;
+      convert_numeric_datatype<uint32_t, uint32_t, int32_t, int32_t>(cantian_ptr, mysql_ptr, is_unsigned);
       break;
     case MYSQL_TYPE_FLOAT:
       *(double *)cantian_ptr = *(const float *)mysql_ptr;
@@ -955,11 +960,14 @@ int convert_numeric_to_cantian(const field_cnvrt_aux_t *mysql_info, const uchar 
       *(uint64_t *)cantian_ptr = (uint64_t)bit_cnvt_mysql_cantian(mysql_ptr, mysql_field);
       break;
     case MYSQL_TYPE_LONGLONG:
-      *(int64_t *)cantian_ptr = *(const int64_t *)mysql_ptr;
+      convert_numeric_datatype<uint64_t, uint64_t, int64_t, int64_t>(cantian_ptr, mysql_ptr, is_unsigned);
       break;
-    case MYSQL_TYPE_NEWDECIMAL:
-      res = decimal_mysql_to_cantian(mysql_ptr, cantian_ptr, mysql_field, length);
-      break;
+    case MYSQL_TYPE_NEWDECIMAL: {
+        Field_new_decimal *f = dynamic_cast<Field_new_decimal *>(mysql_field);
+        CTC_RET_ERR_IF_NULL(f);
+        res = decimal_mysql_to_cantian(mysql_ptr, cantian_ptr, f->precision, f->dec, length);
+        break;
+      }
     default:
       ctc_log_error("[mysql2cantian]unsupport numeric datatype %d", mysql_info->mysql_field_type);
       assert(0);
@@ -1249,36 +1257,37 @@ int convert_datetime_to_cantian(const field_cnvrt_aux_t* mysql_info, uchar *cant
   convert numeric data from cantian to mysql
 */
 static void convert_numeric_to_mysql(const field_cnvrt_aux_t *mysql_info, uchar *mysql_ptr,
-                                     uchar *cantian_ptr, Field *mysql_field)
+                                     const uchar *cantian_ptr, Field *mysql_field)
 {
+  bool is_unsigned = mysql_field->is_unsigned();
   switch (mysql_info->mysql_field_type) {
     case MYSQL_TYPE_TINY:
-      *(int8_t *)mysql_ptr = *(int32_t *)cantian_ptr;
+      convert_numeric_datatype<uint8_t, uint32_t, int8_t, int32_t>(mysql_ptr, cantian_ptr, is_unsigned);
       break;
     case MYSQL_TYPE_SHORT:
-      *(int16_t *)mysql_ptr = *(int32_t *)cantian_ptr;
+      convert_numeric_datatype<uint16_t, uint32_t, int16_t, int32_t>(mysql_ptr, cantian_ptr, is_unsigned);
       break;
     case MYSQL_TYPE_INT24:
       // MEDIUMINT is 3 bytes at mysql side, get 3 bytes data from cantian_ptr
       memcpy(mysql_ptr, cantian_ptr, 3 * sizeof(char));
       break;
     case MYSQL_TYPE_LONG:
-      *(int32_t *)mysql_ptr = *(int32_t *)cantian_ptr;
+      convert_numeric_datatype<uint32_t, uint32_t, int32_t, int32_t>(mysql_ptr, cantian_ptr, is_unsigned);
       break;
     case MYSQL_TYPE_FLOAT:
-      *(float *)mysql_ptr = *(double *)cantian_ptr;
+      *(float *)mysql_ptr = *(const double *)cantian_ptr;
       break;
     case MYSQL_TYPE_DOUBLE:
-      *(double *)mysql_ptr = *(double *)cantian_ptr;
+      *(double *)mysql_ptr = *(const double *)cantian_ptr;
       break;
     case MYSQL_TYPE_BIT:
       bit_cnvt_cantian_mysql(cantian_ptr, mysql_ptr, mysql_field);
       break;
     case MYSQL_TYPE_LONGLONG:
-      *(int64_t *)mysql_ptr = *(int64_t *)cantian_ptr;
+    convert_numeric_datatype<uint64_t, uint64_t, int64_t, int64_t>(mysql_ptr, cantian_ptr, is_unsigned);
       break;
     case MYSQL_TYPE_NEWDECIMAL:
-      decimal_cantian_to_mysql(mysql_ptr, cantian_ptr, mysql_field);
+      decimal_cantian_to_mysql(mysql_ptr, const_cast<uchar*>(cantian_ptr), mysql_field);
       break;
     default:
       ctc_log_error("[cantian2mysql]unsupport numeric datatype %d", mysql_info->mysql_field_type);
@@ -1806,7 +1815,7 @@ void copy_column_data_to_mysql(field_info_t *field_info, const field_cnvrt_aux_t
   switch (mysql_info->sql_data_type) {
     case NUMERIC_DATA:
       convert_numeric_to_mysql(
-          mysql_info, field_info->mysql_cur_field, field_info->cantian_cur_field, field_info->field);
+          mysql_info, field_info->mysql_cur_field, (const uchar *)field_info->cantian_cur_field, field_info->field);
       break;
     case DATETIME_DATA:
       convert_datetime_to_mysql(

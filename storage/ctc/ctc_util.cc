@@ -163,96 +163,109 @@ int ctc_set_cond_field_size(const field_cnvrt_aux_t *mysql_info, ctc_conds *cond
   return CT_SUCCESS;
 }
 
-int ctc_fill_cond_field_data_num(ctc_handler_t m_tch, Item *items, Field *mysql_field,
-                                 const field_cnvrt_aux_t *mysql_info, ctc_conds *cond) {
-  int ret = CT_SUCCESS;
-  void *data = nullptr;
-  bool is_alloc_data = CT_FALSE;
-  Item_func_comparison *item_func_comparison = dynamic_cast<Item_func_comparison *>(items);
-  CTC_RET_ERR_IF_NULL(item_func_comparison);
-  switch (mysql_info->ddl_field_type) {
-    case CTC_DDL_TYPE_LONG:
-    case CTC_DDL_TYPE_LONGLONG: {
-      Item_func *item_func = dynamic_cast<Item_func *>(items);
-      CTC_RET_ERR_IF_NULL(item_func);
-      longlong val;
-      if ((item_func->arguments()[1])->type() == Item::CACHE_ITEM) {
-        Item_cache_int *item_cache_int = dynamic_cast<Item_cache_int *>(item_func_comparison->arguments()[1]);
-        CTC_RET_ERR_IF_NULL(item_cache_int);
-        val = item_cache_int->val_int();
-      } else {
-        Item_int *item_int = dynamic_cast<Item_int *>(item_func_comparison->arguments()[1]);
-        CTC_RET_ERR_IF_NULL(item_int);
-        val = item_int->val_int();
-      }
-      data = (uchar *)my_malloc(PSI_NOT_INSTRUMENTED, sizeof(longlong), MYF(MY_WME));
-      if (data == nullptr) {
-        ctc_log_error("[ctc_fill_cond_field_data_num]alloc mem failed, size(%ld)", sizeof(longlong));
-        my_error(ER_OUT_OF_RESOURCES, MYF(0), "COND FIELD DATA");
-        return CT_ERROR;
-      }
-      is_alloc_data = CT_TRUE;
-      memcpy(data, &val, sizeof(longlong));
-      break;
-    }
-    case CTC_DDL_TYPE_DOUBLE: {
-      Item_float *item_float = dynamic_cast<Item_float *>(item_func_comparison->arguments()[1]);
-      CTC_RET_ERR_IF_NULL(item_float);
-      data = &item_float->value;
-      break;
-    }
-    case CTC_DDL_TYPE_NEWDECIMAL: {
-      const int scale = mysql_field->decimals();
-      Field_new_decimal *field_new_decimal = dynamic_cast<Field_new_decimal *>(mysql_field);
-      CTC_RET_ERR_IF_NULL(field_new_decimal);
-      const int prec = field_new_decimal->precision;
-      int binary_size = my_decimal_get_binary_size(prec, scale);
-      uchar *buff = new uchar[binary_size];
-      Item_decimal *item_decimal = dynamic_cast<Item_decimal *>(item_func_comparison->arguments()[1]);
-      CTC_RET_ERR_IF_NULL(item_decimal);
-      my_decimal *d = item_decimal->val_decimal(nullptr);
-      my_decimal2binary(E_DEC_FATAL_ERROR, d, buff, prec, scale);
-      data = (uchar *)my_malloc(PSI_NOT_INSTRUMENTED, binary_size, MYF(MY_WME));
-      if (data == nullptr) {
-        ctc_log_error("[ctc_fill_cond_field_data_num]alloc mem failed, size(%d)", binary_size);
-        my_error(ER_OUT_OF_RESOURCES, MYF(0), "COND FIELD DATA");
-        return CT_ERROR;
-      }
-      is_alloc_data = CT_TRUE;
-      memcpy(data, buff, binary_size);
-      delete[] buff;
-      break;
-    }
-    default:
-      ctc_log_error("[ctc_copy_cond_field_data]unsupport sql_data_type %d", mysql_info->sql_data_type);
-      assert(0);
-      return CT_ERROR;
+static int cond_fill_null(Item *item, ctc_conds *cond, Field **, ctc_handler_t ,
+                          ctc_cond_list *, bool , en_ctc_func_type_t *) {
+  cond->cond_type = CTC_CONST_EXPR;
+  cond->field_info.null_value = item->null_value;
+  cond->field_info.field_type = CTC_DDL_TYPE_NULL;
+  cond->field_info.field_size = 0;
+  return CT_SUCCESS;
+}
+
+int ctc_cond_fill_data_int(ctc_conds *cond, longlong val, ctc_handler_t m_tch, bool is_unsigned) {
+  cond->field_info.field_size = sizeof(int64_t);
+  cond->field_info.field_value = ctc_alloc_buf(&m_tch, cond->field_info.field_size);
+  if (cond->field_info.field_value == nullptr) {
+    ctc_log_error("ctc_fill_cond_leaf_data_int: alloc field_data error, size(%u).", cond->field_info.field_size);
+    return CT_ERROR;
   }
+  
+  *(int64_t *)cond->field_info.field_value = val;
+  cond->field_info.field_type = CTC_DDL_TYPE_LONGLONG;
+  cond->field_info.is_unsigned = is_unsigned;
+  return CT_SUCCESS;
+}
+
+int cond_fill_int(Item *item, ctc_conds *cond, Field **, ctc_handler_t m_tch, 
+                  ctc_cond_list *, bool , en_ctc_func_type_t *) {
+  cond->cond_type = CTC_CONST_EXPR;
+  Item_int *item_int = dynamic_cast<Item_int *>(item);
+  CTC_RET_ERR_IF_NULL(item_int);
+  cond->field_info.null_value = item_int->null_value;
+  if (cond->field_info.null_value) {
+    return CT_SUCCESS;
+  }
+  return ctc_cond_fill_data_int(cond, item_int->val_int(), m_tch, item_int->unsigned_flag);
+}
+
+int cond_fill_real(Item *item, ctc_conds *cond, Field **, ctc_handler_t m_tch, 
+                   ctc_cond_list *, bool , en_ctc_func_type_t *) {
+  cond->cond_type = CTC_CONST_EXPR;
+  cond->field_info.field_type = CTC_DDL_TYPE_DOUBLE;
+  Item_float *item_float = dynamic_cast<Item_float *>(item);
+  CTC_RET_ERR_IF_NULL(item_float);
+  cond->field_info.null_value = item_float->null_value;
+  if (cond->field_info.null_value) {
+    return CT_SUCCESS;
+  }
+  cond->field_info.field_size = sizeof(double);
+  cond->field_info.field_value = ctc_alloc_buf(&m_tch, cond->field_info.field_size);
+  if (cond->field_info.field_value == nullptr) {
+    ctc_log_error("ctc_fill_cond_leaf_data_int: alloc field_data error, size(%u).", cond->field_info.field_size);
+    return CT_ERROR;
+  }
+  *(double *)cond->field_info.field_value = item_float->value;
+  return CT_SUCCESS;
+}
+
+int cond_fill_decimal(Item *item, ctc_conds *cond, Field **, ctc_handler_t m_tch, 
+                      ctc_cond_list *, bool , en_ctc_func_type_t *) {
+  cond->cond_type = CTC_CONST_EXPR;
+  cond->field_info.field_type = CTC_DDL_TYPE_DECIMAL;
+  Item_decimal *item_decimal = dynamic_cast<Item_decimal *>(item);
+  CTC_RET_ERR_IF_NULL(item_decimal);
+  cond->field_info.null_value = item_decimal->null_value;
+  if (cond->field_info.null_value) {
+    return CT_SUCCESS;
+  }
+  const int scale = item_decimal->decimals;
+  my_decimal *d = item_decimal->val_decimal(nullptr);
+  const int prec = d->precision();
+  int binary_size = my_decimal_get_binary_size(prec, scale);
+
+  uchar *data = (uchar *)my_malloc(PSI_NOT_INSTRUMENTED, binary_size, MYF(MY_WME));
+  if (data == nullptr) {
+    ctc_log_error("[ctc_fill_cond_field_data_num]alloc mem failed, size(%d)", binary_size);
+    my_error(ER_OUT_OF_RESOURCES, MYF(0), "COND FIELD DATA");
+    return CT_ERROR;
+  }
+  my_decimal2binary(E_DEC_FATAL_ERROR, d, data, prec, scale);
   uchar cantian_ptr[DECIMAL_MAX_STR_LENGTH + 1];
-  ret = convert_numeric_to_cantian(mysql_info, (const uchar *)data, cantian_ptr, mysql_field,
-                                   (uint32_t *)(&cond->field_info.field_size));
+  if (decimal_mysql_to_cantian(data, cantian_ptr, prec, scale, (uint32_t *)(&cond->field_info.field_size))) {
+    my_free(data);
+    return CT_ERROR;
+  }
+
   cond->field_info.field_value = ctc_alloc_buf(&m_tch, cond->field_info.field_size);
   if (cond->field_info.field_size > 0 && cond->field_info.field_value == nullptr) {
     ctc_log_error("ctc_fill_cond_field: alloc field_data error, size(%u).", cond->field_info.field_size);
+    my_free(data);
     return CT_ERROR;
   }
 
   memcpy(cond->field_info.field_value, cantian_ptr, cond->field_info.field_size);
-  if (is_alloc_data) {
-    my_free(data);
-    is_alloc_data = CT_FALSE;
-  }
-  return ret;
+  my_free(data);
+  return CT_SUCCESS;
 }
 
-void refill_cond_type_date(MYSQL_TIME ltime, ctc_conds *cond) {
+void refill_cond_type_date(MYSQL_TIME ltime, en_ctc_func_type_t *functype) {
   if (!ltime.hour || !ltime.minute || !ltime.second || !ltime.second_part) {
-    switch (cond->func_type) {
+    switch (*functype) {
       case CTC_LT_FUNC:
-        cond->func_type = CTC_LE_FUNC;
+        *functype = CTC_LE_FUNC;
         break;
       case CTC_NE_FUNC:
-        cond->func_type = CTC_ISNOTNULL_FUNC;
+        *functype = CTC_ISNOTNULL_FUNC;
         break;
       default:
         break;
@@ -260,38 +273,44 @@ void refill_cond_type_date(MYSQL_TIME ltime, ctc_conds *cond) {
   }
 }
 
-int ctc_fill_cond_field_data_date(ctc_handler_t m_tch, const field_cnvrt_aux_t *mysql_info,
+int ctc_fill_cond_field_data_date(ctc_handler_t m_tch, enum_field_types datatype, en_ctc_func_type_t *functype,
                                   MYSQL_TIME ltime, date_detail_t *date_detail, ctc_conds *cond) {
+  cond->cond_type = CTC_CONST_EXPR;
+  cond->field_info.field_size = sizeof(int64_t);
   int ret = CT_SUCCESS;
 
   cond->field_info.field_value = ctc_alloc_buf(&m_tch, cond->field_info.field_size);
-  if (cond->field_info.field_size > 0 && cond->field_info.field_value == nullptr) {
+  if (cond->field_info.field_value == nullptr) {
     ctc_log_error("ctc_fill_cond_field: alloc field_data error, size(%u).", cond->field_info.field_size);
     return CT_ERROR;
   }
 
   uchar my_ptr[8] = {0};
   longlong ll;
-  switch (mysql_info->mysql_field_type) {
+  switch (datatype) {
     case MYSQL_TYPE_TIME:
+      cond->field_info.field_type = CTC_DDL_TYPE_TIME;
       ll = TIME_to_longlong_time_packed(ltime);
       my_time_packed_to_binary(ll, my_ptr, DATETIME_MAX_DECIMALS);
       memcpy(cond->field_info.field_value, my_ptr, cond->field_info.field_size);
       return ret;
 
     case MYSQL_TYPE_DATETIME:
+      cond->field_info.field_type = CTC_DDL_TYPE_DATETIME;
       ll = TIME_to_longlong_datetime_packed(ltime);
       my_datetime_packed_to_binary(ll, my_ptr, DATETIME_MAX_DECIMALS);
       memcpy(cond->field_info.field_value, my_ptr, cond->field_info.field_size);
       return ret;
 
     case MYSQL_TYPE_DATE:
+      cond->field_info.field_type = CTC_DDL_TYPE_DATE;
       my_date_to_binary(&ltime, my_ptr);
       memcpy(cond->field_info.field_value, my_ptr, cond->field_info.field_size);
-      refill_cond_type_date(ltime, cond);
+      refill_cond_type_date(ltime, functype);
       return ret;
 
     case MYSQL_TYPE_TIMESTAMP: {
+      cond->field_info.field_type = CTC_DDL_TYPE_TIMESTAMP;
       if (!check_zero_time_ltime(ltime)) {
         THD *thd = current_thd;
         int warnings = 0;
@@ -305,18 +324,48 @@ int ctc_fill_cond_field_data_date(ctc_handler_t m_tch, const field_cnvrt_aux_t *
         assert((warnings == EOK) || (warnings == MYSQL_TIME_WARN_TRUNCATED));
         my_tz_UTC->gmt_sec_to_TIME(&ltime, tm);
       }
-      /* fall through */
+      break;
     }
-
+    case MYSQL_TYPE_YEAR:
     default:
-      ret = assign_mysql_date_detail(mysql_info->mysql_field_type, ltime, date_detail);
-      if (ret != CT_SUCCESS) {
-        return ret;
-      }
-      cm_encode_date(date_detail, (date_t *)cond->field_info.field_value);
-      return ret;
+      cond->field_info.field_type = CTC_DDL_TYPE_YEAR;
+      break;
   }
 
+  ret = assign_mysql_date_detail(datatype, ltime, date_detail);
+  if (ret != CT_SUCCESS) {
+    return ret;
+  }
+  cm_encode_date(date_detail, (date_t *)cond->field_info.field_value);
+  return ret;
+}
+
+int cond_fill_date(Item *item, ctc_conds *cond, Field **, ctc_handler_t m_tch, 
+                   ctc_cond_list *, bool , en_ctc_func_type_t *functype) {
+  MYSQL_TIME ltime = {0, 0, 0, 0, 0, 0, 0, 0, MYSQL_TIMESTAMP_ERROR, 0};
+  date_detail_t date_detail = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+  enum_field_types datatype = item->data_type();
+  if (datatype == MYSQL_TYPE_YEAR) {
+    Item_int *item_int = dynamic_cast<Item_int *>(item);
+    CTC_RET_ERR_IF_NULL(item_int);
+    ltime.year = item_int->value;
+    ltime.month = 1;
+    ltime.day = 1;
+    ltime.hour = 0;
+    ltime.minute = 0;
+    ltime.second = 0;
+    ltime.second_part = 0;
+    ltime.neg = false;
+  } else {
+    Item_func *item_date_func = dynamic_cast<Item_func *>(item);
+    CTC_RET_ERR_IF_NULL(item_date_func);
+    Item_date_literal *item_date_literal = (Item_date_literal *)(item_date_func);
+    CTC_RET_ERR_IF_NULL(item_date_literal);
+    if (item_date_literal->get_date(&ltime, TIME_FUZZY_DATE)) {
+      return CT_ERROR;
+    }
+  }
+  return ctc_fill_cond_field_data_date(m_tch, datatype, functype, ltime, &date_detail, cond);
 }
 
 void update_value_by_charset(char *data, uint16 *size, uint16 bytes) {
@@ -341,21 +390,21 @@ int ctc_get_column_cs(const CHARSET_INFO *cs) {
   return cs->number;
 }
 
-int ctc_fill_cond_field_data_string(ctc_handler_t m_tch, Item_func *item_func,
-                                    ctc_conds *cond, bool no_backslash) {
-  if ((item_func->arguments()[1])->type() == Item::NULL_ITEM) {
-    cond->field_info.null_value = true;
-    return CT_SUCCESS;
-  }
-  Item_field *item_field = dynamic_cast<Item_field *>((item_func)->arguments()[0]);
-  CTC_RET_ERR_IF_NULL(item_field);
-  uint cslen = item_field->collation.collation->mbminlen;
-  cond->field_info.collate_id = ctc_get_column_cs(item_field->collation.collation);
+int cond_fill_string(Item *item, ctc_conds *cond, Field **, ctc_handler_t m_tch, 
+                     ctc_cond_list *, bool no_backslash, en_ctc_func_type_t *functype) {
+  cond->cond_type = CTC_CONST_EXPR;
+  cond->field_info.field_type = CTC_DDL_TYPE_VARCHAR;
+  cond->field_info.collate_id = ctc_get_column_cs(item->collation.collation);
   if (no_backslash) {
     cond->field_info.no_backslash = true;
   }
-  Item_string *item_string = dynamic_cast<Item_string *>(item_func->arguments()[1]);
+  Item_string *item_string = dynamic_cast<Item_string *>(item);
   CTC_RET_ERR_IF_NULL(item_string);
+  cond->field_info.null_value = item_string->null_value;
+  if (cond->field_info.null_value) {
+    return CT_SUCCESS;
+  }
+  uint cslen = item_string->collation.collation->mbminlen;
   String *item_str = item_string->val_str(nullptr);
   cond->field_info.field_size = item_str->length();
   void *data = item_str->ptr();
@@ -366,84 +415,53 @@ int ctc_fill_cond_field_data_string(ctc_handler_t m_tch, Item_func *item_func,
   }
   memset(cond->field_info.field_value, 0,  cond->field_info.field_size);
   memcpy(cond->field_info.field_value, data, cond->field_info.field_size);
-  if(cond->func_type == CTC_LIKE_FUNC) {
+  if(*functype == CTC_LIKE_FUNC) {
     update_value_by_charset((char *)cond->field_info.field_value, &cond->field_info.field_size, cslen - 1);
   }
   return CT_SUCCESS;
 }
 
-int ctc_fill_cond_field_data(ctc_handler_t m_tch, Item *items, Field *mysql_field,
-                             const field_cnvrt_aux_t *mysql_info, ctc_conds *cond) {
-  int ret = CT_SUCCESS;
-  Item_func *item_func = dynamic_cast<Item_func *>(items);
-  CTC_RET_ERR_IF_NULL(item_func);
-  Item_func_comparison *item_func_comparison = dynamic_cast<Item_func_comparison *>(items);
-  CTC_RET_ERR_IF_NULL(item_func_comparison);
-  if ((item_func->arguments()[1])->type() == Item::CACHE_ITEM) {
-    Item_cache *item_cache = dynamic_cast<Item_cache *>(item_func_comparison->arguments()[1]);
-    CTC_RET_ERR_IF_NULL(item_cache);
-    cond->field_info.null_value = !item_cache->has_value();
-  } else {
-    cond->field_info.null_value = item_func_comparison->arguments()[1]->null_value;
-  }
+int cond_fill_cache(Item *item, ctc_conds *cond, Field **, ctc_handler_t m_tch, 
+                    ctc_cond_list *, bool , en_ctc_func_type_t *) {
+  cond->cond_type = CTC_CONST_EXPR;
+  Item_cache *item_cache = dynamic_cast<Item_cache *>(item);
+  CTC_RET_ERR_IF_NULL(item_cache);
+  
+  cond->field_info.null_value = !item_cache->has_value();
   if (cond->field_info.null_value) {
     return CT_SUCCESS;
   }
-
-  switch (mysql_info->sql_data_type) {
-    case NUMERIC_DATA:
-      ret = ctc_fill_cond_field_data_num(m_tch, items, mysql_field, mysql_info, cond);
-      break;
-    case DATETIME_DATA:{
-      MYSQL_TIME ltime;
-      date_detail_t date_detail;
-      memset(&date_detail, 0, sizeof(date_detail_t));
-      Item_func_comparison *item_func_comparison = dynamic_cast<Item_func_comparison *>(items);
-      CTC_RET_ERR_IF_NULL(item_func_comparison);
-      if (mysql_info->mysql_field_type == MYSQL_TYPE_YEAR) {
-        Item_int *item_int = dynamic_cast<Item_int *>(item_func_comparison->arguments()[1]);
-        CTC_RET_ERR_IF_NULL(item_int);
-        ltime.year = item_int->value;
-        ltime.month = 1;
-        ltime.day = 1;
-        ltime.hour = 0;
-        ltime.minute = 0;
-        ltime.second = 0;
-        ltime.second_part = 0;
-        ltime.neg = false;
-      } else {
-        Item_func *item_date_func = dynamic_cast<Item_func *>(item_func->arguments()[1]);
-        CTC_RET_ERR_IF_NULL(item_date_func);
-        Item_date_literal *item_date_literal = (Item_date_literal *)(item_date_func);
-        CTC_RET_ERR_IF_NULL(item_date_literal);
-        if (item_date_literal->get_date(&ltime, TIME_FUZZY_DATE)) {
-          return CT_ERROR;
-        }
-      }
-      ret = ctc_fill_cond_field_data_date(m_tch, mysql_info, ltime, &date_detail, cond);
+  
+  int ret;
+  switch (item_cache->result_type()) {
+    case INT_RESULT: {
+      Item_cache_int *cache_int = dynamic_cast<Item_cache_int *>(item);
+      CTC_RET_ERR_IF_NULL(cache_int);
+      ret = ctc_cond_fill_data_int(cond, cache_int->val_int(), m_tch, cache_int->unsigned_flag);
       break;
     }
-    case STRING_DATA:{
-      ret = ctc_fill_cond_field_data_string(m_tch, item_func, cond, false);
-      break;
-    }
-    case LOB_DATA:
-    case UNKNOW_DATA:
     default:
-      ctc_log_error("[mysql2cantian]unsupport sql_data_type %d", mysql_info->sql_data_type);
+      ctc_log_error("cond_fill_cache: unsupport type of cache item.");
       return CT_ERROR;
   }
   return ret;
 }
 
-int ctc_fill_cond_field(ctc_handler_t m_tch, Item *items, Field **field, ctc_conds *cond, bool no_backslash) {
-  Item_func *item_func = dynamic_cast<Item_func *>(items);
-  CTC_RET_ERR_IF_NULL(item_func);
-  const char *field_name = item_func->arguments()[0]->item_name.ptr();
+int cond_fill_field(Item *item, ctc_conds *cond, Field **field, ctc_handler_t , 
+                    ctc_cond_list *, bool no_backslash, en_ctc_func_type_t *) {
+  Item_field *field_item = dynamic_cast<Item_field *>(item);
+  CTC_RET_ERR_IF_NULL(field_item);
+  cond->cond_type = CTC_FIELD_EXPR;
+  // fill field no
+  const char *field_name = field_item->item_name.ptr();
   cond->field_info.field_no = ctc_get_column_by_field(field, field_name);
   if (cond->field_info.field_no == INVALID_MAX_COLUMN) {
     return CT_ERROR;
   }
+  if (no_backslash) {
+    cond->field_info.no_backslash = true;
+  }
+  cond->field_info.collate_id = ctc_get_column_cs(field_item->collation.collation);
   Field *mysql_field = *(field + cond->field_info.field_no);
   enum_field_types type = mysql_field->type();
   type = (type == MYSQL_TYPE_FLOAT) ? MYSQL_TYPE_DOUBLE : type;
@@ -458,43 +476,124 @@ int ctc_fill_cond_field(ctc_handler_t m_tch, Item *items, Field **field, ctc_con
     }
   }
   cond->field_info.field_no -= gcol_cnt;
-  if (cond->func_type == CTC_ISNULL_FUNC || cond->func_type == CTC_ISNOTNULL_FUNC) {
-    return CT_SUCCESS;
-  } else if(cond->func_type == CTC_LIKE_FUNC) {
-    return ctc_fill_cond_field_data_string(m_tch, item_func, cond, no_backslash);
-  }
-
+  
+  // fill field size
   if (ctc_set_cond_field_size(mysql_info, cond) != CT_SUCCESS) {
     return CT_ERROR;
   }
 
-  return ctc_fill_cond_field_data(m_tch, items, mysql_field, mysql_info, cond);
+  return CT_SUCCESS;
 }
 
-int ctc_push_cond_list(ctc_handler_t m_tch, Item *items, Field **field,
-                       ctc_cond_list *list, bool no_backslash) {
-  Item_cond *item_cond = dynamic_cast<Item_cond *>(items);
+static const cond_func_type_map g_cond_func_type[] = {
+  {Item_func::EQ_FUNC,          CTC_EQ_FUNC,          CTC_CMP_EXPR},
+  {Item_func::EQUAL_FUNC,       CTC_EQUAL_FUNC,       CTC_CMP_EXPR},
+  {Item_func::NE_FUNC,          CTC_NE_FUNC,          CTC_CMP_EXPR},
+  {Item_func::LT_FUNC,          CTC_LT_FUNC,          CTC_CMP_EXPR},
+  {Item_func::LE_FUNC,          CTC_LE_FUNC,          CTC_CMP_EXPR},
+  {Item_func::GT_FUNC,          CTC_GT_FUNC,          CTC_CMP_EXPR},
+  {Item_func::GE_FUNC,          CTC_GE_FUNC,          CTC_CMP_EXPR},
+  {Item_func::LIKE_FUNC,        CTC_LIKE_FUNC,        CTC_LIKE_EXPR},
+  {Item_func::ISNULL_FUNC,      CTC_ISNULL_FUNC,      CTC_NULL_EXPR},
+  {Item_func::ISNOTNULL_FUNC,   CTC_ISNOTNULL_FUNC,   CTC_NULL_EXPR},
+  {Item_func::COND_AND_FUNC,    CTC_COND_AND_FUNC,    CTC_LOGIC_EXPR},
+  {Item_func::COND_OR_FUNC,     CTC_COND_OR_FUNC,     CTC_LOGIC_EXPR},
+  {Item_func::XOR_FUNC,         CTC_XOR_FUNC,         CTC_LOGIC_EXPR},
+  {Item_func::MOD_FUNC,         CTC_MOD_FUNC,         CTC_ARITHMATIC_EXPR},
+  {Item_func::PLUS_FUNC,        CTC_PLUS_FUNC,        CTC_ARITHMATIC_EXPR},
+  {Item_func::MINUS_FUNC,       CTC_MINUS_FUNC,       CTC_ARITHMATIC_EXPR},
+  {Item_func::MUL_FUNC,         CTC_MUL_FUNC,         CTC_ARITHMATIC_EXPR},
+  {Item_func::DIV_FUNC,         CTC_DIV_FUNC,         CTC_ARITHMATIC_EXPR},
+  {Item_func::DATE_FUNC,        CTC_DATE_FUNC,        CTC_DATE_EXPR},
+  {Item_func::DATETIME_LITERAL, CTC_DATE_FUNC,        CTC_DATE_EXPR}
+};
+
+// Helper function to get condition type mapping
+inline static const cond_func_type_map* get_cond_func_type_map(Item_func::Functype fc) {
+  for (const auto& mapping : g_cond_func_type) {
+    if (mapping.item_func_type == fc) {
+        return &mapping;
+    }
+  }
+  return nullptr;
+}
+
+inline void set_cond_types(ctc_conds* conds, Item_func::Functype fc) {
+  const cond_func_type_map* mapping = get_cond_func_type_map(fc);
+  if (mapping) {
+    conds->cond_type = mapping->cond_type;
+    conds->func_type = mapping->func_type;
+  } else {
+    // Default values if mapping not found
+    conds->cond_type = CTC_UNKNOWN_EXPR;
+    conds->func_type = CTC_UNKNOWN_FUNC;
+  }
+}
+
+int cond_fill_func(Item *item, ctc_conds *cond, Field **field, ctc_handler_t m_tch, 
+                   ctc_cond_list *list, bool no_backslash, en_ctc_func_type_t *functype) {
+  Item_func *item_func = dynamic_cast<Item_func *>(item);
+  CTC_RET_ERR_IF_NULL(item_func);
+  
+  Item_func::Functype fc = item_func->functype();
+  set_cond_types(cond, fc);
+  if (cond->cond_type == CTC_DATE_EXPR) {
+    // fill in the parent functype in case of adjustment
+    return cond_fill_date(item, cond, field, m_tch, list, no_backslash, functype);
+  }
+
+  Item **args = item_func->arguments();
+  uint16_t size = item_func->argument_count();
+
+  for (uint16_t i = 0; i < size; i++) {
+    ctc_conds *sub_cond = (ctc_conds *)ctc_alloc_buf(&m_tch, sizeof(ctc_conds));
+    if (sub_cond == nullptr) {
+      ctc_log_error("cond_fill_func: alloc ctc_conds error, size(%lu).", sizeof(ctc_conds));
+      return CT_ERROR;
+    }
+    memset(sub_cond, 0, sizeof(ctc_conds));
+    if (dfs_fill_conds(m_tch, args[i], field, sub_cond, no_backslash, &cond->func_type) != CT_SUCCESS) {
+      return CT_ERROR;
+    }
+    if (list->elements == 0) {
+      list->first = sub_cond;
+    } else {
+      list->last->next = sub_cond;
+    }
+    list->last = sub_cond;
+    (list->elements)++;
+  }
+
+  return CT_SUCCESS;
+}
+
+int cond_fill_cond(Item *item, ctc_conds *cond, Field **field, ctc_handler_t m_tch, 
+                   ctc_cond_list *list, bool no_backslash, en_ctc_func_type_t *) {
+  Item_cond *item_cond = dynamic_cast<Item_cond *>(item);
   CTC_RET_ERR_IF_NULL(item_cond);
+
+  Item_func::Functype fc = item_cond->functype();
+  set_cond_types(cond, fc);
   List<Item> *argument_list = item_cond->argument_list();
   uint16_t size = argument_list->size();
   list_node *node = argument_list->first_node();
 
   for (uint16_t i = 0; i < size; i++) {
-    ctc_conds *cond = (ctc_conds *)ctc_alloc_buf(&m_tch, sizeof(ctc_conds));
-    if (cond == nullptr) {
-      ctc_log_error("ctc_push_cond_list: alloc ctc_conds error, size(%lu).", sizeof(ctc_conds));
+    ctc_conds *sub_cond = (ctc_conds *)ctc_alloc_buf(&m_tch, sizeof(ctc_conds));
+    if (sub_cond == nullptr) {
+      ctc_log_error("cond_fill_cond: alloc ctc_conds error, size(%lu).", sizeof(ctc_conds));
       return CT_ERROR;
     }
-    memset(cond, 0, sizeof(ctc_conds));
-    if (dfs_fill_conds(m_tch, (Item *)(node->info), field, cond, no_backslash) != CT_SUCCESS) {
+    memset(sub_cond, 0, sizeof(ctc_conds));
+    if (dfs_fill_conds(m_tch, (Item *)(node->info), field, sub_cond, no_backslash, NULL) != CT_SUCCESS) {
       return CT_ERROR;
     }
     if (list->elements == 0) {
-      list->first = cond;
+      list->first = sub_cond;
     } else {
-      list->last->next = cond;
+      list->last->next = sub_cond;
     }
-    list->last = cond;
+    list->last = sub_cond;
     (list->elements)++;
     node = node->next;
   }
@@ -502,116 +601,600 @@ int ctc_push_cond_list(ctc_handler_t m_tch, Item *items, Field **field,
   return CT_SUCCESS;
 }
 
-int ctc_push_cond_args(ctc_handler_t m_tch, Item *items, Field **field,
-                       ctc_cond_list *list, bool no_backslash) {
-  Item_func *item_func = dynamic_cast<Item_func *>(items);
-  CTC_RET_ERR_IF_NULL(item_func);
+static bool is_supported_conds(Item *term, Item_func::Functype parent_type) {
+  if (parent_type != Item_func::COND_AND_FUNC && parent_type != Item_func::COND_OR_FUNC) {
+    /*
+      Unsupported push down condition,
+        e.g. select * from tbl where ((col1 < 1) and (col1 > 0)) = 1;
+      in which case the parent condition for 
+        ((col1 < 1) and (col1 > 0)) is not AND/OR operator
+    */
+    return false;
+  }
+
+  Item_func *item_func = dynamic_cast<Item_func *>(term);
+  if (item_func == nullptr) {
+    return false;
+  }
+  
+  Item_func::Functype functype = item_func->functype();
+
+  if (functype == Item_func::COND_AND_FUNC ||
+      functype == Item_func::COND_OR_FUNC ) {
+    return true;
+  }
+  return false;
+}
+
+static bool is_supported_funcs_like(Item_func *item_func, Item_func::Functype parent_type) {
+  if (parent_type != Item_func::COND_AND_FUNC && parent_type != Item_func::COND_OR_FUNC) {
+    return false;
+  }
+    /*
+      push down LIKE function only for simple condition, eg.
+      'select * from tbl where col like "abc%"'
+    */
+  Item_result cmp_context_next = item_func->arguments()[1]->cmp_context;
+  if (item_func->arguments()[1]->type() != Item::STRING_ITEM || cmp_context_next != STRING_RESULT) {
+    return false;
+  }
+
+  if (item_func->arguments()[0]->type() != Item::FIELD_ITEM) {
+    return false;
+  }
+
+  Item_func_like *like_func = dynamic_cast<Item_func_like *>(item_func);
+  if (like_func == nullptr || like_func->escape_was_used_in_parsing() ) {
+    return false;
+  }
+
+  Item_field *item_field = dynamic_cast<Item_field *>(item_func->arguments()[0]);
+  if (item_field == nullptr) {
+    return false;
+  }
+
+  if (!is_string_type(item_field->data_type())) {
+    return false;
+  }
+
+  return true;
+}
+
+static bool is_arithmetic_function(Item_func::Functype functype) {
+  switch (functype) {
+    case Item_func::PLUS_FUNC:
+    case Item_func::MINUS_FUNC:
+    case Item_func::MUL_FUNC:
+    case Item_func::DIV_FUNC:
+    case Item_func::MOD_FUNC:
+      return true;
+    default:
+      return false;
+  }
+}
+
+static bool is_supported_funcs_arithmetic(Item_func *item_func, Item_func::Functype parent_type) {
+  if (parent_type == Item_func::COND_AND_FUNC || parent_type == Item_func::COND_OR_FUNC) {
+    /*
+      Unsupported push down condition,
+        eg. select * from tbl where (col1 + 1) and (col1 > 0);
+      In which case, condition (col1 + 1) is not comparision operation.
+    */
+    return false;
+  }
+
+  if (item_func->argument_count() != 2) {
+    return false;
+  }
+
+  /*
+    push down arithmetic operation only for integer type, eg.
+    'select * from tbl where col1 % 2 = 0;'
+  */
   Item **args = item_func->arguments();
   uint16_t size = item_func->argument_count();
-
   for (uint16_t i = 0; i < size; i++) {
-    ctc_conds *cond = (ctc_conds *)ctc_alloc_buf(&m_tch, sizeof(ctc_conds));
-    if (cond == nullptr) {
-      ctc_log_error("ctc_push_cond_args: alloc ctc_conds error, size(%lu).", sizeof(ctc_conds));
-      return CT_ERROR;
+    if (args[i]->type() == Item::FIELD_ITEM) {
+      Item_field *item_field = dynamic_cast<Item_field *>(args[i]);
+      if (item_field == nullptr) {
+        return false;
+      }
+      if (!is_integer_type(item_field->data_type())) {
+        return false;
+      }
+    } else if (args[i]->type() == Item::FUNC_ITEM) {
+      if (!is_arithmetic_function(dynamic_cast<Item_func *>(args[i])->functype())) {
+        return false;
+      }
+    } else if (!(args[i]->type() == Item::INT_ITEM ||
+                args[i]->type() == Item::CACHE_ITEM)) {
+      return false;
     }
-    memset(cond, 0, sizeof(ctc_conds));
-    dfs_fill_conds(m_tch, args[i], field, cond, no_backslash);
-    if (list->elements == 0) {
-      list->first = cond;
-    } else {
-      list->last->next = cond;
-    }
-    list->last = cond;
-    (list->elements)++;
+  }
+  return true;
+}
+
+static bool is_supported_funcs_logic(Item_func *item_func, Item_func::Functype parent_type) {
+  if (parent_type != Item_func::COND_AND_FUNC && parent_type != Item_func::COND_OR_FUNC) {
+    /*
+      Unsupported push down condition,
+        eg. select * from tbl where ((col1 < 1) and (col1 > 0))= 1;
+    */
+    return false;
   }
 
+  /*
+    push down logic operation only for comparison condition, eg.
+    'select * from tbl where (col1 < 1) and (col1 > 0)'
+    'select * from tbl where (col1 < 1) or (col1 > 0)'
+    'select * from tbl where (col1 < 1) xor (col1 > 0)'
+  */
+  if (item_func->argument_count() != 2) {
+    return false;
+  }
+  return true;
+
+  Item **args = item_func->arguments();
+  uint16_t size = item_func->argument_count();
+  for (uint16_t i = 0; i < size; i++) {
+    if (args[i]->type() != Item::FUNC_ITEM) {
+      return false;
+    }
+    Item_func *sub_item = dynamic_cast<Item_func *>(args[i]);
+    const cond_func_type_map* mapping = get_cond_func_type_map(sub_item->functype());
+    if (mapping == nullptr) {
+      return false;
+    }
+    if (mapping->cond_type == CTC_ARITHMATIC_EXPR || mapping->cond_type == CTC_DATE_EXPR) {
+      return false;
+    }
+  }
+  return true;
+}
+
+static bool is_supported_funcs_null(Item_func *item_func, Item_func::Functype parent_type) {
+  if (parent_type != Item_func::COND_AND_FUNC && parent_type != Item_func::COND_OR_FUNC) {
+    return false;
+  }
+  /*
+    push down IS_NULL / IS_NOT_NULL function only for simple condition, eg.
+      'select * from tbl where col is null'
+  */
+  if (item_func->arguments()[0]->type() != Item::FIELD_ITEM) {
+    return false;
+  } 
+  return true;
+}
+
+static bool check_cmp_result(Item_field *item_field, Item *right) {
+  if (item_field == nullptr) {
+    return false;
+  }
+  Item_result cmp_context_next = right->cmp_context;
+  Item::Type type = right->type();
+
+  if (type == Item::NULL_ITEM) {
+    return true;
+  }
+
+  if (item_field->data_type() == MYSQL_TYPE_YEAR) {
+    return type == Item::INT_ITEM && cmp_context_next == INT_RESULT;
+  }
+
+  if (is_temporal_type(item_field->data_type())) {
+    if (!((right)->basic_const_item() && cmp_context_next == INT_RESULT)) {
+      return false;
+    }
+    if (item_field->data_type() == MYSQL_TYPE_TIMESTAMP) {
+      MYSQL_TIME ltime = {0, 0, 0, 0, 0, 0, 0, 0, MYSQL_TIMESTAMP_ERROR, 0};
+      Item_func *item_date_func = dynamic_cast<Item_func *>(right);
+      if (item_date_func == nullptr) {
+        return false;
+      }
+      Item_date_literal *item_date_literal = (Item_date_literal *)(item_date_func);
+      if (item_date_literal == nullptr) {
+        return false;
+      }
+      if (item_date_literal->get_date(&ltime, TIME_FUZZY_DATE)) {
+        return false;
+      }
+      if (non_zero_date(ltime)) {
+        return ltime.year && ltime.month && ltime.day;
+      }
+    }
+    return true;
+  }
+
+  if (is_string_type(item_field->data_type())) {
+    return type == Item::STRING_ITEM && cmp_context_next == STRING_RESULT;
+  }
+
+  if (is_integer_type(item_field->data_type())) {
+    return (type == Item::INT_ITEM && cmp_context_next == INT_RESULT) || type == Item::CACHE_ITEM;
+  }
+
+  if (is_numeric_type(item_field->data_type())) {
+    return (type == Item::REAL_ITEM || type == Item::DECIMAL_ITEM) && cmp_context_next != STRING_RESULT;
+  }
+
+  return false;
+}
+
+static bool is_supported_const(Item *term, Item_func::Functype parent_type) {
+  if (parent_type == Item_func::COND_AND_FUNC || parent_type == Item_func::COND_OR_FUNC) {
+    return false;
+  }
+
+  switch (term->type()) {
+    case Item::INT_ITEM:
+    case Item::STRING_ITEM:
+    case Item::REAL_ITEM:
+    case Item::DECIMAL_ITEM:
+    case Item::NULL_ITEM:
+      return true;
+    default:
+      return false;
+  }
+}
+
+static bool is_valid_cmp_operand(Item *operand1, Item *operand2, Item_func::Functype parent_type) {
+  if (operand1->type() == Item::FUNC_ITEM) {
+    Item_func *item_func = dynamic_cast<Item_func *>(operand1);
+    if (item_func == nullptr) {
+      return false;
+    }
+    
+    Item_func::Functype functype = item_func->functype();  
+    const cond_func_type_map* mapping = get_cond_func_type_map(functype);
+    // Check if the function type exists in the g_cond_type array
+    if (mapping == nullptr) {
+      return false;
+    }
+    if (mapping->cond_type == CTC_ARITHMATIC_EXPR) {
+      if (operand2->type() == Item::INT_ITEM) {
+        return true;
+      }
+      if (operand2->type() == Item::CACHE_ITEM) {
+        return dynamic_cast<Item_cache *>(operand2)->result_type() == Item_result::INT_RESULT;
+      }
+      if (operand2->type() == Item::FIELD_ITEM) {
+        return is_integer_type(operand2->data_type());
+      }
+      if (operand2->type() == Item::FUNC_ITEM) {
+        return is_arithmetic_function(dynamic_cast<Item_func *>(operand2)->functype());
+      }
+      return false;
+    }
+    return false;
+  }
+
+  if (operand1->type() == Item::FIELD_ITEM) {
+    return check_cmp_result(dynamic_cast<Item_field *>(operand1), operand2);
+  }
+
+  return is_supported_const(operand2, parent_type);
+}
+
+static bool is_supported_funcs_cmp(Item_func *item_func, Item_func::Functype parent_type) {
+  if (parent_type != Item_func::COND_AND_FUNC && parent_type != Item_func::COND_OR_FUNC) {
+    return false;
+  }
+
+  if (item_func->argument_count() != 2) {
+    return false;
+  }
+  Item *left = item_func->arguments()[0];
+  Item *right = item_func->arguments()[1];
+  Item_func::Functype functype = item_func->functype();
+  if (is_valid_cmp_operand(left, right, functype) || is_valid_cmp_operand(right, left, functype)) {
+    return true;
+  }
+
+  return false;
+}
+
+static bool is_supported_funcs_date(Item_func *, Item_func::Functype parent_type) {
+  if (parent_type == Item_func::COND_AND_FUNC || parent_type == Item_func::COND_OR_FUNC) {
+    return false;
+  }
+  return true;
+}
+
+static bool is_supported_funcs(Item *term, Item_func::Functype parent_type) {
+  Item_func *item_func = dynamic_cast<Item_func *>(term);
+  if (item_func == nullptr) {
+    return false;
+  }
+  
+  Item_func::Functype functype = item_func->functype();  
+  const cond_func_type_map* mapping = get_cond_func_type_map(functype);
+  // Check if the function type exists in the g_cond_type array
+  if (mapping == nullptr) {
+    return false;
+  }
+  switch (mapping->cond_type) {
+    case CTC_CMP_EXPR:
+      return is_supported_funcs_cmp(item_func, parent_type);
+    case CTC_LOGIC_EXPR:
+      return is_supported_funcs_logic(item_func, parent_type);
+    case CTC_NULL_EXPR:
+      return is_supported_funcs_null(item_func, parent_type);
+    case CTC_LIKE_EXPR:
+      return is_supported_funcs_like(item_func, parent_type);
+    case CTC_ARITHMATIC_EXPR:
+      return is_supported_funcs_arithmetic(item_func, parent_type);
+    case CTC_DATE_EXPR:
+      return is_supported_funcs_date(item_func, parent_type);
+    default:
+      break;
+  }
+  return false;
+}
+
+static bool is_supported_cache(Item *term, Item_func::Functype parent_type) {
+  if (parent_type == Item_func::COND_AND_FUNC || parent_type == Item_func::COND_OR_FUNC) {
+    return false;
+  }
+
+  if (term->result_type() == Item_result::INT_RESULT) {
+    return true;
+  }
+  return false;
+}
+
+static bool is_supported_datatype_field(enum_field_types datatype) {
+  switch (datatype) {
+    case MYSQL_TYPE_JSON:
+    case MYSQL_TYPE_ENUM:
+    case MYSQL_TYPE_SET:
+    case MYSQL_TYPE_BIT:
+    case MYSQL_TYPE_NULL:
+    case MYSQL_TYPE_TYPED_ARRAY:
+    case MYSQL_TYPE_TINY_BLOB:
+    case MYSQL_TYPE_MEDIUM_BLOB:
+    case MYSQL_TYPE_LONG_BLOB:
+    case MYSQL_TYPE_BLOB: {
+      return false;
+    }
+    default:
+      return true;
+  }
+}
+
+static bool is_supported_field(Item *term, Item_func::Functype parent_type) {
+  if (parent_type == Item_func::COND_AND_FUNC || parent_type == Item_func::COND_OR_FUNC) {
+    return false;
+  }
+
+  Item::Type type = term->type();
+    // filter expressions
+  if (type != Item::FIELD_ITEM) {
+    return false;
+  }
+
+  Item_field *item_field = dynamic_cast<Item_field *>(term);
+  if (item_field == nullptr) {
+    return false;
+  }
+
+  // filter generated column
+  if (item_field->field->is_gcol() || !item_field->field->part_of_prefixkey.is_clear_all()) {
+    return false;
+  }
+
+  // filter unsupport datatype
+  if (!is_supported_datatype_field(item_field->field->real_type())) {
+    return false;
+  }
+
+  if (item_field->data_type() == MYSQL_TYPE_STRING) {
+    if (item_field->collation.collation->pad_char == '\0') {
+      return false;
+    }
+  }
+
+  if (parent_type == Item_func::ISNULL_FUNC || parent_type == Item_func::ISNOTNULL_FUNC) {
+    return true;
+  }
+
+  const cond_func_type_map* mapping = get_cond_func_type_map(parent_type);
+  if (mapping == nullptr) {
+    return false;
+  }
+  
+  if (mapping->cond_type == CTC_CMP_EXPR && item_field->cmp_context == INVALID_RESULT) {
+    return false;
+  }
+  return true;
+}
+
+static inline void push_all_cond_item(Item *term, Item *&pushed_cond, Item *&remainder_cond) {
+  pushed_cond = term;
+  remainder_cond = nullptr;
+}
+
+static inline void remain_all_cond_item(Item *term, Item *&pushed_cond, Item *&remainder_cond) {
+  pushed_cond = nullptr;
+  remainder_cond = term;
+}
+
+void push_func_item(Item *term, Item *&pushed_cond, Item *&remainder_cond) {
+  Item_func *cond = dynamic_cast<Item_func *>(term);
+  if (cond == nullptr) {
+    return;
+  }
+  Item *operand;
+  // Item_result result_type;
+  for (uint i = 0; i < cond->argument_count(); i++) {
+    operand = cond->arguments()[i];
+    Item *pushed = nullptr, *remainder = nullptr;
+    cond_push_term(operand, pushed, remainder, cond->functype());
+    if (pushed == nullptr) {
+      // failed to push one of the terms, fails entire cond
+      remain_all_cond_item(cond, pushed_cond, remainder_cond);
+      return;
+    }
+  }
+  push_all_cond_item(cond, pushed_cond, remainder_cond);
+}
+
+int create_and_conditions(Item_cond *cond, List<Item> pushed_list,
+                                 List<Item> remainder_list, Item *&pushed_cond,
+                                 Item *&remainder_cond) {
+  if (remainder_list.is_empty()) {
+    // Entire cond pushed, no remainder
+    pushed_cond = cond;
+    remainder_cond = nullptr;
+    return 0;
+  }
+  if (pushed_list.is_empty()) {
+    // Nothing pushed, entire 'cond' is remainder
+    pushed_cond = nullptr;
+    remainder_cond = cond;
+    return 0;
+  }
+
+  // Condition was partly pushed, with some remainder
+  if (pushed_list.elements == 1) {
+    // Single boolean term pushed, return it
+    pushed_cond = pushed_list.head();
+  } else {
+    // Construct an AND'ed condition of pushed boolean terms
+    pushed_cond = new Item_cond_and(pushed_list);
+    if (pushed_cond == nullptr) {
+      return 1;
+    }
+  }
+
+  if (remainder_list.elements == 1) {
+    // A single boolean term as remainder, return it
+    remainder_cond = remainder_list.head();
+  } else {
+    // Construct a remainder as an AND'ed condition of the boolean terms
+    remainder_cond = new Item_cond_and(remainder_list);
+    if (remainder_cond == nullptr) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
+int create_or_conditions(Item_cond *cond, List<Item> pushed_list,
+                         List<Item> remainder_list, Item *&pushed_cond,
+                         Item *&remainder_cond) {
+  assert(pushed_list.elements == cond->argument_list()->elements);
+
+  if (remainder_list.is_empty()) {
+    // Entire cond pushed, no remainder
+    pushed_cond = cond;
+    remainder_cond = nullptr;
+  } else {
+    // When condition was partially pushed, we need to reevaluate
+    // original OR-cond on the server side:
+    remainder_cond = cond;
+
+    // Construct an OR condition of pushed terms
+    pushed_cond = new Item_cond_or(pushed_list);
+    if (pushed_cond == nullptr){
+      return 1;
+    }
+  }
+  return 0;
+}
+
+void cond_push_boolean_term(Item *term, Item *&pushed_cond, Item *&remainder_cond) {
+  if (term->type() != Item::COND_ITEM) {
+    remain_all_cond_item(term, pushed_cond, remainder_cond);
+    return;
+  }
+
+  List<Item> pushed_list;
+  List<Item> remainder_list;
+  Item_cond *cond = dynamic_cast<Item_cond *>(term);
+  if (cond == nullptr) {
+    return;
+  }
+  List_iterator<Item> li(*cond->argument_list());
+  Item *operand;
+  bool is_and_condition = (cond->functype() == Item_func::COND_AND_FUNC);
+  while ((operand = li++)) {
+    Item *pushed = nullptr, *remainder = nullptr;
+    cond_push_term(operand, pushed, remainder, cond->functype());
+    if (remainder != nullptr && !is_and_condition) {
+      remain_all_cond_item(cond, pushed_cond, remainder_cond);
+      return;
+    }
+    if (pushed != nullptr) pushed_list.push_back(pushed);
+    if (remainder != nullptr) remainder_list.push_back(remainder);
+  }
+
+  if (is_and_condition) {
+    if (create_and_conditions(cond, pushed_list, remainder_list, pushed_cond,
+                              remainder_cond)) {
+      remain_all_cond_item(cond, pushed_cond, remainder_cond);
+      return;
+    }
+  } else {
+    if (create_or_conditions(cond, pushed_list, remainder_list, pushed_cond,
+                             remainder_cond)) {
+      remain_all_cond_item(cond, pushed_cond, remainder_cond);
+      return;
+    }
+  }
+}
+
+const ctc_cond_push_map g_cond_push_map[] = {
+    {Item::FUNC_ITEM,    is_supported_funcs, push_func_item,         cond_fill_func},
+    {Item::COND_ITEM,    is_supported_conds, cond_push_boolean_term, cond_fill_cond},
+    {Item::FIELD_ITEM,   is_supported_field, push_all_cond_item,     cond_fill_field},
+    {Item::INT_ITEM,     is_supported_const, push_all_cond_item,     cond_fill_int},
+    {Item::REAL_ITEM,    is_supported_const, push_all_cond_item,     cond_fill_real},
+    {Item::DECIMAL_ITEM, is_supported_const, push_all_cond_item,     cond_fill_decimal},
+    {Item::STRING_ITEM,  is_supported_const, push_all_cond_item,     cond_fill_string},
+    {Item::NULL_ITEM,    is_supported_const, push_all_cond_item,     cond_fill_null},
+    {Item::CACHE_ITEM,   is_supported_cache, push_all_cond_item,     cond_fill_cache},
+};
+
+// Helper function to get condition pushdown mapping
+static const ctc_cond_push_map* get_cond_push_map(Item::Type type) {
+  for (const auto& mapping : g_cond_push_map) {
+    if (mapping.type == type) {
+        return &mapping;
+    }
+  }
+  return nullptr;
+}
+
+void cond_push_term(Item *term, Item *&pushed_cond, Item *&remainder_cond, Item_func::Functype parent_type) {
+  Item::Type type = term->type();
+  const ctc_cond_push_map* cond_map = get_cond_push_map(type);
+  if (cond_map != nullptr && cond_map->is_support(term, parent_type)) {
+    cond_map->push(term, pushed_cond, remainder_cond);
+    return;
+  } 
+  remain_all_cond_item(term, pushed_cond, remainder_cond);
+}
+
+int dfs_fill_conds(ctc_handler_t m_tch, Item *items, Field **field, ctc_conds *conds,
+                   bool no_backslash, en_ctc_func_type_t *functype) {
+  Item::Type type = items->type();
+  const ctc_cond_push_map* cond_map = get_cond_push_map(type);
+  if (cond_map == nullptr) {
+    return CT_ERROR;
+  }
+  
+  ctc_cond_list *list = (ctc_cond_list *)ctc_alloc_buf(&m_tch, sizeof(ctc_cond_list));
+  if (list == nullptr) {
+    ctc_log_error("dfs_fill_conds: alloc ctc_cond_list error, size(%lu).", sizeof(ctc_cond_list));
+    return CT_ERROR;
+  }
+  memset(list, 0, sizeof(ctc_cond_list));
+  if (cond_map->fill(items, conds, field, m_tch, list, no_backslash, functype) != CT_SUCCESS) {
+    return CT_ERROR;
+  }
+
+  conds->cond_list = list;
   return CT_SUCCESS;
-}
-
-ctc_func_type_t item_func_to_ctc_func(Item_func::Functype fc) {
-  switch (fc) {
-    case (Item_func::Functype::EQUAL_FUNC):
-      return CTC_EQUAL_FUNC;
-    case (Item_func::Functype::EQ_FUNC):
-      return CTC_EQ_FUNC;
-    case (Item_func::Functype::NE_FUNC):
-      return CTC_NE_FUNC;
-    case (Item_func::Functype::LT_FUNC):
-      return CTC_LT_FUNC;
-    case (Item_func::Functype::LE_FUNC):
-      return CTC_LE_FUNC;
-    case (Item_func::Functype::GT_FUNC):
-      return CTC_GT_FUNC;
-    case (Item_func::Functype::GE_FUNC):
-      return CTC_GE_FUNC;
-    case (Item_func::Functype::ISNULL_FUNC):
-      return CTC_ISNULL_FUNC;
-    case (Item_func::Functype::ISNOTNULL_FUNC):
-      return CTC_ISNOTNULL_FUNC;
-    case (Item_func::Functype::LIKE_FUNC):
-      return CTC_LIKE_FUNC;
-    case (Item_func::Functype::NOT_FUNC):
-      return CTC_NOT_FUNC;
-    case (Item_func::Functype::COND_AND_FUNC):
-      return CTC_COND_AND_FUNC;
-    case (Item_func::Functype::COND_OR_FUNC):
-      return CTC_COND_OR_FUNC;
-    case (Item_func::Functype::XOR_FUNC):
-      return CTC_XOR_FUNC;
-    default:
-      return CTC_UNKNOWN_FUNC;
-  }
-}
-
-int dfs_fill_conds(ctc_handler_t m_tch, Item *items, Field **field, ctc_conds *conds, bool no_backslash) {
-  Item_func *item_func = dynamic_cast<Item_func *>(items);
-  CTC_RET_ERR_IF_NULL(item_func);
-  Item_func::Functype fc = item_func->functype();
-  conds->func_type = item_func_to_ctc_func(fc);
-  int ret = CT_SUCCESS;
-  ctc_cond_list *list;
-
-  switch (conds->func_type) {
-    case CTC_COND_AND_FUNC:
-    case CTC_COND_OR_FUNC:
-      list = (ctc_cond_list *)ctc_alloc_buf(&m_tch, sizeof(ctc_cond_list));
-      if (list == nullptr) {
-        ctc_log_error("ctc_fill_conds: alloc ctc_cond_list error, size(%lu).", sizeof(ctc_cond_list));
-        return CT_ERROR;
-      }
-      memset(list, 0, sizeof(ctc_cond_list));
-      ret = ctc_push_cond_list(m_tch, items, field, list, no_backslash);
-      conds->cond_list = list;
-      break;
-    case CTC_NOT_FUNC:
-    case CTC_XOR_FUNC:
-      list = (ctc_cond_list *)ctc_alloc_buf(&m_tch, sizeof(ctc_cond_list));
-      if (list == nullptr) {
-        ctc_log_error("ctc_fill_conds: alloc ctc_cond_list error, size(%lu).", sizeof(ctc_cond_list));
-        return CT_ERROR;
-      }
-      memset(list, 0, sizeof(ctc_cond_list));
-      ret = ctc_push_cond_args(m_tch, items, field, list, no_backslash);
-      conds->cond_list = list;
-      break;
-    case CTC_EQ_FUNC:
-    case CTC_EQUAL_FUNC:
-    case CTC_NE_FUNC:
-    case CTC_LT_FUNC:
-    case CTC_LE_FUNC:
-    case CTC_GE_FUNC:
-    case CTC_GT_FUNC:
-    case CTC_ISNULL_FUNC:
-    case CTC_ISNOTNULL_FUNC:
-    case CTC_LIKE_FUNC:
-      ret = ctc_fill_cond_field(m_tch, item_func, field, conds, no_backslash);
-      break;
-    case CTC_UNKNOWN_FUNC:
-    default:
-      return CT_ERROR;
-  }
-  return ret;
 }
 
 void cm_assert(bool condition)

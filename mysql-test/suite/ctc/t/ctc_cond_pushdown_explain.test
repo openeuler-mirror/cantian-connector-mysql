@@ -138,3 +138,274 @@ explain select * from t7 where c4 != -39;
 
 --enable_warnings
 drop table t1, t2, t3, t4, t5, t6, t7;
+
+# ======== Numeric Functions and Operators ========
+##  ======== Arithmetic Operators ======== 
+
+CREATE TABLE t1(c1 tinyint, c2 tinyint not null, c3 tinyint signed, c4 tinyint unsigned, c5 int, c6 long, c7 bigint);
+INSERT INTO t1 VALUES (1,1,1,1,1,1,1), (2,2,2,2,2,2,2);
+INSERT INTO t1 VALUES (null, 5, null, null, null, null, null);
+INSERT INTO t1 VALUES (3,3,3,3,3,3,3), (4,4,4,4,4,4,4);
+INSERT INTO t1 VALUES (null, 7, null, null, null, null, null);
+INSERT INTO t1 VALUES (8,8,127,255,8,8,8);
+INSERT INTO t1 VALUES (6,6,6,6,6,6,6), (7,7,7,7,7,7,7);
+INSERT INTO t1 VALUES (8,8,8,8,8,8,8), (6,2,3,9,8,4,1);
+INSERT INTO t1 VALUES (-1, -2, -4, 8, -16, -32, -20);
+
+## mod
+explain select * from t1 where c1 % 2 = 0;
+explain select * from t1 where c2 % 2 = 0;
+explain select * from t1 where c3 % 2 = 0;
+explain select * from t1 where c4 % 2 = 0;
+explain select * from t1 where c5 % 2 = 0;
+explain select * from t1 where c6 % 2 = 0;
+explain select * from t1 where c7 % 2 = 0;
+explain select * from t1 where 2 % c1 = 0;
+explain select * from t1 where 2 % c2 = 0;
+explain select * from t1 where 2 % c3 = 0;
+explain select * from t1 where 2 % c4 = 0;
+explain select * from t1 where 2 % c5 = 0;
+explain select * from t1 where 2 % c6 = 0;
+explain select * from t1 where 2 % c7 = 0;
+explain select * from t1 where 3 % c1 = 0;
+explain select * from t1 where 3 % c2 = 0;
+explain select * from t1 where 3 % c3 = 0;
+explain select * from t1 where 3 % c4 = 0;
+explain select * from t1 where 3 % c5 = 0;
+explain select * from t1 where 3 % c6 = 0;
+explain select * from t1 where 3 % c7 = 0;
+explain select * from t1 where 3 % c1 = c1 % 3;
+explain select * from t1 where 9 % c2 = 3 % c2;
+explain select * from t1 where 3 % c3 = 2 / 3;
+explain select * from t1 where 3 % c4 = 1 * 2;
+explain select * from t1 where 3 % c5 = c2 + c7;
+explain select * from t1 where 3 % c6 = 0;
+explain select * from t1 where 3 % c7 = 0;
+
+## div
+explain select * from t1 where c1 / 2 = 1;
+explain select * from t1 where c2 / 2 = 1;
+explain select * from t1 where c3 / 2 = 1;
+explain select * from t1 where c4 / 2 = 1;
+explain select * from t1 where c5 / 2 = 1;
+explain select * from t1 where c6 / 2 = 1;
+explain select * from t1 where c7 / 2 = 1;
+explain select * from t1 where c1 / 0 = 1;
+explain select * from t1 where c2 / 0 = 1;
+explain select * from t1 where c3 / 0 = 1;
+explain select * from t1 where c4 / 0 = 1;
+explain select * from t1 where c5 / 0 = 1;
+explain select * from t1 where c6 / 0 = 1;
+explain select * from t1 where c7 / 0 = 1;
+explain select * from t1 where 0 / c1 = 1;
+explain select * from t1 where 0 / c2 = 1;
+explain select * from t1 where 0 / c3 = 1;
+explain select * from t1 where 0 / c4 = 1;
+explain select * from t1 where 0 / c5 = 1;
+explain select * from t1 where 0 / c6 = 1;
+explain select * from t1 where 0 / c7 = 1;
+explain select * from t1 where c1 / c2 = c3 * c7;
+explain select * from t1 where c1 / c2 = c3;
+INSERT INTO t1 VALUES (0,0,0,0,0,0,0);
+explain select * from t1 where c1 / 0 = 1;
+explain select * from t1 where c2 / 0 = 1;
+explain select * from t1 where c3 / 0 = 1;
+explain select * from t1 where c4 / 0 = 1;
+explain select * from t1 where c5 / 0 = 1;
+explain select * from t1 where c6 / 0 = 1;
+explain select * from t1 where c7 / 0 = 1;
+explain select * from t1 where 0 / c1 = 1;
+explain select * from t1 where 0 / c2 = 1;
+explain select * from t1 where 0 / c3 = 1;
+explain select * from t1 where 0 / c4 = 1;
+explain select * from t1 where 0 / c5 = 1;
+explain select * from t1 where 0 / c6 = 1;
+explain select * from t1 where 0 / c7 = 1;
+
+## mul
+explain select * from t1 where c1 * 2 = 1;
+explain select * from t1 where c2 * 2 = 1;
+explain select * from t1 where c3 * 2 = 1;
+explain select * from t1 where c4 * 2 = 1;
+explain select * from t1 where c5 * 2 = 1;
+explain select * from t1 where c6 * 2 = 1;
+explain select * from t1 where c7 * 2 = 1;
+explain select * from t1 where 2 * c1 = 1;
+explain select * from t1 where 2 * c2 = 1;
+explain select * from t1 where 2 * c3 = 1;
+explain select * from t1 where 2 * c4 = 1;
+explain select * from t1 where 2 * c5 = 1;
+explain select * from t1 where 2 * c6 = 1;
+explain select * from t1 where 2 * c7 = 1;
+explain select * from t1 where 2 * c1 = c1 * 2;
+explain select * from t1 where 2 * c2 = c2 * 2;
+explain select * from t1 where 2 * c3 = c3 * 2;
+explain select * from t1 where 2 * c4 = c4 * 2;
+explain select * from t1 where 2 * c5 = c5 * 2;
+explain select * from t1 where 2 * c6 = c6 * 2;
+explain select * from t1 where 2 * c7 = c7 * 2;
+explain select * from t1 where 2 * c1 = c1 * 2 * 1;
+explain select * from t1 where 2 * c2 = c2 * 2 / 1;
+explain select * from t1 where 2 * c3 = c3 * 2 / 2 * 2;
+explain select * from t1 where 2 * c4 = c4 * 2 / 3 * 3;
+explain select * from t1 where 2 * c5 = c5 * 2 / 3 * 2;
+explain select * from t1 where 2 * c6 = c6 * 2 / 4 * 2;
+explain select * from t1 where 2 * c7 = c7 * 2;
+explain select * from t1 where c1 / 2 = c2 / 2;
+explain select * from t1 where c1 / 3 = c2 * 3;
+explain select * from t1 where c1 * c2 = c3 * c6;
+explain select * from t1 where c1 * c2 = c3 * c6 * c7;
+
+## add
+explain select * from t1 where c1 + 2 = 1;
+explain select * from t1 where c2 + 2 = 1;
+explain select * from t1 where c3 + 2 = 1;
+explain select * from t1 where c4 + 2 = 1;
+explain select * from t1 where c5 + 2 = 1;
+explain select * from t1 where c6 + 2 = 1;
+explain select * from t1 where c7 + 2 = 1;
+explain select c1 + 2 + 2 from t1;
+explain select * from t1 where c1 + 2 + 2 = 4;
+explain select c2 + 2 * 2 from t1;
+explain select * from t1 where c2 + 2 * 2 = 8;
+explain select c3 + 2 / 3 from t1;
+explain select * from t1 where c3 + 2 / 3 = 1;
+explain select c4 + 2 / 4 from t1;
+explain select * from t1 where c4 + 2 / 4 = 1;
+explain select c5 + 4 / 2 from t1;
+explain select * from t1 where c5 + 4 / 2 = 1;
+explain select c5 + 4 / 2 from t1;
+explain select * from t1 where c6 + 2 * c7 = 6;
+explain select * from t1 where 2 + c7 = -1;
+
+## sub
+explain select * from t1 where c1 - 2 = 1;
+explain select * from t1 where c2 - 2 = 1;
+explain select * from t1 where c3 - 2 = 1;
+explain select * from t1 where c4 - 2 = 1;
+explain select * from t1 where c5 - 2 = 1;
+explain select * from t1 where c6 - 2 = 1;
+explain select * from t1 where c7 - 2 = 1;
+explain select * from t1 where 4 - c4 = 4 - c4;
+explain select * from t1 where c4 - c1 = c4 - c1;
+explain select * from t1 where c3 - 2 = 1;
+
+create table t16 (a int, b int unsigned);
+insert into t16 values (1,2),(2,1),(NULL,NULL),(1,NULL),(NULL,1);
+explain select * from t16;
+
+# change sign
+explain select * from t16 where -a < 0;
+
+# case of invalid 
+explain select * from t16 where a - '2' >= 0;
+explain select * from t16 where a % 0 = 0;
+explain select * from t16 where a / 0 = 0;
+
+## ======== Out of range ========
+## signed int out of range
+explain select * from t16 where a + 9223372036854775807 > 0;
+
+## unsigned int
+explain select * from t16 where a + 9223372036854775808 > 0;
+
+## unsigned int out of range
+explain select * from t16 where a + 18446744073709551615 > 0;
+
+## decimal
+explain select * from t16 where a + 18446744073709551616 > 0;
+
+## ======== Comparison Functions and Operators ========
+
+explain select * from t16 where a > 1;
+explain select * from t16 where a >= 1;
+explain select * from t16 where a < 2;
+explain select * from t16 where a <= 2;
+
+## 	Not equal operator
+explain select * from t16 where a;
+explain select * from t16 where a <> 0;
+explain select * from t16 where a != 0;
+explain select * from t16 where !a;
+explain select * from t16 where NOT a;
+explain select * from t16 where NOT NOT a;
+explain select * from t16 where a <> NULL;
+explain select * from t16 where a != NULL;
+
+## NULL-SAFE EQUAL
+explain select * from t16 where a <=> 2;
+explain select * from t16 where a <=> NULL;
+
+## 	Equal operator
+explain select * from t16 where a = 2;
+explain select * from t16 where a = NULL;
+
+## unsupported IS / IS NOT
+#explain select * from t16 where a is true;
+#explain select * from t16 where a is NOT true;
+
+
+## unsupported LIKE / NOT
+#explain select * from t16 where a like 1;
+#explain select * from t16 where a not like 1;
+#explain select * from t16 where a like NULL;
+#explain select * from t16 where a NOT like NULL;
+
+explain select * from t16 where a + b > 1;
+explain select * from t16 where 1 < a; 
+explain select * from t16 where a - 1;
+explain select * from t16 where a - 2;
+
+# ========  Logical Operators ========
+explain select * from t16 where (a > 1) and (b > 1);
+explain select * from t16 where (a > 1) && (b > 1);
+explain select * from t16 where (a > 1) or (b > 1);
+explain select * from t16 where (a > 1) || (b > 1);
+explain select * from t16 where ((a > 1) and (b > 1)) < 1;
+explain select * from t16 where ((a > 1) + (b > 1)) > 1;
+explain select * from t16 where ((a > 1) XOR (b > 1)) < 1;
+
+explain select * from t16 where a = 2 is null;
+explain select * from t16 where a = 2 = null;
+explain select * from t16 where a <=> NULL = 1;
+
+explain select * from t16 where a + (-2) >= 0;
+
+create table t17 (a int, b int GENERATED ALWAYS AS (a + 1));
+insert into t17(a) values (NULL),(1),(2);
+explain select * from t17 where a > 1;
+explain select * from t17 where b > 1;
+explain select * from t17 where (a > 1) AND (b > 1);
+explain select * from t17 where (a > 1) OR (b > 1);
+explain select * from t17 where ((a > 1) AND (b > 1)) = 1;
+explain select * from t17 where ((a > 1) OR (b > 1)) = 1;
+
+CREATE TABLE t18(c1 int, c2 int, key(c1,c2));
+INSERT INTO t18 VALUES (94,94),(64,64),(69,69),(97,97);
+explain select * from t18;
+
+drop table t1;
+drop table t16;
+drop table t17;
+drop table t18;
+
+# ======== cache item ============
+# cache item
+## cache int
+
+create table tb_cache(a int);
+insert into tb_cache values(null);
+insert into tb_cache values(1);
+insert into tb_cache values(0);
+
+prepare stmt1 from 'explain select a from tb_cache where a <=> ?';
+
+set @arg1 = null;
+execute stmt1 using @arg1;
+
+set @arg2 = 1;
+execute stmt1 using @arg2;
+
+set @arg3 = 'a';
+execute stmt1 using @arg3;
+drop table tb_cache;

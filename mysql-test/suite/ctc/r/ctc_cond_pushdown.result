@@ -185,7 +185,39 @@ c1	c2	c3	c4	c5	c6
 select * from t1 where c2 = 3;
 c1	c2	c3	c4	c5	c6
 3	3	3	3	3	3
+select * from t1 where 255 = c3;
+c1	c2	c3	c4	c5	c6
+select * from t1 where 255 <=> c3;
+c1	c2	c3	c4	c5	c6
+select * from t1 where 3 = c1;
+c1	c2	c3	c4	c5	c6
+3	3	3	3	3	3
+select * from t1 where 3 < c1;
+c1	c2	c3	c4	c5	c6
+4	4	4	4	4	4
+8	8	127	255	8	8
+select * from t1 where 3 != c1;
+c1	c2	c3	c4	c5	c6
+1	1	1	1	1	1
+2	2	2	2	2	2
+4	4	4	4	4	4
+8	8	127	255	8	8
+select * from t1 where 3 = c2;
+c1	c2	c3	c4	c5	c6
+3	3	3	3	3	3
+select * from t1 where 3 <=> c2;
+c1	c2	c3	c4	c5	c6
+3	3	3	3	3	3
 select * from t1 where c4 = 255;
+c1	c2	c3	c4	c5	c6
+8	8	127	255	8	8
+select * from t1 where 255 = c4;
+c1	c2	c3	c4	c5	c6
+8	8	127	255	8	8
+select * from t1 where c4 <=> 255;
+c1	c2	c3	c4	c5	c6
+8	8	127	255	8	8
+select * from t1 where 255 <=> c4;
 c1	c2	c3	c4	c5	c6
 8	8	127	255	8	8
 select * from t2 where c3 = 11.111;
@@ -195,6 +227,15 @@ select * from t2 where c4 = 1.1;
 c1	c2	c3	c4	c5	c6
 1.1	11.110	11.111	1.1	11.110	11.111
 select * from t2 where c6 = 11.111;
+c1	c2	c3	c4	c5	c6
+1.1	11.110	11.111	1.1	11.110	11.111
+select * from t2 where 11.111 = c3;
+c1	c2	c3	c4	c5	c6
+1.1	11.110	11.111	1.1	11.110	11.111
+select * from t2 where 1.1 = c4;
+c1	c2	c3	c4	c5	c6
+1.1	11.110	11.111	1.1	11.110	11.111
+select * from t2 where 11.111 = c6;
 c1	c2	c3	c4	c5	c6
 1.1	11.110	11.111	1.1	11.110	11.111
 select * from t1 where null <=> null;
@@ -236,8 +277,22 @@ c1	c2	c3	c4	c5	c6
 3	3	3	3	3	3
 4	4	4	4	4	4
 8	8	127	255	8	8
-select * from t1 where c1 > 3 or c2 = 4 or c3 >=3 or c4 = 5 or (c1 > 1 and c2 < 5 and c3 > 2);
+select * from t1 where null = c1;
 c1	c2	c3	c4	c5	c6
+select * from t1 where null != c1;
+c1	c2	c3	c4	c5	c6
+select * from t1 where null < c1;
+c1	c2	c3	c4	c5	c6
+select * from t1 where null > c1;
+c1	c2	c3	c4	c5	c6
+select * from t1 where null <=> c1;
+c1	c2	c3	c4	c5	c6
+NULL	5	NULL	NULL	NULL	NULL
+NULL	7	NULL	NULL	NULL	NULL
+select * from t1 where not null <=> c1;
+c1	c2	c3	c4	c5	c6
+1	1	1	1	1	1
+2	2	2	2	2	2
 3	3	3	3	3	3
 4	4	4	4	4	4
 8	8	127	255	8	8
@@ -496,6 +551,35 @@ c1	c2	c3	c4	c5	c6
 3	3	3	3	3	3
 4	4	4	4	4	4
 8	8	127	255	8	8
+select * from t1 where 3 < c1 and 4 = c2 and 1 <= c3;
+c1	c2	c3	c4	c5	c6
+4	4	4	4	4	4
+select * from t1 where 3 < c1 and 8 = c2;
+c1	c2	c3	c4	c5	c6
+8	8	127	255	8	8
+select * from t1 where not c1 > 3;
+c1	c2	c3	c4	c5	c6
+1	1	1	1	1	1
+2	2	2	2	2	2
+3	3	3	3	3	3
+select * from t1 where not (c1 > 3 and c2 = 4 and c3 >=1);
+c1	c2	c3	c4	c5	c6
+1	1	1	1	1	1
+2	2	2	2	2	2
+NULL	5	NULL	NULL	NULL	NULL
+3	3	3	3	3	3
+NULL	7	NULL	NULL	NULL	NULL
+8	8	127	255	8	8
+select * from t1 where c1 = 1 xor c2 = 5;
+c1	c2	c3	c4	c5	c6
+1	1	1	1	1	1
+select * from t1 where c1 = 1 xor c2 = 1;
+c1	c2	c3	c4	c5	c6
+select * from t1 where 3 < c1 or 4 = c2 or 3 <= c3 or 5 = c4 or (1 < c1 and 5 > c2 and 2 < c3);
+c1	c2	c3	c4	c5	c6
+3	3	3	3	3	3
+4	4	4	4	4	4
+8	8	127	255	8	8
 select c1 from t10 where c2=69;
 c1
 69
@@ -510,11 +594,31 @@ c1
 2069
 select c1,c2 from t11 where c2=4;
 c1	c2
+select c1 from t10 where 69=c2;
+c1
+69
+select c1 from t10 where 69=c1;
+c1
+69
+select c1 from t11 where 69=c2;
+c1
+2069
+select c1 from t11 where 69=c1;
+c1
+2069
+select c1,c2 from t11 where 4=c2;
+c1	c2
 select * from t13 where e_tinyint = 30;
+id	a_integer	b_char	c_varchar	d_deciaml	e_tinyint	f_bigint	g_float	h_date
+3	33	b	varchar	333	30	300	30.01	2022-09-23
+select * from t13 where 30 = e_tinyint;
 id	a_integer	b_char	c_varchar	d_deciaml	e_tinyint	f_bigint	g_float	h_date
 3	33	b	varchar	333	30	300	30.01	2022-09-23
 alter table t13 drop column d_deciaml;
 select * from t13 where e_tinyint = 30;
+id	a_integer	b_char	c_varchar	e_tinyint	f_bigint	g_float	h_date
+3	33	b	varchar	30	300	30.01	2022-09-23
+select * from t13 where 30 = e_tinyint;
 id	a_integer	b_char	c_varchar	e_tinyint	f_bigint	g_float	h_date
 3	33	b	varchar	30	300	30.01	2022-09-23
 select hex(c2) from t15 where c2 = 'abcde';
@@ -523,6 +627,14 @@ select hex(c2) from t15 where c2 = 0x6162636465000000000000000000000000000000000
 hex(c2)
 61626364650000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 select hex(c3) from t15 where c3 = 'abcde';
+hex(c3)
+6162636465
+select hex(c2) from t15 where 'abcde' = c2;
+hex(c2)
+select hex(c2) from t15 where 0x61626364650000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 = c2;
+hex(c2)
+61626364650000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+select hex(c3) from t15 where 'abcde' = c3;
 hex(c3)
 6162636465
 select * from t5 where c1 = '01:01:01.01';
@@ -552,6 +664,31 @@ c1	c2
 01:01:01	23:59:59
 Warnings:
 Note	1292	Incorrect time value: '1999-12-31 23:59:59' for column 'c2' at row 1
+select * from t5 where '01:01:01.01' = c1;
+c1	c2
+01:01:01	00:00:00
+01:01:01	23:59:59
+select * from t5 where '01:01:01.01' > c1;
+c1	c2
+select * from t5 where '02:02:02' = c1;
+c1	c2
+02:02:02	00:00:00
+02:02:02	13:13:13
+select * from t5 where '00:00:00' = c2;
+c1	c2
+01:01:01	00:00:00
+02:02:02	00:00:00
+select * from t5 where '1000-01-01 00:00:00' = c2;
+c1	c2
+01:01:01	00:00:00
+02:02:02	00:00:00
+Warnings:
+Note	1292	Incorrect time value: '1000-01-01 00:00:00' for column 'c2' at row 1
+select * from t5 where '1999-12-31 23:59:59' = c2;
+c1	c2
+01:01:01	23:59:59
+Warnings:
+Note	1292	Incorrect time value: '1999-12-31 23:59:59' for column 'c2' at row 1
 select * from t6 where c1 = '1000-01-01';
 c1	c2
 1000-01-01	1000-01-01
@@ -567,6 +704,24 @@ select * from t6 where c2 = '1000-01-01';
 c1	c2
 1000-01-01	1000-01-01
 select * from t6 where c2 = '1000-01-01 00:00:00';
+c1	c2
+1000-01-01	1000-01-01
+select * from t6 where '1000-01-01' = c1;
+c1	c2
+1000-01-01	1000-01-01
+select * from t6 where '1000-01-01' <=> c1;
+c1	c2
+1000-01-01	1000-01-01
+select * from t6 where '1000-01-01 00:00:00' = c1;
+c1	c2
+1000-01-01	1000-01-01
+select * from t6 where '1000-01-01 00:00:00' = c1;
+c1	c2
+1000-01-01	1000-01-01
+select * from t6 where '1000-01-01' = c2;
+c1	c2
+1000-01-01	1000-01-01
+select * from t6 where '1000-01-01 00:00:00' = c2;
 c1	c2
 1000-01-01	1000-01-01
 select * from t7 where c1 = '1000-01-01';
@@ -586,6 +741,24 @@ c1	c2
 select * from t7 where c2 = '1000-01-01 00:00:00';
 c1	c2
 1000-01-01 00:00:00	1000-01-01 00:00:00
+select * from t7 where '1000-01-01' = c1;
+c1	c2
+1000-01-01 00:00:00	1000-01-01 00:00:00
+select * from t7 where '1000-01-01' <=> c1;
+c1	c2
+1000-01-01 00:00:00	1000-01-01 00:00:00
+select * from t7 where '1000-01-01 00:00:00' = c1;
+c1	c2
+1000-01-01 00:00:00	1000-01-01 00:00:00
+select * from t7 where '1000-01-01 00:00:00' = c1;
+c1	c2
+1000-01-01 00:00:00	1000-01-01 00:00:00
+select * from t7 where '1000-01-01' = c2;
+c1	c2
+1000-01-01 00:00:00	1000-01-01 00:00:00
+select * from t7 where '1000-01-01 00:00:00' = c2;
+c1	c2
+1000-01-01 00:00:00	1000-01-01 00:00:00
 select * from t8 where c1 = '2000-01-01';
 c1	c2
 2000-01-01 00:00:00	2000-01-01 00:00:00
@@ -599,6 +772,27 @@ select * from t8 where c2 = '2000-01-01';
 c1	c2
 2000-01-01 00:00:00	2000-01-01 00:00:00
 select * from t8 where c2 = '2000-01-01 00:00:00';
+c1	c2
+2000-01-01 00:00:00	2000-01-01 00:00:00
+select * from t8 where '2000-01-01' = c1;
+c1	c2
+2000-01-01 00:00:00	2000-01-01 00:00:00
+select * from t8 where '2000-01-01' <=> c1;
+c1	c2
+2000-01-01 00:00:00	2000-01-01 00:00:00
+select * from t8 where '2000-01-01 00:00:00' = c1;
+c1	c2
+2000-01-01 00:00:00	2000-01-01 00:00:00
+select * from t8 where '2000-01-01 00:00:00' < c1;
+c1	c2
+2008-02-29 00:00:00	2008-02-29 13:13:13
+select * from t8 where '2000-01-01 00:00:00' > c1;
+c1	c2
+1999-12-31 00:00:00	1999-12-31 23:59:59
+select * from t8 where '2000-01-01' = c2;
+c1	c2
+2000-01-01 00:00:00	2000-01-01 00:00:00
+select * from t8 where '2000-01-01 00:00:00' = c2;
 c1	c2
 2000-01-01 00:00:00	2000-01-01 00:00:00
 select * from t11 where c1 = 4;
@@ -616,6 +810,24 @@ c1	c2
 select * from t11 where '2004' = c1;
 c1	c2
 2004	NULL
+select * from t11 where 4 = c1;
+c1	c2
+2004	NULL
+select * from t11 where 4 <=> c1;
+c1	c2
+2004	NULL
+select * from t11 where 2004 = c1;
+c1	c2
+2004	NULL
+select * from t11 where '2004' = c1;
+c1	c2
+2004	NULL
+select * from t11 where 2004.0 = c1;
+c1	c2
+2004	NULL
+select * from t11 where c1 = '2004';
+c1	c2
+2004	NULL
 select * from t12 where IDA = 'aaa';
 IDA
 aaa
@@ -631,6 +843,9 @@ INSERT INTO tickets(title, priority) VALUES('Scan virus for computer A', 'High')
 INSERT INTO tickets(title, priority) VALUES('Upgrade Windows OS for all computers', 1);
 INSERT INTO tickets(title) VALUES('Refresh the computer of Ms. Lily');
 SELECT * FROM tickets WHERE priority = 3;
+id	title	priority
+1	Scan virus for computer A	High
+SELECT * FROM tickets WHERE 3 = priority;
 id	title	priority
 1	Scan virus for computer A	High
 drop table if exists tickets;
@@ -662,7 +877,1025 @@ a,d
 a,d
 a,d
 a,d
+select * from myset where 'a' = col;
+col
+a
+select * from myset where 'a,d' = col;
+col
+a,d
+a,d
+a,d
+a,d
+a,d
+select * from myset where col like 'a,d';
+col
+a,d
+a,d
+a,d
+a,d
+a,d
 drop table if exists myset;
+drop table if exists t1;
+CREATE TABLE t1(c1 tinyint, c2 tinyint not null, c3 tinyint signed, c4 tinyint unsigned, c5 int, c6 long, c7 bigint);
+INSERT INTO t1 VALUES (1,1,1,1,1,1,1), (2,2,2,2,2,2,2);
+INSERT INTO t1 VALUES (null, 5, null, null, null, null, null);
+INSERT INTO t1 VALUES (3,3,3,3,3,3,3), (4,4,4,4,4,4,4);
+INSERT INTO t1 VALUES (null, 7, null, null, null, null, null);
+INSERT INTO t1 VALUES (8,8,127,255,8,8,8);
+INSERT INTO t1 VALUES (6,6,6,6,6,6,6), (7,7,7,7,7,7,7);
+INSERT INTO t1 VALUES (8,8,8,8,8,8,8), (6,2,3,9,8,4,1);
+INSERT INTO t1 VALUES (-1, -2, -4, 8, -16, -32, -20);
+select * from t1;
+c1	c2	c3	c4	c5	c6	c7
+1	1	1	1	1	1	1
+2	2	2	2	2	2	2
+NULL	5	NULL	NULL	NULL	NULL	NULL
+3	3	3	3	3	3	3
+4	4	4	4	4	4	4
+NULL	7	NULL	NULL	NULL	NULL	NULL
+8	8	127	255	8	8	8
+6	6	6	6	6	6	6
+7	7	7	7	7	7	7
+8	8	8	8	8	8	8
+6	2	3	9	8	4	1
+-1	-2	-4	8	-16	-32	-20
+select * from t1 where c1 % 2 = 0;
+c1	c2	c3	c4	c5	c6	c7
+2	2	2	2	2	2	2
+4	4	4	4	4	4	4
+8	8	127	255	8	8	8
+6	6	6	6	6	6	6
+8	8	8	8	8	8	8
+6	2	3	9	8	4	1
+select * from t1 where c2 % 2 = 0;
+c1	c2	c3	c4	c5	c6	c7
+2	2	2	2	2	2	2
+4	4	4	4	4	4	4
+8	8	127	255	8	8	8
+6	6	6	6	6	6	6
+8	8	8	8	8	8	8
+6	2	3	9	8	4	1
+-1	-2	-4	8	-16	-32	-20
+select * from t1 where c3 % 2 = 0;
+c1	c2	c3	c4	c5	c6	c7
+2	2	2	2	2	2	2
+4	4	4	4	4	4	4
+6	6	6	6	6	6	6
+8	8	8	8	8	8	8
+-1	-2	-4	8	-16	-32	-20
+select * from t1 where c4 % 2 = 0;
+c1	c2	c3	c4	c5	c6	c7
+2	2	2	2	2	2	2
+4	4	4	4	4	4	4
+6	6	6	6	6	6	6
+8	8	8	8	8	8	8
+-1	-2	-4	8	-16	-32	-20
+select * from t1 where c5 % 2 = 0;
+c1	c2	c3	c4	c5	c6	c7
+2	2	2	2	2	2	2
+4	4	4	4	4	4	4
+8	8	127	255	8	8	8
+6	6	6	6	6	6	6
+8	8	8	8	8	8	8
+6	2	3	9	8	4	1
+-1	-2	-4	8	-16	-32	-20
+select * from t1 where c6 % 2 = 0;
+c1	c2	c3	c4	c5	c6	c7
+2	2	2	2	2	2	2
+4	4	4	4	4	4	4
+8	8	127	255	8	8	8
+6	6	6	6	6	6	6
+8	8	8	8	8	8	8
+6	2	3	9	8	4	1
+-1	-2	-4	8	-16	-32	-20
+select * from t1 where c7 % 2 = 0;
+c1	c2	c3	c4	c5	c6	c7
+2	2	2	2	2	2	2
+4	4	4	4	4	4	4
+8	8	127	255	8	8	8
+6	6	6	6	6	6	6
+8	8	8	8	8	8	8
+-1	-2	-4	8	-16	-32	-20
+select * from t1 where 2 % c1 = 0;
+c1	c2	c3	c4	c5	c6	c7
+1	1	1	1	1	1	1
+2	2	2	2	2	2	2
+-1	-2	-4	8	-16	-32	-20
+select * from t1 where 2 % c2 = 0;
+c1	c2	c3	c4	c5	c6	c7
+1	1	1	1	1	1	1
+2	2	2	2	2	2	2
+6	2	3	9	8	4	1
+-1	-2	-4	8	-16	-32	-20
+select * from t1 where 2 % c3 = 0;
+c1	c2	c3	c4	c5	c6	c7
+1	1	1	1	1	1	1
+2	2	2	2	2	2	2
+select * from t1 where 2 % c4 = 0;
+c1	c2	c3	c4	c5	c6	c7
+1	1	1	1	1	1	1
+2	2	2	2	2	2	2
+select * from t1 where 2 % c5 = 0;
+c1	c2	c3	c4	c5	c6	c7
+1	1	1	1	1	1	1
+2	2	2	2	2	2	2
+select * from t1 where 2 % c6 = 0;
+c1	c2	c3	c4	c5	c6	c7
+1	1	1	1	1	1	1
+2	2	2	2	2	2	2
+select * from t1 where 2 % c7 = 0;
+c1	c2	c3	c4	c5	c6	c7
+1	1	1	1	1	1	1
+2	2	2	2	2	2	2
+6	2	3	9	8	4	1
+select * from t1 where 3 % c1 = 0;
+c1	c2	c3	c4	c5	c6	c7
+1	1	1	1	1	1	1
+3	3	3	3	3	3	3
+-1	-2	-4	8	-16	-32	-20
+select * from t1 where 3 % c2 = 0;
+c1	c2	c3	c4	c5	c6	c7
+1	1	1	1	1	1	1
+3	3	3	3	3	3	3
+select * from t1 where 3 % c3 = 0;
+c1	c2	c3	c4	c5	c6	c7
+1	1	1	1	1	1	1
+3	3	3	3	3	3	3
+6	2	3	9	8	4	1
+select * from t1 where 3 % c4 = 0;
+c1	c2	c3	c4	c5	c6	c7
+1	1	1	1	1	1	1
+3	3	3	3	3	3	3
+select * from t1 where 3 % c5 = 0;
+c1	c2	c3	c4	c5	c6	c7
+1	1	1	1	1	1	1
+3	3	3	3	3	3	3
+select * from t1 where 3 % c6 = 0;
+c1	c2	c3	c4	c5	c6	c7
+1	1	1	1	1	1	1
+3	3	3	3	3	3	3
+select * from t1 where 3 % c7 = 0;
+c1	c2	c3	c4	c5	c6	c7
+1	1	1	1	1	1	1
+3	3	3	3	3	3	3
+6	2	3	9	8	4	1
+select * from t1 where 3 % c1 = c1 % 3;
+c1	c2	c3	c4	c5	c6	c7
+3	3	3	3	3	3	3
+select * from t1 where 9 % c2 = 3 % c2;
+c1	c2	c3	c4	c5	c6	c7
+1	1	1	1	1	1	1
+2	2	2	2	2	2	2
+3	3	3	3	3	3	3
+6	6	6	6	6	6	6
+6	2	3	9	8	4	1
+-1	-2	-4	8	-16	-32	-20
+select * from t1 where 3 % c3 = 2 / 3;
+c1	c2	c3	c4	c5	c6	c7
+select * from t1 where 3 % c4 = 1 * 2;
+c1	c2	c3	c4	c5	c6	c7
+select * from t1 where 3 % c5 = c2 + c7;
+c1	c2	c3	c4	c5	c6	c7
+6	2	3	9	8	4	1
+select * from t1 where 3 % c6 = 0;
+c1	c2	c3	c4	c5	c6	c7
+1	1	1	1	1	1	1
+3	3	3	3	3	3	3
+select * from t1 where 3 % c7 = 0;
+c1	c2	c3	c4	c5	c6	c7
+1	1	1	1	1	1	1
+3	3	3	3	3	3	3
+6	2	3	9	8	4	1
+select * from t1 where c1 / 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+2	2	2	2	2	2	2
+select * from t1 where c2 / 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+2	2	2	2	2	2	2
+6	2	3	9	8	4	1
+select * from t1 where c3 / 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+2	2	2	2	2	2	2
+select * from t1 where c4 / 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+2	2	2	2	2	2	2
+select * from t1 where c5 / 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+2	2	2	2	2	2	2
+select * from t1 where c6 / 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+2	2	2	2	2	2	2
+select * from t1 where c7 / 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+2	2	2	2	2	2	2
+select * from t1 where c1 / 0 = 1;
+c1	c2	c3	c4	c5	c6	c7
+Warnings:
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+select * from t1 where c2 / 0 = 1;
+c1	c2	c3	c4	c5	c6	c7
+Warnings:
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+select * from t1 where c3 / 0 = 1;
+c1	c2	c3	c4	c5	c6	c7
+Warnings:
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+select * from t1 where c4 / 0 = 1;
+c1	c2	c3	c4	c5	c6	c7
+Warnings:
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+select * from t1 where c5 / 0 = 1;
+c1	c2	c3	c4	c5	c6	c7
+Warnings:
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+select * from t1 where c6 / 0 = 1;
+c1	c2	c3	c4	c5	c6	c7
+Warnings:
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+select * from t1 where c7 / 0 = 1;
+c1	c2	c3	c4	c5	c6	c7
+Warnings:
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+select * from t1 where 0 / c1 = 1;
+c1	c2	c3	c4	c5	c6	c7
+select * from t1 where 0 / c2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+select * from t1 where 0 / c3 = 1;
+c1	c2	c3	c4	c5	c6	c7
+select * from t1 where 0 / c4 = 1;
+c1	c2	c3	c4	c5	c6	c7
+select * from t1 where 0 / c5 = 1;
+c1	c2	c3	c4	c5	c6	c7
+select * from t1 where 0 / c6 = 1;
+c1	c2	c3	c4	c5	c6	c7
+select * from t1 where 0 / c7 = 1;
+c1	c2	c3	c4	c5	c6	c7
+select * from t1 where c1 / c2 = c3 * c7;
+c1	c2	c3	c4	c5	c6	c7
+1	1	1	1	1	1	1
+6	2	3	9	8	4	1
+select * from t1 where c1 / c2 = c3;
+c1	c2	c3	c4	c5	c6	c7
+1	1	1	1	1	1	1
+6	2	3	9	8	4	1
+INSERT INTO t1 VALUES (0,0,0,0,0,0,0);
+select * from t1 where c1 / 0 = 1;
+c1	c2	c3	c4	c5	c6	c7
+Warnings:
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+select * from t1 where c2 / 0 = 1;
+c1	c2	c3	c4	c5	c6	c7
+Warnings:
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+select * from t1 where c3 / 0 = 1;
+c1	c2	c3	c4	c5	c6	c7
+Warnings:
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+select * from t1 where c4 / 0 = 1;
+c1	c2	c3	c4	c5	c6	c7
+Warnings:
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+select * from t1 where c5 / 0 = 1;
+c1	c2	c3	c4	c5	c6	c7
+Warnings:
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+select * from t1 where c6 / 0 = 1;
+c1	c2	c3	c4	c5	c6	c7
+Warnings:
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+select * from t1 where c7 / 0 = 1;
+c1	c2	c3	c4	c5	c6	c7
+Warnings:
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+select * from t1 where 0 / c1 = 1;
+c1	c2	c3	c4	c5	c6	c7
+Warnings:
+Warning	1365	Division by 0
+select * from t1 where 0 / c2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+Warnings:
+Warning	1365	Division by 0
+select * from t1 where 0 / c3 = 1;
+c1	c2	c3	c4	c5	c6	c7
+Warnings:
+Warning	1365	Division by 0
+select * from t1 where 0 / c4 = 1;
+c1	c2	c3	c4	c5	c6	c7
+Warnings:
+Warning	1365	Division by 0
+select * from t1 where 0 / c5 = 1;
+c1	c2	c3	c4	c5	c6	c7
+Warnings:
+Warning	1365	Division by 0
+select * from t1 where 0 / c6 = 1;
+c1	c2	c3	c4	c5	c6	c7
+Warnings:
+Warning	1365	Division by 0
+select * from t1 where 0 / c7 = 1;
+c1	c2	c3	c4	c5	c6	c7
+Warnings:
+Warning	1365	Division by 0
+select * from t1 where c1 * 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+select * from t1 where c2 * 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+select * from t1 where c3 * 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+select * from t1 where c4 * 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+select * from t1 where c5 * 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+select * from t1 where c6 * 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+select * from t1 where c7 * 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+select * from t1 where 2 * c1 = 1;
+c1	c2	c3	c4	c5	c6	c7
+select * from t1 where 2 * c2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+select * from t1 where 2 * c3 = 1;
+c1	c2	c3	c4	c5	c6	c7
+select * from t1 where 2 * c4 = 1;
+c1	c2	c3	c4	c5	c6	c7
+select * from t1 where 2 * c5 = 1;
+c1	c2	c3	c4	c5	c6	c7
+select * from t1 where 2 * c6 = 1;
+c1	c2	c3	c4	c5	c6	c7
+select * from t1 where 2 * c7 = 1;
+c1	c2	c3	c4	c5	c6	c7
+select * from t1 where 2 * c1 = c1 * 2;
+c1	c2	c3	c4	c5	c6	c7
+1	1	1	1	1	1	1
+2	2	2	2	2	2	2
+3	3	3	3	3	3	3
+4	4	4	4	4	4	4
+8	8	127	255	8	8	8
+6	6	6	6	6	6	6
+7	7	7	7	7	7	7
+8	8	8	8	8	8	8
+6	2	3	9	8	4	1
+-1	-2	-4	8	-16	-32	-20
+0	0	0	0	0	0	0
+select * from t1 where 2 * c2 = c2 * 2;
+c1	c2	c3	c4	c5	c6	c7
+1	1	1	1	1	1	1
+2	2	2	2	2	2	2
+NULL	5	NULL	NULL	NULL	NULL	NULL
+3	3	3	3	3	3	3
+4	4	4	4	4	4	4
+NULL	7	NULL	NULL	NULL	NULL	NULL
+8	8	127	255	8	8	8
+6	6	6	6	6	6	6
+7	7	7	7	7	7	7
+8	8	8	8	8	8	8
+6	2	3	9	8	4	1
+-1	-2	-4	8	-16	-32	-20
+0	0	0	0	0	0	0
+select * from t1 where 2 * c3 = c3 * 2;
+c1	c2	c3	c4	c5	c6	c7
+1	1	1	1	1	1	1
+2	2	2	2	2	2	2
+3	3	3	3	3	3	3
+4	4	4	4	4	4	4
+8	8	127	255	8	8	8
+6	6	6	6	6	6	6
+7	7	7	7	7	7	7
+8	8	8	8	8	8	8
+6	2	3	9	8	4	1
+-1	-2	-4	8	-16	-32	-20
+0	0	0	0	0	0	0
+select * from t1 where 2 * c4 = c4 * 2;
+c1	c2	c3	c4	c5	c6	c7
+1	1	1	1	1	1	1
+2	2	2	2	2	2	2
+3	3	3	3	3	3	3
+4	4	4	4	4	4	4
+8	8	127	255	8	8	8
+6	6	6	6	6	6	6
+7	7	7	7	7	7	7
+8	8	8	8	8	8	8
+6	2	3	9	8	4	1
+-1	-2	-4	8	-16	-32	-20
+0	0	0	0	0	0	0
+select * from t1 where 2 * c5 = c5 * 2;
+c1	c2	c3	c4	c5	c6	c7
+1	1	1	1	1	1	1
+2	2	2	2	2	2	2
+3	3	3	3	3	3	3
+4	4	4	4	4	4	4
+8	8	127	255	8	8	8
+6	6	6	6	6	6	6
+7	7	7	7	7	7	7
+8	8	8	8	8	8	8
+6	2	3	9	8	4	1
+-1	-2	-4	8	-16	-32	-20
+0	0	0	0	0	0	0
+select * from t1 where 2 * c6 = c6 * 2;
+c1	c2	c3	c4	c5	c6	c7
+1	1	1	1	1	1	1
+2	2	2	2	2	2	2
+3	3	3	3	3	3	3
+4	4	4	4	4	4	4
+8	8	127	255	8	8	8
+6	6	6	6	6	6	6
+7	7	7	7	7	7	7
+8	8	8	8	8	8	8
+6	2	3	9	8	4	1
+-1	-2	-4	8	-16	-32	-20
+0	0	0	0	0	0	0
+select * from t1 where 2 * c7 = c7 * 2;
+c1	c2	c3	c4	c5	c6	c7
+1	1	1	1	1	1	1
+2	2	2	2	2	2	2
+3	3	3	3	3	3	3
+4	4	4	4	4	4	4
+8	8	127	255	8	8	8
+6	6	6	6	6	6	6
+7	7	7	7	7	7	7
+8	8	8	8	8	8	8
+6	2	3	9	8	4	1
+-1	-2	-4	8	-16	-32	-20
+0	0	0	0	0	0	0
+select * from t1 where 2 * c1 = c1 * 2 * 1;
+c1	c2	c3	c4	c5	c6	c7
+1	1	1	1	1	1	1
+2	2	2	2	2	2	2
+3	3	3	3	3	3	3
+4	4	4	4	4	4	4
+8	8	127	255	8	8	8
+6	6	6	6	6	6	6
+7	7	7	7	7	7	7
+8	8	8	8	8	8	8
+6	2	3	9	8	4	1
+-1	-2	-4	8	-16	-32	-20
+0	0	0	0	0	0	0
+select * from t1 where 2 * c2 = c2 * 2 / 1;
+c1	c2	c3	c4	c5	c6	c7
+1	1	1	1	1	1	1
+2	2	2	2	2	2	2
+NULL	5	NULL	NULL	NULL	NULL	NULL
+3	3	3	3	3	3	3
+4	4	4	4	4	4	4
+NULL	7	NULL	NULL	NULL	NULL	NULL
+8	8	127	255	8	8	8
+6	6	6	6	6	6	6
+7	7	7	7	7	7	7
+8	8	8	8	8	8	8
+6	2	3	9	8	4	1
+-1	-2	-4	8	-16	-32	-20
+0	0	0	0	0	0	0
+select * from t1 where 2 * c3 = c3 * 2 / 2 * 2;
+c1	c2	c3	c4	c5	c6	c7
+1	1	1	1	1	1	1
+2	2	2	2	2	2	2
+3	3	3	3	3	3	3
+4	4	4	4	4	4	4
+8	8	127	255	8	8	8
+6	6	6	6	6	6	6
+7	7	7	7	7	7	7
+8	8	8	8	8	8	8
+6	2	3	9	8	4	1
+-1	-2	-4	8	-16	-32	-20
+0	0	0	0	0	0	0
+select * from t1 where 2 * c4 = c4 * 2 / 3 * 3;
+c1	c2	c3	c4	c5	c6	c7
+3	3	3	3	3	3	3
+8	8	127	255	8	8	8
+6	6	6	6	6	6	6
+6	2	3	9	8	4	1
+0	0	0	0	0	0	0
+select * from t1 where 2 * c5 = c5 * 2 / 3 * 2;
+c1	c2	c3	c4	c5	c6	c7
+0	0	0	0	0	0	0
+select * from t1 where 2 * c6 = c6 * 2 / 4 * 2;
+c1	c2	c3	c4	c5	c6	c7
+0	0	0	0	0	0	0
+select * from t1 where 2 * c7 = c7 * 2;
+c1	c2	c3	c4	c5	c6	c7
+1	1	1	1	1	1	1
+2	2	2	2	2	2	2
+3	3	3	3	3	3	3
+4	4	4	4	4	4	4
+8	8	127	255	8	8	8
+6	6	6	6	6	6	6
+7	7	7	7	7	7	7
+8	8	8	8	8	8	8
+6	2	3	9	8	4	1
+-1	-2	-4	8	-16	-32	-20
+0	0	0	0	0	0	0
+select * from t1 where c1 / 2 = c2 / 2;
+c1	c2	c3	c4	c5	c6	c7
+1	1	1	1	1	1	1
+2	2	2	2	2	2	2
+3	3	3	3	3	3	3
+4	4	4	4	4	4	4
+8	8	127	255	8	8	8
+6	6	6	6	6	6	6
+7	7	7	7	7	7	7
+8	8	8	8	8	8	8
+0	0	0	0	0	0	0
+select * from t1 where c1 / 3 = c2 * 3;
+c1	c2	c3	c4	c5	c6	c7
+0	0	0	0	0	0	0
+select * from t1 where c1 * c2 = c3 * c6;
+c1	c2	c3	c4	c5	c6	c7
+1	1	1	1	1	1	1
+2	2	2	2	2	2	2
+3	3	3	3	3	3	3
+4	4	4	4	4	4	4
+6	6	6	6	6	6	6
+7	7	7	7	7	7	7
+8	8	8	8	8	8	8
+6	2	3	9	8	4	1
+0	0	0	0	0	0	0
+select * from t1 where c1 * c2 = c3 * c6 * c7;
+c1	c2	c3	c4	c5	c6	c7
+1	1	1	1	1	1	1
+6	2	3	9	8	4	1
+0	0	0	0	0	0	0
+select * from t1 where c1 + 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+-1	-2	-4	8	-16	-32	-20
+select * from t1 where c2 + 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+select * from t1 where c3 + 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+select * from t1 where c4 + 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+select * from t1 where c5 + 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+select * from t1 where c6 + 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+select * from t1 where c7 + 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+select c1 + 2 + 2 from t1;
+c1 + 2 + 2
+5
+6
+NULL
+7
+8
+NULL
+12
+10
+11
+12
+10
+3
+4
+select * from t1 where c1 + 2 + 2 = 4;
+c1	c2	c3	c4	c5	c6	c7
+0	0	0	0	0	0	0
+select c2 + 2 * 2 from t1;
+c2 + 2 * 2
+5
+6
+9
+7
+8
+11
+12
+10
+11
+12
+6
+2
+4
+select * from t1 where c2 + 2 * 2 = 8;
+c1	c2	c3	c4	c5	c6	c7
+4	4	4	4	4	4	4
+select c3 + 2 / 3 from t1;
+c3 + 2 / 3
+1.6667
+2.6667
+NULL
+3.6667
+4.6667
+NULL
+127.6667
+6.6667
+7.6667
+8.6667
+3.6667
+-3.3333
+0.6667
+select * from t1 where c3 + 2 / 3 = 1;
+c1	c2	c3	c4	c5	c6	c7
+select c4 + 2 / 4 from t1;
+c4 + 2 / 4
+1.5000
+2.5000
+NULL
+3.5000
+4.5000
+NULL
+255.5000
+6.5000
+7.5000
+8.5000
+9.5000
+8.5000
+0.5000
+select * from t1 where c4 + 2 / 4 = 1;
+c1	c2	c3	c4	c5	c6	c7
+select c5 + 4 / 2 from t1;
+c5 + 4 / 2
+3.0000
+4.0000
+NULL
+5.0000
+6.0000
+NULL
+10.0000
+8.0000
+9.0000
+10.0000
+10.0000
+-14.0000
+2.0000
+select * from t1 where c5 + 4 / 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+select c5 + 4 / 2 from t1;
+c5 + 4 / 2
+3.0000
+4.0000
+NULL
+5.0000
+6.0000
+NULL
+10.0000
+8.0000
+9.0000
+10.0000
+10.0000
+-14.0000
+2.0000
+select * from t1 where c6 + 2 * c7 = 6;
+c1	c2	c3	c4	c5	c6	c7
+2	2	2	2	2	2	2
+6	2	3	9	8	4	1
+select * from t1 where 2 + c7 = -1;
+c1	c2	c3	c4	c5	c6	c7
+select * from t1 where c1 - 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+3	3	3	3	3	3	3
+select * from t1 where c2 - 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+3	3	3	3	3	3	3
+select * from t1 where c3 - 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+3	3	3	3	3	3	3
+6	2	3	9	8	4	1
+select * from t1 where c4 - 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+3	3	3	3	3	3	3
+select * from t1 where c5 - 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+3	3	3	3	3	3	3
+select * from t1 where c6 - 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+3	3	3	3	3	3	3
+select * from t1 where c7 - 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+3	3	3	3	3	3	3
+select * from t1 where 4 - c4 = 4 - c4;
+ERROR 22003: BIGINT UNSIGNED value is out of range in '(4 - `test`.`t1`.`c4`)'
+select * from t1 where c4 - c1 = c4 - c1;
+c1	c2	c3	c4	c5	c6	c7
+1	1	1	1	1	1	1
+2	2	2	2	2	2	2
+3	3	3	3	3	3	3
+4	4	4	4	4	4	4
+8	8	127	255	8	8	8
+6	6	6	6	6	6	6
+7	7	7	7	7	7	7
+8	8	8	8	8	8	8
+6	2	3	9	8	4	1
+-1	-2	-4	8	-16	-32	-20
+0	0	0	0	0	0	0
+select * from t1 where c3 - 2 = 1;
+c1	c2	c3	c4	c5	c6	c7
+3	3	3	3	3	3	3
+6	2	3	9	8	4	1
+create table t16 (a int, b int unsigned);
+insert into t16 values (1,2),(2,1),(NULL,NULL),(1,NULL),(NULL,1);
+select * from t16;
+a	b
+1	2
+2	1
+NULL	NULL
+1	NULL
+NULL	1
+select * from t16 where -a < 0;
+a	b
+1	2
+2	1
+1	NULL
+select * from t16 where a - '2' >= 0;
+a	b
+2	1
+select * from t16 where a % 0 = 0;
+a	b
+select * from t16 where a / 0 = 0;
+a	b
+Warnings:
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+Warning	1365	Division by 0
+select * from t16 where a + 9223372036854775807 > 0;
+ERROR 22003: BIGINT value is out of range in '(`test`.`t16`.`a` + 9223372036854775807)'
+select * from t16 where a + 9223372036854775808 > 0;
+a	b
+1	2
+2	1
+1	NULL
+select * from t16 where a + 18446744073709551615 > 0;
+ERROR 22003: BIGINT UNSIGNED value is out of range in '(`test`.`t16`.`a` + 18446744073709551615)'
+select * from t16 where a + 18446744073709551616 > 0;
+a	b
+1	2
+2	1
+1	NULL
+select * from t16 where a > 1;
+a	b
+2	1
+select * from t16 where a >= 1;
+a	b
+1	2
+2	1
+1	NULL
+select * from t16 where a < 2;
+a	b
+1	2
+1	NULL
+select * from t16 where a <= 2;
+a	b
+1	2
+2	1
+1	NULL
+select * from t16 where a;
+a	b
+1	2
+2	1
+1	NULL
+select * from t16 where a <> 0;
+a	b
+1	2
+2	1
+1	NULL
+select * from t16 where a != 0;
+a	b
+1	2
+2	1
+1	NULL
+select * from t16 where !a;
+a	b
+Warnings:
+Warning	1287	'!' is deprecated and will be removed in a future release. Please use NOT instead
+select * from t16 where NOT a;
+a	b
+select * from t16 where NOT NOT a;
+a	b
+1	2
+2	1
+1	NULL
+select * from t16 where a <> NULL;
+a	b
+select * from t16 where a != NULL;
+a	b
+select * from t16 where a <=> 2;
+a	b
+2	1
+select * from t16 where a <=> NULL;
+a	b
+NULL	NULL
+NULL	1
+select * from t16 where a = 2;
+a	b
+2	1
+select * from t16 where a = NULL;
+a	b
+select * from t16 where a + b > 1;
+a	b
+1	2
+2	1
+select * from t16 where 1 < a;
+a	b
+2	1
+select * from t16 where a - 1;
+a	b
+2	1
+select * from t16 where a - 2;
+a	b
+1	2
+1	NULL
+select * from t16 where (a > 1) and (b > 1);
+a	b
+select * from t16 where (a > 1) && (b > 1);
+a	b
+Warnings:
+Warning	1287	'&&' is deprecated and will be removed in a future release. Please use AND instead
+select * from t16 where (a > 1) or (b > 1);
+a	b
+1	2
+2	1
+select * from t16 where (a > 1) || (b > 1);
+a	b
+1	2
+2	1
+Warnings:
+Warning	1287	'|| as a synonym for OR' is deprecated and will be removed in a future release. Please use OR instead
+select * from t16 where ((a > 1) and (b > 1)) < 1;
+a	b
+1	2
+2	1
+1	NULL
+NULL	1
+select * from t16 where ((a > 1) + (b > 1)) > 1;
+a	b
+select * from t16 where ((a > 1) XOR (b > 1)) < 1;
+a	b
+select * from t16 where a = 2 is null;
+a	b
+NULL	NULL
+NULL	1
+select * from t16 where a = 2 = null;
+a	b
+select * from t16 where a <=> NULL = 1;
+a	b
+NULL	NULL
+NULL	1
+select * from t16 where a + (-2) >= 0;
+a	b
+2	1
+create table t17 (a int, b int GENERATED ALWAYS AS (a + 1));
+insert into t17(a) values (NULL),(1),(2);
+select * from t17 where a > 1;
+a	b
+2	3
+select * from t17 where b > 1;
+a	b
+1	2
+2	3
+select * from t17 where (a > 1) AND (b > 1);
+a	b
+2	3
+select * from t17 where (a > 1) OR (b > 1);
+a	b
+1	2
+2	3
+select * from t17 where ((a > 1) AND (b > 1)) = 1;
+a	b
+2	3
+select * from t17 where ((a > 1) OR (b > 1)) = 1;
+a	b
+1	2
+2	3
+CREATE TABLE t18(c1 int, c2 int, key(c1,c2));
+INSERT INTO t18 VALUES (94,94),(64,64),(69,69),(97,97);
+select * from t18;
+c1	c2
+64	64
+69	69
+94	94
+97	97
 drop table t1;
 drop table t2;
 drop table t3;
@@ -678,3 +1911,27 @@ drop table t12;
 drop table t13;
 drop table t14;
 drop table t15;
+drop table t16;
+drop table t17;
+drop table t18;
+create table tb_cache(a int);
+insert into tb_cache values(null);
+insert into tb_cache values(1);
+insert into tb_cache values(0);
+prepare stmt1 from 'select a from tb_cache where a <=> ?';
+set @arg1 = null;
+execute stmt1 using @arg1;
+a
+NULL
+set @arg2 = 1;
+execute stmt1 using @arg2;
+a
+1
+set @arg3 = 'a';
+execute stmt1 using @arg3;
+a
+0
+Warnings:
+Warning	1292	Truncated incorrect INTEGER value: 'a'
+Warning	1292	Truncated incorrect INTEGER value: 'a'
+drop table tb_cache;

@@ -521,8 +521,11 @@ int32_t ctc_check_table_exist(MYSQL *curr_conn_proxy, const char *db_name, const
   return res;
 }
 
-__attribute__((visibility("default"))) int ctc_ddl_execute_lock_tables(ctc_handler_t *tch, char *db_name, ctc_lock_table_info *lock_info, int *err_code) {
-
+__attribute__((visibility("default"))) int ctc_ddl_execute_lock_tables(ctc_handler_t *tch,
+                                                                       char *db_name,
+                                                                       ctc_lock_table_info *lock_info,
+                                                                       int *err_code)
+{
   if (IS_METADATA_NORMALIZATION()) {
     if (lock_info->sql_type == SQLCOM_LOCK_TABLES) {
       if (ctc_ddl_execute_lock_tables_by_req(tch, lock_info, err_code)) {
@@ -616,7 +619,7 @@ __attribute__((visibility("default"))) int ctc_ddl_execute_lock_tables(ctc_handl
 }
 
 __attribute__((visibility("default"))) int ctc_ddl_execute_unlock_tables(ctc_handler_t *tch, uint32_t mysql_inst_id, ctc_lock_table_info *lock_info)
- {
+{
   if (IS_METADATA_NORMALIZATION()) {
     UNUSED_PARAM(mysql_inst_id);
     if (lock_info->sql_type == SQLCOM_UNLOCK_TABLES) {
@@ -717,4 +720,11 @@ __attribute__((visibility("default"))) int close_mysql_connection(uint32_t thd_i
     close_mysql_conn_by_key(agent_conn_map_key);
   }
   return 0;
+}
+
+__attribute__((visibility("default"))) int ctc_invalidate_mysql_dd_cache(ctc_handler_t *tch,
+                                                                         ctc_invalidate_broadcast_request *broadcast_req,
+                                                                         int *err_code)
+{
+  return ctc_invalidate_mysql_dd_cache_req(tch, broadcast_req, err_code);
 }

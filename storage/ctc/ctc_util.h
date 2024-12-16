@@ -32,6 +32,12 @@ using namespace std;
 
 static unordered_set<string> mysql_system_db{"information_schema", "mysql", "performance_schema", "sys"};
 
+typedef struct en_ctc_cond_func_type_map {
+  Item_func::Functype item_func_type;
+  ctc_func_type_t func_type;
+  ctc_cond_type_t cond_type;
+} cond_func_type_map;
+
 #define CM_IS_EMPTY_STR(str)     (((str) == NULL) || ((str)[0] == 0))
 
 #define CTC_GET_THD_DB_NAME(thd) (thd->db().str == NULL) ? nullptr : const_cast<char *>(thd->db().str)
@@ -102,21 +108,8 @@ bool ctc_check_ddl_sql_length(const string &query_str);
 
 string format_remote_errmsg(const char *err_msg);
 // utils for cond pushdown
-int dfs_fill_conds(ctc_handler_t m_tch, Item *items, Field **field, ctc_conds *conds, bool no_backslash);
-int ctc_push_cond_list(ctc_handler_t m_tch, Item *items, Field **field, ctc_cond_list *list, bool no_backslash);
-int ctc_push_cond_args(ctc_handler_t m_tch, Item *items, Field **field, ctc_cond_list *list, bool no_backslash);
-int ctc_fill_cond_field(Item *items, Field **field, ctc_conds *cond, bool no_backslash);
-int ctc_set_cond_field_size(const field_cnvrt_aux_t *mysql_info, ctc_conds *cond);
-int ctc_fill_cond_field_data(ctc_handler_t m_tch, Item *items, Field *mysql_field,
-                             const field_cnvrt_aux_t *mysql_info, ctc_conds *cond);
-int ctc_fill_cond_field_data_num(ctc_handler_t m_tch, Item *items, Field *mysql_field,
-                                 const field_cnvrt_aux_t *mysql_info, ctc_conds *cond);
-int ctc_fill_cond_field_data_date(ctc_handler_t m_tch, const field_cnvrt_aux_t *mysql_info,
-                                  MYSQL_TIME ltime, date_detail_t *date_detail, ctc_conds *cond);
-int ctc_fill_cond_field_data_string(ctc_handler_t m_tch, Item_func *item_func, ctc_conds *cond, bool no_backslash);
-void update_value_by_charset(char *data, uint16 *size, uint16 bytes);
-ctc_func_type_t item_func_to_ctc_func(Item_func::Functype fc);
-int16_t ctc_get_column_by_field(Field **field, const char *col_name);
+int dfs_fill_conds(ctc_handler_t m_tch, Item *items, Field **field, ctc_conds *conds, bool no_backslash,
+                   en_ctc_func_type_t *functype);
 int ctc_get_column_cs(const CHARSET_INFO *cs);
 
 void cm_assert(bool condition);
@@ -139,7 +132,21 @@ longlong get_session_variable_int_value_with_range(THD *thd,
 string sql_without_plaintext_password(ctc_ddl_broadcast_request* broadcast_req);
 string ctc_escape_single_quotation_str(string &src);
 string cnvrt_name_for_sql(string name);
- 
+
+typedef bool (*ctc_cond_is_support_t) (Item *term, Item_func::Functype parent_type);
+typedef void (*ctc_cond_push_t) (Item *term, Item *&pushed_cond, Item *&remainder_cond);
+typedef int (*ctc_cond_fill_t) (Item *item, ctc_conds *cond, Field **field, ctc_handler_t m_tch,
+                                ctc_cond_list *list, bool no_backslash, en_ctc_func_type_t *functype);
+
+typedef struct en_ctc_cond_push_map {
+    Item::Type type;
+    ctc_cond_is_support_t is_support;
+    ctc_cond_push_t push;
+    ctc_cond_fill_t fill;
+} ctc_cond_push_map;
+
+void cond_push_term(Item *term, Item *&pushed_cond, Item *&remainder_cond, Item_func::Functype parent_type);
+
 #pragma GCC visibility pop
 
 #endif // __CTC_UTIL_H__
