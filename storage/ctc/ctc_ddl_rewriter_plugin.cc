@@ -208,10 +208,20 @@ int unsupport_tx_isolation_level(set_var *setvar, bool &need_forward MY_ATTRIBUT
   return -1;
 }
 
+int ctc_check_sample_size(set_var *setvar MY_ATTRIBUTE((unused)),
+                          bool &need_forward,
+                          string user_val_str MY_ATTRIBUTE((unused))) {
+  need_forward = false;
+  push_warning_printf(current_thd, Sql_condition::SL_WARNING, ER_DISALLOWED_OPERATION,
+                      "CTC: This parameter will not be broadcast to other nodes.");
+  return 0;
+}
+
 static std::unordered_map<std::string, check_variable_fn> set_variable_rules_map = {
   {"default_storage_engine",            check_default_engine},
   {"max_connections",                   check_session_pool_volume},
-  {"transaction_isolation",             unsupport_tx_isolation_level}
+  {"transaction_isolation",             unsupport_tx_isolation_level},
+  {"ctc_sample_size",                   ctc_check_sample_size}
 };
 
 static int ctc_get_user_var_string(MYSQL_THD thd, Item_func_get_user_var *itemFunc, string &user_val_str) {

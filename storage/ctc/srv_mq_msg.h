@@ -447,6 +447,11 @@ struct query_cluster_role_request {
     int result;
 };
 
+struct update_sample_size_request {
+    uint32_t sample_size;
+    bool need_persist;
+};
+
 struct query_shm_file_num_request {
     uint32_t shm_file_num;
     bool cluster_ready;
