@@ -93,14 +93,27 @@ select * from t1 where c1 = 3;
 select * from t1 where c1 > 3;
 select * from t1 where c1 != 3;
 select * from t1 where c2 = 3;
+select * from t1 where 255 = c3;
+select * from t1 where 255 <=> c3;
+select * from t1 where 3 = c1;
+select * from t1 where 3 < c1;
+select * from t1 where 3 != c1;
+select * from t1 where 3 = c2;
+select * from t1 where 3 <=> c2;
 
 # unsigned
 select * from t1 where c4 = 255;
+select * from t1 where 255 = c4;
+select * from t1 where c4 <=> 255;
+select * from t1 where 255 <=> c4;
 
 # float double
 select * from t2 where c3 = 11.111;
 select * from t2 where c4 = 1.1;
 select * from t2 where c6 = 11.111;
+select * from t2 where 11.111 = c3;
+select * from t2 where 1.1 = c4;
+select * from t2 where 11.111 = c6;
 
 # null
 select * from t1 where null <=> null;
@@ -112,7 +125,12 @@ select * from t1 where c1 <=> null;
 select * from t1 where c1 is null;
 select * from t1 where c1 is not null;
 select * from t1 where not c1 <=> null;
-select * from t1 where c1 > 3 or c2 = 4 or c3 >=3 or c4 = 5 or (c1 > 1 and c2 < 5 and c3 > 2);
+select * from t1 where null = c1;
+select * from t1 where null != c1;
+select * from t1 where null < c1;
+select * from t1 where null > c1;
+select * from t1 where null <=> c1;
+select * from t1 where not null <=> c1;
 
 # decimal
 select * from t3 where c1 = '22222.22222';
@@ -186,6 +204,13 @@ select * from t1 where not (c1 > 3 and c2 = 4 and c3 >=1);
 select * from t1 where c1 = 1 xor c2 = 5;
 select * from t1 where c1 = 1 xor c2 = 1;
 select * from t1 where c1 > 3 or c2 = 4 or c3 >=3 or c4 = 5 or (c1 > 1 and c2 < 5 and c3 > 2);
+select * from t1 where 3 < c1 and 4 = c2 and 1 <= c3;
+select * from t1 where 3 < c1 and 8 = c2;
+select * from t1 where not c1 > 3;
+select * from t1 where not (c1 > 3 and c2 = 4 and c3 >=1);
+select * from t1 where c1 = 1 xor c2 = 5;
+select * from t1 where c1 = 1 xor c2 = 1;
+select * from t1 where 3 < c1 or 4 = c2 or 3 <= c3 or 5 = c4 or (1 < c1 and 5 > c2 and 2 < c3); 
 
 
 # index
@@ -194,16 +219,26 @@ select c1 from t10 where c1=69;
 select c1 from t11 where c2=69;
 select c1 from t11 where c2=69;
 select c1,c2 from t11 where c2=4;
+select c1 from t10 where 69=c2;
+select c1 from t10 where 69=c1;
+select c1 from t11 where 69=c2;
+select c1 from t11 where 69=c1;
+select c1,c2 from t11 where 4=c2;
 
 # drop column
 select * from t13 where e_tinyint = 30;
+select * from t13 where 30 = e_tinyint;
 alter table t13 drop column d_deciaml;
 select * from t13 where e_tinyint = 30;
+select * from t13 where 30 = e_tinyint;
 
 # binary
 select hex(c2) from t15 where c2 = 'abcde';
 select hex(c2) from t15 where c2 = 0x61626364650000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000;
 select hex(c3) from t15 where c3 = 'abcde';
+select hex(c2) from t15 where 'abcde' = c2;
+select hex(c2) from t15 where 0x61626364650000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 = c2;
+select hex(c3) from t15 where 'abcde' = c3;
 
 # time
 select * from t5 where c1 = '01:01:01.01';
@@ -212,24 +247,49 @@ select * from t5 where c1 = '02:02:02';
 select * from t5 where c2 = '00:00:00';
 select * from t5 where c2 = '1000-01-01 00:00:00';
 select * from t5 where c2 = '1999-12-31 23:59:59';
+select * from t5 where '01:01:01.01' = c1;
+select * from t5 where '01:01:01.01' > c1;
+select * from t5 where '02:02:02' = c1;
+select * from t5 where '00:00:00' = c2;
+select * from t5 where '1000-01-01 00:00:00' = c2;
+select * from t5 where '1999-12-31 23:59:59' = c2;
 
 select * from t6 where c1 = '1000-01-01';
 select * from t6 where c1 = '1000-01-01 00:00:00';
 select * from t6 where c1 > '1000-01-01 00:00:00';
 select * from t6 where c2 = '1000-01-01';
 select * from t6 where c2 = '1000-01-01 00:00:00';
+select * from t6 where '1000-01-01' = c1;
+select * from t6 where '1000-01-01' <=> c1;
+select * from t6 where '1000-01-01 00:00:00' = c1;
+select * from t6 where '1000-01-01 00:00:00' = c1;
+select * from t6 where '1000-01-01' = c2;
+select * from t6 where '1000-01-01 00:00:00' = c2;
 
 select * from t7 where c1 = '1000-01-01';
 select * from t7 where c1 = '1000-01-01 00:00:00';
 select * from t7 where c1 > '1000-01-01 00:00:00';
 select * from t7 where c2 = '1000-01-01';
 select * from t7 where c2 = '1000-01-01 00:00:00';
+select * from t7 where '1000-01-01' = c1;
+select * from t7 where '1000-01-01' <=> c1;
+select * from t7 where '1000-01-01 00:00:00' = c1;
+select * from t7 where '1000-01-01 00:00:00' = c1;
+select * from t7 where '1000-01-01' = c2;
+select * from t7 where '1000-01-01 00:00:00' = c2;
 
 select * from t8 where c1 = '2000-01-01';
 select * from t8 where c1 = '2000-01-01 00:00:00';
 select * from t8 where c1 > '2000-01-01 00:00:00';
 select * from t8 where c2 = '2000-01-01';
 select * from t8 where c2 = '2000-01-01 00:00:00';
+select * from t8 where '2000-01-01' = c1;
+select * from t8 where '2000-01-01' <=> c1;
+select * from t8 where '2000-01-01 00:00:00' = c1;
+select * from t8 where '2000-01-01 00:00:00' < c1;
+select * from t8 where '2000-01-01 00:00:00' > c1;
+select * from t8 where '2000-01-01' = c2;
+select * from t8 where '2000-01-01 00:00:00' = c2;
 
 select * from t11 where c1 = 4;
 select * from t11 where c1 = 2004;
@@ -238,6 +298,14 @@ select * from t11 where c1 = '2004';
 select * from t11 where c1 = 2004.0;
 #select * from t11 where 'abc' = c1;
 select * from t11 where '2004' = c1;
+select * from t11 where 4 = c1;
+select * from t11 where 4 <=> c1;
+select * from t11 where 2004 = c1;
+select * from t11 where '2004' = c1;
+#select * from t11 where 'abc' = c1;
+select * from t11 where 2004.0 = c1;
+#select * from t11 where c1 = 'abc';
+select * from t11 where c1 = '2004';
 
 
 # blob: not supported
@@ -254,6 +322,7 @@ INSERT INTO tickets(title, priority) VALUES('Scan virus for computer A', 'High')
 INSERT INTO tickets(title, priority) VALUES('Upgrade Windows OS for all computers', 1);
 INSERT INTO tickets(title) VALUES('Refresh the computer of Ms. Lily');
 SELECT * FROM tickets WHERE priority = 3;
+SELECT * FROM tickets WHERE 3 = priority;
 drop table if exists tickets;
 
 # set: not supported
@@ -269,7 +338,261 @@ INSERT INTO myset (col) VALUES('a,C,b,d');
 select * from myset where col = 'a';
 select * from myset where col = 'a,d';
 select * from myset where col like 'a,d';
+select * from myset where 'a' = col;
+select * from myset where 'a,d' = col;
+select * from myset where col like 'a,d';
 drop table if exists myset;
+
+drop table if exists t1;
+
+# ======== Numeric Functions and Operators ========
+##  ======== Arithmetic Operators ======== 
+
+CREATE TABLE t1(c1 tinyint, c2 tinyint not null, c3 tinyint signed, c4 tinyint unsigned, c5 int, c6 long, c7 bigint);
+INSERT INTO t1 VALUES (1,1,1,1,1,1,1), (2,2,2,2,2,2,2);
+INSERT INTO t1 VALUES (null, 5, null, null, null, null, null);
+INSERT INTO t1 VALUES (3,3,3,3,3,3,3), (4,4,4,4,4,4,4);
+INSERT INTO t1 VALUES (null, 7, null, null, null, null, null);
+INSERT INTO t1 VALUES (8,8,127,255,8,8,8);
+INSERT INTO t1 VALUES (6,6,6,6,6,6,6), (7,7,7,7,7,7,7);
+INSERT INTO t1 VALUES (8,8,8,8,8,8,8), (6,2,3,9,8,4,1);
+INSERT INTO t1 VALUES (-1, -2, -4, 8, -16, -32, -20);
+select * from t1;
+
+## mod
+select * from t1 where c1 % 2 = 0;
+select * from t1 where c2 % 2 = 0;
+select * from t1 where c3 % 2 = 0;
+select * from t1 where c4 % 2 = 0;
+select * from t1 where c5 % 2 = 0;
+select * from t1 where c6 % 2 = 0;
+select * from t1 where c7 % 2 = 0;
+select * from t1 where 2 % c1 = 0;
+select * from t1 where 2 % c2 = 0;
+select * from t1 where 2 % c3 = 0;
+select * from t1 where 2 % c4 = 0;
+select * from t1 where 2 % c5 = 0;
+select * from t1 where 2 % c6 = 0;
+select * from t1 where 2 % c7 = 0;
+select * from t1 where 3 % c1 = 0;
+select * from t1 where 3 % c2 = 0;
+select * from t1 where 3 % c3 = 0;
+select * from t1 where 3 % c4 = 0;
+select * from t1 where 3 % c5 = 0;
+select * from t1 where 3 % c6 = 0;
+select * from t1 where 3 % c7 = 0;
+select * from t1 where 3 % c1 = c1 % 3;
+select * from t1 where 9 % c2 = 3 % c2;
+select * from t1 where 3 % c3 = 2 / 3;
+select * from t1 where 3 % c4 = 1 * 2;
+select * from t1 where 3 % c5 = c2 + c7;
+select * from t1 where 3 % c6 = 0;
+select * from t1 where 3 % c7 = 0;
+
+## div
+select * from t1 where c1 / 2 = 1;
+select * from t1 where c2 / 2 = 1;
+select * from t1 where c3 / 2 = 1;
+select * from t1 where c4 / 2 = 1;
+select * from t1 where c5 / 2 = 1;
+select * from t1 where c6 / 2 = 1;
+select * from t1 where c7 / 2 = 1;
+select * from t1 where c1 / 0 = 1;
+select * from t1 where c2 / 0 = 1;
+select * from t1 where c3 / 0 = 1;
+select * from t1 where c4 / 0 = 1;
+select * from t1 where c5 / 0 = 1;
+select * from t1 where c6 / 0 = 1;
+select * from t1 where c7 / 0 = 1;
+select * from t1 where 0 / c1 = 1;
+select * from t1 where 0 / c2 = 1;
+select * from t1 where 0 / c3 = 1;
+select * from t1 where 0 / c4 = 1;
+select * from t1 where 0 / c5 = 1;
+select * from t1 where 0 / c6 = 1;
+select * from t1 where 0 / c7 = 1;
+select * from t1 where c1 / c2 = c3 * c7;
+select * from t1 where c1 / c2 = c3;
+INSERT INTO t1 VALUES (0,0,0,0,0,0,0);
+select * from t1 where c1 / 0 = 1;
+select * from t1 where c2 / 0 = 1;
+select * from t1 where c3 / 0 = 1;
+select * from t1 where c4 / 0 = 1;
+select * from t1 where c5 / 0 = 1;
+select * from t1 where c6 / 0 = 1;
+select * from t1 where c7 / 0 = 1;
+select * from t1 where 0 / c1 = 1;
+select * from t1 where 0 / c2 = 1;
+select * from t1 where 0 / c3 = 1;
+select * from t1 where 0 / c4 = 1;
+select * from t1 where 0 / c5 = 1;
+select * from t1 where 0 / c6 = 1;
+select * from t1 where 0 / c7 = 1;
+
+## mul
+select * from t1 where c1 * 2 = 1;
+select * from t1 where c2 * 2 = 1;
+select * from t1 where c3 * 2 = 1;
+select * from t1 where c4 * 2 = 1;
+select * from t1 where c5 * 2 = 1;
+select * from t1 where c6 * 2 = 1;
+select * from t1 where c7 * 2 = 1;
+select * from t1 where 2 * c1 = 1;
+select * from t1 where 2 * c2 = 1;
+select * from t1 where 2 * c3 = 1;
+select * from t1 where 2 * c4 = 1;
+select * from t1 where 2 * c5 = 1;
+select * from t1 where 2 * c6 = 1;
+select * from t1 where 2 * c7 = 1;
+select * from t1 where 2 * c1 = c1 * 2;
+select * from t1 where 2 * c2 = c2 * 2;
+select * from t1 where 2 * c3 = c3 * 2;
+select * from t1 where 2 * c4 = c4 * 2;
+select * from t1 where 2 * c5 = c5 * 2;
+select * from t1 where 2 * c6 = c6 * 2;
+select * from t1 where 2 * c7 = c7 * 2;
+select * from t1 where 2 * c1 = c1 * 2 * 1;
+select * from t1 where 2 * c2 = c2 * 2 / 1;
+select * from t1 where 2 * c3 = c3 * 2 / 2 * 2;
+select * from t1 where 2 * c4 = c4 * 2 / 3 * 3;
+select * from t1 where 2 * c5 = c5 * 2 / 3 * 2;
+select * from t1 where 2 * c6 = c6 * 2 / 4 * 2;
+select * from t1 where 2 * c7 = c7 * 2;
+select * from t1 where c1 / 2 = c2 / 2;
+select * from t1 where c1 / 3 = c2 * 3;
+select * from t1 where c1 * c2 = c3 * c6;
+select * from t1 where c1 * c2 = c3 * c6 * c7;
+
+## add
+select * from t1 where c1 + 2 = 1;
+select * from t1 where c2 + 2 = 1;
+select * from t1 where c3 + 2 = 1;
+select * from t1 where c4 + 2 = 1;
+select * from t1 where c5 + 2 = 1;
+select * from t1 where c6 + 2 = 1;
+select * from t1 where c7 + 2 = 1;
+select c1 + 2 + 2 from t1;
+select * from t1 where c1 + 2 + 2 = 4;
+select c2 + 2 * 2 from t1;
+select * from t1 where c2 + 2 * 2 = 8;
+select c3 + 2 / 3 from t1;
+select * from t1 where c3 + 2 / 3 = 1;
+select c4 + 2 / 4 from t1;
+select * from t1 where c4 + 2 / 4 = 1;
+select c5 + 4 / 2 from t1;
+select * from t1 where c5 + 4 / 2 = 1;
+select c5 + 4 / 2 from t1;
+select * from t1 where c6 + 2 * c7 = 6;
+select * from t1 where 2 + c7 = -1;
+
+## sub
+select * from t1 where c1 - 2 = 1;
+select * from t1 where c2 - 2 = 1;
+select * from t1 where c3 - 2 = 1;
+select * from t1 where c4 - 2 = 1;
+select * from t1 where c5 - 2 = 1;
+select * from t1 where c6 - 2 = 1;
+select * from t1 where c7 - 2 = 1;
+--error 1690
+select * from t1 where 4 - c4 = 4 - c4;
+select * from t1 where c4 - c1 = c4 - c1;
+select * from t1 where c3 - 2 = 1;
+
+create table t16 (a int, b int unsigned);
+insert into t16 values (1,2),(2,1),(NULL,NULL),(1,NULL),(NULL,1);
+select * from t16;
+
+# change sign
+select * from t16 where -a < 0;
+
+# case of invalid 
+select * from t16 where a - '2' >= 0;
+select * from t16 where a % 0 = 0;
+select * from t16 where a / 0 = 0;
+
+## ======== Out of range ========
+## signed int out of range
+--error ER_DATA_OUT_OF_RANGE
+select * from t16 where a + 9223372036854775807 > 0;
+
+## unsigned int
+select * from t16 where a + 9223372036854775808 > 0;
+
+## unsigned int out of range
+--error ER_DATA_OUT_OF_RANGE
+select * from t16 where a + 18446744073709551615 > 0;
+
+## decimal
+select * from t16 where a + 18446744073709551616 > 0;
+
+## ======== Comparison Functions and Operators ========
+
+select * from t16 where a > 1;
+select * from t16 where a >= 1;
+select * from t16 where a < 2;
+select * from t16 where a <= 2;
+
+## 	Not equal operator
+select * from t16 where a;
+select * from t16 where a <> 0;
+select * from t16 where a != 0;
+select * from t16 where !a;
+select * from t16 where NOT a;
+select * from t16 where NOT NOT a;
+select * from t16 where a <> NULL;
+select * from t16 where a != NULL;
+
+## NULL-SAFE EQUAL
+select * from t16 where a <=> 2;
+select * from t16 where a <=> NULL;
+
+## 	Equal operator
+select * from t16 where a = 2;
+select * from t16 where a = NULL;
+
+## unsupported IS / IS NOT
+#select * from t16 where a is true;
+#select * from t16 where a is NOT true;
+
+
+## unsupported LIKE / NOT
+#select * from t16 where a like 1;
+#select * from t16 where a not like 1;
+#select * from t16 where a like NULL;
+#select * from t16 where a NOT like NULL;
+
+select * from t16 where a + b > 1;
+select * from t16 where 1 < a; 
+select * from t16 where a - 1;
+select * from t16 where a - 2;
+
+# ========  Logical Operators ========
+select * from t16 where (a > 1) and (b > 1);
+select * from t16 where (a > 1) && (b > 1);
+select * from t16 where (a > 1) or (b > 1);
+select * from t16 where (a > 1) || (b > 1);
+select * from t16 where ((a > 1) and (b > 1)) < 1;
+select * from t16 where ((a > 1) + (b > 1)) > 1;
+select * from t16 where ((a > 1) XOR (b > 1)) < 1;
+
+select * from t16 where a = 2 is null;
+select * from t16 where a = 2 = null;
+select * from t16 where a <=> NULL = 1;
+
+select * from t16 where a + (-2) >= 0;
+
+create table t17 (a int, b int GENERATED ALWAYS AS (a + 1));
+insert into t17(a) values (NULL),(1),(2);
+select * from t17 where a > 1;
+select * from t17 where b > 1;
+select * from t17 where (a > 1) AND (b > 1);
+select * from t17 where (a > 1) OR (b > 1);
+select * from t17 where ((a > 1) AND (b > 1)) = 1;
+select * from t17 where ((a > 1) OR (b > 1)) = 1;
+
+CREATE TABLE t18(c1 int, c2 int, key(c1,c2));
+INSERT INTO t18 VALUES (94,94),(64,64),(69,69),(97,97);
+select * from t18;
 
 drop table t1;
 drop table t2;
@@ -286,3 +609,27 @@ drop table t12;
 drop table t13;
 drop table t14;
 drop table t15;
+drop table t16;
+drop table t17;
+drop table t18;
+
+# ======== cache item ============
+# cache item
+## cache int
+
+create table tb_cache(a int);
+insert into tb_cache values(null);
+insert into tb_cache values(1);
+insert into tb_cache values(0);
+
+prepare stmt1 from 'select a from tb_cache where a <=> ?';
+
+set @arg1 = null;
+execute stmt1 using @arg1;
+
+set @arg2 = 1;
+execute stmt1 using @arg2;
+
+set @arg3 = 'a';
+execute stmt1 using @arg3;
+drop table tb_cache;
