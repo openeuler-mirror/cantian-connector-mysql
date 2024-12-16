@@ -1170,10 +1170,33 @@ index 4da945ac..fc6f9c5b 100644
      goto err;
    }
 diff --git a/sql/mdl.cc b/sql/mdl.cc
-index da9ff9ed..f4fe2b11 100644
+index da9ff9ed..cd77e0a7 100644
 --- a/sql/mdl.cc
 +++ b/sql/mdl.cc
-@@ -1654,6 +1654,25 @@ bool MDL_lock::needs_hton_notification(
+@@ -22,11 +22,6 @@
+ 
+ #include "sql/mdl.h"
+ 
+-#include <time.h>
+-#include <algorithm>
+-#include <atomic>
+-#include <functional>
+-
+ #include "lf.h"
+ #include "m_ctype.h"
+ #include "my_dbug.h"
+@@ -53,6 +48,10 @@
+ #include "sql/debug_sync.h"
+ #include "sql/thr_malloc.h"
+ 
++
++#define DEFAULT_DDL_WAIT_LOCK_TIMT 31536000
++#define DEFAULT_WAIT_LOCK_TIMT 3600
++
+ extern MYSQL_PLUGIN_IMPORT CHARSET_INFO *system_charset_info;
+ 
+ static PSI_memory_key key_memory_MDL_context_acquire_locks;
+@@ -1654,6 +1653,25 @@ bool MDL_lock::needs_hton_notification(
    }
  }
  
@@ -1199,7 +1222,7 @@ index da9ff9ed..f4fe2b11 100644
  /**
    Auxiliary functions needed for creation/destruction of MDL_ticket
    objects.
-@@ -2901,8 +2920,11 @@ bool MDL_context::try_acquire_lock_impl(MDL_request *mdl_request,
+@@ -2901,8 +2919,11 @@ bool MDL_context::try_acquire_lock_impl(MDL_request *mdl_request,
      We need to notify/get permission from storage engines before acquiring
      X lock if it is requested in one of namespaces interesting for SEs.
    */
@@ -1213,7 +1236,7 @@ index da9ff9ed..f4fe2b11 100644
      mysql_mdl_set_status(ticket->m_psi, MDL_ticket::PRE_ACQUIRE_NOTIFY);
  
      bool victimized;
-@@ -2916,6 +2938,7 @@ bool MDL_context::try_acquire_lock_impl(MDL_request *mdl_request,
+@@ -2916,6 +2937,7 @@ bool MDL_context::try_acquire_lock_impl(MDL_request *mdl_request,
  
      mysql_mdl_set_status(ticket->m_psi, MDL_ticket::PENDING);
    }
@@ -1221,7 +1244,7 @@ index da9ff9ed..f4fe2b11 100644
  
  retry:
    /*
-@@ -3207,10 +3230,11 @@ bool MDL_context::clone_ticket(MDL_request *mdl_request) {
+@@ -3207,10 +3229,11 @@ bool MDL_context::clone_ticket(MDL_request *mdl_request) {
      of storage engines we need to notify/get permission from SEs similarly
      to situation when lock acquired.
    */
@@ -1236,7 +1259,7 @@ index da9ff9ed..f4fe2b11 100644
      mysql_mdl_set_status(ticket->m_psi, MDL_ticket::PRE_ACQUIRE_NOTIFY);
  
      bool victimized;
-@@ -3224,6 +3248,7 @@ bool MDL_context::clone_ticket(MDL_request *mdl_request) {
+@@ -3224,6 +3247,7 @@ bool MDL_context::clone_ticket(MDL_request *mdl_request) {
      ticket->m_hton_notified = true;
  
      mysql_mdl_set_status(ticket->m_psi, MDL_ticket::PENDING);
@@ -1244,7 +1267,7 @@ index da9ff9ed..f4fe2b11 100644
    }
  
    ticket->m_lock = mdl_request->ticket->m_lock;
-@@ -3275,6 +3300,7 @@ bool MDL_context::clone_ticket(MDL_request *mdl_request) {
+@@ -3275,6 +3299,7 @@ bool MDL_context::clone_ticket(MDL_request *mdl_request) {
  
    mdl_request->ticket = ticket;
    m_ticket_store.push_front(mdl_request->duration, ticket);
@@ -1252,7 +1275,7 @@ index da9ff9ed..f4fe2b11 100644
    mysql_mdl_set_status(ticket->m_psi, MDL_ticket::GRANTED);
  
    return false;
-@@ -3342,43 +3368,67 @@ void MDL_lock::object_lock_notify_conflicting_locks(MDL_context *ctx,
+@@ -3342,43 +3367,67 @@ void MDL_lock::object_lock_notify_conflicting_locks(MDL_context *ctx,
    }
  }
  
@@ -1276,12 +1299,12 @@ index da9ff9ed..f4fe2b11 100644
 +  
 +  ticket = mdl_request->ticket;
 +  if (acquire_lock_remote(mdl_request, ticket)) return true;
-+
+ 
 +  if (mdl_request->ticket) return false;
 +  
 +  return true;
 +}
- 
++
 +/*
    @retval  false   Success. MDL_request::ticket points to the ticket
                     for the lock.
@@ -1326,13 +1349,13 @@ index da9ff9ed..f4fe2b11 100644
 +  mysql_mdl_set_status(ticket->m_psi, MDL_ticket::GRANTED);
 +  return false;
 +}
- 
--  /* Normal, non-zero timeout case. */
++
 +/**
 +  Acquire one lock with waiting for conflicting locks to go away if needed.
 +
 +  @param [in,out] mdl_request Lock request object for lock to be acquired
-+
+ 
+-  /* Normal, non-zero timeout case. */
 +  @param lock_wait_timeout Seconds to wait before timeout.
 +
 +  @retval  false   Success. MDL_request::ticket points to the ticket
@@ -1345,15 +1368,33 @@ index da9ff9ed..f4fe2b11 100644
    MDL_lock *lock;
    MDL_ticket *ticket = nullptr;
    struct timespec abs_timeout;
-@@ -3484,7 +3534,6 @@ bool MDL_context::acquire_lock(MDL_request *mdl_request,
+@@ -3484,8 +3533,9 @@ bool MDL_context::acquire_lock(MDL_request *mdl_request,
        /* abs_timeout is far away. Wait a short while and notify locks. */
        wait_status = m_wait.timed_wait(m_owner, &abs_shortwait, false,
                                        mdl_request->key.get_wait_state_name());
 -
-       if (wait_status != MDL_wait::WS_EMPTY) break;
+-      if (wait_status != MDL_wait::WS_EMPTY) break;
++      if (wait_status != MDL_wait::WS_EMPTY) {
++          break;
++      }
  
        if (lock->needs_connection_check() && !m_owner->is_connected()) {
-@@ -3581,6 +3630,70 @@ bool MDL_context::acquire_lock(MDL_request *mdl_request,
+         /*
+@@ -3553,10 +3603,11 @@ bool MDL_context::acquire_lock(MDL_request *mdl_request,
+         my_error(ER_LOCK_WAIT_TIMEOUT, MYF(0));
+         break;
+       case MDL_wait::KILLED:
+-        if (get_owner()->is_killed() == ER_QUERY_TIMEOUT)
++        if (get_owner()->is_killed() == ER_QUERY_TIMEOUT) {
+           my_error(ER_QUERY_TIMEOUT, MYF(0));
+-        else
++        } else {
+           my_error(ER_QUERY_INTERRUPTED, MYF(0));
++        }
+         break;
+       default:
+         assert(0);
+@@ -3581,6 +3632,81 @@ bool MDL_context::acquire_lock(MDL_request *mdl_request,
    return false;
  }
  
@@ -1388,43 +1429,54 @@ index da9ff9ed..f4fe2b11 100644
 +  }
 +
 +  /*non-zero timeout case*/
++  THD* thd = get_thd();
++  uint64 seed = (uint64)thd;
++  if (mdl_request->type == MDL_EXCLUSIVE && MDL_lock::needs_hton_notification(mdl_request->key.mdl_namespace())) {
++      if (lock_wait_timeout == DEFAULT_DDL_WAIT_LOCK_TIMT || lock_wait_timeout == DEFAULT_WAIT_LOCK_TIMT) {
++          lock_wait_timeout = static_cast<Timeout_type>(seed % 10 + 1);
++      }
++  }
++
 +  struct timespec abs_start_time;
 +  struct timespec abs_end_time;
 +  set_timespec(&abs_start_time, 0);
 +  set_timespec(&abs_end_time, lock_wait_timeout);
 +  Timeout_type remaining_wait_time = lock_wait_timeout;
 +  MDL_ticket *ticket = nullptr;
-+
++  
 +  while (cmp_timespec(&abs_start_time, &abs_end_time) <= 0) {
 +    set_timespec(&abs_start_time, 0);
 +    remaining_wait_time = static_cast<Timeout_type>(diff_timespec(&abs_end_time, &abs_start_time) / 1000000000ULL);
 +    if (lock_wait_timeout == 1) {
 +      remaining_wait_time += 1;
 +    }
-+    if(remaining_wait_time <= 0) break;
-+
-+    if (acquire_lock_local(mdl_request, remaining_wait_time)) return true;
++    if (remaining_wait_time <= 0) break;
++    if (acquire_lock_local(mdl_request, remaining_wait_time)) {
++       return true;
++    }
 +    ticket = mdl_request->ticket;
 +    if (acquire_lock_remote(mdl_request, ticket)) {
-+      srand(static_cast<unsigned int>(time(0)));
-+      my_sleep(rand() % 1000001);
-+      continue;
++       unsigned int sleep_duration = get_random() % 1000000;
++       my_sleep(sleep_duration);
++       continue;
 +    } else {
 +      if (mdl_request->ticket) {
 +        return false;
++      } else {
++        break;
 +      }
-+      return true;
 +    }
 +  }
 +
 +  if(mdl_request->ticket) return false;
++  my_error(ER_LOCK_REFUSED_BY_ENGINE, MYF(0));
 +  return true;
 +}
 +
  class MDL_request_cmp {
   public:
    bool operator()(const MDL_request *req1, const MDL_request *req2) {
-@@ -4234,6 +4347,29 @@ void MDL_context::release_locks_stored_before(enum_mdl_duration duration,
+@@ -4234,6 +4360,29 @@ void MDL_context::release_locks_stored_before(enum_mdl_duration duration,
    }
  }
  
