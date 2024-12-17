@@ -1821,6 +1821,48 @@ int ctc_query_cluster_role(bool *is_slave, bool *cantian_cluster_ready) {
   return result;
 }
 
+int ctc_update_sample_size(uint32_t sample_size, bool need_persist)
+{
+  void *shm_inst = get_one_shm_inst(nullptr);
+
+  update_sample_size_request *req = (uint32_t*)alloc_share_mem(shm_inst, sizeof(update_sample_size_request));
+  if (req == nullptr) {
+    ctc_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, sizeof(update_sample_size_request));
+    return ERR_ALLOC_MEMORY;
+  }
+  req->sample_size = sample_size;
+  req->need_persist = need_persist;
+
+  int res = ctc_mq_deal_func(shm_inst, CTC_FUNC_TYPE_UPDATE_SAMPLE_SIZE, req, nullptr);
+  if (res != CT_SUCCESS) {
+    ctc_log_error("ctc_mq_deal_func CTC_FUNC_TYPE_UPDATE_SAMPLE_SIZE failed");
+  }
+  free_share_mem(shm_inst, req);
+
+  return res;
+}
+
+int ctc_get_sample_size(uint32_t *sample_size)
+{
+  void *shm_inst = get_one_shm_inst(nullptr);
+
+  uint32_t *req = (uint32_t*)alloc_share_mem(shm_inst, sizeof(uint32_t));
+  if (req == nullptr) {
+    ctc_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, sizeof(uint32_t));
+    return ERR_ALLOC_MEMORY;
+  }
+
+  int res = ctc_mq_deal_func(shm_inst, CTC_FUNC_TYPE_GET_SAMPLE_SIZE, req, nullptr);
+  if (res != CT_SUCCESS) {
+    ctc_log_error("ctc_mq_deal_func CTC_FUNC_TYPE_GET_SAMPLE_SIZE failed");
+  }
+  *sample_size = *req;
+  ctc_log_error("[ctc_get_sample_size] size(%u)", *sample_size);
+  free_share_mem(shm_inst, req);
+
+  return res;
+}
+
 int ctc_query_shm_file_num(uint32_t *shm_file_num)
 {
   void *shm_inst = get_one_shm_inst(NULL);

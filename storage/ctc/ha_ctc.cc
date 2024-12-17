@@ -144,6 +144,10 @@
  * mysql> SHOW GLOBAL VARIABLES like'%ctc%'
  */
 
+#define CTC_MAX_SAMPLE_SIZE (4096)    // MB
+#define CTC_MIN_SAMPLE_SIZE (32)      // MB
+#define CTC_DEFAULT_SAMPLE_SIZE (128) // MB
+
 static void ctc_statistics_enabled_update(THD * thd, SYS_VAR *, void *var_ptr, const void *save) {
     bool enabled = *static_cast<bool *>(var_ptr) = *static_cast<const bool *>(save);
     ctc_stats::get_instance()->set_statistics_enabled(enabled);
@@ -241,6 +245,61 @@ static MYSQL_SYSVAR_UINT(update_analyze_time, ctc_update_analyze_time, PLUGIN_VA
                          "CBO updating time by CTC. Unit is second.", nullptr, nullptr, CTC_ANALYZE_TIME_SEC,
                          0, 900, 0);
 
+static mutex m_ctc_sample_size_mutex;
+uint32_t ctc_sample_size;
+static int check_sample_size(THD *, SYS_VAR *, void *save, struct st_mysql_value *value)
+{
+  longlong in_val;
+  value->val_int(value, &in_val);
+
+  if (in_val < CTC_MIN_SAMPLE_SIZE || in_val >= CTC_MAX_SAMPLE_SIZE) {
+    std::stringstream error_str;
+    error_str << "The value " << in_val
+              << " is not within the range of accepted values for the option "
+              << "ctc_sample_size.The value must be between "
+              << CTC_MIN_SAMPLE_SIZE << " inclusive and "
+              << CTC_MAX_SAMPLE_SIZE << " exclusive.";
+    my_message(ER_WRONG_VALUE_FOR_VAR, error_str.str().c_str(), MYF(0));
+    
+    return CT_ERROR;
+  }
+
+  *(longlong *)save = in_val;
+
+  return CT_SUCCESS;
+}
+
+static void update_sample_size(THD *thd, SYS_VAR *, void *, const void *save)
+{
+  lock_guard<mutex> lock(m_ctc_sample_size_mutex);
+  List_iterator_fast<set_var_base> var_it(thd->lex->var_list);
+  var_it.rewind();
+  set_var_base *var = nullptr;
+  string name_str;
+  while((var = var_it++)) {
+    if (typeid(*var) == typeid(set_var)) {
+      set_var *setvar = dynamic_cast<set_var *>(var);
+#ifdef FEATURE_X_FOR_MYSQL_32
+      name_str = setvar->m_var_tracker.get_var_name();
+#elif defined(FEATURE_X_FOR_MYSQL_26)
+      name_str = setvar->var->name.str;
+#endif
+      if (name_str != "ctc_sample_size") {
+        continue;
+      }
+      bool need_persist = (setvar->type == OPT_PERSIST);
+      if (ctc_update_sample_size(*static_cast<const uint32_t *>(save), need_persist) == CT_SUCCESS) {
+        ctc_sample_size = *static_cast<const uint32_t *>(save);
+      }
+    }
+  }
+}
+
+static MYSQL_SYSVAR_UINT(sample_size, ctc_sample_size, PLUGIN_VAR_RQCMDARG,
+                         "The size of the statistical sample data, measured in megabytes (MB).",
+                         check_sample_size, update_sample_size,
+                         CTC_DEFAULT_SAMPLE_SIZE, CTC_MIN_SAMPLE_SIZE, CTC_MAX_SAMPLE_SIZE, 0);
+
 bool ctc_select_prefetch = true;
 static MYSQL_SYSVAR_BOOL(select_prefetch, ctc_select_prefetch, PLUGIN_VAR_RQCMDARG,
                          "Indicates whether using prefetch in select.", nullptr, nullptr, true);
@@ -258,6 +317,7 @@ static MYSQL_SYSVAR_INT(parallel_max_read_threads, ctc_parallel_max_read_threads
 // use. This is done by constructing a NULL-terminated array of the variables
 // and linking to it in the plugin public interface.
 static SYS_VAR *ctc_system_variables[] = {
+  MYSQL_SYSVAR(sample_size),
   MYSQL_SYSVAR(lock_wait_timeout),
   MYSQL_SYSVAR(instance_id),
   MYSQL_SYSVAR(sampling_ratio),
@@ -3950,6 +4010,26 @@ int ha_ctc::records_from_index(ha_rows *num_rows, uint inx)
   return ret;
 }
 
+/**
+ * Retrieves and validates the statistics sample size system variable from Cantian.
+ * 
+ * This function:
+ * 1. Gets the sample size value from Cantian engine via ctc_get_sample_size_value()
+ * 2. Validates that the value falls within acceptable range [CTC_MIN_SAMPLE_SIZE, CTC_MAX_SAMPLE_SIZE]
+ * 3. If valid, updates the global ctc_sample_size variable used for statistics sampling
+ * 
+ * The sample size determines how much data is sampled when gathering table statistics.
+ * Invalid values are silently ignored, leaving ctc_sample_size unchanged.
+ */
+void ctc_get_sample_size_value() {
+  uint32_t sample_size = 0;
+  if (ctc_get_sample_size(&sample_size) == CT_SUCCESS) {
+    if (sample_size >= CTC_MIN_SAMPLE_SIZE && sample_size <= CTC_MAX_SAMPLE_SIZE) {
+      ctc_sample_size = sample_size;
+    }
+  }
+}
+
 int32_t ctc_get_cluster_role() {
   if (ctc_cluster_role != (int32_t)dis_cluster_role::DEFAULT) {
     return ctc_cluster_role;
@@ -4755,6 +4835,9 @@ static int ctc_init_func(void *p) {
     return HA_ERR_INITIALIZATION;
   }
   ctc_get_cluster_role();
+
+  ctc_get_sample_size_value();
+
   ctc_log_system("[CTC_INIT]:SUCCESS!");
   return 0;
 }
