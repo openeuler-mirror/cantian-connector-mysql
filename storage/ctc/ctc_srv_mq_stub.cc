@@ -1825,7 +1825,7 @@ int ctc_update_sample_size(uint32_t sample_size, bool need_persist)
 {
   void *shm_inst = get_one_shm_inst(nullptr);
 
-  update_sample_size_request *req = (uint32_t*)alloc_share_mem(shm_inst, sizeof(update_sample_size_request));
+  update_sample_size_request *req = (update_sample_size_request* )alloc_share_mem(shm_inst, sizeof(update_sample_size_request));
   if (req == nullptr) {
     ctc_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, sizeof(update_sample_size_request));
     return ERR_ALLOC_MEMORY;
