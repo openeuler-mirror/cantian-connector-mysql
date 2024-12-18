@@ -4031,8 +4031,10 @@ void ctc_get_sample_size_value() {
 }
 
 int32_t ctc_get_cluster_role() {
-  if (ctc_cluster_role != (int32_t)dis_cluster_role::DEFAULT) {
-    return ctc_cluster_role;
+  /* Normally, the cluster type should only be PRIMARY or STANDBY */
+  if (ctc_cluster_role == (int32_t)dis_cluster_role::PRIMARY ||
+      ctc_cluster_role == (int32_t)dis_cluster_role::STANDBY) {
+      return ctc_cluster_role;
   }
   lock_guard<mutex> lock(m_ctc_cluster_role_mutex);
   bool is_slave = false;
