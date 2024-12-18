@@ -72,27 +72,6 @@ static void ctc_convert_mysql_key_to_cantian(KEY_PART_INFO &key_part, const uint
   return;
 }
 
-static void ctc_index_make_up_key_length(int *key, uint8_t **origin_key, uint32_t *origin_key_len, uint32_t length) {
-  int tmp_key = 0;
-  uint8_t *tmp_key_ptr = (uint8_t *)&tmp_key;
-  memcpy(tmp_key_ptr, *origin_key, *origin_key_len);
-
-  // 通过符号位补齐高位字段
-  if ((*origin_key_len == 1 && (tmp_key & 0x80)) || // 1表示MYSQL_TYPE_TINY类型，0x80用于获取origin_key的符号位
-      (*origin_key_len == 2 && (tmp_key & 0x8000)) || // 2表示MYSQL_TYPE_SHORT类型，0x8000用于获取origin_key的符号位
-      (*origin_key_len == 3 && (tmp_key & 0x800000))) { // 3表示MMYSQL_TYPE_INT24类型，0x800000用于获取origin_key的符号位
-    *key = 0xFFFFFFFF; // 将key的bit位全赋值为1
-  } else {
-    *key = 0;
-  }
-
-  memcpy(key, *origin_key, *origin_key_len);
-  *origin_key = reinterpret_cast<uint8_t *>(key);
-  *origin_key_len = length;
-
-  return;
-}
-
 int ctc_fill_index_key_info(TABLE *table, const uchar *key, uint key_len, const key_range *end_range,
                             index_key_info_t *index_key_info, bool index_skip_scan) {
   const uchar *my_key = nullptr;
@@ -145,8 +124,13 @@ int ctc_convert_key_from_mysql_to_cantian(Field *field, uint8_t **mysql_ptr, dec
   // 针对tiny和short类型，对应到cantian是int类型，所以key length需要按照cantian大小的存储
   if (mysql_info->mysql_field_type == MYSQL_TYPE_TINY || mysql_info->mysql_field_type == MYSQL_TYPE_SHORT ||
       mysql_info->mysql_field_type == MYSQL_TYPE_INT24) {
-    ctc_index_make_up_key_length(reinterpret_cast<int *>(cantian_ptr), mysql_ptr, len, sizeof(int));
-
+    if (convert_numeric_to_cantian(mysql_info, reinterpret_cast<const uchar *>(*mysql_ptr),
+        reinterpret_cast<uchar *>(cantian_ptr), field, len) != CT_SUCCESS) {
+      ctc_log_error("convert_numeric_to_cantian: convert mysql index search key failed");
+      return CT_ERROR;
+    }
+    *mysql_ptr = reinterpret_cast<uint8_t *>(cantian_ptr);
+    *len = sizeof(int32_t);
     return ret;
   }
 
