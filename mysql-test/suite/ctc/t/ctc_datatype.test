@@ -278,3 +278,100 @@ CREATE INDEX floatIndexTest ON t1 (IDA);
 select * from t1 where IDA < 20.0;
 select * from t1 where IDA > 10.0;
 drop table t1;
+
+
+create table t1(int_1 tinyint not null unique,
+                uint_1 tinyint unsigned not null unique,
+                int_2 smallint not null unique,
+                uint_2 smallint unsigned not null unique,
+                int_3 mediumint not null unique,
+                uint_3 mediumint unsigned not null unique,
+                int_4 int not null unique,
+                uint_4 int unsigned not null unique,
+                int_8 bigint not null unique,
+                uint_8 bigint unsigned not null unique);
+
+insert into t1 values (-128,   0, -32768,     0, -8388608,        0, -2147483648,          0, -9223372036854775808, 0);
+insert into t1 values (  -2,   1,     -2,     1,       -2,        1,          -2,          1,                  -2,  1);
+insert into t1 values (  -1,   2,     -1,     2,       -1,        2,          -1,          2,                  -1,  2);
+insert into t1 values (   0,   3,      0,     3,        0,        3,           0,          3,                   0,  3);
+insert into t1 values (   1, 126,      1, 32767,    65536,  8388608,           1, 2147483648,                   1,  9223372036854775808);
+insert into t1 values (   2, 127,    256, 32768,    65537,  8388609,    16777215, 2147483649,           4294967296, 9223372036854775809);
+insert into t1 values ( 126, 128,  32766, 65534,  8388606, 16777214,  2147483646, 4294967294,  9223372036854775806, 18446744073709551614);
+insert into t1 values ( 127, 255,  32767, 65535,  8388607, 16777215,  2147483647, 4294967295,  9223372036854775807, 18446744073709551615);
+
+select * from t1;
+select * from t1 where int_1 < 0;
+select * from t1 where int_1 > 0;
+select * from t1 where int_1 = 1;
+select * from t1 where int_1 = -1;
+select * from t1 where int_1 = -128;
+select * from t1 where int_1 = 127;
+
+select * from t1 where uint_1 < 0;
+select * from t1 where uint_1 > 0;
+select * from t1 where uint_1 = 0;
+select * from t1 where uint_1 = 127;
+select * from t1 where uint_1 = 128;
+select * from t1 where uint_1 = 255;
+
+select * from t1 where int_2 < 0;
+select * from t1 where int_2 > 0;
+select * from t1 where int_2 = 1;
+select * from t1 where int_2 = -1;
+select * from t1 where int_2 = -32768;
+select * from t1 where int_2 = 32767;
+
+select * from t1 where uint_2 < 0;
+select * from t1 where uint_2 > 0;
+select * from t1 where uint_2 = 1;
+select * from t1 where uint_2 = 32768;
+select * from t1 where uint_2 = 65534;
+select * from t1 where uint_2 = 65535;
+
+select * from t1 where int_3 < 0;
+select * from t1 where int_3 > 0;
+select * from t1 where int_3 = -8388608;
+select * from t1 where int_3 = -1;
+select * from t1 where int_3 = 1;
+select * from t1 where int_3 = 8388606;
+select * from t1 where int_3 = 8388607;
+
+select * from t1 where uint_3 < 0;
+select * from t1 where uint_3 > 0;
+select * from t1 where uint_3 = 1;
+select * from t1 where uint_3 = 8388607;
+select * from t1 where uint_3 = 8388608;
+select * from t1 where uint_3 = 16777214;
+select * from t1 where uint_3 = 16777215;
+
+select * from t1 where int_4 < 0;
+select * from t1 where int_4 > 0;
+select * from t1 where int_4 = 1;
+select * from t1 where int_4 = -1;
+select * from t1 where int_4 = -2147483648;
+select * from t1 where int_4 = 2147483647;
+
+select * from t1 where uint_4 < 0;
+select * from t1 where uint_4 > 0;
+select * from t1 where uint_4 = 1;
+select * from t1 where uint_4 = 2147483648;
+select * from t1 where uint_4 = 4294967294;
+select * from t1 where uint_4 = 4294967295;
+
+select * from t1 where int_8 < 0;
+select * from t1 where int_8 > 0;
+select * from t1 where int_8 = 1;
+select * from t1 where int_8 = -1;
+select * from t1 where int_8 = 4294967296;
+select * from t1 where int_8 = -9223372036854775808;
+select * from t1 where int_8 = 9223372036854775807;
+
+select * from t1 where uint_8 < 0;
+select * from t1 where uint_8 > 0;
+select * from t1 where uint_8 = 1;
+select * from t1 where uint_8 = 9223372036854775808;
+select * from t1 where uint_8 = 18446744073709551614;
+select * from t1 where uint_8 = 18446744073709551615;
+
+drop table t1;
