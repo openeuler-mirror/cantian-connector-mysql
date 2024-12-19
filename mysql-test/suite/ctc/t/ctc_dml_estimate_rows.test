@@ -83,3 +83,282 @@ EXPLAIN SELECT * FROM t1 FORCE INDEX (idx_bcd) WHERE b = 131 AND c >= '100' AND 
 --enable_warnings
 
 drop table t1;
+
+--disable_warnings
+create table t1 (a tinyint unsigned not null primary key);
+insert into t1 values (1),(2),(3),(4),(5),(127),(128),(253),(254),(255);
+analyze table t1;
+explain select * from t1 where a > 253;
+explain select * from t1 where a < 3;
+--enable_warnings
+drop table t1;
+
+--disable_warnings
+create table t2 (a tinyint signed not null primary key);
+insert into t2 values (-128),(-127),(-126),(-125),(0),(1),(121),(122),(125),(127);
+analyze table t2;
+explain select * from t2 where a > 122;
+explain select * from t2 where a < -120;
+--enable_warnings
+drop table t2;
+
+--disable_warnings
+create table t3 (a smallint unsigned not null primary key);
+insert into t3 values (1),(2),(3),(4),(5),(127),(128),(65533),(65534),(65535);
+analyze table t3;
+explain select * from t3 where a > 65533;
+explain select * from t3 where a < 3;
+--enable_warnings
+drop table t3;
+
+--disable_warnings
+create table t4 (a smallint signed not null primary key);
+insert into t4 values (-32768),(-32767),(-32766),(-32765),(0),(1),(32764),(32765),(32766),(32767);
+analyze table t4;
+explain select * from t4 where a > 32765;
+explain select * from t4 where a < -32766;
+--enable_warnings
+drop table t4;
+
+--disable_warnings
+create table t5 (a mediumint unsigned not null primary key);
+insert into t5 values (1),(2),(3),(4),(5),(127),(128),(16777213),(16777214),(16777215);
+analyze table t5;
+explain select * from t5 where a > 16777213;
+explain select * from t5 where a < 3;
+--enable_warnings
+drop table t5;
+
+--disable_warnings
+create table t6 (a mediumint signed not null primary key);
+insert into t6 values (-8388608),(-8388607),(-32766),(-32765),(0),(1),(8388604),(8388605),(8388606),(8388607);
+analyze table t6;
+explain select * from t6 where a > 8388605;
+explain select * from t6 where a < -32766;
+--enable_warnings
+drop table t6;
+
+create table t7 (a tinyint unsigned not null primary key);
+delimiter //;
+create procedure insert_rows()
+begin
+DECLARE i INT DEFAULT 0;
+WHILE i <= 255 do
+insert into t7 values(i);
+set i = i + 1;
+end while;
+end//
+delimiter ;//
+call insert_rows;
+drop procedure insert_rows;
+analyze table t7;
+--disable_warnings
+explain select * from t7 where a > 250;
+select count(*) from t7 where a > 250;
+explain select * from t7 where a < 10;
+select count(*) from t7 where a < 10;
+--enable_warnings
+drop table t7;
+
+create table t8 (a tinyint signed not null primary key);
+delimiter //;
+create procedure insert_rows()
+begin
+declare i int default -128;
+while i <= 127 do
+insert into t8 values(i);
+set i = i + 1;
+end while;
+end//
+delimiter ;//
+call insert_rows;
+drop procedure insert_rows;
+analyze table t8;
+--disable_warnings
+explain select * from t8 where a > 122;
+select count(*) from t8 where a > 122;
+explain select * from t8 where a < -120;
+select count(*) from t8 where a < -120;
+--enable_warnings
+drop table t8;
+
+
+create table t9 (a smallint signed not null primary key);
+delimiter //;
+create procedure insert_rows()
+begin
+declare i int default -32768;
+while i <= 32767 do
+insert into t9 values(i);
+set i = i + 100;
+end while;
+end//
+delimiter ;//
+call insert_rows;
+drop procedure insert_rows;
+analyze table t9;
+--disable_warnings
+explain select * from t9 where a > 30000;
+select count(*) from t9 where a > 30000;
+explain select * from t9 where a < -30000;
+select count(*) from t9 where a < -30000;
+--enable_warnings
+drop table t9;
+
+create table t10 (a smallint unsigned not null primary key);
+delimiter //;
+create procedure insert_rows()
+begin
+declare i int default 1;
+while i <= 65535 do
+insert into t10 values(i);
+set i = i + 100;
+end while;
+end//
+delimiter ;//
+call insert_rows;
+drop procedure insert_rows;
+analyze table t10;
+--disable_warnings
+explain select * from t10 where a > 60000;
+select count(*) from t10 where a > 60000;
+explain select * from t10 where a < 10000;
+select count(*) from t10 where a < 10000;
+--enable_warnings
+drop table t10;
+
+create table t11 (a mediumint unsigned not null primary key);
+delimiter //;
+create procedure insert_rows()
+begin
+declare i int default 1;
+while i <= 16777215 do
+insert into t11 values(i);
+set i = i + 10000;
+end while;
+end//
+delimiter ;//
+call insert_rows;
+drop procedure insert_rows;
+analyze table t11;
+--disable_warnings
+explain select * from t11 where a > 15000000;
+select count(*) from t11 where a > 15000000;
+explain select * from t11 where a < 100000;
+select count(*) from t11 where a < 100000;
+--enable_warnings
+drop table t11;
+
+
+create table t12 (a mediumint signed not null primary key);
+delimiter //;
+create procedure insert_rows()
+begin
+declare i int default -8388608;
+while i <= 8388607 do
+insert into t12 values(i);
+set i = i + 10000;
+end while;
+end//
+delimiter ;//
+call insert_rows;
+drop procedure insert_rows;
+analyze table t12;
+--disable_warnings
+explain select * from t12 where a > 8000000;
+select count(*) from t12 where a > 8000000;
+explain select * from t12 where a < -8000000;
+select count(*) from t12 where a < -8000000;
+--enable_warnings
+drop table t12;
+
+
+create table t13 (a int unsigned not null primary key);
+delimiter //;
+create procedure insert_rows()
+begin
+declare i bigint default 1;
+while i <= 4294967295 do
+insert into t13 values(i);
+set i = i + 1000000;
+end while;
+end//
+delimiter ;//
+call insert_rows;
+drop procedure insert_rows;
+analyze table t13;
+--disable_warnings
+explain select * from t13 where a > 4000000000;
+select count(*) from t13 where a > 4000000000;
+explain select * from t13 where a < 100000000;
+select count(*) from t13 where a < 100000000;
+--enable_warnings
+drop table t13;
+
+create table t14 (a int signed not null primary key);
+delimiter //;
+create procedure insert_rows()
+begin
+declare i bigint default -2147483648;
+while i <= 2147483647 do
+insert into t14 values(i);
+set i = i + 1000000;
+end while;
+end//
+delimiter ;//
+call insert_rows;
+drop procedure insert_rows;
+analyze table t14;
+--disable_warnings
+explain select * from t14 where a > 2000000000;
+select count(*) from t14 where a > 2000000000;
+explain select * from t14 where a < -2000000000;
+select count(*) from t14 where a < -2000000000;
+--enable_warnings
+drop table t14;
+
+create table t15 (a bigint unsigned not null primary key);
+delimiter //;
+create procedure insert_rows()
+begin
+declare i bigint unsigned default 1;
+while i < 18346744073709551615 do
+insert into t15 values(i);
+set i = i + 100000000000000000;
+end while;
+end//
+delimiter ;//
+call insert_rows;
+drop procedure insert_rows;
+analyze table t15;
+--disable_warnings
+explain select * from t15 where a > 18000000000000000000;
+select count(*) from t15 where a > 18000000000000000000;
+explain select * from t15 where a < 100000000000000000;
+select count(*) from t15 where a < 100000000000000000;
+--enable_warnings
+drop table t15;
+
+
+create table t16 (a bigint signed not null primary key);
+delimiter //;
+create procedure insert_rows()
+begin
+declare i bigint default -9223372036854775808;
+while i < 9213372036854775807 do
+insert into t16 values(i);
+set i = i + 10000000000000000;
+end while;
+end//
+delimiter ;//
+call insert_rows;
+drop procedure insert_rows;
+analyze table t16;
+--disable_warnings
+explain select * from t16 where a > 9000000000000000000;
+select count(*) from t16 where a > 9000000000000000000;
+explain select * from t16 where a < -9000000000000000000;
+select count(*) from t16 where a < -9000000000000000000;
+--enable_warnings
+drop table t16;
+
