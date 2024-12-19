@@ -1857,7 +1857,7 @@ int ctc_get_sample_size(uint32_t *sample_size)
     ctc_log_error("ctc_mq_deal_func CTC_FUNC_TYPE_GET_SAMPLE_SIZE failed");
   }
   *sample_size = *req;
-  ctc_log_error("[ctc_get_sample_size] size(%u)", *sample_size);
+  ctc_log_system("[ctc_get_sample_size] size(%u)", *sample_size);
   free_share_mem(shm_inst, req);
 
   return res;
