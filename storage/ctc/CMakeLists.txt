@@ -68,14 +68,14 @@ IF (WITH_CANTIAN)
             ${CTC_SOURCES}
             STORAGE_ENGINE 
             MANDATORY
-            LINK_LIBRARIES libzecommon.so libzeclient.so libzeprotocol.so libprotobuf-c.a pcre2-8 ctc_proxy libcantian.so libmessage_queue.so
+            LINK_LIBRARIES libzecommon.so libzeclient.so libzeprotocol.so libprotobuf-c.a pcre2-8 ctc_proxy libcantian.so
         )
     ELSEIF (NOT WITHOUT_CTC_STORAGE_ENGINE)
         MYSQL_ADD_PLUGIN(ctc 
             ${CTC_SOURCES} 
             STORAGE_ENGINE 
             MODULE_ONLY
-            LINK_LIBRARIES libzecommon.so libzeclient.so libzeprotocol.so libprotobuf-c.a pcre2-8 ctc_proxy libcantian.so libmessage_queue.so
+            LINK_LIBRARIES libzecommon.so libzeclient.so libzeprotocol.so libprotobuf-c.a pcre2-8 ctc_proxy libcantian.so
         )
     ENDIF ()
 ELSE ()
