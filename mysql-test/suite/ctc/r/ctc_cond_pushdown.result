@@ -1812,6 +1812,26 @@ a	b
 2	1
 select * from t16 where a = NULL;
 a	b
+select * from t16 where a is true;
+a	b
+1	2
+2	1
+1	NULL
+select * from t16 where a is NOT true;
+a	b
+NULL	NULL
+NULL	1
+select * from t16 where a like 1;
+a	b
+1	2
+1	NULL
+select * from t16 where a not like 1;
+a	b
+2	1
+select * from t16 where a like NULL;
+a	b
+select * from t16 where a NOT like NULL;
+a	b
 select * from t16 where a + b > 1;
 a	b
 1	2
@@ -1866,28 +1886,133 @@ select * from t16 where a + (-2) >= 0;
 a	b
 2	1
 create table t17 (a int, b int GENERATED ALWAYS AS (a + 1));
-insert into t17(a) values (NULL),(1),(2);
+insert into t17(a) values (NULL),(1),(2),(3),(4),(5),(6),(7),(8),(9),(10);
 select * from t17 where a > 1;
 a	b
 2	3
+3	4
+4	5
+5	6
+6	7
+7	8
+8	9
+9	10
+10	11
 select * from t17 where b > 1;
 a	b
 1	2
 2	3
+3	4
+4	5
+5	6
+6	7
+7	8
+8	9
+9	10
+10	11
 select * from t17 where (a > 1) AND (b > 1);
 a	b
 2	3
+3	4
+4	5
+5	6
+6	7
+7	8
+8	9
+9	10
+10	11
 select * from t17 where (a > 1) OR (b > 1);
 a	b
 1	2
 2	3
+3	4
+4	5
+5	6
+6	7
+7	8
+8	9
+9	10
+10	11
 select * from t17 where ((a > 1) AND (b > 1)) = 1;
 a	b
 2	3
+3	4
+4	5
+5	6
+6	7
+7	8
+8	9
+9	10
+10	11
 select * from t17 where ((a > 1) OR (b > 1)) = 1;
 a	b
 1	2
 2	3
+3	4
+4	5
+5	6
+6	7
+7	8
+8	9
+9	10
+10	11
+select * from t17 where (a < 5) AND (a > 1) AND (b > 1);
+a	b
+2	3
+3	4
+4	5
+select * from t17 where (a < 5) AND (a > 1) OR (b > 1);
+a	b
+1	2
+2	3
+3	4
+4	5
+5	6
+6	7
+7	8
+8	9
+9	10
+10	11
+select * from t17 where (a < 5) AND ((a > 1) OR (b > 1));
+a	b
+1	2
+2	3
+3	4
+4	5
+select * from t17 where (a < 2) OR (a > 8) OR (b > 1);
+a	b
+1	2
+2	3
+3	4
+4	5
+5	6
+6	7
+7	8
+8	9
+9	10
+10	11
+select * from t17 where (a < 2) OR (a > 8) AND (b > 1);
+a	b
+1	2
+9	10
+10	11
+select * from t17 where ((a < 2) OR (a > 8)) AND (b > 1);
+a	b
+1	2
+9	10
+10	11
+select * from t17 where (a < 2) OR ((a > 8) OR (b > 1));
+a	b
+1	2
+2	3
+3	4
+4	5
+5	6
+6	7
+7	8
+8	9
+9	10
+10	11
 CREATE TABLE t18(c1 int, c2 int, key(c1,c2));
 INSERT INTO t18 VALUES (94,94),(64,64),(69,69),(97,97);
 select * from t18;

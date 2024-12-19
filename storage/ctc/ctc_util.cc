@@ -1120,7 +1120,7 @@ void cond_push_boolean_term(Item *term, Item *&pushed_cond, Item *&remainder_con
   while ((operand = li++)) {
     Item *pushed = nullptr, *remainder = nullptr;
     cond_push_term(operand, pushed, remainder, cond->functype());
-    if (remainder != nullptr && !is_and_condition) {
+    if (pushed == nullptr && !is_and_condition) {
       remain_all_cond_item(cond, pushed_cond, remainder_cond);
       return;
     }

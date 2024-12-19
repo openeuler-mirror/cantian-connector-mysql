@@ -1139,6 +1139,36 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t16`.`a` = NULL)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where (`test`.`t16`.`a` = NULL)
+explain select * from t16 where a is true;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where ((0 <> `test`.`t16`.`a`) is true)
+explain select * from t16 where a is NOT true;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where ((0 <> `test`.`t16`.`a`) is not true)
+explain select * from t16 where a like 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where (`test`.`t16`.`a` like 1)
+explain select * from t16 where a not like 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	66.67	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where (not((`test`.`t16`.`a` like 1)))
+explain select * from t16 where a like NULL;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where (`test`.`t16`.`a` like NULL)
+explain select * from t16 where a NOT like NULL;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	66.67	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where (not((`test`.`t16`.`a` like NULL)))
 explain select * from t16 where a + b > 1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t16	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where; Using pushed condition ((`test`.`t16`.`a` + `test`.`t16`.`b`) > 1)
@@ -1217,7 +1247,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t16`.`a` AS `a`,`test`.`t16`.`b` AS `b` from `test`.`t16` where ((`test`.`t16`.`a` + <cache>(-(2))) >= 0)
 create table t17 (a int, b int GENERATED ALWAYS AS (a + 1));
-insert into t17(a) values (NULL),(1),(2);
+insert into t17(a) values (NULL),(1),(2),(3),(4),(5),(6),(7),(8),(9),(10);
 explain select * from t17 where a > 1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t17	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t17`.`a` > 1)
@@ -1248,6 +1278,41 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	t17	NULL	ALL	NULL	NULL	NULL	NULL	3	100.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t17`.`a` AS `a`,`test`.`t17`.`b` AS `b` from `test`.`t17` where (((`test`.`t17`.`a` > 1) or (`test`.`t17`.`b` > 1)) = 1)
+explain select * from t17 where (a < 5) AND (a > 1) AND (b > 1);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t17	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition ((`test`.`t17`.`a` < 5) and (`test`.`t17`.`a` > 1))
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t17`.`a` AS `a`,`test`.`t17`.`b` AS `b` from `test`.`t17` where ((`test`.`t17`.`a` < 5) and (`test`.`t17`.`a` > 1) and (`test`.`t17`.`b` > 1))
+explain select * from t17 where (a < 5) AND (a > 1) OR (b > 1);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t17	NULL	ALL	NULL	NULL	NULL	NULL	3	40.74	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t17`.`a` AS `a`,`test`.`t17`.`b` AS `b` from `test`.`t17` where (((`test`.`t17`.`a` < 5) and (`test`.`t17`.`a` > 1)) or (`test`.`t17`.`b` > 1))
+explain select * from t17 where (a < 5) AND ((a > 1) OR (b > 1));
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t17	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition (`test`.`t17`.`a` < 5)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t17`.`a` AS `a`,`test`.`t17`.`b` AS `b` from `test`.`t17` where ((`test`.`t17`.`a` < 5) and ((`test`.`t17`.`a` > 1) or (`test`.`t17`.`b` > 1)))
+explain select * from t17 where (a < 2) OR (a > 8) OR (b > 1);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t17	NULL	ALL	NULL	NULL	NULL	NULL	3	70.37	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t17`.`a` AS `a`,`test`.`t17`.`b` AS `b` from `test`.`t17` where ((`test`.`t17`.`a` < 2) or (`test`.`t17`.`a` > 8) or (`test`.`t17`.`b` > 1))
+explain select * from t17 where (a < 2) OR (a > 8) AND (b > 1);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t17	NULL	ALL	NULL	NULL	NULL	NULL	3	40.74	Using where; Using pushed condition ((`test`.`t17`.`a` < 2) or (`test`.`t17`.`a` > 8))
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t17`.`a` AS `a`,`test`.`t17`.`b` AS `b` from `test`.`t17` where ((`test`.`t17`.`a` < 2) or ((`test`.`t17`.`a` > 8) and (`test`.`t17`.`b` > 1)))
+explain select * from t17 where ((a < 2) OR (a > 8)) AND (b > 1);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t17	NULL	ALL	NULL	NULL	NULL	NULL	3	33.33	Using where; Using pushed condition ((`test`.`t17`.`a` < 2) or (`test`.`t17`.`a` > 8))
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t17`.`a` AS `a`,`test`.`t17`.`b` AS `b` from `test`.`t17` where (((`test`.`t17`.`a` < 2) or (`test`.`t17`.`a` > 8)) and (`test`.`t17`.`b` > 1))
+explain select * from t17 where (a < 2) OR ((a > 8) OR (b > 1));
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t17	NULL	ALL	NULL	NULL	NULL	NULL	3	70.37	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t17`.`a` AS `a`,`test`.`t17`.`b` AS `b` from `test`.`t17` where ((`test`.`t17`.`a` < 2) or (`test`.`t17`.`a` > 8) or (`test`.`t17`.`b` > 1))
 CREATE TABLE t18(c1 int, c2 int, key(c1,c2));
 INSERT INTO t18 VALUES (94,94),(64,64),(69,69),(97,97);
 explain select * from t18;

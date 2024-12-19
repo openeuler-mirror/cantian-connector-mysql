@@ -234,10 +234,6 @@ typedef struct {
 } ctc_invalidate_broadcast_request;
 
 typedef struct {
-    int result;
-} mysql_init_lib_request;
-
-typedef struct {
     bool is_key_null;        // 该列数据是否为null
     uint8_t *left_key;       // 指向索引查询条件的左值
     uint8_t *right_key;      // 指向索引查询条件的右值
@@ -348,7 +344,6 @@ enum CTC_FUNC_TYPE {
     CTC_FUNC_TYPE_GET_MAX_SESSIONS,
     CTC_FUNC_LOCK_INSTANCE,
     CTC_FUNC_UNLOCK_INSTANCE,
-    CTC_FUNC_INIT_MYSQL_LIB,
     CTC_FUNC_CHECK_TABLE_EXIST,
     CTC_FUNC_SEARCH_METADATA_SWITCH,
     CTC_FUNC_QUERY_SHM_USAGE,
@@ -615,9 +610,6 @@ typedef struct en_ctcpart_scan_range {
 int srv_wait_instance_startuped(void);
 int ctc_alloc_inst_id(uint32_t *inst_id);
 int ctc_release_inst_id(uint32_t inst_id);
-#ifdef WITH_CANTIAN
-int init_mysql_lib(void);
-#endif
 
 int ctc_open_table(ctc_handler_t *tch, const char *table_name, const char *user_name);
 int ctc_close_table(ctc_handler_t *tch);
