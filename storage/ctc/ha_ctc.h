@@ -1106,8 +1106,6 @@ bool is_starting();
 
 bool ctc_is_temporary(const dd::Table *table_def);
 int32_t ctc_get_cluster_role();
-void ctc_set_mysql_read_only();
-void ctc_reset_mysql_read_only();
 
 int alloc_str_mysql_mem(ctc_cbo_stats_t *cbo_stats, uint32_t part_num, TABLE *table);
 void free_columns_cbo_stats(ctc_cbo_stats_column_t *ctc_cbo_stats_columns, bool *is_str_first_addr, TABLE *table);

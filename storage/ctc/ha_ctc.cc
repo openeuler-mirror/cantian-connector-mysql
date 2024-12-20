@@ -180,8 +180,8 @@ int32_t ctc_metadata_normalization = (int32_t)metadata_switchs::DEFAULT;
 static MYSQL_SYSVAR_INT(metadata_normalization, ctc_metadata_normalization, PLUGIN_VAR_READONLY,
                         "Option for Mysql-Cantian metadata normalization.", nullptr, nullptr, -1, -1, 3, 0);
 
-static mutex m_ctc_cluster_role_mutex;
-int32_t ctc_cluster_role = (int32_t)dis_cluster_role::DEFAULT;
+extern int32_t ctc_cluster_role;
+extern mutex m_ctc_cluster_role_mutex;
 static MYSQL_SYSVAR_INT(cluster_role, ctc_cluster_role, PLUGIN_VAR_READONLY,
                         "flag for Disaster Recovery Cluster Role.", nullptr, nullptr, -1, -1, 2, 0);
 
@@ -4396,34 +4396,6 @@ static bool ctc_show_status(handlerton *, THD *thd, stat_print_fn *stat_print, e
   }
 
   return false;
-}
-
-void ctc_set_mysql_read_only() {
-  ctc_log_system("[Disaster Recovecy] starting or initializing");
-  super_read_only = true;
-  read_only = true;
-  opt_readonly = true;
-  ctc_log_system("[Disaster Recovery] set super_read_only = true.");
-}
-
-void ctc_reset_mysql_read_only() {
-  ctc_log_system("[Disaster Recovecy] starting or initializing");
-  super_read_only = false;
-  read_only = false;
-  opt_readonly = false;
-  ctc_log_system("[Disaster Recovery] set super_read_only = false.");
-}
-
-__attribute__((visibility("default"))) int ctc_set_cluster_role_by_cantian(bool is_slave) {
-  lock_guard<mutex> lock(m_ctc_cluster_role_mutex);
-  if (is_slave) {
-    ctc_cluster_role = (int32_t)dis_cluster_role::STANDBY;
-    ctc_set_mysql_read_only();
-  } else {
-    ctc_cluster_role = (int32_t)dis_cluster_role::PRIMARY;
-    ctc_reset_mysql_read_only();
-  }
-  return 0;
 }
 
 bool is_single_run_mode()
