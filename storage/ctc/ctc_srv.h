@@ -719,6 +719,8 @@ int ctc_broadcast_mysql_dd_invalidate(ctc_handler_t *tch, ctc_invalidate_broadca
 
 /* Disaster Recovery Related Interface*/
 int ctc_set_cluster_role_by_cantian(bool is_slave);
+void ctc_set_mysql_read_only();
+void ctc_reset_mysql_read_only();
 
 int ctc_record_sql_for_cantian(ctc_handler_t *tch, ctc_ddl_broadcast_request *broadcast_req, bool allow_fail);
 

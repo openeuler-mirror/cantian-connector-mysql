@@ -52,6 +52,8 @@
 
 using namespace std;
 
+__attribute__((visibility("default"))) mutex m_ctc_cluster_role_mutex;
+__attribute__((visibility("default"))) int32_t ctc_cluster_role = (int32_t)dis_cluster_role::DEFAULT;
 struct ctc_mysql_conn_info {
     MYSQL*                    conn;
     set<pair<string, string>> table_lock_info;  // 连接上已存在的表锁 (db, table)
@@ -453,6 +455,34 @@ __attribute__((visibility("default"))) int ctc_ddl_execute_set_opt(uint32_t thd_
   }
 
   return ret;
+}
+
+__attribute__((visibility("default"))) void ctc_set_mysql_read_only() {
+  ctc_log_system("[Disaster Recovecy] starting or initializing");
+  super_read_only = true;
+  read_only = true;
+  opt_readonly = true;
+  ctc_log_system("[Disaster Recovery] set super_read_only = true.");
+}
+
+__attribute__((visibility("default"))) void ctc_reset_mysql_read_only() {
+  ctc_log_system("[Disaster Recovecy] starting or initializing");
+  super_read_only = false;
+  read_only = false;
+  opt_readonly = false;
+  ctc_log_system("[Disaster Recovery] set super_read_only = false.");
+}
+
+__attribute__((visibility("default"))) int ctc_set_cluster_role_by_cantian(bool is_slave) {
+  lock_guard<mutex> lock(m_ctc_mysql_proxy_mutex);
+  if (is_slave) {
+    ctc_cluster_role = (int32_t)dis_cluster_role::STANDBY;
+    ctc_set_mysql_read_only();
+  } else {
+    ctc_cluster_role = (int32_t)dis_cluster_role::PRIMARY;
+    ctc_reset_mysql_read_only();
+  }
+  return 0;
 }
 
 static int ctc_ddl_get_lock(MYSQL *curr_conn, const uint64_t &conn_map_key, const char *lock_name, int *err_code) {
