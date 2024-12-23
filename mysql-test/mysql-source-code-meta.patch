@@ -3859,3 +3859,14 @@ index e949235a..d46fca83 100644
    DBUG_TRACE;
  
    opened_table_validate();
+diff --git a/cmake/info_macros.cmake.in b/cmake/info_macros.cmake.in
+index 19110c7..131a4c6 100644
+--- a/cmake/info_macros.cmake.in
++++ b/cmake/info_macros.cmake.in
+@@ -106,6 +106,7 @@ MACRO(CREATE_INFO_SRC target_dir)
+   ELSE()
+     # This is a fall-back.
+     FILE(WRITE ${INFO_SRC} "\nMySQL source ${VERSION}\n")
++    FILE(APPEND ${INFO_SRC} "\nCantian patch source 1.0.0\n")
+   ENDIF()
+ ENDMACRO(CREATE_INFO_SRC)
