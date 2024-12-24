@@ -53,6 +53,9 @@ const char *cantiand_get_dbversion()
 }
 
 extern "C" int cantiand_lib_main(int argc, char *argv[]);
+#ifdef WITH_CANTIAN
+extern "C" int register_sql_intf(sql_engine_intf *sql_intf);
+#endif
 extern "C" void ct_singlep_shutdown();
 
 static std::string get_cantiand_mode() {
@@ -75,6 +78,23 @@ static std::string get_cantiand_home_dir() {
   return home_dir;
 }
 
+#ifdef WITH_CANTIAN
+static sql_engine_intf g_local_sql_intf;
+sql_engine_intf *get_local_sql_intf()
+{
+    g_local_sql_intf.ctc_invalidate_mysql_dd_cache = ctc_invalidate_mysql_dd_cache;
+    g_local_sql_intf.ctc_execute_rewrite_open_conn = ctc_execute_rewrite_open_conn;
+    g_local_sql_intf.ctc_ddl_execute_update = ctc_ddl_execute_update;
+    g_local_sql_intf.ctc_ddl_execute_set_opt = ctc_ddl_execute_set_opt;
+    g_local_sql_intf.close_mysql_connection = close_mysql_connection;
+    g_local_sql_intf.ctc_ddl_execute_lock_tables = ctc_ddl_execute_lock_tables;
+    g_local_sql_intf.ctc_ddl_execute_unlock_tables = ctc_ddl_execute_unlock_tables;
+    g_local_sql_intf.ctc_set_cluster_role_by_cantian = ctc_set_cluster_role_by_cantian;
+    ctc_log_system("get local sql function success.");
+    return &g_local_sql_intf;
+}
+#endif
+
 static void *mysql_cantian_startup_thread(void *p) {
   DBUG_TRACE;
   struct mysql_cantian_context *con = (struct mysql_cantian_context *)p;
@@ -86,6 +106,13 @@ static void *mysql_cantian_startup_thread(void *p) {
   std::string mode = get_cantiand_mode();
   std::string home_dir = get_cantiand_home_dir();
   int ret;
+#ifdef WITH_CANTIAN
+  ret = register_sql_intf(get_local_sql_intf());
+  if (ret != CT_SUCCESS) {
+    ctc_log_error("register_sql_intf error");
+    return nullptr;
+  }
+#endif
   if (mode != "open") {
     char const *argv[] = {"/home/regress/install/bin/cantiand", mode.c_str(),
                           "-D", home_dir.c_str()};
