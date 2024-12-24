@@ -2060,3 +2060,189 @@ Warnings:
 Warning	1292	Truncated incorrect INTEGER value: 'a'
 Warning	1292	Truncated incorrect INTEGER value: 'a'
 drop table tb_cache;
+create table t0(int_1 tinyint not null,
+uint_1 tinyint unsigned not null,
+int_2 smallint not null,
+uint_2 smallint unsigned not null,
+int_3 mediumint not null,
+uint_3 mediumint unsigned not null,
+int_4 int not null,
+uint_4 int unsigned not null,
+int_8 bigint not null,
+uint_8 bigint unsigned not null);
+insert into t0 values (-128,   0, -32768,     0, -8388608,        0, -2147483648,          0, -9223372036854775808, 0);
+insert into t0 values (  -2,   1,     -2,     1,       -2,        1,          -2,          1,                  -2,  1);
+insert into t0 values (  -1,   2,     -1,     2,       -1,        2,          -1,          2,                  -1,  2);
+insert into t0 values (   0,   3,      0,     3,        0,        3,           0,          3,                   0,  3);
+insert into t0 values (   1, 126,      1, 32767,    65536,  8388608,           1, 2147483648,                   1,  9223372036854775808);
+insert into t0 values (   2, 127,    256, 32768,    65537,  8388609,    16777215, 2147483649,           4294967296, 9223372036854775809);
+insert into t0 values ( 126, 128,  32766, 65534,  8388606, 16777214,  2147483646, 4294967294,  9223372036854775806, 18446744073709551614);
+insert into t0 values ( 127, 255,  32767, 65535,  8388607, 16777215,  2147483647, 4294967295,  9223372036854775807, 18446744073709551615);
+update t0 set int_1 = 128 where int_1 = 127;
+ERROR 22003: Out of range value for column 'int_1' at row 1
+update t0 set int_1 = 128 where uint_1 = 255;
+ERROR 22003: Out of range value for column 'int_1' at row 1
+update t0 set int_1 = 128 where int_2 = 32767;
+ERROR 22003: Out of range value for column 'int_1' at row 1
+update t0 set int_1 = 128 where uint_2 = 65535;
+ERROR 22003: Out of range value for column 'int_1' at row 1
+update t0 set int_1 = 128 where int_3 = 8388607;
+ERROR 22003: Out of range value for column 'int_1' at row 1
+update t0 set int_1 = 128 where uint_3 = 16777215;
+ERROR 22003: Out of range value for column 'int_1' at row 1
+update t0 set int_1 = 128 where int_4 = 2147483647;
+ERROR 22003: Out of range value for column 'int_1' at row 1
+update t0 set int_1 = 128 where uint_4 = 4294967295;
+ERROR 22003: Out of range value for column 'int_1' at row 1
+update t0 set int_1 = 128 where int_8 = 9223372036854775807;
+ERROR 22003: Out of range value for column 'int_1' at row 1
+update t0 set int_1 = 128 where uint_8 = 18446744073709551615;
+ERROR 22003: Out of range value for column 'int_1' at row 1
+create table t1 (a tinyint, b TIME);
+insert into t1 values(1, '2000-01-01 00:00:00'),(2, '2001-01-01 00:00:00'),(3, '2002-01-01 00:00:00');
+Warnings:
+Note	1292	Incorrect time value: '2000-01-01 00:00:00' for column 'b' at row 1
+Note	1292	Incorrect time value: '2001-01-01 00:00:00' for column 'b' at row 2
+Note	1292	Incorrect time value: '2002-01-01 00:00:00' for column 'b' at row 3
+update t1 set a = 128 where b = '2001-01-01 00:00:00';
+ERROR 22003: Out of range value for column 'a' at row 1
+create table t2 (a tinyint, b year);
+insert into t2 values(1, 2000),(2,2001),(3,2002);
+update t2 set a = 128 where b = 2001;
+ERROR 22003: Out of range value for column 'a' at row 1
+create table t3 (a tinyint, b date);
+insert into t3 values(1, '2000-01-01'),(2, '2001-01-01'),(3, '2002-01-01');
+update t3 set a = 128 where b = '2001-01-01';
+ERROR 22003: Out of range value for column 'a' at row 1
+create table t4 (a tinyint, b datetime);
+insert into t4 values(1, '2000-01-01 00:00:00'),(2, '2001-01-01 00:00:00'),(3, '2002-01-01 00:00:00');
+update t4 set a = 128 where b = '2001-01-01 00:00:00';
+ERROR 22003: Out of range value for column 'a' at row 1
+create table t5 (a tinyint, b timestamp);
+insert into t5 values(1, '2000-01-01 00:00:00'),(2, '2001-01-01 00:00:00'),(3, '2002-01-01 00:00:00');
+select * from t5 where b = '2001-01-01 00:00:00';
+a	b
+2	2001-01-01 00:00:00
+update t5 set a = 128 where b = '2001-01-01 00:00:00';
+ERROR 22003: Out of range value for column 'a' at row 2
+select * from t5;
+a	b
+1	2000-01-01 00:00:00
+2	2001-01-01 00:00:00
+3	2002-01-01 00:00:00
+set @old_time_zone = @@session.time_zone;
+set @@session.time_zone = '+08:00';
+select * from t5;
+a	b
+1	2000-01-01 05:00:00
+2	2001-01-01 05:00:00
+3	2002-01-01 05:00:00
+select * from t5 where b = '2001-01-01 05:00:00';
+a	b
+2	2001-01-01 05:00:00
+set @@session.time_zone = @old_time_zone;
+create table t6 (a tinyint, b decimal(10,0));
+insert into t6 values(1, 2000),(2,2001),(3,2002);
+update t6 set a = 128 where b = 2001;
+ERROR 22003: Out of range value for column 'a' at row 1
+create table t7 (a tinyint, b varchar(10));
+insert into t7 values(1, '2000'),(2, '2001'),(3, '2002');
+update t7 set a = 128 where b = '2001';
+ERROR 22003: Out of range value for column 'a' at row 1
+create table t8 (a tinyint, b char(10));
+insert into t8 values(1, '2000'),(2, '2001'),(3, '2002');
+update t8 set a = 128 where b = '2001';
+ERROR 22003: Out of range value for column 'a' at row 1
+create table t9 (a tinyint, b bool);
+insert into t9 values(1, true),(2, false),(3, null);
+update t9 set a = 128 where b = true;
+ERROR 22003: Out of range value for column 'a' at row 1
+update t9 set a = 128 where b = false;
+ERROR 22003: Out of range value for column 'a' at row 2
+update t9 set a = 128 where b = null;
+select * from t9;
+a	b
+1	1
+2	0
+3	NULL
+create table t10 (a tinyint, b enum('true', 'false', 'null'));
+insert into t10 values(1, 'true'),(2, 'false'),(3, 'null');
+update t10 set a = 128 where b = 'null';
+ERROR 22003: Out of range value for column 'a' at row 3
+create table t11 (a tinyint, b set('true', 'false', 'null'));
+insert into t11 values(1, 'true'),(2, 'false'),(3, 'null');
+update t11 set a = 128 where b = 'null';
+ERROR 22003: Out of range value for column 'a' at row 3
+create table t12 (a tinyint, b float);
+insert into t12 values(1, 1.0),(2, 2.0),(3, 3.0);
+update t12 set a = 128 where b = 2.0;
+ERROR 22003: Out of range value for column 'a' at row 1
+create table t13 (a tinyint, b double);
+insert into t13 values(1, 1.0),(2, 2.0),(3, 3.0);
+update t13 set a = 128 where b = 2.0;
+ERROR 22003: Out of range value for column 'a' at row 1
+set @@optimizer_switch='engine_condition_pushdown=off';
+update t0 set int_1 = 128 where int_1 = 127;
+ERROR 22003: Out of range value for column 'int_1' at row 8
+update t0 set int_1 = 128 where uint_1 = 255;
+ERROR 22003: Out of range value for column 'int_1' at row 8
+update t0 set int_1 = 128 where int_2 = 32767;
+ERROR 22003: Out of range value for column 'int_1' at row 8
+update t0 set int_1 = 128 where uint_2 = 65535;
+ERROR 22003: Out of range value for column 'int_1' at row 8
+update t0 set int_1 = 128 where int_3 = 8388607;
+ERROR 22003: Out of range value for column 'int_1' at row 8
+update t0 set int_1 = 128 where uint_3 = 16777215;
+ERROR 22003: Out of range value for column 'int_1' at row 8
+update t0 set int_1 = 128 where int_4 = 2147483647;
+ERROR 22003: Out of range value for column 'int_1' at row 8
+update t0 set int_1 = 128 where uint_4 = 4294967295;
+ERROR 22003: Out of range value for column 'int_1' at row 8
+update t0 set int_1 = 128 where int_8 = 9223372036854775807;
+ERROR 22003: Out of range value for column 'int_1' at row 8
+update t0 set int_1 = 128 where uint_8 = 18446744073709551615;
+ERROR 22003: Out of range value for column 'int_1' at row 8
+update t1 set a = 128 where b = '2001-01-01 00:00:00';
+ERROR 22003: Out of range value for column 'a' at row 1
+update t2 set a = 128 where b = 2001;
+ERROR 22003: Out of range value for column 'a' at row 2
+update t3 set a = 128 where b = '2001-01-01';
+ERROR 22003: Out of range value for column 'a' at row 2
+update t4 set a = 128 where b = '2001-01-01 00:00:00';
+ERROR 22003: Out of range value for column 'a' at row 2
+update t5 set a = 128 where b = '2001-01-01 00:00:00';
+ERROR 22003: Out of range value for column 'a' at row 2
+update t6 set a = 128 where b = 2001;
+ERROR 22003: Out of range value for column 'a' at row 2
+update t7 set a = 128 where b = '2001';
+ERROR 22003: Out of range value for column 'a' at row 2
+update t8 set a = 128 where b = '2001';
+ERROR 22003: Out of range value for column 'a' at row 2
+update t9 set a = 128 where b = true;
+ERROR 22003: Out of range value for column 'a' at row 1
+update t9 set a = 128 where b = false;
+ERROR 22003: Out of range value for column 'a' at row 2
+update t9 set a = 128 where b = null;
+update t10 set a = 128 where b = 'null';
+ERROR 22003: Out of range value for column 'a' at row 3
+update t11 set a = 128 where b = 'null';
+ERROR 22003: Out of range value for column 'a' at row 3
+update t12 set a = 128 where b = 2.0;
+ERROR 22003: Out of range value for column 'a' at row 2
+update t13 set a = 128 where b = 2.0;
+ERROR 22003: Out of range value for column 'a' at row 2
+set @@optimizer_switch='engine_condition_pushdown=on';
+drop table t0;
+drop table t1;
+drop table t2;
+drop table t3;
+drop table t4;
+drop table t5;
+drop table t6;
+drop table t7;
+drop table t8;
+drop table t9;
+drop table t10;
+drop table t11;
+drop table t12;
+drop table t13;
