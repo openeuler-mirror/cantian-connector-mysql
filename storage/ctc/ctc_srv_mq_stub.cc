@@ -526,9 +526,10 @@ int ctc_index_read(ctc_handler_t *tch, record_info_t *record_info, index_key_inf
   return result;
 }
 
-int ctc_trx_begin(ctc_handler_t *tch, ctc_trx_context_t trx_context, bool is_mysql_local) {
+int ctc_trx_begin(ctc_handler_t *tch, ctc_trx_context_t trx_context, bool is_mysql_local,
+                  struct timeval begin_time, bool enable_stat) {
   void *shm_inst = get_one_shm_inst(tch);
-  trx_begin_request *req = (trx_begin_request*)alloc_share_mem(shm_inst, sizeof(trx_begin_request));
+  trx_begin_request *req = (trx_begin_request *)alloc_share_mem(shm_inst, sizeof(trx_begin_request));
   if (req == NULL) {
     ctc_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, sizeof(trx_begin_request));
     return ERR_ALLOC_MEMORY;
@@ -536,7 +537,8 @@ int ctc_trx_begin(ctc_handler_t *tch, ctc_trx_context_t trx_context, bool is_mys
   req->tch = *tch;
   req->trx_context = trx_context;
   req->is_mysql_local = is_mysql_local;
-
+  req->begin_time = begin_time;
+  req->enable_stat = enable_stat;
   int result = ERR_CONNECTION_FAILED;
   int ret = ctc_mq_deal_func(shm_inst, CTC_FUNC_TYPE_TRX_BEGIN, req, tch->msg_buf);
   *tch = req->tch; // 此处不管参天处理成功与否，都需要拷贝一次，避免session泄漏
@@ -547,20 +549,69 @@ int ctc_trx_begin(ctc_handler_t *tch, ctc_trx_context_t trx_context, bool is_mys
   return result;
 }
 
-int ctc_trx_commit(ctc_handler_t *tch, uint64_t *cursors, int32_t csize, bool *is_ddl_commit) {
+int ctc_statistic_begin(ctc_handler_t *tch, struct timeval begin_time, bool enable_stat) {
+  void *shm_inst = get_one_shm_inst(tch);
+  trx_begin_request *req = (trx_begin_request *)alloc_share_mem(shm_inst, sizeof(trx_begin_request));
+  if (req == NULL) {
+    ctc_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, sizeof(trx_begin_request));
+    return ERR_ALLOC_MEMORY;
+  }
+  req->tch = *tch;
+  req->begin_time = begin_time;
+  req->enable_stat = enable_stat;
+  int result = ERR_CONNECTION_FAILED;
+  int ret = ctc_mq_deal_func(shm_inst, CTC_FUNC_TYPE_STATISTIC_BEGIN, req, tch->msg_buf);
+  *tch = req->tch; // 此处不管参天处理成功与否，都需要拷贝一次，避免session泄漏
+  if (ret == CT_SUCCESS) {
+    result = req->result;
+  }
+  free_share_mem(shm_inst, req);
+  return result;
+}
+
+int ctc_trx_commit(ctc_handler_t *tch, uint64_t *cursors, int32_t csize,
+                   bool *is_ddl_commit, const char *sql_str, bool enable_stat) {
   void *shm_inst = get_one_shm_inst(tch);
   trx_commit_request *req = (trx_commit_request*)alloc_share_mem(shm_inst, sizeof(trx_commit_request));
   if (req == NULL) {
     ctc_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, sizeof(trx_commit_request));
     return ERR_ALLOC_MEMORY;
   }
+  uint64_t len = sizeof(trx_commit_request);
+  memset(req, 0, len);
   req->tch = *tch;
   req->csize = csize;
   req->cursors = cursors;
-
+  req->enable_stat = enable_stat;
+  if (sql_str != NULL) {
+    strncpy(req->sql, sql_str, MAX_WSR_DML_SQL_LEN - 1);
+  }
   int result = ERR_CONNECTION_FAILED;
   int ret = ctc_mq_deal_func(shm_inst, CTC_FUNC_TYPE_TRX_COMMIT, req, tch->msg_buf);
   *is_ddl_commit = req->is_ddl_commit;
+  if (ret == CT_SUCCESS) {
+    result = req->result;
+  }
+  free_share_mem(shm_inst, req);
+  return result;
+}
+
+int ctc_statistic_commit(ctc_handler_t *tch, const char *sql_str, bool enable_stat) {
+  void *shm_inst = get_one_shm_inst(tch);
+  trx_commit_request *req = (trx_commit_request*)alloc_share_mem(shm_inst, sizeof(trx_commit_request));
+  if (req == NULL) {
+    ctc_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, sizeof(trx_commit_request));
+    return ERR_ALLOC_MEMORY;
+  }
+  uint64_t len = sizeof(trx_commit_request);
+  memset(req, 0, len);
+  req->tch = *tch;
+  if (sql_str != NULL) {
+    strncpy(req->sql, sql_str, MAX_WSR_DML_SQL_LEN - 1);
+  }
+  req->enable_stat = enable_stat;
+  int result = ERR_CONNECTION_FAILED;
+  int ret = ctc_mq_deal_func(shm_inst, CTC_FUNC_TYPE_STATISTIC_COMMIT, req, tch->msg_buf);
   if (ret == CT_SUCCESS) {
     result = req->result;
   }
@@ -1896,6 +1947,24 @@ int ctc_query_shm_usage(uint32_t *shm_usage)
   int ret = ctc_mq_deal_func(shm_inst, CTC_FUNC_QUERY_SHM_USAGE, req, nullptr);
   if (ret == CT_SUCCESS) {
     result = req->result;
+  }
+  free_share_mem(shm_inst, req);
+  return result;
+}
+
+int ctc_query_sql_statistic_stat(bool* enable_stat) {
+  void *shm_inst = get_one_shm_inst(NULL);
+  query_sql_statistic_stat *req = (query_sql_statistic_stat*)
+                                     alloc_share_mem(shm_inst, sizeof(query_sql_statistic_stat));
+  if (req == nullptr) {
+    ctc_log_error("alloc shm mem error, shm_inst(%p), size(%lu)", shm_inst, sizeof(query_sql_statistic_stat));
+    return ERR_ALLOC_MEMORY;
+  }
+  int result = ERR_CONNECTION_FAILED;
+  int ret = ctc_mq_deal_func(shm_inst, CTC_FUNC_QUERY_SQL_STATISTIC_STAT, req, nullptr, SERVER_REGISTER_PROC_ID);
+  if (ret == CT_SUCCESS) {
+    result = req->result;
+    *enable_stat = req->enable_stat;
   }
   free_share_mem(shm_inst, req);
   return result;

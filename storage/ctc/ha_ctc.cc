@@ -77,7 +77,8 @@
 #include "ha_ctc_ddl.h"
 #include "ha_ctcpart.h"
 #include "ha_ctc_pq.h"
-
+#include "my_systime.h"
+#include "my_time.h"
 #include <errno.h>
 #include <limits.h>
 #include <sql/sql_thd_internal_api.h>
@@ -147,7 +148,6 @@
 #define CTC_MAX_SAMPLE_SIZE (4096)    // MB
 #define CTC_MIN_SAMPLE_SIZE (32)      // MB
 #define CTC_DEFAULT_SAMPLE_SIZE (128) // MB
-
 static void ctc_statistics_enabled_update(THD * thd, SYS_VAR *, void *var_ptr, const void *save) {
     bool enabled = *static_cast<bool *>(var_ptr) = *static_cast<const bool *>(save);
     ctc_stats::get_instance()->set_statistics_enabled(enabled);
@@ -1331,7 +1331,12 @@ static int ctc_start_trx_and_assign_scn(
   uint32_t lock_wait_timeout = THDVAR(thd, lock_wait_timeout);
   ctc_trx_context_t trx_context = {isolation_level, autocommit, lock_wait_timeout, false};
   bool is_mysql_local = (sess_ctx->set_flag & CTC_DDL_LOCAL_ENABLED);
-  ct_errno_t ret = (ct_errno_t)ctc_trx_begin(&tch, trx_context, is_mysql_local);
+  struct timeval begin_time = {INVALID_INT64, INVALID_INT64};
+  bool enable_stat = get_enable_wsr_stat();
+  if (enable_stat) {
+    gettimeofday(&begin_time, NULL);
+  }
+  ct_errno_t ret = (ct_errno_t)ctc_trx_begin(&tch, trx_context, is_mysql_local, begin_time, enable_stat);
   update_sess_ctx_by_tch(tch, hton, thd);
   if (ret != CT_SUCCESS) {
     ctc_log_error("start trx failed with error code: %d", ret);
@@ -1475,6 +1480,26 @@ static void ctc_free_cursors_no_autocommit(THD *thd, ctc_handler_t *tch, thd_ses
   ctc_free_buf(tch, (uint8_t *)cursors);
 }
 
+bool is_dml_cmd(const String& sql)
+{
+    constexpr int PREFIX_LENGTH = 6;
+    if (sql.length() < PREFIX_LENGTH) {
+        return false;
+    }
+    String prefix(sql.ptr(), PREFIX_LENGTH, sql.charset());
+    for (size_t i = 0; i < PREFIX_LENGTH; ++i) {
+        prefix[i] = tolower(prefix[i]);
+    }
+    constexpr char SELECT_PREFIX[] = "select";
+    constexpr char INSERT_PREFIX[] = "insert";
+    constexpr char DELETE_PREFIX[] = "delete";
+    constexpr char UPDATE_PREFIX[] = "update";
+    return strncmp(prefix.ptr(), SELECT_PREFIX, PREFIX_LENGTH) == 0 ||
+           strncmp(prefix.ptr(), INSERT_PREFIX, PREFIX_LENGTH) == 0 ||
+           strncmp(prefix.ptr(), DELETE_PREFIX, PREFIX_LENGTH) == 0 ||
+           strncmp(prefix.ptr(), UPDATE_PREFIX, PREFIX_LENGTH) == 0;
+}
+
 /**
   Commits a transaction in an ctc database or marks an SQL statement ended.
   @param: hton in, ctc handlerton
@@ -1500,7 +1525,13 @@ static int ctc_commit(handlerton *hton, THD *thd, bool commit_trx) {
   ct_errno_t ret = CT_SUCCESS;
   thd_sess_ctx_s *sess_ctx = (thd_sess_ctx_s *)thd_get_ha_data(thd, hton);
   assert(sess_ctx != nullptr);
-
+  bool is_dmlsql = false;
+  bool enable_stat = get_enable_wsr_stat();
+  if (thd->query().str != NULL && thd->query().length > 0) {
+    string dml_sql = string(thd->query().str).substr(0, thd->query().length);
+    String dml_sql_string(dml_sql.c_str(), dml_sql.length(), thd->charset());
+    is_dmlsql = is_dml_cmd(dml_sql_string);
+  }
   if (will_commit) {
     commit_preprocess(thd, &tch);
     attachable_trx_update_pre_addr(thd, &tch, true);
@@ -1515,7 +1546,11 @@ static int ctc_commit(handlerton *hton, THD *thd, bool commit_trx) {
     }
     assert((total_csize == 0) ^ (cursors != nullptr));
     ctc_copy_cursors_to_free(sess_ctx, cursors, 0);
-    ret = (ct_errno_t)ctc_trx_commit(&tch, cursors, total_csize, &is_ddl_commit);
+    const char *sql_str = nullptr;
+    if (is_dmlsql && enable_stat) {
+      sql_str = thd->query().str;
+    }
+    ret = (ct_errno_t)ctc_trx_commit(&tch, cursors, total_csize, &is_ddl_commit, sql_str, enable_stat);
     ctc_free_buf(&tch, (uint8_t *)cursors);
     if (ret != CT_SUCCESS) {
       ctc_log_error("commit atomic ddl failed with error code: %d", ret);
@@ -1540,6 +1575,15 @@ static int ctc_commit(handlerton *hton, THD *thd, bool commit_trx) {
     }
     sess_ctx->is_ctc_trx_begin = 0;
   } else {
+    const char* sql_str = thd->query().str;
+    if (is_dmlsql && enable_stat) {
+      ret = (ct_errno_t)ctc_statistic_commit(&tch, sql_str, enable_stat);
+      if (ret != CT_SUCCESS) {
+        ctc_log_error("commit statistic failed with error code: %d", ret);
+        END_RECORD_STATS(EVENT_TYPE_COMMIT)
+        return convert_ctc_error_code_to_mysql(ret);
+      }
+    }
     ctc_free_cursors_no_autocommit(thd, &tch, sess_ctx);
   }
 
@@ -4387,7 +4431,11 @@ int ha_ctc::external_lock(THD *thd, int lock_type) {
 */
 int ha_ctc::start_stmt(THD *thd, thr_lock_type) {
   DBUG_TRACE;
-
+  struct timeval begin_time = {INVALID_INT64, INVALID_INT64};
+  bool enable_stat = get_enable_wsr_stat();
+  if (enable_stat) {
+    gettimeofday(&begin_time, NULL);
+  }
   trans_register_ha(thd, false, ht, nullptr); // register trans to STMT
 
   update_member_tch(m_tch, ctc_hton, thd, false);
@@ -4410,6 +4458,11 @@ int ha_ctc::start_stmt(THD *thd, thr_lock_type) {
   if (sess_ctx->is_ctc_trx_begin) {
     assert(m_tch.sess_addr != INVALID_VALUE64);
     assert(m_tch.thd_id == thd->thread_id());
+    ct_errno_t ret = (ct_errno_t)ctc_statistic_begin(&m_tch, begin_time, enable_stat);
+    if (ret != CT_SUCCESS) {
+      ctc_log_error("start statistic failed with error code: %d", ret);
+      return convert_ctc_error_code_to_mysql(ret);
+    }
     return 0;
   }
 
@@ -4420,14 +4473,14 @@ int ha_ctc::start_stmt(THD *thd, thr_lock_type) {
   ctc_trx_context_t trx_context = {isolation_level, autocommit, lock_wait_timeout, m_select_lock == lock_mode::EXCLUSIVE_LOCK};
   
   bool is_mysql_local = (sess_ctx->set_flag & CTC_DDL_LOCAL_ENABLED);
-  ct_errno_t ret = (ct_errno_t)ctc_trx_begin(&m_tch, trx_context, is_mysql_local);
+  ct_errno_t ret = (ct_errno_t)ctc_trx_begin(&m_tch, trx_context, is_mysql_local, begin_time, enable_stat);
   
   check_error_code_to_mysql(ha_thd(), &ret);
 
   update_sess_ctx_by_tch(m_tch, ctc_hton, thd);
   
   if (ret != CT_SUCCESS) {
-    ctc_log_error("start trx failed with error code: %d", ret);
+      ctc_log_error("start trx failed with error code: %d", ret);
     return convert_ctc_error_code_to_mysql(ret);
   }
   
@@ -4912,6 +4965,23 @@ extern int (*ctc_deinit)();
 
 int ctc_push_to_engine(THD *thd, AccessPath *root_path, JOIN *);
 
+static int ctc_initialize_sql_statistic_stat() {
+  bool enable_stat = false;
+  int result = ctc_query_sql_statistic_stat(&enable_stat);
+  if (result != 0) {
+    return HA_ERR_INITIALIZATION;
+  }
+  set_enable_wsr_stat(enable_stat);
+  return 0;
+}
+
+static int ctc_initialize_global_variable_from_cantian_parameter() {
+  if (ctc_initialize_sql_statistic_stat() != 0) {
+    return HA_ERR_INITIALIZATION;
+  }
+  return 0;
+}
+
 static int ctc_init_func(void *p) {
   DBUG_TRACE;
   ctc_hton = (handlerton *)p;
@@ -4990,6 +5060,12 @@ static int ctc_init_func(void *p) {
   ctc_get_cluster_role();
 
   ctc_get_sample_size_value();
+
+  ret = ctc_initialize_global_variable_from_cantian_parameter();
+  if (ret != 0) {
+    ctc_log_error("[CTC_INIT]:ctc_initialize_global_variable_from_cantian_parameter failed:%d", ret);
+    return HA_ERR_INITIALIZATION;
+  }
 
   ctc_log_system("[CTC_INIT]:SUCCESS!");
   return 0;

@@ -485,6 +485,11 @@ __attribute__((visibility("default"))) int ctc_set_cluster_role_by_cantian(bool 
   return 0;
 }
 
+__attribute__((visibility("default"))) int ctc_update_sql_statistic_stat(bool enable_stat) {
+  set_enable_wsr_stat(enable_stat);
+  return 0;
+}
+
 static int ctc_ddl_get_lock(MYSQL *curr_conn, const uint64_t &conn_map_key, const char *lock_name, int *err_code) {
   uchar digest[MD5_HASH_SIZE];
   compute_md5_hash(pointer_cast<char *>(digest), lock_name, strlen(lock_name));

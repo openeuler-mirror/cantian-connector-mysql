@@ -19,7 +19,7 @@
 
 #ifndef __HA_CTC_H__
 #define __HA_CTC_H__
-
+#include "sql/tztime.h"
 #include <sys/types.h>
 #include <vector>
 #include "my_inttypes.h"
@@ -66,6 +66,7 @@ using namespace std;
 #define PREFER_RANGE_DENSITY 0.8
 #define CT_MAX_RECORD_LENGTH 64000
 #define INVALID_PART_ID (uint32)0xFFFFFFFF
+#define INVALID_INT64 (int64)0x7FFFFFFFFFFFFFFF
 
 /* update if restraints changed in Cantian */
 #define CTC_MAX_KEY_PART_LENGTH 4095  // CT_MAX_KEY_SIZE
