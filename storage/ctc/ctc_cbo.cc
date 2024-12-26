@@ -80,6 +80,15 @@ bool handle_null_and_single_boundary(ctc_key *rKey, Field *field, cache_variant_
   return !access_boundary;
 }
 
+template <typename T, typename U>
+void convert_int_to_variant(const uchar *key, cache_variant_t *variant, bool is_unsigned) {
+  if (is_unsigned) {
+    variant->v_uint32 = *(U *)const_cast<uchar *>(key);
+  } else {
+    variant->v_int = *(T *)const_cast<uchar *>(key);
+  }
+}
+
 void extract_boundary_value(ctc_key *rKey, KEY_PART_INFO *cur_index_part, cache_variant_t *ret_val,
                             cache_variant_t * value, uint32_t key_offset)
 {
@@ -106,7 +115,7 @@ void extract_boundary_value(ctc_key *rKey, KEY_PART_INFO *cur_index_part, cache_
   const uchar *key = rKey->key + key_offset + varchar_offset + null_offset;
   uchar tmp_ptr[CTC_BYTE_8] = {0};
   const field_cnvrt_aux_t *mysql_info = get_auxiliary_for_field_convert(field, field->type());
-
+  bool is_unsigned = field->is_unsigned();
   switch (field->real_type()) {
     case MYSQL_TYPE_SET:
       convert_set_key_to_variant(key, ret_val, (capacity_usage)field->pack_length());
@@ -118,13 +127,20 @@ void extract_boundary_value(ctc_key *rKey, KEY_PART_INFO *cur_index_part, cache_
       ret_val->v_ubigint = bit_cnvt_mysql_cantian(key, field);
       break;
     case MYSQL_TYPE_TINY:
-      ret_val->v_int = *(int8_t *)const_cast<uchar *>(key);
+      convert_int_to_variant<int8_t, uint8_t>(key, ret_val, is_unsigned);
       break;
     case MYSQL_TYPE_SHORT:
-      ret_val->v_int = *(int16_t *)const_cast<uchar *>(key);
+      convert_int_to_variant<int16_t, uint16_t>(key, ret_val, is_unsigned);
+      break;
+    case MYSQL_TYPE_INT24:
+      if (is_unsigned) {
+        ret_val->v_uint32 = uint3korr(key);
+      } else {
+        ret_val->v_int = sint3korr(key);
+      }
       break;
     case MYSQL_TYPE_LONG:
-      ret_val->v_int = *(int32_t *)const_cast<uchar *>(key);
+      convert_int_to_variant<int32_t, uint32_t>(key, ret_val, is_unsigned);
       break;
     case MYSQL_TYPE_FLOAT:
       ret_val->v_real = *(float *)const_cast<uchar *>(key);
@@ -133,7 +149,11 @@ void extract_boundary_value(ctc_key *rKey, KEY_PART_INFO *cur_index_part, cache_
       ret_val->v_real = *(double *)const_cast<uchar *>(key);
       break;
     case MYSQL_TYPE_LONGLONG:
-      ret_val->v_bigint = *(int64_t *)const_cast<uchar *>(key);
+      if (is_unsigned) {
+        ret_val->v_ubigint = *(uint64_t *)const_cast<uchar *>(key);
+      } else {
+        ret_val->v_bigint = *(int64_t *)const_cast<uchar *>(key);
+      }
       break;
     case MYSQL_TYPE_TIMESTAMP2:
     case MYSQL_TYPE_YEAR:
@@ -198,6 +218,7 @@ static en_ctc_compare_type compare(cache_variant_t *right, cache_variant_t *left
                                    const CHARSET_INFO *cs)
 {
   double compare_value = 0;
+  bool is_unsigned = field->is_unsigned();
   switch (field->real_type()) {
     case MYSQL_TYPE_SET:
       if ((capacity_usage)field->pack_length() <= FOUR_BYTES) {
@@ -210,8 +231,13 @@ static en_ctc_compare_type compare(cache_variant_t *right, cache_variant_t *left
       return two_nums_compare(right->v_ubigint, left->v_ubigint);
     case MYSQL_TYPE_TINY:
     case MYSQL_TYPE_SHORT:
+    case MYSQL_TYPE_INT24:
     case MYSQL_TYPE_LONG:
-      compare_value = right->v_int - left->v_int;
+      if (is_unsigned) {
+        return two_nums_compare(right->v_uint32, left->v_uint32);
+      } else {
+        return two_nums_compare(right->v_int, left->v_int);
+      }
       break;
     case MYSQL_TYPE_FLOAT:
     case MYSQL_TYPE_DOUBLE:
@@ -219,8 +245,12 @@ static en_ctc_compare_type compare(cache_variant_t *right, cache_variant_t *left
     case MYSQL_TYPE_NEWDECIMAL:
       compare_value = (right->v_real - left->v_real);
       break;
-    case MYSQL_TYPE_LONGLONG:
-      compare_value =  (right->v_bigint - left->v_bigint);
+    case MYSQL_TYPE_LONGLONG: 
+      if (is_unsigned) {
+        return two_nums_compare(right->v_ubigint, left->v_ubigint);
+      } else {
+        return two_nums_compare(right->v_bigint, left->v_bigint);
+      }
       break;
     case MYSQL_TYPE_YEAR:
     case MYSQL_TYPE_TIMESTAMP2:
@@ -411,6 +441,7 @@ static double percent_in_bucket(ctc_cbo_stats_column_t *col_stat, uint32 high,
   cache_variant_t *ep_high = high >= col_stat->hist_count ? &col_stat->high_value : &hist_infos[high].ep_value;
   cache_variant_t *ep_low = high < 1 ? &col_stat->low_value : &hist_infos[high - 1].ep_value;
   double denominator;
+  bool is_unsigned = field->is_unsigned();
   switch (field->real_type()) {
     case MYSQL_TYPE_SET:
       if ((capacity_usage)field->pack_length() <= FOUR_BYTES) {
@@ -435,9 +466,16 @@ static double percent_in_bucket(ctc_cbo_stats_column_t *col_stat, uint32 high,
       break;
     case MYSQL_TYPE_TINY:
     case MYSQL_TYPE_SHORT:
+    case MYSQL_TYPE_INT24:
     case MYSQL_TYPE_LONG:
-      if (ep_high->v_int - ep_low->v_int > 0) {
-        percent = (double)(ep_high->v_int - key->v_int) / (ep_high->v_int - ep_low->v_int);
+      if (is_unsigned) {
+        if (ep_high->v_uint32 > ep_low->v_uint32) {
+          percent = (double)(ep_high->v_uint32 - key->v_uint32) / (ep_high->v_uint32 - ep_low->v_uint32);
+        }
+      } else {
+        if (ep_high->v_int > ep_low->v_int) {
+          percent = (double)(ep_high->v_int - key->v_int) / (ep_high->v_int - ep_low->v_int);
+        }
       }
       break;
     case MYSQL_TYPE_FLOAT:
@@ -449,8 +487,14 @@ static double percent_in_bucket(ctc_cbo_stats_column_t *col_stat, uint32 high,
       }
       break;
     case MYSQL_TYPE_LONGLONG:
-      if (ep_high->v_bigint - ep_low->v_bigint > 0) {
-        percent = (double)(ep_high->v_bigint - key->v_bigint) / (ep_high->v_bigint - ep_low->v_bigint);
+      if (is_unsigned) {  
+        if (ep_high->v_ubigint > ep_low->v_ubigint) {
+          percent = (double)(ep_high->v_ubigint - key->v_ubigint) / (ep_high->v_ubigint - ep_low->v_ubigint);
+        }
+      } else {
+        if (ep_high->v_bigint > ep_low->v_bigint) {
+          percent = (double)(ep_high->v_bigint - key->v_bigint) / (ep_high->v_bigint - ep_low->v_bigint);
+        }
       }
       break;
     case MYSQL_TYPE_YEAR:

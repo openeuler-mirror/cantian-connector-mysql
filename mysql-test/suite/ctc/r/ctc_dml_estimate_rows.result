@@ -145,3 +145,345 @@ EXPLAIN SELECT * FROM t1 FORCE INDEX (idx_bcd) WHERE b = 131 AND c >= '100' AND 
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	range	idx_bcd	idx_bcd	87	NULL	381	100.00	Using where; Using pushed condition ((`test`.`t1`.`b` = 131) and (`test`.`t1`.`c` >= '100') and (`test`.`t1`.`c` <= '400'))
 drop table t1;
+create table t1 (a tinyint unsigned not null primary key);
+insert into t1 values (1),(2),(3),(4),(5),(127),(128),(253),(254),(255);
+analyze table t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+explain select * from t1 where a > 253;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	PRIMARY	PRIMARY	1	NULL	2	100.00	Using where; Using pushed condition (`test`.`t1`.`a` > 253); Using index
+explain select * from t1 where a < 3;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	PRIMARY	PRIMARY	1	NULL	2	100.00	Using where; Using pushed condition (`test`.`t1`.`a` < 3); Using index
+drop table t1;
+create table t2 (a tinyint signed not null primary key);
+insert into t2 values (-128),(-127),(-126),(-125),(0),(1),(121),(122),(125),(127);
+analyze table t2;
+Table	Op	Msg_type	Msg_text
+test.t2	analyze	status	OK
+explain select * from t2 where a > 122;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t2	NULL	range	PRIMARY	PRIMARY	1	NULL	2	100.00	Using where; Using pushed condition (`test`.`t2`.`a` > 122); Using index
+explain select * from t2 where a < -120;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t2	NULL	range	PRIMARY	PRIMARY	1	NULL	4	100.00	Using where; Using pushed condition (`test`.`t2`.`a` < <cache>(-(120))); Using index
+drop table t2;
+create table t3 (a smallint unsigned not null primary key);
+insert into t3 values (1),(2),(3),(4),(5),(127),(128),(65533),(65534),(65535);
+analyze table t3;
+Table	Op	Msg_type	Msg_text
+test.t3	analyze	status	OK
+explain select * from t3 where a > 65533;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t3	NULL	range	PRIMARY	PRIMARY	2	NULL	2	100.00	Using where; Using pushed condition (`test`.`t3`.`a` > 65533); Using index
+explain select * from t3 where a < 3;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t3	NULL	range	PRIMARY	PRIMARY	2	NULL	2	100.00	Using where; Using pushed condition (`test`.`t3`.`a` < 3); Using index
+drop table t3;
+create table t4 (a smallint signed not null primary key);
+insert into t4 values (-32768),(-32767),(-32766),(-32765),(0),(1),(32764),(32765),(32766),(32767);
+analyze table t4;
+Table	Op	Msg_type	Msg_text
+test.t4	analyze	status	OK
+explain select * from t4 where a > 32765;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t4	NULL	range	PRIMARY	PRIMARY	2	NULL	2	100.00	Using where; Using pushed condition (`test`.`t4`.`a` > 32765); Using index
+explain select * from t4 where a < -32766;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t4	NULL	range	PRIMARY	PRIMARY	2	NULL	2	100.00	Using where; Using pushed condition (`test`.`t4`.`a` < <cache>(-(32766))); Using index
+drop table t4;
+create table t5 (a mediumint unsigned not null primary key);
+insert into t5 values (1),(2),(3),(4),(5),(127),(128),(16777213),(16777214),(16777215);
+analyze table t5;
+Table	Op	Msg_type	Msg_text
+test.t5	analyze	status	OK
+explain select * from t5 where a > 16777213;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t5	NULL	range	PRIMARY	PRIMARY	3	NULL	2	100.00	Using where; Using pushed condition (`test`.`t5`.`a` > 16777213); Using index
+explain select * from t5 where a < 3;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t5	NULL	range	PRIMARY	PRIMARY	3	NULL	2	100.00	Using where; Using pushed condition (`test`.`t5`.`a` < 3); Using index
+drop table t5;
+create table t6 (a mediumint signed not null primary key);
+insert into t6 values (-8388608),(-8388607),(-32766),(-32765),(0),(1),(8388604),(8388605),(8388606),(8388607);
+analyze table t6;
+Table	Op	Msg_type	Msg_text
+test.t6	analyze	status	OK
+explain select * from t6 where a > 8388605;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t6	NULL	range	PRIMARY	PRIMARY	3	NULL	2	100.00	Using where; Using pushed condition (`test`.`t6`.`a` > 8388605); Using index
+explain select * from t6 where a < -32766;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t6	NULL	range	PRIMARY	PRIMARY	3	NULL	2	100.00	Using where; Using pushed condition (`test`.`t6`.`a` < <cache>(-(32766))); Using index
+drop table t6;
+create table t7 (a tinyint unsigned not null primary key);
+create procedure insert_rows()
+begin
+DECLARE i INT DEFAULT 0;
+WHILE i <= 255 do
+insert into t7 values(i);
+set i = i + 1;
+end while;
+end//
+call insert_rows;
+drop procedure insert_rows;
+analyze table t7;
+Table	Op	Msg_type	Msg_text
+test.t7	analyze	status	OK
+explain select * from t7 where a > 250;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t7	NULL	range	PRIMARY	PRIMARY	1	NULL	5	100.00	Using where; Using pushed condition (`test`.`t7`.`a` > 250); Using index
+select count(*) from t7 where a > 250;
+count(*)
+5
+explain select * from t7 where a < 10;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t7	NULL	range	PRIMARY	PRIMARY	1	NULL	11	100.00	Using where; Using pushed condition (`test`.`t7`.`a` < 10); Using index
+select count(*) from t7 where a < 10;
+count(*)
+10
+drop table t7;
+create table t8 (a tinyint signed not null primary key);
+create procedure insert_rows()
+begin
+declare i int default -128;
+while i <= 127 do
+insert into t8 values(i);
+set i = i + 1;
+end while;
+end//
+call insert_rows;
+drop procedure insert_rows;
+analyze table t8;
+Table	Op	Msg_type	Msg_text
+test.t8	analyze	status	OK
+explain select * from t8 where a > 122;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t8	NULL	range	PRIMARY	PRIMARY	1	NULL	5	100.00	Using where; Using pushed condition (`test`.`t8`.`a` > 122); Using index
+select count(*) from t8 where a > 122;
+count(*)
+5
+explain select * from t8 where a < -120;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t8	NULL	range	PRIMARY	PRIMARY	1	NULL	9	100.00	Using where; Using pushed condition (`test`.`t8`.`a` < <cache>(-(120))); Using index
+select count(*) from t8 where a < -120;
+count(*)
+8
+drop table t8;
+create table t9 (a smallint signed not null primary key);
+create procedure insert_rows()
+begin
+declare i int default -32768;
+while i <= 32767 do
+insert into t9 values(i);
+set i = i + 100;
+end while;
+end//
+call insert_rows;
+drop procedure insert_rows;
+analyze table t9;
+Table	Op	Msg_type	Msg_text
+test.t9	analyze	status	OK
+explain select * from t9 where a > 30000;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t9	NULL	range	PRIMARY	PRIMARY	2	NULL	27	100.00	Using where; Using pushed condition (`test`.`t9`.`a` > 30000); Using index
+select count(*) from t9 where a > 30000;
+count(*)
+28
+explain select * from t9 where a < -30000;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t9	NULL	range	PRIMARY	PRIMARY	2	NULL	30	100.00	Using where; Using pushed condition (`test`.`t9`.`a` < <cache>(-(30000))); Using index
+select count(*) from t9 where a < -30000;
+count(*)
+28
+drop table t9;
+create table t10 (a smallint unsigned not null primary key);
+create procedure insert_rows()
+begin
+declare i int default 1;
+while i <= 65535 do
+insert into t10 values(i);
+set i = i + 100;
+end while;
+end//
+call insert_rows;
+drop procedure insert_rows;
+analyze table t10;
+Table	Op	Msg_type	Msg_text
+test.t10	analyze	status	OK
+explain select * from t10 where a > 60000;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t10	NULL	range	PRIMARY	PRIMARY	2	NULL	55	100.00	Using where; Using pushed condition (`test`.`t10`.`a` > 60000); Using index
+select count(*) from t10 where a > 60000;
+count(*)
+56
+explain select * from t10 where a < 10000;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t10	NULL	range	PRIMARY	PRIMARY	2	NULL	102	100.00	Using where; Using pushed condition (`test`.`t10`.`a` < 10000); Using index
+select count(*) from t10 where a < 10000;
+count(*)
+100
+drop table t10;
+create table t11 (a mediumint unsigned not null primary key);
+create procedure insert_rows()
+begin
+declare i int default 1;
+while i <= 16777215 do
+insert into t11 values(i);
+set i = i + 10000;
+end while;
+end//
+call insert_rows;
+drop procedure insert_rows;
+analyze table t11;
+Table	Op	Msg_type	Msg_text
+test.t11	analyze	status	OK
+explain select * from t11 where a > 15000000;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t11	NULL	range	PRIMARY	PRIMARY	3	NULL	177	100.00	Using where; Using pushed condition (`test`.`t11`.`a` > 15000000); Using index
+select count(*) from t11 where a > 15000000;
+count(*)
+178
+explain select * from t11 where a < 100000;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t11	NULL	range	PRIMARY	PRIMARY	3	NULL	12	100.00	Using where; Using pushed condition (`test`.`t11`.`a` < 100000); Using index
+select count(*) from t11 where a < 100000;
+count(*)
+10
+drop table t11;
+create table t12 (a mediumint signed not null primary key);
+create procedure insert_rows()
+begin
+declare i int default -8388608;
+while i <= 8388607 do
+insert into t12 values(i);
+set i = i + 10000;
+end while;
+end//
+call insert_rows;
+drop procedure insert_rows;
+analyze table t12;
+Table	Op	Msg_type	Msg_text
+test.t12	analyze	status	OK
+explain select * from t12 where a > 8000000;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t12	NULL	range	PRIMARY	PRIMARY	3	NULL	38	100.00	Using where; Using pushed condition (`test`.`t12`.`a` > 8000000); Using index
+select count(*) from t12 where a > 8000000;
+count(*)
+39
+explain select * from t12 where a < -8000000;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t12	NULL	range	PRIMARY	PRIMARY	3	NULL	41	100.00	Using where; Using pushed condition (`test`.`t12`.`a` < <cache>(-(8000000))); Using index
+select count(*) from t12 where a < -8000000;
+count(*)
+39
+drop table t12;
+create table t13 (a int unsigned not null primary key);
+create procedure insert_rows()
+begin
+declare i bigint default 1;
+while i <= 4294967295 do
+insert into t13 values(i);
+set i = i + 1000000;
+end while;
+end//
+call insert_rows;
+drop procedure insert_rows;
+analyze table t13;
+Table	Op	Msg_type	Msg_text
+test.t13	analyze	status	OK
+explain select * from t13 where a > 4000000000;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t13	NULL	range	PRIMARY	PRIMARY	4	NULL	294	100.00	Using where; Using pushed condition (`test`.`t13`.`a` > 4000000000); Using index
+select count(*) from t13 where a > 4000000000;
+count(*)
+295
+explain select * from t13 where a < 100000000;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t13	NULL	range	PRIMARY	PRIMARY	4	NULL	102	100.00	Using where; Using pushed condition (`test`.`t13`.`a` < 100000000); Using index
+select count(*) from t13 where a < 100000000;
+count(*)
+100
+drop table t13;
+create table t14 (a int signed not null primary key);
+create procedure insert_rows()
+begin
+declare i bigint default -2147483648;
+while i <= 2147483647 do
+insert into t14 values(i);
+set i = i + 1000000;
+end while;
+end//
+call insert_rows;
+drop procedure insert_rows;
+analyze table t14;
+Table	Op	Msg_type	Msg_text
+test.t14	analyze	status	OK
+explain select * from t14 where a > 2000000000;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t14	NULL	range	PRIMARY	PRIMARY	4	NULL	146	100.00	Using where; Using pushed condition (`test`.`t14`.`a` > 2000000000); Using index
+select count(*) from t14 where a > 2000000000;
+count(*)
+147
+explain select * from t14 where a < -2000000000;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t14	NULL	range	PRIMARY	PRIMARY	4	NULL	149	100.00	Using where; Using pushed condition (`test`.`t14`.`a` < <cache>(-(2000000000))); Using index
+select count(*) from t14 where a < -2000000000;
+count(*)
+148
+drop table t14;
+create table t15 (a bigint unsigned not null primary key);
+create procedure insert_rows()
+begin
+declare i bigint unsigned default 1;
+while i < 18346744073709551615 do
+insert into t15 values(i);
+set i = i + 100000000000000000;
+end while;
+end//
+call insert_rows;
+drop procedure insert_rows;
+analyze table t15;
+Table	Op	Msg_type	Msg_text
+test.t15	analyze	status	OK
+explain select * from t15 where a > 18000000000000000000;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t15	NULL	range	PRIMARY	PRIMARY	8	NULL	4	100.00	Using where; Using pushed condition (`test`.`t15`.`a` > 18000000000000000000); Using index
+select count(*) from t15 where a > 18000000000000000000;
+count(*)
+4
+explain select * from t15 where a < 100000000000000000;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t15	NULL	range	PRIMARY	PRIMARY	8	NULL	1	100.00	Using where; Using pushed condition (`test`.`t15`.`a` < 100000000000000000); Using index
+select count(*) from t15 where a < 100000000000000000;
+count(*)
+1
+drop table t15;
+create table t16 (a bigint signed not null primary key);
+create procedure insert_rows()
+begin
+declare i bigint default -9223372036854775808;
+while i < 9213372036854775807 do
+insert into t16 values(i);
+set i = i + 10000000000000000;
+end while;
+end//
+call insert_rows;
+drop procedure insert_rows;
+analyze table t16;
+Table	Op	Msg_type	Msg_text
+test.t16	analyze	status	OK
+explain select * from t16 where a > 9000000000000000000;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	range	PRIMARY	PRIMARY	8	NULL	21	100.00	Using where; Using pushed condition (`test`.`t16`.`a` > 9000000000000000000); Using index
+select count(*) from t16 where a > 9000000000000000000;
+count(*)
+21
+explain select * from t16 where a < -9000000000000000000;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t16	NULL	range	PRIMARY	PRIMARY	8	NULL	24	100.00	Using where; Using pushed condition (`test`.`t16`.`a` < -9000000000000000000); Using index
+select count(*) from t16 where a < -9000000000000000000;
+count(*)
+23
+drop table t16;

@@ -340,6 +340,16 @@ int ctc_fill_cond_field_data_date(ctc_handler_t m_tch, enum_field_types datatype
   return ret;
 }
 
+int16_t ctc_get_timezone_offset() {
+  THD *thd = current_thd;
+  bool not_used = false;
+  MYSQL_TIME ltime = {1970, 1, 2, 0, 0, 0, 0, 0, MYSQL_TIMESTAMP_DATETIME, 0};
+  my_time_t tm_sess = thd->time_zone()->TIME_to_gmt_sec(&ltime, &not_used);
+  longlong seconds = SECONDS_IN_24H - tm_sess;
+  int16_t timezone_offset_minutes = static_cast<int16_t>(seconds / SECS_PER_MIN);
+  return timezone_offset_minutes;
+}
+
 int cond_fill_date(Item *item, ctc_conds *cond, Field **, ctc_handler_t m_tch, 
                    ctc_cond_list *, bool , en_ctc_func_type_t *functype) {
   MYSQL_TIME ltime = {0, 0, 0, 0, 0, 0, 0, 0, MYSQL_TIMESTAMP_ERROR, 0};
@@ -364,6 +374,11 @@ int cond_fill_date(Item *item, ctc_conds *cond, Field **, ctc_handler_t m_tch,
     if (item_date_literal->get_date(&ltime, TIME_FUZZY_DATE)) {
       return CT_ERROR;
     }
+  }
+  if (current_thd->time_zone()->get_timezone_type() == Time_zone::TZ_OFFSET) {
+    cond->field_info.timezone = current_thd->time_zone()->get_timezone_offset() / SECS_PER_MIN;
+  } else {
+    cond->field_info.timezone = ctc_get_timezone_offset();
   }
   return ctc_fill_cond_field_data_date(m_tch, datatype, functype, ltime, &date_detail, cond);
 }
@@ -532,6 +547,7 @@ inline void set_cond_types(ctc_conds* conds, Item_func::Functype fc) {
 
 int cond_fill_func(Item *item, ctc_conds *cond, Field **field, ctc_handler_t m_tch, 
                    ctc_cond_list *list, bool no_backslash, en_ctc_func_type_t *functype) {
+  int ret = CT_SUCCESS;
   Item_func *item_func = dynamic_cast<Item_func *>(item);
   CTC_RET_ERR_IF_NULL(item_func);
   
@@ -539,6 +555,8 @@ int cond_fill_func(Item *item, ctc_conds *cond, Field **field, ctc_handler_t m_t
   set_cond_types(cond, fc);
   if (cond->cond_type == CTC_DATE_EXPR) {
     // fill in the parent functype in case of adjustment
+    ctc_free_buf(&m_tch, (uint8_t *)(list));
+    cond->cond_list = nullptr;
     return cond_fill_date(item, cond, field, m_tch, list, no_backslash, functype);
   }
 
@@ -552,9 +570,7 @@ int cond_fill_func(Item *item, ctc_conds *cond, Field **field, ctc_handler_t m_t
       return CT_ERROR;
     }
     memset(sub_cond, 0, sizeof(ctc_conds));
-    if (dfs_fill_conds(m_tch, args[i], field, sub_cond, no_backslash, &cond->func_type) != CT_SUCCESS) {
-      return CT_ERROR;
-    }
+    ret = dfs_fill_conds(m_tch, args[i], field, sub_cond, no_backslash, &cond->func_type);
     if (list->elements == 0) {
       list->first = sub_cond;
     } else {
@@ -564,11 +580,12 @@ int cond_fill_func(Item *item, ctc_conds *cond, Field **field, ctc_handler_t m_t
     (list->elements)++;
   }
 
-  return CT_SUCCESS;
+  return ret;
 }
 
 int cond_fill_cond(Item *item, ctc_conds *cond, Field **field, ctc_handler_t m_tch, 
                    ctc_cond_list *list, bool no_backslash, en_ctc_func_type_t *) {
+  int ret = CT_SUCCESS;
   Item_cond *item_cond = dynamic_cast<Item_cond *>(item);
   CTC_RET_ERR_IF_NULL(item_cond);
 
@@ -585,9 +602,7 @@ int cond_fill_cond(Item *item, ctc_conds *cond, Field **field, ctc_handler_t m_t
       return CT_ERROR;
     }
     memset(sub_cond, 0, sizeof(ctc_conds));
-    if (dfs_fill_conds(m_tch, (Item *)(node->info), field, sub_cond, no_backslash, NULL) != CT_SUCCESS) {
-      return CT_ERROR;
-    }
+    ret = dfs_fill_conds(m_tch, (Item *)(node->info), field, sub_cond, no_backslash, NULL);
     if (list->elements == 0) {
       list->first = sub_cond;
     } else {
@@ -598,7 +613,7 @@ int cond_fill_cond(Item *item, ctc_conds *cond, Field **field, ctc_handler_t m_t
     node = node->next;
   }
 
-  return CT_SUCCESS;
+  return ret;
 }
 
 static bool is_supported_conds(Item *term, Item_func::Functype parent_type) {
@@ -1177,24 +1192,24 @@ void cond_push_term(Item *term, Item *&pushed_cond, Item *&remainder_cond, Item_
 
 int dfs_fill_conds(ctc_handler_t m_tch, Item *items, Field **field, ctc_conds *conds,
                    bool no_backslash, en_ctc_func_type_t *functype) {
+  int ret = CT_SUCCESS;
   Item::Type type = items->type();
   const ctc_cond_push_map* cond_map = get_cond_push_map(type);
   if (cond_map == nullptr) {
     return CT_ERROR;
   }
-  
-  ctc_cond_list *list = (ctc_cond_list *)ctc_alloc_buf(&m_tch, sizeof(ctc_cond_list));
-  if (list == nullptr) {
-    ctc_log_error("dfs_fill_conds: alloc ctc_cond_list error, size(%lu).", sizeof(ctc_cond_list));
-    return CT_ERROR;
+  ctc_cond_list *list = nullptr;
+  if (type == Item::FUNC_ITEM || type == Item::COND_ITEM) {
+    list = (ctc_cond_list *)ctc_alloc_buf(&m_tch, sizeof(ctc_cond_list));
+    if (list == nullptr) {
+      ctc_log_error("dfs_fill_conds: alloc ctc_cond_list error, size(%lu).", sizeof(ctc_cond_list));
+      return CT_ERROR;
+    }
+    memset(list, 0, sizeof(ctc_cond_list));
   }
-  memset(list, 0, sizeof(ctc_cond_list));
-  if (cond_map->fill(items, conds, field, m_tch, list, no_backslash, functype) != CT_SUCCESS) {
-    return CT_ERROR;
-  }
-
   conds->cond_list = list;
-  return CT_SUCCESS;
+  ret = cond_map->fill(items, conds, field, m_tch, list, no_backslash, functype);
+  return ret;
 }
 
 void cm_assert(bool condition)
