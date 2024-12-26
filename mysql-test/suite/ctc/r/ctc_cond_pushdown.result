@@ -2124,7 +2124,7 @@ select * from t5 where b = '2001-01-01 00:00:00';
 a	b
 2	2001-01-01 00:00:00
 update t5 set a = 128 where b = '2001-01-01 00:00:00';
-ERROR 22003: Out of range value for column 'a' at row 2
+ERROR 22003: Out of range value for column 'a' at row 1
 select * from t5;
 a	b
 1	2000-01-01 00:00:00

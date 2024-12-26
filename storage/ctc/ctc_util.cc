@@ -340,6 +340,16 @@ int ctc_fill_cond_field_data_date(ctc_handler_t m_tch, enum_field_types datatype
   return ret;
 }
 
+int16_t ctc_get_timezone_offset() {
+  THD *thd = current_thd;
+  bool not_used = false;
+  MYSQL_TIME ltime = {1970, 1, 2, 0, 0, 0, 0, 0, MYSQL_TIMESTAMP_DATETIME, 0};
+  my_time_t tm_sess = thd->time_zone()->TIME_to_gmt_sec(&ltime, &not_used);
+  longlong seconds = SECONDS_IN_24H - tm_sess;
+  int16_t timezone_offset_minutes = static_cast<int16_t>(seconds / SECS_PER_MIN);
+  return timezone_offset_minutes;
+}
+
 int cond_fill_date(Item *item, ctc_conds *cond, Field **, ctc_handler_t m_tch, 
                    ctc_cond_list *, bool , en_ctc_func_type_t *functype) {
   MYSQL_TIME ltime = {0, 0, 0, 0, 0, 0, 0, 0, MYSQL_TIMESTAMP_ERROR, 0};
@@ -364,6 +374,11 @@ int cond_fill_date(Item *item, ctc_conds *cond, Field **, ctc_handler_t m_tch,
     if (item_date_literal->get_date(&ltime, TIME_FUZZY_DATE)) {
       return CT_ERROR;
     }
+  }
+  if (current_thd->time_zone()->get_timezone_type() == Time_zone::TZ_OFFSET) {
+    cond->field_info.timezone = current_thd->time_zone()->get_timezone_offset() / SECS_PER_MIN;
+  } else {
+    cond->field_info.timezone = ctc_get_timezone_offset();
   }
   return ctc_fill_cond_field_data_date(m_tch, datatype, functype, ltime, &date_detail, cond);
 }
