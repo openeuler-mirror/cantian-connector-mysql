@@ -2935,11 +2935,16 @@ void free_m_cond(ctc_handler_t m_tch, ctc_conds **conds) {
   if (cond == nullptr) {
     return;
   }
-  if (cond->cond_list == nullptr) {
+  if (cond->cond_type == CTC_CONST_EXPR) {
     if (cond->field_info.field_value != nullptr) {
       ctc_free_buf(&m_tch, (uint8_t *)(cond->field_info.field_value));
       cond->field_info.field_value = nullptr;
     }
+    ctc_free_buf(&m_tch, (uint8_t *)cond);
+    *conds = nullptr;
+    return;
+  }
+  if (cond->cond_type == CTC_FIELD_EXPR) {
     ctc_free_buf(&m_tch, (uint8_t *)cond);
     *conds = nullptr;
     return;
