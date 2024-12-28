@@ -547,7 +547,6 @@ inline void set_cond_types(ctc_conds* conds, Item_func::Functype fc) {
 
 int cond_fill_func(Item *item, ctc_conds *cond, Field **field, ctc_handler_t m_tch, 
                    ctc_cond_list *list, bool no_backslash, en_ctc_func_type_t *functype) {
-  int ret = CT_SUCCESS;
   Item_func *item_func = dynamic_cast<Item_func *>(item);
   CTC_RET_ERR_IF_NULL(item_func);
   
@@ -570,7 +569,6 @@ int cond_fill_func(Item *item, ctc_conds *cond, Field **field, ctc_handler_t m_t
       return CT_ERROR;
     }
     memset(sub_cond, 0, sizeof(ctc_conds));
-    ret = dfs_fill_conds(m_tch, args[i], field, sub_cond, no_backslash, &cond->func_type);
     if (list->elements == 0) {
       list->first = sub_cond;
     } else {
@@ -578,14 +576,15 @@ int cond_fill_func(Item *item, ctc_conds *cond, Field **field, ctc_handler_t m_t
     }
     list->last = sub_cond;
     (list->elements)++;
+    if (dfs_fill_conds(m_tch, args[i], field, sub_cond, no_backslash, &cond->func_type) != CT_SUCCESS) {
+      return CT_ERROR;
+    }
   }
-
-  return ret;
+  return CT_SUCCESS;
 }
 
 int cond_fill_cond(Item *item, ctc_conds *cond, Field **field, ctc_handler_t m_tch, 
                    ctc_cond_list *list, bool no_backslash, en_ctc_func_type_t *) {
-  int ret = CT_SUCCESS;
   Item_cond *item_cond = dynamic_cast<Item_cond *>(item);
   CTC_RET_ERR_IF_NULL(item_cond);
 
@@ -602,7 +601,6 @@ int cond_fill_cond(Item *item, ctc_conds *cond, Field **field, ctc_handler_t m_t
       return CT_ERROR;
     }
     memset(sub_cond, 0, sizeof(ctc_conds));
-    ret = dfs_fill_conds(m_tch, (Item *)(node->info), field, sub_cond, no_backslash, NULL);
     if (list->elements == 0) {
       list->first = sub_cond;
     } else {
@@ -610,10 +608,13 @@ int cond_fill_cond(Item *item, ctc_conds *cond, Field **field, ctc_handler_t m_t
     }
     list->last = sub_cond;
     (list->elements)++;
+    if (dfs_fill_conds(m_tch, (Item *)(node->info), field, sub_cond, no_backslash, NULL) != CT_SUCCESS) {
+      return CT_ERROR;
+    }
     node = node->next;
   }
 
-  return ret;
+  return CT_SUCCESS;
 }
 
 static bool is_supported_conds(Item *term, Item_func::Functype parent_type) {
