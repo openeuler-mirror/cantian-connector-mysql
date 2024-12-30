@@ -1096,7 +1096,7 @@ bool is_alter_table_scan(bool m_error_if_not_empty);
 
 int ctc_fill_conds(ctc_handler_t m_tch, const Item *pushed_cond, Field **field,
                    ctc_conds *m_cond, bool no_backslash);
-void free_m_cond(ctc_handler_t m_tch, ctc_conds **conds);
+void free_m_cond(ctc_handler_t m_tch, ctc_conds *conds);
 void ctc_set_metadata_switch();
 int32_t ctc_get_metadata_switch();
 bool is_meta_version_initialize();
