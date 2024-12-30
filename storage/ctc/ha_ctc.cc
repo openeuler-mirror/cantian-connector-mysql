@@ -2195,7 +2195,8 @@ ha_ctc::~ha_ctc() {
   }
 
   if (m_cond != nullptr) {
-    free_m_cond(m_tch, &m_cond);
+    free_m_cond(m_tch, m_cond);
+    m_cond = nullptr;
   }
   free_blob_addrs();
 }
@@ -2930,39 +2931,32 @@ void ha_ctc::free_blob_addrs() {
   m_blob_addrs.clear();
 }
 
-void free_m_cond(ctc_handler_t m_tch, ctc_conds **conds) {
-  ctc_conds *cond = *conds;
+void free_m_cond(ctc_handler_t m_tch, ctc_conds *cond) {
   if (cond == nullptr) {
     return;
   }
-  if (cond->cond_type == CTC_CONST_EXPR) {
-    if (cond->field_info.field_value != nullptr) {
-      ctc_free_buf(&m_tch, (uint8_t *)(cond->field_info.field_value));
-      cond->field_info.field_value = nullptr;
+
+  if (cond->cond_list != nullptr) {
+    int size = cond->cond_list->elements;
+    ctc_conds *node = cond->cond_list->first;
+    ctc_conds *tmpNode = nullptr;
+    for (int i = 0; i < size; i++) {
+      if (node == nullptr) {
+        break;
+      }
+      tmpNode = node->next;
+      free_m_cond(m_tch, node);
+      node = tmpNode;
     }
-    ctc_free_buf(&m_tch, (uint8_t *)cond);
-    *conds = nullptr;
-    return;
+    ctc_free_buf(&m_tch, (uint8_t *)(cond->cond_list));
   }
-  if (cond->cond_type == CTC_FIELD_EXPR) {
-    ctc_free_buf(&m_tch, (uint8_t *)cond);
-    *conds = nullptr;
-    return;
+
+  if (cond->field_info.field_value != nullptr) {
+    ctc_free_buf(&m_tch, (uint8_t *)(cond->field_info.field_value));
+    cond->field_info.field_value = nullptr;
   }
-  ctc_conds *node = cond->cond_list->first;
-  int size = cond->cond_list->elements;
-  for (int i = 0; i < size; i++) {
-    ctc_conds *tmp = node->next;
-    free_m_cond(m_tch, &node);
-    if (tmp == nullptr) {
-      cond->cond_list->last = nullptr;
-      ctc_free_buf(&m_tch, (uint8_t *)(cond->cond_list));
-      cond->cond_list = nullptr;
-      ctc_free_buf(&m_tch, (uint8_t *)cond);
-      *conds = nullptr;
-    }
-    node = tmp;
-  }
+
+  ctc_free_buf(&m_tch, (uint8_t *)cond);
 }
 
 int ctc_fill_conds(ctc_handler_t m_tch, const Item *pushed_cond, Field **field,
@@ -3402,7 +3396,8 @@ int ha_ctc::reset() {
   m_pushed_conds = nullptr;
   m_remainder_conds = nullptr;
   if (m_cond != nullptr) {
-    free_m_cond(m_tch, &m_cond);
+    free_m_cond(m_tch, m_cond);
+    m_cond = nullptr;
   }
 
   return 0;
@@ -5590,7 +5585,8 @@ const Item *ha_ctc::cond_push(const Item *cond, bool other_tbls_ok MY_ATTRIBUTE(
   }
   Field **field = table->field;
   if (ctc_fill_conds(m_tch, m_pushed_conds, field, m_cond, no_backslash) != CT_SUCCESS) {
-    free_m_cond(m_tch, &m_cond);
+    free_m_cond(m_tch, m_cond);
+    m_cond = nullptr;
     m_pushed_conds = nullptr;
     m_remainder_conds = nullptr;
     return remainder;
@@ -5669,7 +5665,8 @@ int ha_ctc::engine_push(AQP::Table_access *table_aqp)
   }
   Field **field = table_aqp->get_table()->field;
   if (ctc_fill_conds(m_tch, m_pushed_conds, field, m_cond, no_backslash) != CT_SUCCESS) {
-    free_m_cond(m_tch, &m_cond);
+    free_m_cond(m_tch, m_cond);
+    m_cond = nullptr;
     m_pushed_conds = nullptr;
     m_remainder_conds = nullptr;
     return 0;
@@ -5839,7 +5836,8 @@ int ctc_push_to_engine(THD *thd, AccessPath *root_path, JOIN *) {
   }
   Field **field = table->field;
   if (ctc_fill_conds(*tch, ctc_handler->m_pushed_conds, field, ctc_handler->m_cond, no_backslash) != CT_SUCCESS) {
-    free_m_cond(*tch, &ctc_handler->m_cond);
+    free_m_cond(*tch, ctc_handler->m_cond);
+    ctc_handler->m_cond = nullptr;
     ctc_handler->m_pushed_conds = nullptr;
     ctc_handler->m_remainder_conds = nullptr;
     ctc_log_warning("[ctc_push_to_engine] ctc_fill_conds failed.");
