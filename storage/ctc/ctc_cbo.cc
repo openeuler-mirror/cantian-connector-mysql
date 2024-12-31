@@ -795,13 +795,23 @@ double calc_density_one_table(uint16_t idx_id, ctc_range_key *key,
   return density;
 }
 
+static inline bool check_index_is_contain_null(ctc_cbo_stats_t *cbo_stats, uint32_t fld_idx)
+{
+  uint32_t table_part_num = cbo_stats->part_cnt == 0 ? PART_NUM_OF_NORMAL_TABLE : cbo_stats->part_cnt;
+  for (uint32 k = 0; k < table_part_num; k++) {
+    if (cbo_stats->ctc_cbo_stats_table[k].columns[fld_idx].num_null) {
+      return true;
+    }
+  }
+  return false;
+}
+
 void ctc_index_stats_update(TABLE *table, ctc_cbo_stats_t *cbo_stats)
 {
   rec_per_key_t rec_per_key = 0.0f;
   KEY sk;
   uint32_t *n_diff = cbo_stats->ndv_keys;
-  uint32_t records;
-  uint32_t table_part_num = cbo_stats->part_cnt == 0 ? 1 : cbo_stats->part_cnt;
+  uint32_t records = cbo_stats->records;
   uint32_t acc_gcol_num[CTC_MAX_COLUMNS] = {0};
   calc_accumulate_gcol_num(table->s->fields, table->s->field, acc_gcol_num);
   if (cbo_stats->records == 0) {
@@ -811,28 +821,16 @@ void ctc_index_stats_update(TABLE *table, ctc_cbo_stats_t *cbo_stats)
   for (uint32 i = 0; i < table->s->keys; i++) {
     sk = table->key_info[i];
     for (uint32 j = 0; j < sk.actual_key_parts; j++) {
-      bool all_n_diff_is_zero = true;
       rec_per_key = 0.0f;
       uint32 fld_idx = sk.key_part[j].field->field_index();
       fld_idx = fld_idx - acc_gcol_num[fld_idx];
-      for (uint32 k = 0; k < table_part_num; k++) {
-        records = cbo_stats->ctc_cbo_stats_table[k].estimate_rows;
-        uint32 has_null = cbo_stats->ctc_cbo_stats_table[k].columns[fld_idx].num_null ? 1 : 0;
-        uint32 n_diff_part = *(n_diff + i * MAX_KEY_COLUMNS + j);
-        do {
-          if (!n_diff_part) {
-            break;
-	  }
-          rec_per_key += static_cast<rec_per_key_t>(records) / static_cast<rec_per_key_t>(n_diff_part + has_null);
-          all_n_diff_is_zero = false;
-        } while(0);
-      }
-
-      // if all n_diff(s) values 0, take records itself as rec_per_key
-      if (all_n_diff_is_zero) {
-        for (uint32 k = 0; k < table_part_num; k++) {
-          rec_per_key += static_cast<rec_per_key_t>(cbo_stats->ctc_cbo_stats_table[k].estimate_rows);
-        }
+      uint32 has_null = check_index_is_contain_null(cbo_stats, fld_idx) ? 1 : 0;
+      uint32 n_diff_part = *(n_diff + i * MAX_KEY_COLUMNS + j);
+      if (n_diff_part) {
+        rec_per_key = static_cast<rec_per_key_t>(records) / static_cast<rec_per_key_t>(n_diff_part + has_null);
+      } else {
+          // if all n_diff(s) values 0, take records itself as rec_per_key
+        rec_per_key = static_cast<rec_per_key_t>(records);
       }
 
       if (rec_per_key < 1.0) {
