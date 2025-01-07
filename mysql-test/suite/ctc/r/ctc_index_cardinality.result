@@ -1,0 +1,102 @@
+DROP DATABASE IF EXISTS db1;
+CREATE DATABASE db1;
+DROP TABLE IF EXISTS db1.t1;
+Warnings:
+Note	1051	Unknown table 'db1.t1'
+CREATE TABLE db1.t1(a INT, b INT, c INT, d INT);
+INSERT INTO db1.t1 VALUES(1,1,1,1),(1,1,1,2), (1,2,2,3), (1,2,3,4);
+CREATE INDEX idx_abcd ON db1.t1 (a, b, c, d);
+ANALYZE TABLE db1.t1;
+Table	Op	Msg_type	Msg_text
+db1.t1	analyze	status	OK
+SHOW INDEX FROM db1.t1;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t1	1	idx_abcd	1	a	A	1	NULL	NULL	YES	BTREE			YES	NULL
+t1	1	idx_abcd	2	b	A	2	NULL	NULL	YES	BTREE			YES	NULL
+t1	1	idx_abcd	3	c	A	3	NULL	NULL	YES	BTREE			YES	NULL
+t1	1	idx_abcd	4	d	A	4	NULL	NULL	YES	BTREE			YES	NULL
+CREATE INDEX idx_a ON db1.t1 (a);
+ANALYZE TABLE db1.t1;
+Table	Op	Msg_type	Msg_text
+db1.t1	analyze	status	OK
+SHOW INDEX FROM db1.t1;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t1	1	idx_abcd	1	a	A	1	NULL	NULL	YES	BTREE			YES	NULL
+t1	1	idx_abcd	2	b	A	2	NULL	NULL	YES	BTREE			YES	NULL
+t1	1	idx_abcd	3	c	A	3	NULL	NULL	YES	BTREE			YES	NULL
+t1	1	idx_abcd	4	d	A	4	NULL	NULL	YES	BTREE			YES	NULL
+t1	1	idx_a	1	a	A	1	NULL	NULL	YES	BTREE			YES	NULL
+DROP TABLE IF EXISTS db1.t1;
+CREATE TABLE db1.t1 (
+a INT,
+b INT,
+c INT,
+d INT
+)
+PARTITION BY RANGE (a) (
+PARTITION p0 VALUES LESS THAN (10),
+PARTITION p1 VALUES LESS THAN (20),
+PARTITION p2 VALUES LESS THAN (30),
+PARTITION p3 VALUES LESS THAN (40)
+);
+INSERT INTO db1.t1 VALUES(1,1,1,1),(11,1,1,2), (21,2,2,3), (31,2,3,4),
+(1,1,1,2), (1,2,2,3), (1,2,3,4);
+CREATE INDEX idx_abcd ON db1.t1 (a, b, c, d);
+ANALYZE TABLE db1.t1;
+Table	Op	Msg_type	Msg_text
+db1.t1	analyze	status	OK
+SHOW INDEX FROM db1.t1;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t1	1	idx_abcd	1	a	A	4	NULL	NULL	YES	BTREE			YES	NULL
+t1	1	idx_abcd	2	b	A	5	NULL	NULL	YES	BTREE			YES	NULL
+t1	1	idx_abcd	3	c	A	6	NULL	NULL	YES	BTREE			YES	NULL
+t1	1	idx_abcd	4	d	A	7	NULL	NULL	YES	BTREE			YES	NULL
+CREATE INDEX idx_a ON db1.t1 (a);
+ANALYZE TABLE db1.t1;
+Table	Op	Msg_type	Msg_text
+db1.t1	analyze	status	OK
+SHOW INDEX FROM db1.t1;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t1	1	idx_abcd	1	a	A	4	NULL	NULL	YES	BTREE			YES	NULL
+t1	1	idx_abcd	2	b	A	5	NULL	NULL	YES	BTREE			YES	NULL
+t1	1	idx_abcd	3	c	A	6	NULL	NULL	YES	BTREE			YES	NULL
+t1	1	idx_abcd	4	d	A	7	NULL	NULL	YES	BTREE			YES	NULL
+t1	1	idx_a	1	a	A	4	NULL	NULL	YES	BTREE			YES	NULL
+DROP TABLE IF EXISTS db1.t1;
+CREATE TABLE db1.t1 (
+a INT,
+b INT,
+c INT,
+d INT
+)
+PARTITION BY RANGE (a)
+SUBPARTITION BY HASH (a) SUBPARTITIONS 4 (
+PARTITION p0 VALUES LESS THAN (10),
+PARTITION p1 VALUES LESS THAN (20),
+PARTITION p2 VALUES LESS THAN (30),
+PARTITION p3 VALUES LESS THAN (40)
+);
+INSERT INTO db1.t1 VALUES(1,1,1,1),(11,1,1,2), (21,2,2,3), (31,2,3,4),
+(1,1,1,2), (1,2,2,3), (1,2,3,4);
+CREATE INDEX idx_abcd ON db1.t1 (a, b, c, d);
+ANALYZE TABLE db1.t1;
+Table	Op	Msg_type	Msg_text
+db1.t1	analyze	status	OK
+SHOW INDEX FROM db1.t1;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t1	1	idx_abcd	1	a	A	4	NULL	NULL	YES	BTREE			YES	NULL
+t1	1	idx_abcd	2	b	A	5	NULL	NULL	YES	BTREE			YES	NULL
+t1	1	idx_abcd	3	c	A	6	NULL	NULL	YES	BTREE			YES	NULL
+t1	1	idx_abcd	4	d	A	7	NULL	NULL	YES	BTREE			YES	NULL
+CREATE INDEX idx_a ON db1.t1 (a);
+ANALYZE TABLE db1.t1;
+Table	Op	Msg_type	Msg_text
+db1.t1	analyze	status	OK
+SHOW INDEX FROM db1.t1;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t1	1	idx_abcd	1	a	A	4	NULL	NULL	YES	BTREE			YES	NULL
+t1	1	idx_abcd	2	b	A	5	NULL	NULL	YES	BTREE			YES	NULL
+t1	1	idx_abcd	3	c	A	6	NULL	NULL	YES	BTREE			YES	NULL
+t1	1	idx_abcd	4	d	A	7	NULL	NULL	YES	BTREE			YES	NULL
+t1	1	idx_a	1	a	A	4	NULL	NULL	YES	BTREE			YES	NULL
+DROP DATABASE IF EXISTS db1;

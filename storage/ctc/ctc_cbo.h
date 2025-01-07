@@ -24,6 +24,7 @@
 #include "srv_mq_msg.h"
 
 #define REAL_EPSINON 0.00001
+#define PART_NUM_OF_NORMAL_TABLE 1
 
 typedef enum en_ctc_compare_type {
     GREAT = 0,

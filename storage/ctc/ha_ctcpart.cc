@@ -1047,23 +1047,25 @@ int ha_ctcpart::initialize_cbo_stats() {
     ctc_log_error("alloc mem failed, m_part_share->cbo_stats->ctc_cbo_stats_table size(%lu)", part_num * sizeof(ctc_cbo_stats_table_t));
     return ERR_ALLOC_MEMORY;
   }
+  memset(m_part_share->cbo_stats->ctc_cbo_stats_table, 0, part_num * sizeof(ctc_cbo_stats_table_t));
+
   m_part_share->cbo_stats->ndv_keys =
       (uint32_t*)my_malloc(PSI_NOT_INSTRUMENTED, table->s->keys * sizeof(uint32_t) * MAX_KEY_COLUMNS, MYF(MY_WME));
   if (m_part_share->cbo_stats->ndv_keys == nullptr) {
     ctc_log_error("alloc mem failed, m_part_share->cbo_stats->ndv_keys size(%lu)", table->s->keys * sizeof(uint32_t) * MAX_KEY_COLUMNS);
     return ERR_ALLOC_MEMORY;
   }
+  memset(m_part_share->cbo_stats->ndv_keys, 0, table->s->keys * sizeof(uint32_t) * MAX_KEY_COLUMNS);
+
   for (uint i = 0; i < part_num; i++) {
     m_part_share->cbo_stats->ctc_cbo_stats_table[i].estimate_rows = 0;
     m_part_share->cbo_stats->ctc_cbo_stats_table[i].columns =
       (ctc_cbo_stats_column_t*)my_malloc(PSI_NOT_INSTRUMENTED, table->s->fields * sizeof(ctc_cbo_stats_column_t), MYF(MY_WME));
     if (m_part_share->cbo_stats->ctc_cbo_stats_table[i].columns == nullptr) {
-    ctc_log_error("alloc mem failed, m_part_share->cbo_stats->ctc_cbo_stats_table size(%lu)", table->s->fields * sizeof(ctc_cbo_stats_column_t));
-    return ERR_ALLOC_MEMORY;
+      ctc_log_error("alloc mem failed, m_part_share->cbo_stats->ctc_cbo_stats_table size(%lu)", table->s->fields * sizeof(ctc_cbo_stats_column_t));
+      return ERR_ALLOC_MEMORY;
     }
-    for (uint col_id = 0; col_id < table->s->fields; col_id++) {
-      m_part_share->cbo_stats->ctc_cbo_stats_table[i].columns[col_id].hist_count = 0;
-    }
+    memset(m_part_share->cbo_stats->ctc_cbo_stats_table[i].columns, 0, table->s->fields * sizeof(ctc_cbo_stats_column_t));
   }
   
   ct_errno_t ret = (ct_errno_t)alloc_str_mysql_mem(m_part_share->cbo_stats, part_num, table);

@@ -1,0 +1,66 @@
+--disable_warnings
+DROP DATABASE IF EXISTS db1;
+--enable_warnings
+
+CREATE DATABASE db1;
+
+# normal table
+
+DROP TABLE IF EXISTS db1.t1;
+CREATE TABLE db1.t1(a INT, b INT, c INT, d INT);
+INSERT INTO db1.t1 VALUES(1,1,1,1),(1,1,1,2), (1,2,2,3), (1,2,3,4);
+CREATE INDEX idx_abcd ON db1.t1 (a, b, c, d);# Compound index
+ANALYZE TABLE db1.t1;
+SHOW INDEX FROM db1.t1;
+CREATE INDEX idx_a ON db1.t1 (a); # normal index
+ANALYZE TABLE db1.t1;
+SHOW INDEX FROM db1.t1;
+
+# part table
+DROP TABLE IF EXISTS db1.t1;
+CREATE TABLE db1.t1 (
+    a INT,
+    b INT,
+    c INT,
+    d INT
+)
+PARTITION BY RANGE (a) (
+    PARTITION p0 VALUES LESS THAN (10),
+    PARTITION p1 VALUES LESS THAN (20),
+    PARTITION p2 VALUES LESS THAN (30),
+    PARTITION p3 VALUES LESS THAN (40)
+);
+INSERT INTO db1.t1 VALUES(1,1,1,1),(11,1,1,2), (21,2,2,3), (31,2,3,4),
+                         (1,1,1,2), (1,2,2,3), (1,2,3,4);
+CREATE INDEX idx_abcd ON db1.t1 (a, b, c, d);# Compound index
+ANALYZE TABLE db1.t1;
+SHOW INDEX FROM db1.t1;
+CREATE INDEX idx_a ON db1.t1 (a); # normal index
+ANALYZE TABLE db1.t1;
+SHOW INDEX FROM db1.t1;
+
+#sub_part table
+DROP TABLE IF EXISTS db1.t1;
+CREATE TABLE db1.t1 (
+    a INT,
+    b INT,
+    c INT,
+    d INT
+)
+PARTITION BY RANGE (a)
+SUBPARTITION BY HASH (a) SUBPARTITIONS 4 (
+    PARTITION p0 VALUES LESS THAN (10),
+    PARTITION p1 VALUES LESS THAN (20),
+    PARTITION p2 VALUES LESS THAN (30),
+    PARTITION p3 VALUES LESS THAN (40)
+);
+INSERT INTO db1.t1 VALUES(1,1,1,1),(11,1,1,2), (21,2,2,3), (31,2,3,4),
+                        (1,1,1,2), (1,2,2,3), (1,2,3,4);
+CREATE INDEX idx_abcd ON db1.t1 (a, b, c, d);# Compound index
+ANALYZE TABLE db1.t1;
+SHOW INDEX FROM db1.t1;
+CREATE INDEX idx_a ON db1.t1 (a); # normal index
+ANALYZE TABLE db1.t1;
+SHOW INDEX FROM db1.t1;
+
+DROP DATABASE IF EXISTS db1;
