@@ -93,12 +93,16 @@ int check_default_engine(set_var *setvar, bool &need_forward MY_ATTRIBUTE((unuse
     
     my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
       "Once the CTC is loaded, it must be set as the default engine. To modify the setting, uninstall the CTC first.");
+    ctc_log_error("Once the CTC is loaded, it must be set as the default engine."
+                  "To modify the setting, uninstall the CTC first.");
     return -1;
   }
 
   if (strcasecmp(setvar->value->item_name.ptr(), ctc_hton_name) != 0) {
     my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
       "Once the CTC is loaded, it must be set as the default engine. To modify the setting, uninstall the CTC first.");
+    ctc_log_error("Once the CTC is loaded, it must be set as the default engine. Current engine is %s."
+                  "To modify the setting, uninstall the CTC first.", setvar->value->item_name.ptr());
     return -1;
   }
   return 0;
@@ -112,6 +116,8 @@ int check_session_pool_volume(set_var *setvar, bool &need_forward MY_ATTRIBUTE((
     uint max_sessions;
     if (ctc_get_max_sessions_per_node(&max_sessions)) {
       my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0), "Get max connections in Cantian failed");
+      ctc_log_error("Get max connections in Cantian failed."
+                    "The value of the max connection number is %u.", max_sessions);
       return -1;
     }
 
@@ -122,15 +128,21 @@ int check_session_pool_volume(set_var *setvar, bool &need_forward MY_ATTRIBUTE((
 
       if (!isdigit(*user_val_str.c_str())) {
         my_printf_error(ER_DISALLOWED_OPERATION, "[CTC]:Please make sure value is digits.", MYF(0));
+        ctc_log_error("[CTC]:Please make sure value is digits.");
         return -1;
       }
 
       int tmp_max_connection = atoi(user_val_str.c_str());
       if (tmp_max_connection > (int)max_sessions) {
-        my_printf_error(ER_DISALLOWED_OPERATION, "Current SE can only provide %d connections for one mysql-server", MYF(0), max_sessions);
+        my_printf_error(ER_DISALLOWED_OPERATION, "Current SE can only provide %u connections for one mysql-server",
+                        MYF(0), max_sessions);
+        ctc_log_error("Current SE can only provide %u connections for one mysql-server. "
+                      "The value of current connection number is %d.", max_sessions, tmp_max_connection);
         return -1;
       } else if  (tmp_max_connection < 1) {
         my_printf_error(ER_DISALLOWED_OPERATION, "Current SE cannot provide less than one connection.", MYF(0));
+        ctc_log_error("Current SE cannot provide less than one connection. "
+                      "The value of current connection number is %d.", tmp_max_connection);
         return -1;
       }
       return 0;
@@ -138,10 +150,13 @@ int check_session_pool_volume(set_var *setvar, bool &need_forward MY_ATTRIBUTE((
 
     int num_max_conns = atoi(setvar->value->item_name.ptr());
     if (num_max_conns > (int)max_sessions) {
-      my_printf_error(ER_DISALLOWED_OPERATION, "Current SE can only provide %d connections for one mysql-server", MYF(0), max_sessions);
+      my_printf_error(ER_DISALLOWED_OPERATION, "Current SE can only provide %u connections for one mysql-server",
+                      MYF(0), max_sessions);
+      ctc_log_error("Current SE can only provide %u connections for one mysql-server.", max_sessions);
       return -1;
     } else if  (num_max_conns < 1) {
       my_printf_error(ER_DISALLOWED_OPERATION, "Current SE cannot provide less than one connection.", MYF(0));
+      ctc_log_error("Current SE cannot provide less than one connection.");
       return -1;
     }
     return 0;
@@ -154,6 +169,7 @@ int not_allow_modify(set_var *setvar, bool &need_forward MY_ATTRIBUTE((unused)),
   }
 
   my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0), "CTC doesn't support modifying the variable");
+  ctc_log_error("CTC doesn't support modifying the variable");
   return -1;
 }
 
@@ -180,6 +196,7 @@ int unsupport_tx_isolation_level(set_var *setvar, bool &need_forward MY_ATTRIBUT
 
       my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
         "CTC STORAGE ENGINE ONLY SUPPORT READ_COMMITTED TRANSACTION ISOLATION LEVEL.");
+      ctc_log_error("CTC STORAGE ENGINE ONLY SUPPORT READ_COMMITTED TRANSACTION ISOLATION LEVEL.");
       return -1;
     }
 
@@ -188,7 +205,7 @@ int unsupport_tx_isolation_level(set_var *setvar, bool &need_forward MY_ATTRIBUT
       return 0;
     } else if (strcasecmp(setvar->value->item_name.ptr(), "repeatable-read") == 0) {
       push_warning_printf(current_thd, Sql_condition::SL_WARNING, ER_DISALLOWED_OPERATION,
-                        "CTC: The Function of REPEATABLE READ transaction isolation is in progress.");
+                          "CTC: The Function of REPEATABLE READ transaction isolation is in progress.");
       return 0;
     }
   } else {
@@ -198,13 +215,14 @@ int unsupport_tx_isolation_level(set_var *setvar, bool &need_forward MY_ATTRIBUT
       return 0;
     } else if (tx_isol == ISO_REPEATABLE_READ) {
       push_warning_printf(current_thd, Sql_condition::SL_WARNING, ER_DISALLOWED_OPERATION,
-                        "CTC: The Function of REPEATABLE READ transaction isolation is in progress.");
+                          "CTC: The Function of REPEATABLE READ transaction isolation is in progress.");
       return 0;
     }
   }
 
   my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
       "CTC STORAGE ENGINE ONLY SUPPORT READ_COMMITTED TRANSACTION ISOLATION LEVEL.");
+  ctc_log_error("CTC STORAGE ENGINE ONLY SUPPORT READ_COMMITTED TRANSACTION ISOLATION LEVEL.");
   return -1;
 }
 
@@ -274,6 +292,7 @@ static int ctc_check_dcl(string &, MYSQL_THD thd, bool &need_forward) {
   }
   if (allow_sqlcmd(thd, "ctc_dcl_disabled") != 0) {
     my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0), "DCL query is not allowed (ctc_dcl_disabled = true)");
+    ctc_log_error("DCL query is not allowed (ctc_dcl_disabled = true)");
     return -1;
   }
   return 0;
@@ -579,6 +598,7 @@ static int ctc_set_user_var_flag(MYSQL_THD thd, string name, string value) {
     } else {
       my_printf_error(ER_UNKNOWN_COM_ERROR, "Invalid variable value for '%s': '%s'", MYF(0),
                       name.c_str(), value.c_str());
+      ctc_log_error("Invalid variable value for '%s': '%s'", name.c_str(), value.c_str());
       return -1;
     }
   }
@@ -611,6 +631,7 @@ static int check_non_system_var(set_var_base *var, bool& need_forward, MYSQL_THD
   setvar_user->print(thd, &set_str);
   if (set_str.ptr() == nullptr || set_str.length() == 0) {
     my_printf_error(ER_NOT_ALLOWED_COMMAND, "%s", MYF(0), "The used command is not allowed");
+    ctc_log_error("The used command is not allowed");
     return -1;
   }
   string str(set_str.ptr(), set_str.length());
@@ -675,11 +696,13 @@ static int check_system_var(set_var_base *var, string &sql_str, MYSQL_THD thd,
   if (strlen(val_str.c_str()) > MAX_DDL_SQL_LEN) {
     my_printf_error(ER_DISALLOWED_OPERATION, "Set the variable '%s' failed: value is too long",
                     MYF(0), name_str.c_str());
+    ctc_log_error("Set the variable '%s' failed: value is too long", name_str.c_str());
     return -1;
   }
   if (need_forward && allow_sqlcmd(thd, "ctc_setopt_disabled") != 0) {
     my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
                     "Set global variable query is not allowed (ctc_setopt_disabled = true)");
+    ctc_log_error("Set global variable query is not allowed (ctc_setopt_disabled = true)");
     return -1;
   }
 
@@ -738,6 +761,7 @@ static int ctc_check_set_opt(string &sql_str, MYSQL_THD thd, bool &need_forward)
   if (!variables_info.empty()) {
     if (variables_info.size() > CTC_MAX_SET_VAR_NUM) {
       my_printf_error(ER_DISALLOWED_OPERATION, "Only %d variables can be set at a time", MYF(0), CTC_MAX_SET_VAR_NUM);
+      ctc_log_error("Only %d variables can be set at a time", CTC_MAX_SET_VAR_NUM);
       return -1;
     }
     ctc_set_opt_request set_opt_request;
@@ -745,6 +769,7 @@ static int ctc_check_set_opt(string &sql_str, MYSQL_THD thd, bool &need_forward)
     if (ret != 0 && set_opt_request.err_code != 0) {
       string err_msg = set_opt_request.err_msg;
       my_printf_error(set_opt_request.err_code, "%s", MYF(0), err_msg.c_str());
+      ctc_log_error("%s", err_msg.c_str());
       return ret;
     }
   }
@@ -757,7 +782,10 @@ static int ctc_check_set_opt(string &sql_str, MYSQL_THD thd, bool &need_forward)
 static int is_system_db(const char *ddl_db) {
   if (mysql_system_db.find(ddl_db) != mysql_system_db.end()) {
     my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
-      "Once the CTC is loaded, it must be used as the default engine. To specify other engine for table, uninstall the CTC first.");
+                    "Once the CTC is loaded, it must be used as the default engine."
+                    "To specify other engine for table, uninstall the CTC first.");
+    ctc_log_error("Once the CTC is loaded, it must be used as the default engine."
+                  "To specify other engine for table, uninstall the CTC first.");
     return -1;
   }
   return 0;
@@ -776,21 +804,21 @@ static int ctc_check_ddl_engine(string &, MYSQL_THD thd, bool &need_forward) {
   }
 
   // 检查ddl语句是否显示指定非CTC
-  if (thd->lex->create_info != nullptr &&
-      thd->lex->create_info->db_type != nullptr &&
+  if (thd->lex->create_info != nullptr && thd->lex->create_info->db_type != nullptr &&
       thd->lex->create_info->db_type != ctc_handlerton &&
       !(thd->lex->create_info->options & HA_LEX_CREATE_TMP_TABLE)) {
     my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
-      "Once the CTC is loaded, it must be used as the default engine. To specify other engine for table, uninstall the CTC first.");
+                    "Once the CTC is loaded, it must be used as the default engine."
+                    "To specify other engine for table, uninstall the CTC first.");
+    ctc_log_error("Once the CTC is loaded, it must be used as the default engine."
+                  "To specify other engine for table, uninstall the CTC first.");
     return -1;
   }
 
   if (!IS_METADATA_NORMALIZATION()) {
     // create like table 检查是否是系统库
-    if (thd->lex->query_tables != nullptr &&
-        thd->lex->query_tables->next_global != nullptr &&
-        thd->lex->create_info != nullptr &&
-        thd->lex->create_info->options & HA_LEX_CREATE_TABLE_LIKE &&
+    if (thd->lex->query_tables != nullptr && thd->lex->query_tables->next_global != nullptr &&
+        thd->lex->create_info != nullptr && thd->lex->create_info->options & HA_LEX_CREATE_TABLE_LIKE &&
         !(thd->lex->create_info->options & HA_LEX_CREATE_TMP_TABLE) &&
         !thd->lex->drop_temporary) {
       const char *ddl_db = thd->lex->query_tables->next_global->db;
@@ -801,11 +829,13 @@ static int ctc_check_ddl_engine(string &, MYSQL_THD thd, bool &need_forward) {
   // create tablespace 检查是否为engine=Innodb情况
   if (thd->lex->sql_command == SQLCOM_ALTER_TABLESPACE) {
     const Sql_cmd_tablespace *sct = dynamic_cast<const Sql_cmd_create_tablespace *>(thd->lex->m_sql_cmd);
-    if (sct != nullptr &&
-        sct->get_options().engine_name.str != nullptr &&
+    if (sct != nullptr && sct->get_options().engine_name.str != nullptr &&
         strcmp(sct->get_options().engine_name.str, ctc_name.str) != 0) {
       my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
-        "Once the CTC is loaded, it must be used as the default engine. To specify other engine for table, uninstall the CTC first.");
+                      "Once the CTC is loaded, it must be used as the default engine."
+                      "To specify other engine for table, uninstall the CTC first.");
+      ctc_log_error("Once the CTC is loaded, it must be used as the default engine."
+                    "To specify other engine for table, uninstall the CTC first.");
       return -1;
     }
   }
@@ -830,6 +860,7 @@ static int ctc_check_ddl(string &, MYSQL_THD, bool &need_forward) {
 
 static int ctc_check_unspport_ddl(string &, MYSQL_THD, bool &) {
   my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0), "Cantian doesn't support current operation");
+  ctc_log_error("Cantian doesn't support current operation");
   return -1;
 }
 
@@ -849,6 +880,7 @@ static int ctc_lock_tables_ddl(string &, MYSQL_THD thd, bool &) {
   if (pre_lock_ret != 0) {
     ctc_lock_table_post(thd, ticket_list);
     my_printf_error(ER_LOCK_WAIT_TIMEOUT, "[CTC_DDL_REWRITE]: LOCK TABLE FAILED", MYF(0));
+    ctc_log_error("[CTC_DDL_REWRITE]: LOCK TABLE FAILED");
     return ER_LOCK_WAIT_TIMEOUT;
   }
 #ifdef FEATURE_X_FOR_MYSQL_32
@@ -1093,7 +1125,8 @@ static void ctc_ddl_rewrite_handle_error(MYSQL_THD thd, int ret, ctc_ddl_broadca
   if (ret == CTC_DDL_VERSION_NOT_MATCH) {
     broadcast_req.err_code = ER_DISALLOWED_OPERATION;
     my_printf_error(ER_DISALLOWED_OPERATION, "Version not match. Please make sure cluster on the same version.", MYF(0));
-    ctc_log_system("[CTC_DDL_REWRITE]: Version not match, sql=%s", sql_without_plaintext_password(&broadcast_req).c_str());
+    ctc_log_system("[CTC_DDL_REWRITE]: Version not match, sql=%s",
+                   sql_without_plaintext_password(&broadcast_req).c_str());
     return;
   }
 
@@ -1101,7 +1134,8 @@ static void ctc_ddl_rewrite_handle_error(MYSQL_THD thd, int ret, ctc_ddl_broadca
     broadcast_req.err_code, broadcast_req.err_msg);
 
   ctc_log_error("[CTC_DDL_REWRITE]:Got error on remote mysql, query:%s, user_name:%s, err_code:%d, err_msg:%s",
-    sql_without_plaintext_password(&broadcast_req).c_str(), broadcast_req.user_name, broadcast_req.err_code, broadcast_req.err_msg);
+                sql_without_plaintext_password(&broadcast_req).c_str(), broadcast_req.user_name,
+                broadcast_req.err_code, broadcast_req.err_msg);
 
   // unlock when lock instance failed
   if (sql_cmd == SQLCOM_LOCK_INSTANCE) {
@@ -1141,6 +1175,7 @@ int ddl_broadcast_and_wait(MYSQL_THD thd, string &query_str,
     if (pre_lock_ret != 0) {
       ctc_lock_table_post(thd, ticket_list);
       my_printf_error(ER_LOCK_WAIT_TIMEOUT, "[CTC_DDL_REWRITE]: LOCK TABLE FAILED", MYF(0));
+      ctc_log_error("[CTC_DDL_REWRITE]: LOCK TABLE FAILED");
       return ER_LOCK_WAIT_TIMEOUT;
     }
   }
@@ -1197,6 +1232,9 @@ bool check_agent_connection(MYSQL_THD thd) {
                     "%s@%s is not allowed for DDL remote execution!", MYF(0),
                     thd->m_main_security_ctx.priv_user().str,
                     thd->m_main_security_ctx.priv_host().str);
+    ctc_log_error("%s@%s is not allowed for DDL remote execution!",
+                  thd->m_main_security_ctx.priv_user().str,
+                  thd->m_main_security_ctx.priv_host().str);
     return true;
   }
 
@@ -1205,6 +1243,7 @@ bool check_agent_connection(MYSQL_THD thd) {
   if (ctc_init_agent_client(agent_conn) != 0) {
     my_printf_error(ER_DISALLOWED_OPERATION,
                     "Failed to establish connection for DDL remote execution!", MYF(0));
+    ctc_log_error("Failed to establish connection for DDL remote execution!");
     ctc_close_mysql_conn(&agent_conn);
     return true;
   }
@@ -1278,6 +1317,7 @@ bool plugin_ddl_block(MYSQL_THD thd,
     // disallow ddl query if ctc_concurrent_ddl=OFF and ctc_enable_ddl not set
     if (!ddl_enabled_normal(thd)) {
       my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0), "DDL not allowed in this mode, Please check the value of @@ctc_concurrent_ddl.");
+      ctc_log_error("DDL not allowed in this mode, Please check the value of @@ctc_concurrent_ddl.");
       return true;
     }
 
@@ -1361,7 +1401,7 @@ static int ctc_check_metadata_switch() {
       return 1;
     case metadata_switchs::CLUSTER_NOT_READY:
       ctc_log_error("[CTC_META]: Cantian cluster not ready");
-      my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0), "CANTIAN cluster not read.");
+      my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0), "CANTIAN cluster not ready.");
       return -1;
     case metadata_switchs::NOT_MATCH:
       ctc_log_error("[CTC_META]: The metadata switch of CTC and CANTIAN not match");
