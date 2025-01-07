@@ -5432,6 +5432,8 @@ int ha_ctc::initialize_cbo_stats()
     END_RECORD_STATS(EVENT_TYPE_INITIALIZE_DBO)
     return ERR_ALLOC_MEMORY;
   }
+  memset(m_share->cbo_stats->ctc_cbo_stats_table, 0, sizeof(ctc_cbo_stats_table_t));
+
   m_share->cbo_stats->ctc_cbo_stats_table->columns =
     (ctc_cbo_stats_column_t*)my_malloc(PSI_NOT_INSTRUMENTED, table->s->fields * sizeof(ctc_cbo_stats_column_t), MYF(MY_WME));
   if (m_share->cbo_stats->ctc_cbo_stats_table->columns == nullptr) {
@@ -5439,10 +5441,8 @@ int ha_ctc::initialize_cbo_stats()
     END_RECORD_STATS(EVENT_TYPE_INITIALIZE_DBO)
     return ERR_ALLOC_MEMORY;
   }
-  for (uint col_id = 0; col_id < table->s->fields; col_id++) {
-    m_share->cbo_stats->ctc_cbo_stats_table->columns[col_id].hist_count = 0;
-  }
-  
+  memset(m_share->cbo_stats->ctc_cbo_stats_table->columns, 0, table->s->fields * sizeof(ctc_cbo_stats_column_t));
+
   ct_errno_t ret = (ct_errno_t)alloc_str_mysql_mem(m_share->cbo_stats, 1, table);
   if (ret != CT_SUCCESS) {
     ctc_log_error("m_share:ctc alloc str mysql mem failed, ret:%d", ret);
@@ -5455,6 +5455,7 @@ int ha_ctc::initialize_cbo_stats()
     END_RECORD_STATS(EVENT_TYPE_INITIALIZE_DBO)
     return ERR_ALLOC_MEMORY;
   }
+  memset(m_share->cbo_stats->ndv_keys, 0, table->s->keys * sizeof(uint32_t) * MAX_KEY_COLUMNS);
   
   m_share->cbo_stats->msg_len = table->s->fields * sizeof(ctc_cbo_stats_column_t);
   m_share->cbo_stats->key_len = table->s->keys * sizeof(uint32_t) * MAX_KEY_COLUMNS;

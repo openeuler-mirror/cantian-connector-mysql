@@ -21,6 +21,7 @@ ctc_enum_analyze
 ctc_bit_analyze
 ctc_string_analyze
 ctc_dml_estimate_rows
+ctc_index_cardinality
 # ------ END TEST CASES OF DML ------
 
 # ------ BEGIN TEST CASES OF TRANSACTION ------
