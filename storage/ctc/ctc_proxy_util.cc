@@ -134,6 +134,7 @@ int ctc_mysql_conn(MYSQL *&con, const char *host, const char *user, const char *
   const bool opt_reconnect = true;
   (void)mysql_options(con, MYSQL_OPT_RECONNECT, &opt_reconnect);
   (void)mysql_options(con, MYSQL_DEFAULT_AUTH, "mysql_native_password");
+  (void)mysql_options(con, MYSQL_INIT_COMMAND, "set session default_storage_engine = CTC;");
 
   // do init sql commands for new con.
   // for ddl do not go to ctc SE. this command should be first executed. it should be placed firstly at mysql_options MYSQL_INIT_COMMAND.
