@@ -986,7 +986,7 @@ index 217a0c19..5e93df0f 100644
    if (unlikely(error)) return error;
  
 diff --git a/sql/handler.h b/sql/handler.h
-index 0530ca15..bab9b083 100644
+index 0530ca15..efeaf90e 100644
 --- a/sql/handler.h
 +++ b/sql/handler.h
 @@ -662,7 +662,8 @@ enum legacy_db_type {
@@ -999,7 +999,19 @@ index 0530ca15..bab9b083 100644
    DB_TYPE_DEFAULT = 127  // Must be last
  };
  
-@@ -1334,7 +1335,7 @@ typedef xa_status_code (*rollback_by_xid_t)(handlerton *hton, XID *xid);
+@@ -1242,6 +1243,11 @@ typedef int (*savepoint_rollback_t)(handlerton *hton, THD *thd, void *sv);
+ */
+ typedef int (*savepoint_set_t)(handlerton *hton, THD *thd, void *sv);
+ 
++/**
++  Broadcast global system variables when metadata is normalized.
++*/
++typedef int (*update_sysvars_t)(handlerton *hton, THD *thd);
++
+ /**
+   Check if storage engine allows to release metadata locks which were
+   acquired after the savepoint if rollback to savepoint is done.
+@@ -1334,7 +1340,7 @@ typedef xa_status_code (*rollback_by_xid_t)(handlerton *hton, XID *xid);
  typedef handler *(*create_t)(handlerton *hton, TABLE_SHARE *table,
                               bool partitioned, MEM_ROOT *mem_root);
  
@@ -1008,7 +1020,7 @@ index 0530ca15..bab9b083 100644
  
  typedef int (*panic_t)(handlerton *hton, enum ha_panic_function flag);
  
-@@ -1510,7 +1511,7 @@ typedef int (*fill_is_table_t)(handlerton *hton, THD *thd, TABLE_LIST *tables,
+@@ -1510,7 +1516,7 @@ typedef int (*fill_is_table_t)(handlerton *hton, THD *thd, TABLE_LIST *tables,
  typedef int (*binlog_func_t)(handlerton *hton, THD *thd, enum_binlog_func fn,
                               void *arg);
  
@@ -1017,7 +1029,7 @@ index 0530ca15..bab9b083 100644
                                     enum_binlog_command binlog_command,
                                     const char *query, uint query_length,
                                     const char *db, const char *table_name);
-@@ -2133,6 +2134,14 @@ typedef bool (*check_fk_column_compat_t)(
+@@ -2133,6 +2139,14 @@ typedef bool (*check_fk_column_compat_t)(
  
  typedef bool (*is_reserved_db_name_t)(handlerton *hton, const char *name);
  
@@ -1032,7 +1044,7 @@ index 0530ca15..bab9b083 100644
  /**
    Prepare the secondary engine for executing a statement. This function is
    called right after the secondary engine TABLE objects have been opened by
-@@ -2420,6 +2429,8 @@ struct handlerton {
+@@ -2420,6 +2434,8 @@ struct handlerton {
     */
    uint savepoint_offset;
  
@@ -1041,10 +1053,12 @@ index 0530ca15..bab9b083 100644
    /* handlerton methods */
  
    close_connection_t close_connection;
-@@ -2464,6 +2475,15 @@ struct handlerton {
+@@ -2463,6 +2479,16 @@ struct handlerton {
+   dict_get_server_version_t dict_get_server_version;
    dict_set_server_version_t dict_set_server_version;
    is_reserved_db_name_t is_reserved_db_name;
- 
++  update_sysvars_t update_sysvars;
++
 +  /** CTC metadata methods. */
 +  get_inst_id_t get_inst_id;
 +  set_metadata_switch_t set_metadata_switch;
@@ -1053,11 +1067,10 @@ index 0530ca15..bab9b083 100644
 +  op_before_load_meta_t op_before_load_meta;
 +  op_after_load_meta_t op_after_load_meta;
 +  get_cluster_role_t get_cluster_role;
-+
+ 
    /** Global handler flags. */
    uint32 flags{0};
- 
-@@ -4482,7 +4502,7 @@ class handler {
+@@ -4482,7 +4508,7 @@ class handler {
      and delete_row() below.
    */
    int ha_external_lock(THD *thd, int lock_type);
@@ -1066,7 +1079,7 @@ index 0530ca15..bab9b083 100644
    /**
      Update the current row.
  
-@@ -6161,12 +6181,13 @@ class handler {
+@@ -6161,12 +6187,13 @@ class handler {
      }
  
      @param buf  Buffer to write from.
@@ -1081,7 +1094,7 @@ index 0530ca15..bab9b083 100644
      return HA_ERR_WRONG_COMMAND;
    }
  
-@@ -6178,6 +6199,7 @@ class handler {
+@@ -6178,6 +6205,7 @@ class handler {
      the columns required for the error message are not read, the error
      message will contain garbage.
    */
@@ -1089,7 +1102,7 @@ index 0530ca15..bab9b083 100644
    virtual int update_row(const uchar *old_data MY_ATTRIBUTE((unused)),
                           uchar *new_data MY_ATTRIBUTE((unused))) {
      return HA_ERR_WRONG_COMMAND;
-@@ -6874,7 +6896,7 @@ void ha_pre_dd_shutdown(void);
+@@ -6874,7 +6902,7 @@ void ha_pre_dd_shutdown(void);
    @retval true Error
  */
  bool ha_flush_logs(bool binlog_group_flush = false);
@@ -1098,7 +1111,7 @@ index 0530ca15..bab9b083 100644
  int ha_create_table(THD *thd, const char *path, const char *db,
                      const char *table_name, HA_CREATE_INFO *create_info,
                      bool update_create_info, bool is_temp_table,
-@@ -6973,7 +6995,7 @@ void trans_register_ha(THD *thd, bool all, handlerton *ht,
+@@ -6973,7 +7001,7 @@ void trans_register_ha(THD *thd, bool all, handlerton *ht,
  int ha_reset_logs(THD *thd);
  int ha_binlog_index_purge_file(THD *thd, const char *file);
  void ha_reset_slave(THD *thd);
@@ -1669,6 +1682,18 @@ index e16b39c4..efdfba2c 100644
        THD_STAGE_INFO(thd, stage_compressing_gtid_table);
        /* Compressing the gtid_executed table. */
        if (gtid_state->compress(thd)) {
+diff --git a/sql/set_var.cc b/sql/set_var.cc
+index 4523e2c0..ef9fb32d 100644
+--- a/sql/set_var.cc
++++ b/sql/set_var.cc
+@@ -855,6 +855,7 @@ int sql_set_variables(THD *thd, List<set_var_base> *var_list, bool opened) {
+   }
+   if ((error = thd->is_error())) goto err;
+ 
++  if ((error = ctc_hton->update_sysvars(ctc_hton, thd))) goto err;
+   it.rewind();
+   while ((var = it++)) {
+     if ((error = var->update(thd)))  // Returns 0, -1 or 1
 diff --git a/sql/sql_class.cc b/sql/sql_class.cc
 index c171f0bb..6fc75f7c 100644
 --- a/sql/sql_class.cc
@@ -3860,13 +3885,13 @@ index e949235a..d46fca83 100644
  
    opened_table_validate();
 diff --git a/cmake/info_macros.cmake.in b/cmake/info_macros.cmake.in
-index 19110c7..131a4c6 100644
+index 19110c7a..131a4c69 100644
 --- a/cmake/info_macros.cmake.in
 +++ b/cmake/info_macros.cmake.in
 @@ -106,6 +106,7 @@ MACRO(CREATE_INFO_SRC target_dir)
    ELSE()
      # This is a fall-back.
      FILE(WRITE ${INFO_SRC} "\nMySQL source ${VERSION}\n")
-+    FILE(APPEND ${INFO_SRC} "\nCantian patch source 1.0.0\n")
++    FILE(APPEND ${INFO_SRC} "\nCantian patch source 1.0.1\n")
    ENDIF()
  ENDMACRO(CREATE_INFO_SRC)
