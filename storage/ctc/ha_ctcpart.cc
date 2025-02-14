@@ -961,27 +961,36 @@ int ha_ctcpart::analyze(THD *thd, HA_CHECK_OPT *opt) {
     return 0;
   }
   Alter_info *const alter_info = get_thd()->lex->alter_info;
-  if ((alter_info->flags & Alter_info::ALTER_ADMIN_PARTITION) == 0 ||
-      (alter_info->flags & Alter_info::ALTER_ALL_PARTITION)) {
-    m_tch.part_id = INVALID_PART_ID;
-    m_part_share->need_fetch_cbo = true;
-    return ha_ctc::analyze(thd, opt);
-  }
   int ret;
   uint32_t used_parts;
   uint32_t *part_ids = nullptr;
   uint32_t *subpart_ids = nullptr;
-  bool memory_allocated = false;
-  if (!m_part_info->set_read_partitions(&alter_info->partition_names)) {
-    memory_allocated = get_used_partitions(m_part_info, &part_ids, &subpart_ids, &used_parts);
-    if(!memory_allocated){
-      ctc_log_error("Failed to allocate memory !");
-      return HA_ERR_OUT_OF_MEM;
+  if (alter_info != nullptr) {
+    if ((alter_info->flags & Alter_info::ALTER_ADMIN_PARTITION) == 0 ||
+        (alter_info->flags & Alter_info::ALTER_ALL_PARTITION)) {
+      m_tch.part_id = INVALID_PART_ID;
+      m_part_share->need_fetch_cbo = true;
+      return ha_ctc::analyze(thd, opt);
+    }
+    bool memory_allocated = false;
+    if (!m_part_info->set_read_partitions(&alter_info->partition_names)) {
+      memory_allocated = get_used_partitions(m_part_info, &part_ids, &subpart_ids, &used_parts);
+      if(!memory_allocated){
+        ctc_log_error("Failed to allocate memory !");
+        return HA_ERR_OUT_OF_MEM;
+      }
+    } else {
+      ctc_log_error("no partition alter !");
+      return HA_ERR_GENERIC;
     }
   } else {
-    ctc_log_error("no partition alter !");
-    return HA_ERR_GENERIC;
+    my_free(part_ids);
+    my_free(subpart_ids);
+    m_tch.part_id = INVALID_PART_ID;
+    m_part_share->need_fetch_cbo = true;
+    return ha_ctc::analyze(thd, opt);
   }
+
   if (m_part_info->num_parts == used_parts) {
     m_tch.part_id = INVALID_PART_ID;
     my_free(part_ids);
