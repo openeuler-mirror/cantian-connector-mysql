@@ -3369,6 +3369,45 @@ EXTER_ATTACK int ha_ctc::rnd_pos(uchar *buf, uchar *pos) {
   return ret;
 }
 
+/*
+The given SQL command may require the use of statistics information.
+*/
+bool requires_stats_info(enum_sql_command sql_command) {
+  switch (sql_command) {
+    case SQLCOM_DELETE:
+    case SQLCOM_SELECT:
+    case SQLCOM_UPDATE:
+    case SQLCOM_DELETE_MULTI:
+    case SQLCOM_UPDATE_MULTI:
+      return true;
+    default:
+      return false;
+  }
+}
+
+/*
+Handle the statistics are empty case,
+prevent full-table scan by query_sql with where_cond
+*/
+ct_errno_t ha_ctc::handle_cbo_stats_empty(THD* thd) {
+  ct_errno_t ret = CT_SUCCESS;
+  if (stats.records == 0 && requires_stats_info(thd->lex->sql_command) &&
+      thd->lex->query_block->where_cond() != nullptr) {
+    std::lock_guard<std::mutex> lock(analyze_mutex);
+    if (stats.records == 0) {
+      ret = (ct_errno_t)analyze(thd, nullptr);
+      if (ret != CT_SUCCESS) {
+        ctc_log_error("sql %s execute analyze failed!", thd->query().str);
+        return ret;
+      }
+      ctc_log_system("sql %s handle empty cbo statistics.", thd->query().str);
+      ret = (ct_errno_t)get_cbo_stats_4share();
+      info_low();
+    }
+  }
+  return ret;
+}
+
 /**
   @brief
   ::info() is used to return information to the optimizer. See my_base.h for
@@ -3446,9 +3485,16 @@ int ha_ctc::info(uint flag) {
       END_RECORD_STATS(EVENT_TYPE_GET_CBO)
       return convert_ctc_error_code_to_mysql(ret);
     }
+
+    info_low();
+
+    ret = handle_cbo_stats_empty(thd);
+    if (ret != CT_SUCCESS) {
+      END_RECORD_STATS(EVENT_TYPE_GET_CBO)
+      return convert_ctc_error_code_to_mysql(ret);
+    }
   }
 
-  info_low();
   if (stats.records < 2) {
     /* This is a lie, but you don't want the optimizer to see zero or 1 */
     stats.records = 3;
