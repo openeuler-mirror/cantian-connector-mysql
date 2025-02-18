@@ -5302,9 +5302,9 @@ EXTER_ATTACK int ha_ctc::create(const char *name, TABLE *form, HA_CREATE_INFO *c
 
   uint32_t table_flags = 0;
   if (is_tmp_table) {
-    table_flags |= CTC_TMP_TABLE;
+    table_flags |= CTC_FLAG_TMP_TABLE;
     if (create_info->options & HA_LEX_CREATE_INTERNAL_TMP_TABLE) {
-      table_flags |= CTC_INTERNAL_TMP_TABLE;
+      table_flags |= CTC_FLAG_INTERNAL_TMP_TABLE;
     }
     ddl_ctrl.table_flags = table_flags;
   }
