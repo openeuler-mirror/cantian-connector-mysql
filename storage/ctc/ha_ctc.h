@@ -956,9 +956,6 @@ public:
   virtual void free_cbo_stats();
 
   virtual int get_cbo_stats_4share();
-  
-  std::mutex analyze_mutex;
-  virtual ct_errno_t handle_cbo_stats_empty(THD* thd);
 
   bool m_ror_intersect = false;
 
