@@ -1120,56 +1120,6 @@ index 0530ca15..efeaf90e 100644
                           enum_binlog_command binlog_command, const char *query,
                           size_t query_length, const char *db,
                           const char *table_name);
-diff --git a/sql/item_json_func.cc b/sql/item_json_func.cc
-index 31aade1c..8a1012e4 100644
---- a/sql/item_json_func.cc
-+++ b/sql/item_json_func.cc
-@@ -3656,7 +3656,7 @@ bool Item_func_array_cast::fix_fields(THD *thd, Item **ref) {
-   @param item        the Item in which the cast operation is performed
-   @param[out] str    the string to print to
- */
--static void print_cast_type(Cast_target cast_type, const Item *item,
-+void print_cast_type(Cast_target cast_type, const Item *item,
-                             String *str) {
-   const unsigned decimals = item->decimals;
-   switch (cast_type) {
-diff --git a/sql/item_json_func.h b/sql/item_json_func.h
-index 791e9b3e..7bc26c04 100644
---- a/sql/item_json_func.h
-+++ b/sql/item_json_func.h
-@@ -1103,6 +1103,9 @@ class Item_func_json_value final : public Item_func {
-   my_decimal *val_decimal(my_decimal *value) override;
-   bool get_date(MYSQL_TIME *ltime, my_time_flags_t flags) override;
-   bool get_time(MYSQL_TIME *ltime) override;
-+  Json_on_response_type m_on_empty;
-+  Json_on_response_type m_on_error;
-+  Cast_target m_cast_target;
- 
-  private:
-   /// Represents a default value given in JSON_VALUE's DEFAULT xxx ON EMPTY or
-@@ -1112,15 +1115,12 @@ class Item_func_json_value final : public Item_func {
-   /// Parsed path.
-   Json_path m_path_json;
-   /// Type of the ON EMPTY clause.
--  Json_on_response_type m_on_empty;
-   /// Type of the ON ERROR clause.
--  Json_on_response_type m_on_error;
-   /// The default value for ON EMPTY (if not ERROR or NULL ON EMPTY).
-   unique_ptr_destroy_only<Default_value> m_default_empty;
-   /// The default value for ON EMPTY (if not ERROR or NULL ON EMPTY).
-   unique_ptr_destroy_only<Default_value> m_default_error;
-   /// The target data type.
--  Cast_target m_cast_target;
- 
-   /**
-     Creates a Json_value_default object representing the default value given in
-@@ -1244,4 +1244,6 @@ bool sort_and_remove_dups(const Json_wrapper &orig, Sorted_index_array *v);
- 
- bool save_json_to_field(THD *thd, Field *field, const Json_wrapper *w,
-                         bool no_error);
-+void print_cast_type(Cast_target cast_type, const Item *item,
-+                     String *str);
- #endif /* ITEM_JSON_FUNC_INCLUDED */
 diff --git a/sql/locking_service.cc b/sql/locking_service.cc
 index 9ca8e21a..ef215f3d 100644
 --- a/sql/locking_service.cc
@@ -3942,6 +3892,6 @@ index 19110c7a..131a4c69 100644
    ELSE()
      # This is a fall-back.
      FILE(WRITE ${INFO_SRC} "\nMySQL source ${VERSION}\n")
-+    FILE(APPEND ${INFO_SRC} "\nCantian patch source 1.0.2\n")
++    FILE(APPEND ${INFO_SRC} "\nCantian patch source 1.0.1\n")
    ENDIF()
  ENDMACRO(CREATE_INFO_SRC)

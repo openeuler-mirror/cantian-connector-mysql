@@ -48,9 +48,6 @@
 #include "sql/sql_table.h"  // primary_key_name
 #include "sql/sql_partition.h"
 #include "sql/item_func.h"
-#include "sql/item_json_func.h"
-#include "sql/table_function.h"
-
 #include "my_time.h"
 #include "decimal.h"
 
@@ -1250,7 +1247,7 @@ static int ctc_check_func_name(std::string func_name)
     const std::string mysql_func_name = mysql_func_name_to_ctc_map[i].mysql_func_name;
     if (func_name_len >= mysql_func_name.length() &&
         func_name.compare(0, mysql_func_name.length(), mysql_func_name) == 0) {
-      my_printf_error(ER_DISALLOWED_OPERATION, "Function %s is not indexable", MYF(0),
+      my_printf_error(ER_DISALLOWED_OPERATION, "Function %s is not indexable", MYF(0),  
                       mysql_func_name_to_ctc_map[i].ctc_func_name.c_str());
       return CT_ERROR;
     }
@@ -1258,204 +1255,67 @@ static int ctc_check_func_name(std::string func_name)
   return CT_SUCCESS;
 }
 
-static int recursively_get_dependency_item(TABLE *form, Item_func *item_func, TcDb__CtcDDLTableKeyPart *req_key_part,
-                                           uint32_t *col_item_count)
+static uint32_t ctc_fill_func_key_part(TABLE *form, THD *thd, TcDb__CtcDDLTableKeyPart *req_key_part, Value_generator *gcol_info)
 {
-    for (uint32_t i = 0; i < item_func->arg_count; i++) {
-        if (item_func->get_arg(i)->type() == Item::FUNC_ITEM) {
-            // nested function, would go recursively to do detection
-            int result = recursively_get_dependency_item(form, (Item_func *) item_func->get_arg(i),
-                                                         req_key_part, col_item_count);
-            if (result != CT_SUCCESS) {
-                return result;
-            }
-        }
+  Item_func *func_expr_item = dynamic_cast<Item_func *>(gcol_info->expr_item);
+  if (func_expr_item == nullptr) {
+    my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
+          "[CTC_CREATE_TABLE]: CTC do not support this functional index.");
+    return CT_ERROR;
+  }
 
-        if (item_func->get_arg(i)->type() == Item::FIELD_ITEM) {
-            // the field* args[i] contains don't have proper m_field_index when it's a alter table scenario.
-            //  thus we have to look up by name through metadata on the new TABLE*
-            Item_field *arg_item_field = (Item_field*) item_func->get_arg(i);
-            Field *field = ctc_get_field_by_name(form, arg_item_field->field->field_name);
-            if (field && field->is_gcol()) {
-                my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
-                                "Cantian does not support index on generated column.");
-                return CT_ERROR;
-            }
+  uint32_t arg_count = func_expr_item->arg_count;
+  if (arg_count == 0) {
+    my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
+          "[CTC_CREATE_TABLE]: There is no functional index.");
+    return CT_ERROR;
+  }
 
-            if (*col_item_count >= 1) {
-                my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
-                                "Cantian does not support function indexes with multiple columns of arguments.");
-                return CT_ERROR;
-            }
-            req_key_part->name = const_cast<char *>(item_func->get_arg(i)->item_name.ptr());
-            (*col_item_count)++;
-        }
+  if (ctc_check_func_name(std::string(func_expr_item->func_name())) != CT_SUCCESS) {
+    return CT_ERROR;
+  }
+  
+  req_key_part->is_func = true;
+  req_key_part->func_name = const_cast<char *>(func_expr_item->func_name());
+  Item **args = func_expr_item->arguments();
+  uint32_t col_item_count = 0;
+  Field *field = nullptr;
+  for (uint32_t i = 0; i < arg_count; i++) {
+    field = ctc_get_field_by_name(form, const_cast<char *>(args[i]->item_name.ptr()));
+    if (field && field->is_gcol()) {
+      my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
+        "Cantian does not support index on generated column.");
+      return CT_ERROR;
     }
-    return CT_SUCCESS;
-}
-
-void ctc_rewrite_expression_clause(TABLE *form, const THD *thd, Item *item, String *out);
-
-void ctc_print_on_empty_or_error(TABLE *form, const THD *thd, String *out, bool on_empty,
-                                 Json_on_response_type response_type, Item *default_string)
-{
-    switch (response_type) {
-        case Json_on_response_type::ERROR:
-            out->append(STRING_WITH_LEN(" error"));
-            break;
-        case Json_on_response_type::NULL_VALUE:
-            out->append(STRING_WITH_LEN(" null"));
-            break;
-        case Json_on_response_type::DEFAULT:
-            out->append(STRING_WITH_LEN(" default "));
-            ctc_rewrite_expression_clause(form, thd, default_string, out);
-            break;
-        case Json_on_response_type::IMPLICIT:
-            // Nothing to print when the clause was implicit.
-            return;
-    };
-
-    if (on_empty) {
-        out->append(STRING_WITH_LEN(" on empty"));
-    } else {
-        out->append(STRING_WITH_LEN(" on error"));
-    }
-}
-
-#define JSON_VALUE_ON_EMPTY_ARG_IDX 2
-#define JSON_VALUE_ON_ERROR_ARG_IDX 3
-
-// equivalent to Item_func_json_value::print, but stripped charset info
-void ctc_item_print_json_value(TABLE *form, const THD *thd, Item* item, String *out)
-{
-    Item_func_json_value *item_func = (Item_func_json_value *) item;
-    out->append(STRING_WITH_LEN("json_value("));
-    ctc_rewrite_expression_clause(form, thd, item_func->get_arg(0), out);
-    out->append(STRING_WITH_LEN(", "));
-    ctc_rewrite_expression_clause(form, thd, item_func->get_arg(1), out);
-    out->append(STRING_WITH_LEN(" returning "));
-    if (item_func->m_cast_target == ITEM_CAST_CHAR && item_func->collation.collation != &my_charset_bin) {
-        // don't add char, use CLOB instead
-        out->append(STRING_WITH_LEN("CLOB"));
-    } else {
-        print_cast_type(item_func->m_cast_target, item_func, out);
-    }
-    ctc_print_on_empty_or_error(form, thd, out, true, item_func->m_on_empty,
-                                item_func->get_arg(JSON_VALUE_ON_EMPTY_ARG_IDX));
-    ctc_print_on_empty_or_error(form, thd, out, false, item_func->m_on_error,
-                                item_func->get_arg(JSON_VALUE_ON_ERROR_ARG_IDX));
-    out->append(')');
-};
-
-std::map<std::string, ctc_item_print_t> item_func_printer = {
-    {"json_value", (ctc_item_print_t) ctc_item_print_json_value}
-};
-
-static void ctc_print_op(TABLE *form, const THD *thd, Item_func *item_func, String *out)
-{
-    out->append('(');
-    for (uint i = 0; i < item_func->arg_count - 1; i++) {
-        ctc_rewrite_expression_clause(form, thd, item_func->get_arg(i), out);
-        out->append(' ');
-        out->append(item_func->func_name());
-        out->append(' ');
-    }
-    ctc_rewrite_expression_clause(form, thd, item_func->get_arg(item_func->arg_count - 1), out);
-    out->append(')');
-}
-
-static void ctc_print_func(TABLE *form, const THD *thd, Item_func *item_func, String *out)
-{
-    out->append(item_func->func_name());
-    out->append('(');
-    for (uint i = 0; i < item_func->arg_count; i++) {
-        if (i != 0) out->append(',');
-        ctc_rewrite_expression_clause(form, thd, item_func->get_arg(i), out);
-    }
-    out->append(')');
-}
-
-// the origin implementation of Item_field::print would add extra back quote (`) when it's called,
-// due to append_identifier() would explicitly use get_quote_char_for_identifier() to get quote char.
-// meanwhile ctsql don't have support for that, ctc_print_field shall be used instead.
-
-static void ctc_print_field(TABLE *form MY_ATTRIBUTE((unused)), const THD *thd MY_ATTRIBUTE((unused)),
-                            Item_ident *item_ident, String *out)
-{
-    // equivalent to append_identifier(thd, out, item_ident->field_name, strlen(item_ident->field_name), NULL, NULL)
-    // but without quote_char support
-    out->append(item_ident->field_name, strlen(item_ident->field_name), system_charset_info);
-}
-
-// this expression rewrite process may only happen once during DDL, performance is not major concern
-void ctc_rewrite_expression_clause(TABLE *form, const THD *thd, Item *item, String *out)
-{
-    Item::Type item_type = item->type();
-    if (item_type == Item::Type::FIELD_ITEM) {
-        ctc_print_field(form, thd, (Item_ident*) item, out);
-        return;
-    }
-
-    // for function item, in order to intercept all print() call to its args, a ctc_print_func is used instead of
-    //  the built-in print()
-    if (item_type == Item::Type::FUNC_ITEM) {
-        std::string func_name_string = std::string(((Item_func *)item)->func_name());
-        if (print_op_func_name.find(func_name_string) != print_op_func_name.end()) {
-            ctc_print_op(form, thd, (Item_func*) item, out);
-        } else if (item_func_printer.find(func_name_string) != item_func_printer.end()) {
-            ctc_item_print_t printer = item_func_printer[func_name_string];
-            printer(form, thd, (Item_func *)item, out);
-        } else {
-            ctc_print_func(form, thd, (Item_func *)item, out);
-        }
-        return;
-    }
-
-    // otherwise, it should be int literals / string literals etc, use the built-in print
-    // but with QT_WITHOUT_INTRODUCERS so we don't have introducers like _utf8mb4, which is not supported by ctsql
-    item->print(thd, out, enum_query_type(QT_WITHOUT_INTRODUCERS | QT_NO_DB | QT_NO_TABLE));
-}
-
-static int ctc_fill_func_key_part(TABLE *form, THD *thd,
-                                  TcDb__CtcDDLTableKeyPart *req_key_part, Value_generator *gcol_info)
-{
-    Item_func *func_expr_item = dynamic_cast<Item_func *>(gcol_info->expr_item);
-    if (func_expr_item == nullptr) {
+    if (args[i]->type() == Item::FIELD_ITEM) {
+      if (col_item_count >= 1) {
         my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
-                        "[CTC_CREATE_TABLE]: CTC do not support this functional index.");
+          "Cantian does not support function indexes with multiple columns of arguments.");
         return CT_ERROR;
+      }
+      req_key_part->name = const_cast<char *>(args[i]->item_name.ptr());
+      col_item_count++;
     }
-
-    uint32_t arg_count = func_expr_item->arg_count;
-    if (arg_count == 0) {
-        my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
-                        "[CTC_CREATE_TABLE]: There is no functional index.");
-        return CT_ERROR;
-    }
-
-    if (ctc_check_func_name(std::string(func_expr_item->func_name())) != CT_SUCCESS) {
-        return CT_ERROR;
-    }
-
-    req_key_part->is_func = true;
-    req_key_part->func_name = const_cast<char *>(func_expr_item->func_name());
-
-    uint32_t col_item_count = 0;
-    // recursively_get_dependency_item fill req_key_part->name
-    int result = recursively_get_dependency_item(form, func_expr_item, req_key_part, &col_item_count);
-    if (result != CT_SUCCESS || col_item_count != 1) {
-        my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
-                        "[CTC_CREATE_TABLE]:  CTC do not support this functional index.");
-        return CT_ERROR;
-    }
-
-    char buffer[FUNC_TEXT_MAX_LEN] = {0};
-    String gc_expr(buffer, sizeof(buffer), &my_charset_bin);
-
-    gc_expr.length(0);
-    ctc_rewrite_expression_clause(form, thd, gcol_info->expr_item, &gc_expr);
-    strncpy(req_key_part->func_text, gc_expr.c_ptr(), FUNC_TEXT_MAX_LEN - 1);
-    return CT_SUCCESS;
+  }
+  
+  char buffer[FUNC_TEXT_MAX_LEN] = {0};
+  String gc_expr(buffer, sizeof(buffer), &my_charset_bin);
+  gcol_info->print_expr(thd, &gc_expr);
+  string expr_str(buffer);
+  expr_str.erase(remove(expr_str.begin(), expr_str.end(), '`'), expr_str.end());
+  // 处理json_value建索引，只允许returning char
+  // 不带returning默认char512
+  if (strcmp(req_key_part->func_name, "json_value") == 0) {
+    std::regex reg_char("returning[ ]char[(]\\d+[)]");
+    std::regex reg_charset("[_][a-z]+[0-9]*[a-z]*[0-9]*['$]");
+    std::regex reg_charset2("[ ]character[ ]set[ ][a-z]+[0-9]*[a-z]*[0-9]");
+    expr_str =std::regex_replace(expr_str, reg_char, "returning CLOB");
+    expr_str =std::regex_replace(expr_str, reg_charset, "'");
+    //处理char带charset设置
+    expr_str =std::regex_replace(expr_str, reg_charset2, "");
+  }
+  strncpy(req_key_part->func_text, expr_str.c_str(), FUNC_TEXT_MAX_LEN - 1);
+  return CT_SUCCESS;
 }
 
 static inline longlong get_session_level_create_index_parallelism(THD *thd)
