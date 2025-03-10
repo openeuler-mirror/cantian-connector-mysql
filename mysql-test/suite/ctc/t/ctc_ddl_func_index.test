@@ -20,10 +20,23 @@ explain select * from t1 where substr(c4, 1, 1) = 'a';
 analyze table t1;
 explain select * from t1 where substr(c4, 1, 1) = 'a';
 
+# 创建嵌套函数索引场景
+create index func_index_3 on t1 ((substr(upper(c4), 1, 1)));
+select * from t1 where substr(upper(c4), 1, 1) = 'a';
+explain select * from t1 where substr(upper(c4), 1, 1) = 'a';
+analyze table t1;
+explain select * from t1 where substr(upper(c4), 1, 1) = 'a';
+create index func_index_4 on t1 ((upper(substr(c4, 1, 1))));
+select * from t1 where upper(substr(c4, 1, 1)) = 'a';
+explain select * from t1 where upper(substr(c4, 1, 1)) = 'a';
+analyze table t1;
+explain select * from t1 where upper(substr(c4, 1, 1)) = 'a';
+
 # 删除函数索引
 alter table t1 drop index func_index_1;
 drop index func_index_2 on t1;
-
+drop index func_index_3 on t1;
+drop index func_index_4 on t1;
 
 # 创建函数索引异常场景
 create table t2 (c1 int, c2 int, c3 varchar(10));
