@@ -91,7 +91,7 @@ int fill_delete_table_req(const char *full_path_name, const dd::Table *table_def
   bool is_tmp_table = ctc_is_temporary(table_def);
   ctc_split_normalized_name(full_path_name, db_name, SMALL_RECORD_SIZE, table_name, SMALL_RECORD_SIZE, &is_tmp_table);
   if (is_tmp_table) {
-    ddl_ctrl->table_flags |= CTC_TMP_TABLE;
+    ddl_ctrl->table_flags |= CTC_FLAG_TMP_TABLE;
     req.name = table_name;
   } else {
     req.name = const_cast<char *>(table_def->name().c_str());
@@ -1077,6 +1077,11 @@ static void ctc_fill_column_option_set(TcDb__CtcDDLColumnDef *column, Field *fie
   option_set->is_default_null = false;
   option_set->has_null = true; // 保证nullable的值是准确的
   option_set->nullable = (field->is_flag_set(NOT_NULL_FLAG)) ? 0 : 1;
+  /*
+    For virtual generated columns, set flag is_virtual and no store.
+    For virtual stored columns, as regular stored columns.
+  */
+  option_set->is_virtual = field->is_virtual_gcol() ? 1 : 0;
 
   if (field->is_flag_set(PRI_KEY_FLAG)) {
     option_set->primary = true;
@@ -1135,7 +1140,15 @@ static bool ctc_ddl_fill_column_by_field(
   ctc_column_option_set_bit option_set;
   ctc_fill_column_option_set(column, field, form, &option_set);
 
-  if (ctc_is_with_default_value(field, col_obj)) {
+  if (option_set.is_virtual) {
+    /*
+    The expression of virtual generated columns is unused in engine,
+    it is used to store the location in SYS_COLUMNS.
+    The default value of virtual column depended on expression.
+    */
+    option_set.is_default = 0;
+    option_set.is_default_null = 0;
+  } else if (ctc_is_with_default_value(field, col_obj)) {
     CTC_RETURN_IF_ERROR(ctc_ddl_fill_column_default_value(thd, column, field, fld, col_obj,
                                                           &option_set, mem_start, mem_end, field_cs), false);
   } else {
@@ -1843,17 +1856,20 @@ static int fill_create_table_req_columns_info(HA_CREATE_INFO *create_info, dd::T
            THD *thd, ddl_ctrl_t *ddl_ctrl, TcDb__CtcDDLCreateTableDef *req, char **mem_start, char *mem_end) {
   uint32_t ctc_col_idx = 0;
   uint32_t mysql_col_idx = 0;
+  uint32_t virtual_cols = 0;
   while (ctc_col_idx < req->n_columns) {
+    // When create table or alter copy algorithm, the vir_cols based on func_index at the last in the req
     Field *field = form->field[mysql_col_idx];
-    if (field->is_gcol()) {
-      ddl_ctrl->table_flags |= CTC_TABLE_CONTAINS_VIRCOL;
-      if (field->is_virtual_gcol()) {
-        mysql_col_idx++;
-        req->n_columns--;
-        continue;
-      }
-      my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0), "Cantian does not support stored generated column.");
-      return HA_ERR_WRONG_COMMAND;
+    // The vir_cols based on func_indexs are not pushed to engine
+    if (field->is_field_for_functional_index()) {
+      mysql_col_idx++;
+      req->n_columns--;
+      continue;
+    }
+    // Virtual Generated Columns Processed
+    if (field->is_virtual_gcol()) {
+      ddl_ctrl->table_flags |= CTC_FLAG_TABLE_CONTAINS_VIRCOL;
+      virtual_cols++;
     }
 
     TcDb__CtcDDLColumnDef *column = req->columns[ctc_col_idx];
@@ -1866,8 +1882,8 @@ static int fill_create_table_req_columns_info(HA_CREATE_INFO *create_info, dd::T
     mysql_col_idx++;
   }
 
-  /*prevent only virtual columns*/
-  if (req->n_columns == 0) {
+  // Prevent only virtual columns
+  if (req->n_columns == virtual_cols) {
     my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0), "Cantian does not support all columns are generated.");
     return HA_ERR_WRONG_COMMAND;
   }
@@ -2436,22 +2452,23 @@ static int fill_ctc_alter_create_list(THD *thd, TABLE *altered_table, Alter_inpl
 {
   uint32_t ctc_col_idx = 0;
   uint32_t mysql_col_idx = 0;
+  uint32_t virtual_cols = 0;
   while (ctc_col_idx < req->n_create_list) {
+    // When alter table by inplace, the vir_cols based on func_indexs at the last req->n_create_list
     TcDb__CtcDDLColumnDef *req_create_column = req->create_list[ctc_col_idx];
     const Create_field *fld = ha_alter_info->alter_info->create_list[mysql_col_idx];
 
-    /* Generate Columns Not Processed */
-    if (fld->is_gcol()) {
-      ddl_ctrl->table_flags |= CTC_TABLE_CONTAINS_VIRCOL;
-      if (fld->is_virtual_gcol()) {
-        req->n_create_list--;
-        mysql_col_idx++;
-        continue;
-      } else {
-        my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0),
-            "Cantian does not support stored generated column.");
-        return HA_ERR_WRONG_COMMAND;
-      }
+    // The vir_cols based on func_indexs are not pushed to engine
+    if (is_field_for_functional_index(fld)) {
+      mysql_col_idx++;
+      req->n_create_list--;
+      continue;
+    } 
+
+    // Virtual Generated Columns Processed
+    if (fld->is_virtual_gcol()) {
+      ddl_ctrl->table_flags |= CTC_FLAG_TABLE_CONTAINS_VIRCOL;
+      virtual_cols++;
     }
 
     ctc_alter_column_alter_mode alter_mode = CTC_ALTER_COLUMN_ALTER_MODE_NONE;
@@ -2469,8 +2486,8 @@ static int fill_ctc_alter_create_list(THD *thd, TABLE *altered_table, Alter_inpl
     mysql_col_idx++;
   }
 
-  //prevent only virtual columns
-  if (req->n_create_list == 0) {
+  // Prevent only virtual columns
+  if (req->n_create_list == virtual_cols) {
     my_printf_error(ER_DISALLOWED_OPERATION, "%s", MYF(0), "Cantian does not support all columns are generated.");
     return HA_ERR_WRONG_COMMAND;
   }
