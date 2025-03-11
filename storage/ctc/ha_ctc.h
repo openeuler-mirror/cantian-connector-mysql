@@ -129,9 +129,9 @@ again. */
                         this only holds for tables created with >= MySQL-4.0.14 */
 
 #define TMP_DIR "tmp"
-#define CTC_TMP_TABLE 1
-#define CTC_INTERNAL_TMP_TABLE 2
-#define CTC_TABLE_CONTAINS_VIRCOL 4
+#define CTC_FLAG_TMP_TABLE 1
+#define CTC_FLAG_INTERNAL_TMP_TABLE 2
+#define CTC_FLAG_TABLE_CONTAINS_VIRCOL 4 /* This flag indicates the table contains virtual generated columns */
 
 #define CTC_ANALYZE_TIME_SEC 100
 #define MEM_CLASS_NUM 27

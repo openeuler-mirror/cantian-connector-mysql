@@ -3,7 +3,7 @@ sidea DOUBLE,
 sideb DOUBLE,
 sidec DOUBLE AS (SQRT(sidea * sidea + sideb * sideb)) STORED
 );
-ERROR HY000: Cantian does not support stored generated column.
+drop table triangle;
 CREATE TABLE triangle1 (
 sidea DOUBLE,
 sideb DOUBLE,
@@ -235,3 +235,98 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk`,`test`.`t1`.`a1` AS `a1`,`test`.`t1`.`b1` AS `b1`,`test`.`t1`.`c1` AS `c1`,`test`.`t1`.`d1` AS `d1` from `test`.`t1` where (`test`.`t1`.`b1` < 'c')
 drop table t1;
+CREATE TABLE t1 (
+price DECIMAL(10, 2) NOT NULL,
+quantity INT NOT NULL,
+total_price DECIMAL(10, 2) GENERATED ALWAYS AS (price * quantity) VIRTUAL,
+first_name VARCHAR(50) DEFAULT NULL,
+last_name VARCHAR(50) DEFAULT NULL,
+full_name VARCHAR(110) GENERATED ALWAYS AS (CONCAT(first_name, last_name)) VIRTUAL,
+last_col varchar(50) DEFAULT NULL
+);
+insert into t1 (price, quantity, first_name, last_name, last_col) values (1.25, 5, 'Zhang', 'San', 'last_column');
+insert into t1 (price, quantity, first_name, last_name, last_col) values (10.25, 7, 'Li', 'Si', 'last_column');
+insert into t1 (price, quantity, first_name, last_name, last_col) values (0.25, 9, 'Wang', 'Wu', 'last_column');
+select * from t1;
+price	quantity	total_price	first_name	last_name	full_name	last_col
+1.25	5	6.25	Zhang	San	ZhangSan	last_column
+10.25	7	71.75	Li	Si	LiSi	last_column
+0.25	9	2.25	Wang	Wu	WangWu	last_column
+ALTER TABLE t1 ALGORITHM=COPY, DROP COLUMN total_price;
+ALTER TABLE t1 DROP COLUMN full_name;
+ALTER TABLE t1 DROP COLUMN last_col;
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `price` decimal(10,2) NOT NULL,
+  `quantity` int NOT NULL,
+  `first_name` varchar(50) DEFAULT NULL,
+  `last_name` varchar(50) DEFAULT NULL
+) ENGINE=CTC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+ALTER TABLE t1 ALGORITHM=COPY, 
+ADD COLUMN total_price DECIMAL(10, 2) 
+GENERATED ALWAYS AS (price * quantity) VIRTUAL;
+ALTER TABLE t1 ALGORITHM=INPLACE, 
+ADD COLUMN full_name VARCHAR(110) 
+GENERATED ALWAYS AS (CONCAT(first_name, last_name)) VIRTUAL;
+ALTER TABLE t1 ALGORITHM=COPY, ADD COLUMN last_col_0 varchar(10);
+ALTER TABLE t1 ALGORITHM=INPLACE, ADD COLUMN last_col_1 varchar(10);
+DROP TABLE t1;
+CREATE TABLE t2 (
+price DECIMAL(10, 2) NOT NULL,
+quantity INT NOT NULL,
+total_price DECIMAL(10, 2) GENERATED ALWAYS AS (price * quantity) STORED,
+first_name VARCHAR(50) DEFAULT NULL,
+last_name VARCHAR(50) DEFAULT NULL,
+full_name VARCHAR(110) GENERATED ALWAYS AS (CONCAT(first_name, last_name)) VIRTUAL,
+last_col varchar(50) DEFAULT NULL
+);
+ALTER TABLE t2 ALGORITHM=COPY, ADD INDEX idx_total (total_price);
+ALTER TABLE t2 ALGORITHM=INPLACE, ADD INDEX idx_pqt (price, quantity, total_price);
+DROP TABLE t2;
+CREATE TABLE t1 (
+c1 INT, 
+c2 INT, 
+c3 VARCHAR(10), 
+c4 VARCHAR(10),
+v_col_1 INT GENERATED ALWAYS AS (c1 + c1) VIRTUAL,
+v_col_2 INT GENERATED ALWAYS AS (c2 + c2) VIRTUAL,
+INDEX idx_c3 ((UPPER(c3))),
+INDEX idx_c4 ((SUBSTR(c4, 1, 1))), 
+v_col_3 INT GENERATED ALWAYS AS (c1 + c2) VIRTUAL,
+c5 VARCHAR(10)
+);
+alter table t1 add column v_col_4 INT GENERATED ALWAYS AS (c1 * c2) VIRTUAL;
+DROP TABLE t1;
+CREATE TABLE t1 (
+c1 INT, 
+c2 INT, 
+c3 VARCHAR(10), 
+c4 VARCHAR(10),
+v_col_1 INT GENERATED ALWAYS AS (c1 + c1) VIRTUAL,
+v_col_2 INT GENERATED ALWAYS AS (c2 + c2) VIRTUAL,
+INDEX idx_c3 ((UPPER(c3))),
+INDEX idx_c4 ((SUBSTR(c4, 1, 1))), 
+v_col_3 INT GENERATED ALWAYS AS (c1 + c2) VIRTUAL,
+c5 VARCHAR(10)
+);
+create index idx_test on t1 ((SUBSTR(c3, 1, 2)));
+alter table t1 algorithm=copy, add index idx_text_1 ((SUBSTR(c3, 1, 2)));
+DROP TABLE t1;
+CREATE TABLE t_gcol(
+`col1` int,
+`col2` int,
+`col3` int,
+g_col_1 INTEGER GENERATED ALWAYS AS (col3 + col3) VIRTUAL,
+g_col_2 INTEGER GENERATED ALWAYS AS (col2 + col2) VIRTUAL,
+g_col_3 INTEGER GENERATED ALWAYS AS (g_col_1 + g_col_2) VIRTUAL,
+g_col_4 INTEGER GENERATED ALWAYS AS (col1 + g_col_3) STORED,
+g_col_5 INTEGER GENERATED ALWAYS AS (g_col_3 + g_col_4) VIRTUAL
+);
+DROP TABLE t_gcol;
+CREATE TEMPORARY TABLE temp_2 (
+price DECIMAL(10,2),
+quantity INT,
+total_price DECIMAL(10,2) GENERATED ALWAYS AS (price * quantity) STORED
+);
+drop table temp_2;
