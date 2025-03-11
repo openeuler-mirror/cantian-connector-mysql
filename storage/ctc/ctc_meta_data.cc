@@ -676,7 +676,24 @@ void ctc_mdl_unlock_thd_by_ticket(THD* thd, MDL_request *ctc_release_request) {
   }
 }
 
-void ctc_mdl_unlock_tables_thd(ctc_handler_t *tch) {
+void ctc_release_mdl_tickets(THD *thd, std::map<std::string, MDL_ticket*>* ticket_map, string* filter_key)
+{
+    for (auto iter = ticket_map->begin(); iter != ticket_map->end();) {
+        MDL_ticket* ticket = iter->second;
+        bool key_match = (filter_key == nullptr) || (iter->first == *filter_key);
+        bool type_match = (ticket->get_type() == MDL_SHARED_READ_ONLY) ||
+                          (ticket->get_type() == MDL_SHARED_NO_READ_WRITE);
+        if (key_match && type_match) {
+            thd->mdl_context.release_lock(ticket);
+            iter = ticket_map->erase(iter);
+        } else {
+            iter++;
+        }
+    }
+}
+
+void ctc_mdl_unlock_tables_thd(ctc_handler_t *tch, MDL_request *mdl_request)
+{
   bool is_same_node = (tch->inst_id == ctc_instance_id);
   uint64_t mdl_thd_key = ctc_get_conn_key(tch->inst_id, tch->thd_id, true);
 
@@ -706,14 +723,14 @@ void ctc_mdl_unlock_tables_thd(ctc_handler_t *tch) {
     return;
   }
 
-  for (auto iter = ctc_mdl_ticket_map->begin(); iter != ctc_mdl_ticket_map->end();) {
-    MDL_ticket *ticket = iter->second;
-    if (ticket->get_type() == MDL_SHARED_READ_ONLY || ticket->get_type() == MDL_SHARED_NO_READ_WRITE) {
-      thd->mdl_context.release_lock(ticket);
-      ctc_mdl_ticket_map->erase(iter++);
-    } else {
-      iter++;
-    }
+  if (mdl_request == nullptr) {
+      // Unlock tables in this thd.
+      ctc_release_mdl_tickets(thd, ctc_mdl_ticket_map, nullptr);
+  } else {
+      // Re-lock a table that already has MDL_SHARED_READ_ONLY or MDL_SHARED_NO_READ_WRITE.
+      string mdl_ticket_key;
+      mdl_ticket_key.assign(((const char*)(mdl_request->key.ptr())), mdl_request->key.length());
+      ctc_release_mdl_tickets(thd, ctc_mdl_ticket_map, &mdl_ticket_key);
   }
 
   if (ctc_mdl_ticket_map->empty()) {
@@ -973,8 +990,10 @@ int ctc_set_sys_var(ctc_set_opt_request *broadcast_req) {
 }
 
 int ctc_ddl_execute_lock_tables_by_req(ctc_handler_t *tch, ctc_lock_table_info *lock_info, int *err_code) {
-// unlock tables before locking tables
-  ctc_mdl_unlock_tables_thd(tch);
+  MDL_request ctc_mdl_request;
+  ctc_init_mdl_request(lock_info, &ctc_mdl_request, MDL_key::TABLE);
+  // For lock tables write/read operations, prevent multiple locks to one table
+  ctc_mdl_unlock_tables_thd(tch, &ctc_mdl_request);
 
   bool is_same_node = (tch->inst_id == ctc_instance_id);
   uint64_t mdl_thd_key = ctc_get_conn_key(tch->inst_id, tch->thd_id, true);
@@ -985,9 +1004,6 @@ int ctc_ddl_execute_lock_tables_by_req(ctc_handler_t *tch, ctc_lock_table_info *
  
   THD *thd = nullptr;
   ctc_init_thd(&thd, mdl_thd_key);
- 
-  MDL_request ctc_mdl_request;
-  ctc_init_mdl_request(lock_info, &ctc_mdl_request, MDL_key::TABLE);
  
   if (thd->mdl_context.acquire_lock(&ctc_mdl_request, 1)) {
     *err_code = ER_LOCK_WAIT_TIMEOUT;
