@@ -444,6 +444,9 @@ static typename std::enable_if<CHECK_HAS_MEMBER_FUNC(T, invalidates), int>::type
   if (broadcast_req->is_dcl == true) {
     error = reload_acl_caches(thd, false);
     ctc_log_system("[CTC_INVALID_DD]: remote invalidate acl cache, mysql_inst_id=%u", broadcast_req->mysql_inst_id);
+    if (broadcast_req->is_flush == true) {
+      reset_mqh(thd, (LEX_USER *)nullptr, true);
+    }
   } else {
     invalidate_obj_entry_t *obj = NULL;
     uint32_t offset = 1;
