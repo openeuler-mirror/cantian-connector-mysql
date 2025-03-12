@@ -835,7 +835,7 @@ void cal_gcol_cnts_for_update(Field **field, uint column_id, uint32_t *virtual_g
   *virtual_gcol_cnt = 0;
   for (uint i = 0; i < column_id; i++) {
     Field *mysql_field = *(field + i);
-    if (mysql_field->is_gcol()) {
+    if (mysql_field->is_virtual_gcol()) {
       *virtual_gcol_cnt += 1;
     }
   }
@@ -1686,7 +1686,7 @@ int mysql_record_to_cantian_record(const TABLE &table, record_buf_info_t *record
   bool is_update = fields != nullptr;
   bool has_gcol = table.has_gcol();
   uint n_fields = is_update ? fields->size() : table.s->fields;
-  // Count the number of generated columns
+  // Only count the number of virtual generated columns
   uint32 virtual_gcol_cnt = 0;
   if (has_gcol) {
     cal_gcol_cnts_for_update(table.field, n_fields, &virtual_gcol_cnt);
