@@ -1358,6 +1358,7 @@ static typename std::enable_if<CHECK_HAS_MEMBER_FUNC(T, invalidates), void>::typ
   req.mysql_inst_id = ctc_instance_id;
   req.buff_len = 1;
   req.is_dcl = false;
+  req.is_flush = (tch->sql_command == SQLCOM_FLUSH) ? true : false;
   invalidate_obj_entry_t *obj = NULL;
  
   for (auto invalidate_it : thd->invalidates()) {
@@ -1411,6 +1412,7 @@ bool invalidate_remote_dcl_cache(ctc_handler_t *tch)
   req.mysql_inst_id = ctc_instance_id;
   req.buff_len = 0;
   req.is_dcl = true;
+  req.is_flush = (tch->sql_command == SQLCOM_FLUSH) ? true : false;
   bool result = ctc_broadcast_mysql_dd_invalidate(tch, &req);
   return result;
 }
