@@ -2876,9 +2876,9 @@ EXTER_ATTACK int ha_ctc::update_row(const uchar *old_data, uchar *new_data) {
   uint16_t serial_column_offset = 0;
   ha_statistic_increment(&System_status_var::ha_update_count);
   
-
   vector<uint16_t> upd_fields;
   bool update_primary_key = m_tch.change_data_capture && check_if_update_primary_key(table);
+  // Get the column_ids to be updated, including virtual generated/stored columns.
   for (uint16_t i = 0; i < table->write_set->n_bits; i++) {
     if (update_primary_key || bitmap_is_set(table->write_set, i)) {
       upd_fields.push_back(i);
@@ -4005,7 +4005,7 @@ enum_alter_inplace_result ha_ctc::check_if_supported_inplace_alter(
 
   // alter table add column containing stored generated column: json_array() as default
   if (ha_alter_info->handler_flags & Alter_inplace_info::ADD_STORED_GENERATED_COLUMN) {
-    ha_alter_info->unsupported_reason = my_get_err_msg(ER_ALTER_OPERATION_NOT_SUPPORTED_REASON);
+    ha_alter_info->unsupported_reason = "Cannot add stored generated column";
     return HA_ALTER_INPLACE_NOT_SUPPORTED;
   }
 
@@ -4045,7 +4045,7 @@ enum_alter_inplace_result ha_ctc::check_if_supported_inplace_alter(
       bool is_nullable = ha_alter_info->alter_info->create_list[add_column_idx]->is_nullable;  // NOT NULL
       bool is_have_default_val = ha_alter_info->alter_info->create_list[add_column_idx]->constant_default == nullptr ? false : true;
       if (!is_nullable && !is_have_default_val) {
-        ha_alter_info->unsupported_reason = my_get_err_msg(ER_ALTER_OPERATION_NOT_SUPPORTED_REASON);
+        ha_alter_info->unsupported_reason = "Field is not NULL and not having default value";
         return HA_ALTER_INPLACE_NOT_SUPPORTED;
       }
     }
