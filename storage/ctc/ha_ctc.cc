@@ -2876,9 +2876,9 @@ EXTER_ATTACK int ha_ctc::update_row(const uchar *old_data, uchar *new_data) {
   uint16_t serial_column_offset = 0;
   ha_statistic_increment(&System_status_var::ha_update_count);
   
-
   vector<uint16_t> upd_fields;
   bool update_primary_key = m_tch.change_data_capture && check_if_update_primary_key(table);
+  // Get the column_ids to be updated, including virtual generated/stored columns.
   for (uint16_t i = 0; i < table->write_set->n_bits; i++) {
     if (update_primary_key || bitmap_is_set(table->write_set, i)) {
       upd_fields.push_back(i);
