@@ -653,7 +653,8 @@ __attribute__((visibility("default"))) int ctc_ddl_execute_unlock_tables(ctc_han
   if (IS_METADATA_NORMALIZATION()) {
     UNUSED_PARAM(mysql_inst_id);
     if (lock_info->sql_type == SQLCOM_UNLOCK_TABLES) {
-      ctc_mdl_unlock_tables_thd(tch);
+        // The operation is unlock tables;
+        ctc_mdl_unlock_tables_thd(tch, nullptr);
     }
     ctc_mdl_unlock_thd(tch, lock_info);
     return 0;

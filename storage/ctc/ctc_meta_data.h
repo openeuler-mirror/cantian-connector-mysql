@@ -20,6 +20,7 @@
 
 #include <mysql.h>
 #include "ctc_srv.h"
+#include "sql/mdl.h"
 
 #pragma GCC visibility push(default)
 
@@ -30,7 +31,7 @@ int ctc_mdl_lock_thd(ctc_handler_t *tch, ctc_lock_table_info *lock_info, int *er
 void ctc_mdl_unlock_thd(ctc_handler_t *tch, ctc_lock_table_info *lock_info);
 int ctc_set_sys_var(ctc_set_opt_request *broadcast_req);
 int ctc_ddl_execute_lock_tables_by_req(ctc_handler_t *tch, ctc_lock_table_info *lock_info, int *err_code);
-void ctc_mdl_unlock_tables_thd(ctc_handler_t *tch);
+void ctc_mdl_unlock_tables_thd(ctc_handler_t *tch, MDL_request *mdl_request);
 int ctc_invalidate_mysql_dd_cache_req(ctc_handler_t *tch,
                                       ctc_invalidate_broadcast_request *broadcast_req,
                                       int *err_code);
