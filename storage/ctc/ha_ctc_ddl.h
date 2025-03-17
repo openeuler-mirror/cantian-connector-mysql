@@ -21,6 +21,8 @@
 #include <string>
 #include <algorithm>
 #include "storage/ctc/ha_ctcpart.h"
+#include "sql/item_json_func.h"
+#include "sql/table_function.h"
 #define  UN_SUPPORT_DDL "ddl statement"
 /** Max table name length as defined in CT_MAX_NAME_LEN */
 #define CTC_MAX_TABLE_NAME_LEN 64
@@ -170,6 +172,22 @@ static map<const int, const int> mysql_collate_num_to_ctc_type = {
   {33, COLLATE_UTF8MB3_GENERAL_CI},
   {83, COLLATE_UTF8MB3_BIN},
   {76, COLLATE_UTF8_TOLOWER_CI},
+};
+
+typedef void (*ctc_item_print_t) (TABLE *form, const THD *thd, Item* item, String *out);
+// the mapping relationship between rewroten Item sub-class print()
+
+// as for MySQL 8.0.26, only following sub class of Item would be using print_op
+//   1. Item_func_int_div ("DIV"),
+//   2. sub class of Item_num_op,
+//      * Item_func_div: / ; Item_func_mul: * ; Item_func_mod: % ;
+//      * Item_func_additive_op: Item_func_plus: + ; Item_func_minus: -
+//   3. sub class of Item_func_bit,
+//      * Item_func_bit_two_param: Item_func_bit_or: | ; Item_func_bit_and: & ; Item_func_bit_xor: ^
+//      * sub class of Item_func_shift: Item_func_shift_left: << ; Item_func_shift_right: >>
+//      * Item_func_bit_neg: ~
+static std::set<std::string> print_op_func_name = {
+    "DIV", "/", "*", "%", "+", "-", "|", "&", "^", "<<", ">>", "~"
 };
 
 typedef struct {

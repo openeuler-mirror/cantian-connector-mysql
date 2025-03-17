@@ -515,43 +515,24 @@ public:
   uint max_supported_key_part_length(
       HA_CREATE_INFO *create_info) const override;
 
-  /** @brief
-    Called in test_quick_select to determine if indexes should be used.
+  /**
+    @brief Called in test_quick_select to determine if indexes should be used.
+    we assume that the data pages is equal to the disk scans times.
+    @return How many seeks it will take to read through the whole table.
   */
-  virtual double scan_time() override {
-    DBUG_TRACE;
-    return (ulonglong)(stats.records + stats.deleted) / 100 + 2;
-  }
+  double scan_time() override;
 
-  /** @brief
-    This method will never be called if you do not implement indexes.
+  /**
+    @brief This method will never be called if you do not implement indexes.
+    @return estimated cost of 'index only' scan
   */
-  virtual double read_time(
-    uint index,   /*!< in: key number */
-    uint ranges,  /*!< in: how many ranges */
-    ha_rows rows) /*!< in: estimated number of rows in the ranges */ override {
-    DBUG_TRACE;
+  virtual double index_only_read_time(uint keynr, double records) override;
 
-    if (index != table->s->primary_key) {
-      /* Not clustered */
-      return (handler::read_time(index, ranges, rows));
-    }
-
-    if (rows <= 2) {
-      return ((double)rows);
-    }
-
-    /* Assume that the read time is proportional to the scan time for all
-    rows + at most one seek per range. */
-
-    double time_for_scan = scan_time();
-
-    if (stats.records < rows) {
-      return (time_for_scan);
-    }
-
-    return (ranges + (double)rows / (double)stats.records * time_for_scan);
-  }
+  /**
+    @brief This method will never be called if you do not implement indexes.
+    @return estimated time measured in disk seeks
+  */
+  double read_time(uint index, uint ranges, ha_rows rows) override;
 
   bool inplace_alter_table(
       TABLE *altered_table MY_ATTRIBUTE((unused)),
