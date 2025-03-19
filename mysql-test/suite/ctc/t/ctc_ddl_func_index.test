@@ -71,4 +71,65 @@ create index index_func_idx_1 on t6 ((if(c1 = 1, 1, 3)));
 
 drop table t6;
 
+# 创建混合中英文字符索引场景
+create table t7 (c1 varbinary(20));
+insert into t7 values ('ab一二'), ('ab一er');
+--error ER_DUP_ENTRY
+create unique index func_idx1 on t7 ((substr(c1, 2, 2)));
+--error ER_DUP_ENTRY
+create unique index func_idx2 on t7 ((substr(c1, 2, 4)));
+--error ER_DUP_ENTRY
+alter table t7 add unique key func_idx3(c1(4));
+--error ER_DUP_ENTRY
+create unique index func_idx4 on t7 ((substr(upper(c1), 2, 2)));
+drop table t7;
+
+create table t8 (c1 blob);
+insert into t8 values ('ab一二'), ('ab一er');
+--error ER_DUP_ENTRY
+create unique index func_idx1 on t8 ((substr(c1, 2, 2)));
+--error ER_DUP_ENTRY
+create unique index func_idx2 on t8 ((substr(c1, 2, 4)));
+--error ER_DUP_ENTRY
+alter table t8 add unique key func_idx3(c1(4));
+drop table t8;
+
+create table t9 (c1 varchar(20));
+insert into t9 values ('ab一二'), ('ab一er');
+--error ER_DUP_ENTRY
+create unique index func_idx1 on t9 ((substr(c1, 2, 2)));
+create unique index func_idx2 on t9 ((substr(c1, 2, 4)));
+alter table t9 add unique key func_idx3(c1(4));
+--error ER_DUP_ENTRY
+create unique index func_idx4 on t9 ((substr(upper(c1), 2, 2)));
+drop table t9;
+
+create table t10 (c1 text);
+insert into t10 values ('ab一二'), ('ab一er');
+--error ER_DUP_ENTRY
+create unique index func_idx1 on t10 ((substr(c1, 2, 2)));
+create unique index func_idx2 on t10 ((substr(c1, 2, 4)));
+alter table t10 add unique key func_idx3(c1(4));
+drop table t10;
+
+create table t11 (c1 varchar(20)) default charset = binary;
+insert into t11 values ('ab一二'), ('ab一er');
+--error ER_DUP_ENTRY
+create unique index func_idx1 on t11 ((substr(c1, 2, 2)));
+--error ER_DUP_ENTRY
+create unique index func_idx2 on t11 ((substr(c1, 2, 4)));
+--error ER_DUP_ENTRY
+alter table t11 add unique key func_idx3(c1(4));
+drop table t11;
+
+create table t12 (c1 text) default charset = binary;
+insert into t12 values ('ab一二'), ('ab一er');
+--error ER_DUP_ENTRY
+create unique index func_idx1 on t12 ((substr(c1, 2, 2)));
+--error ER_DUP_ENTRY
+create unique index func_idx2 on t12 ((substr(c1, 2, 4)));
+--error ER_DUP_ENTRY
+alter table t12 add unique key func_idx3(c1(4));
+drop table t12;
+
 drop database db1;
