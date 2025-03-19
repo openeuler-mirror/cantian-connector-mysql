@@ -1228,8 +1228,7 @@ static int ctc_ddl_create_table_fill_foreign_key_info(TcDb__CtcDDLCreateTableDef
 static void ctc_fill_prefix_func_key_part(TcDb__CtcDDLTableKeyPart *req_key_part,
                                           const Field *field, uint16 prefix_len) {
   req_key_part->is_func = true;
-  if (field->real_type() == MYSQL_TYPE_BLOB && field->charset() == &my_charset_bin &&
-      field->is_flag_set(BINARY_FLAG)) {
+  if (field->charset() == &my_charset_bin && field->is_flag_set(BINARY_FLAG)) {
     req_key_part->func_name = const_cast<char *>("substrb");
     snprintf(req_key_part->func_text, FUNC_TEXT_MAX_LEN - 1, "substrb(%s,1,%d)",
             field->field_name, prefix_len);
@@ -1412,7 +1411,11 @@ static void ctc_print_op(TABLE *form, const THD *thd, Item_func *item_func, Stri
 
 static void ctc_print_func(TABLE *form, const THD *thd, Item_func *item_func, String *out)
 {
-    out->append(item_func->func_name());
+    if (item_func->collation.collation == &my_charset_bin && strcmp(item_func->func_name(), "substr") == 0) {
+        out->append("substrb");
+    } else {
+        out->append(item_func->func_name());
+    }
     out->append('(');
     for (uint i = 0; i < item_func->arg_count; i++) {
         if (i != 0) out->append(',');
