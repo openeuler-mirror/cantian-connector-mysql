@@ -147,6 +147,9 @@ typedef struct en_ctc_cond_push_map {
 
 void cond_push_term(Item *term, Item *&pushed_cond, Item *&remainder_cond, Item_func::Functype parent_type);
 
+void set_enable_wsr_stat(bool enable_stat);
+bool get_enable_wsr_stat();
+
 #pragma GCC visibility pop
 
 #endif // __CTC_UTIL_H__

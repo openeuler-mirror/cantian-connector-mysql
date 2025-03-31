@@ -117,6 +117,12 @@ static void* mq_msg_handler(void *arg) {
       CTC_IGNORE_ERROR_WHEN_MYSQL_SHUTDOWN(req, "ctc_set_cluster_role_by_cantian");
       break;
     }
+    case CTC_FUNC_TYPE_UPDATE_SQL_STATISTIC_STAT: {
+      struct update_sql_statistic_stat *req = (struct update_sql_statistic_stat *)message_block->seg_buf[0];
+      req->result = ctc_update_sql_statistic_stat(req->enable_stat);
+      ctc_log_info("enable_stat has been set to %d", req->result);
+      break;
+    }
     default: {
       ctc_log_error("cmd type invalid, cmd_type:%d.", message_block->head.cmd_type);
       break;
