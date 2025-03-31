@@ -90,6 +90,7 @@ sql_engine_intf *get_local_sql_intf()
     g_local_sql_intf.ctc_ddl_execute_lock_tables = ctc_ddl_execute_lock_tables;
     g_local_sql_intf.ctc_ddl_execute_unlock_tables = ctc_ddl_execute_unlock_tables;
     g_local_sql_intf.ctc_set_cluster_role_by_cantian = ctc_set_cluster_role_by_cantian;
+    g_local_sql_intf.ctc_update_sql_statistic_stat = ctc_update_sql_statistic_stat;
     ctc_log_system("get local sql function success.");
     return &g_local_sql_intf;
 }

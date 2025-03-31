@@ -168,6 +168,8 @@ struct trx_begin_request {
     int result;
     ctc_trx_context_t trx_context;
     bool is_mysql_local;
+    struct timeval begin_time;
+    bool enable_stat;
 };
 
 struct trx_commit_request {
@@ -176,6 +178,8 @@ struct trx_commit_request {
     bool is_ddl_commit;
     int32_t csize;
     uint64_t *cursors;
+    char sql[MAX_WSR_DML_SQL_LEN];
+    bool enable_stat;
 };
 
 struct trx_rollback_request {
@@ -468,6 +472,11 @@ struct set_cluster_role_by_cantian_request {
     int result;
 };
 
+struct update_sql_statistic_stat {
+    bool enable_stat;
+    int result;
+};
+
 struct execute_ddl_mysql_sql_request {
     ctc_ddl_broadcast_request broadcast_req;
     uint32_t thd_id;
@@ -513,6 +522,11 @@ struct invalidate_mysql_dd_request {
     ctc_invalidate_broadcast_request broadcast_req;
     ctc_handler_t tch;
     int err_code;
+    int result;
+};
+
+struct query_sql_statistic_stat {
+    bool* enable_stat;
     int result;
 };
 

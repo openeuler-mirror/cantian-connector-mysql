@@ -35,6 +35,7 @@
 
 using namespace std;
 extern bool ctc_enable_x_lock_instance;
+bool g_enable_wsr_stat = false;
 
 string cnvrt_name_for_sql(string name) {
   string res = "";
@@ -1462,4 +1463,12 @@ int32_t ctc_cmp_cantian_rowid(const rowid_t *rowid1, const rowid_t *rowid2) {
 
   result = rowid1->slot > rowid2->slot ? 1 : (rowid1->slot < rowid2->slot ? (-1) : 0);
   return result;
+}
+
+void set_enable_wsr_stat(bool enable_stat) {
+  g_enable_wsr_stat = enable_stat;
+}
+
+bool get_enable_wsr_stat() {
+  return g_enable_wsr_stat;
 }
