@@ -1529,7 +1529,7 @@ static int ctc_commit(handlerton *hton, THD *thd, bool commit_trx) {
   assert(sess_ctx != nullptr);
   bool is_dmlsql = false;
   bool enable_stat = get_enable_wsr_stat();
-  if (thd->query().str != NULL && thd->query().length > 0) {
+  if (enable_stat && thd->query().str != NULL && thd->query().length > 0) {
     string dml_sql = string(thd->query().str).substr(0, thd->query().length);
     String dml_sql_string(dml_sql.c_str(), dml_sql.length(), thd->charset());
     is_dmlsql = is_dml_cmd(dml_sql_string);
