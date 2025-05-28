@@ -1361,8 +1361,13 @@ static typename std::enable_if<CHECK_HAS_MEMBER_FUNC(T, invalidates), void>::typ
 {
   ctc_invalidate_broadcast_request req;
   req.mysql_inst_id = ctc_instance_id;
-  req.buff_len = 1;
   req.is_dcl = false;
+  if (thd->invalidates().size() >= DD_BROADCAST_RECORD_SIZE) {
+    req.buff_len = 0;
+    (void)ctc_broadcast_mysql_dd_invalidate(tch, &req);
+    return;
+  }
+  req.buff_len = 1;
   req.is_flush = (tch->sql_command == SQLCOM_FLUSH) ? true : false;
   invalidate_obj_entry_t *obj = NULL;
  
@@ -1529,7 +1534,7 @@ static int ctc_commit(handlerton *hton, THD *thd, bool commit_trx) {
   assert(sess_ctx != nullptr);
   bool is_dmlsql = false;
   bool enable_stat = get_enable_wsr_stat();
-  if (thd->query().str != NULL && thd->query().length > 0) {
+  if (enable_stat && thd->query().str != NULL && thd->query().length > 0) {
     string dml_sql = string(thd->query().str).substr(0, thd->query().length);
     String dml_sql_string(dml_sql.c_str(), dml_sql.length(), thd->charset());
     is_dmlsql = is_dml_cmd(dml_sql_string);

@@ -147,6 +147,7 @@ again. */
             return HA_ERR_SE_OUT_OF_MEMORY; \
     }
 
+#define DD_BROADCAST_RECORD_SIZE (1000)
 #define IS_METADATA_NORMALIZATION() (ctc_get_metadata_switch() == (int32_t)metadata_switchs::MATCH_META)
 #define IS_PRIMARY_ROLE() (ctc_get_cluster_role() == (int32_t)dis_cluster_role::PRIMARY)
 #define IS_STANDBY_ROLE() (ctc_get_cluster_role() == (int32_t)dis_cluster_role::STANDBY)
