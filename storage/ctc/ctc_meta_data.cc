@@ -431,7 +431,7 @@ static typename std::enable_if<CHECK_HAS_MEMBER_FUNC(T, invalidates), int>::type
   ctc_invalidate_mysql_dd_cache_impl(ctc_handler_t *tch, ctc_invalidate_broadcast_request *broadcast_req, int *err_code) {
   UNUSED_PARAM(err_code);
   // 相同节点不用执行
-  if(broadcast_req->mysql_inst_id == ctc_instance_id) {
+  if (broadcast_req->mysql_inst_id == ctc_instance_id) {
     ctc_log_note("ctc_invalidate_mysql_dd_cache curnode not need execute,mysql_inst_id:%u", broadcast_req->mysql_inst_id);
     return 0;
   }
@@ -440,7 +440,13 @@ static typename std::enable_if<CHECK_HAS_MEMBER_FUNC(T, invalidates), int>::type
   T *thd = nullptr;
   uint64_t thd_key = ctc_get_conn_key(tch->inst_id, tch->thd_id, true);
   ctc_init_thd(&thd, thd_key);
- 
+
+  // invalidate all dd cache
+  if (broadcast_req->buff_len == 0 && broadcast_req->is_dcl == false) {
+    dd::cache::Shared_dictionary_cache::instance()->reset(true);
+    return 0;
+  }
+
   if (broadcast_req->is_dcl == true) {
     error = reload_acl_caches(thd, false);
     ctc_log_system("[CTC_INVALID_DD]: remote invalidate acl cache, mysql_inst_id=%u", broadcast_req->mysql_inst_id);
