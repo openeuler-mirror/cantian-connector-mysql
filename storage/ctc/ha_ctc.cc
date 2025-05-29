@@ -1520,7 +1520,8 @@ bool is_dml_cmd(const String& sql)
 static int ctc_commit(handlerton *hton, THD *thd, bool commit_trx) {
   DBUG_TRACE;
   BEGIN_RECORD_STATS
-  if (engine_ddl_passthru(thd) && (is_alter_table_copy(thd) || is_create_table_check(thd) || is_lock_table(thd))) {
+  bool is_alter_copy = is_alter_table_copy(thd);
+  if (engine_ddl_passthru(thd) && (is_alter_copy || is_create_table_check(thd) || is_lock_table(thd))) {
     END_RECORD_STATS(EVENT_TYPE_COMMIT)
     return 0;
   }
@@ -1598,6 +1599,13 @@ static int ctc_commit(handlerton *hton, THD *thd, bool commit_trx) {
     sess_ctx->sql_stat_start = 1;  // indicate cantian for a new sql border
     tch.sql_stat_start = 1;
   }
+
+  if (is_alter_copy && commit_trx) {
+    tch.part_id = INVALID_PART_ID;
+    return ctc_analyze_table(&tch, thd->lex->query_tables->get_db_name(),
+                             thd->lex->query_tables->table_name, 100.0); // 100.0% sample-ratio
+  }
+
   END_RECORD_STATS(EVENT_TYPE_COMMIT)
   return 0;
 }
