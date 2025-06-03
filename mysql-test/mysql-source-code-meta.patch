@@ -791,7 +791,7 @@ index 1e3ce91c..009423b8 100644
        return true;
      }
 diff --git a/sql/dd/info_schema/metadata.cc b/sql/dd/info_schema/metadata.cc
-index 4c9a38fa..3f1488bf 100644
+index 4c9a38fa..15817762 100644
 --- a/sql/dd/info_schema/metadata.cc
 +++ b/sql/dd/info_schema/metadata.cc
 @@ -629,7 +629,19 @@ bool store_server_I_S_metadata(THD *thd) {
@@ -815,6 +815,17 @@ index 4c9a38fa..3f1488bf 100644
  }
  
  /*
+@@ -665,7 +677,9 @@ bool remove_I_S_view_metadata(THD *thd, const dd::String_type &view_name) {
+   if (thd->dd_client()->acquire(INFORMATION_SCHEMA_NAME.str, view_name.c_str(),
+                                 &at))
+     return (true);
+-
++  if (at == nullptr) {
++    return (false);
++  }
+   assert(at->type() == dd::enum_table_type::SYSTEM_VIEW);
+ 
+   // Remove view from DD tables.
 diff --git a/sql/dd/info_schema/table_stats.cc b/sql/dd/info_schema/table_stats.cc
 index cc1041d6..b69b7b7a 100644
 --- a/sql/dd/info_schema/table_stats.cc
@@ -2013,7 +2024,7 @@ index 70d9c1ff..c4a54c69 100644
    return error;
  }
 diff --git a/sql/sql_plugin.cc b/sql/sql_plugin.cc
-index 3860d342..e89ca4c0 100644
+index 3860d342..a8c14830 100644
 --- a/sql/sql_plugin.cc
 +++ b/sql/sql_plugin.cc
 @@ -358,6 +358,7 @@ const LEX_CSTRING plugin_type_names[MYSQL_MAX_PLUGIN_TYPE_NUM] = {
@@ -2114,6 +2125,50 @@ index 3860d342..e89ca4c0 100644
        free_root(&tmp_root, MYF(MY_MARK_BLOCKS_FREE));
        if (test_plugin_options(&tmp_root, &tmp, argc, argv))
          tmp.state = PLUGIN_IS_DISABLED;
+@@ -2198,6 +2268,7 @@ static bool mysql_install_plugin(THD *thd, LEX_CSTRING name,
+                                  const LEX_STRING *dl) {
+   TABLE *table;
+   bool error = true;
++  int err_no = 0;
+   int argc = orig_argc;
+   char **argv = orig_argv;
+   st_plugin_int *tmp = nullptr;
+@@ -2350,14 +2421,15 @@ static bool mysql_install_plugin(THD *thd, LEX_CSTRING name,
+     restore_record(table, s->default_values);
+     table->field[0]->store(name.str, name.length, system_charset_info);
+     table->field[1]->store(dl->str, dl->length, files_charset_info);
+-    error = table->file->ha_write_row(table->record[0]);
+-    if (error) {
++    err_no = table->file->ha_write_row(table->record[0]);
++    if (err_no != 0 && !(err_no == HA_ERR_FOUND_DUPP_KEY && tmp->state == PLUGIN_IS_UNINITIALIZED)) {
+       const char msg[] = "got '%s' writing to mysql.plugin";
+       char buf[MYSQL_ERRMSG_SIZE + sizeof(msg) - 2];
+       char errbuf[MYSQL_ERRMSG_SIZE];
+       my_strerror(errbuf, sizeof(errbuf), error);
+       snprintf(buf, sizeof(buf), msg, errbuf);
+       report_error(REPORT_TO_USER, ER_DA_PLUGIN_INSTALL_ERROR, name.str, buf);
++      error = true;
+     } else {
+       mysql_mutex_lock(&LOCK_plugin);
+ 
+@@ -2372,7 +2444,7 @@ static bool mysql_install_plugin(THD *thd, LEX_CSTRING name,
+         tables are closed before the function returns.
+        */
+       error = error || thd->transaction_rollback_request;
+-      if (!error && store_infoschema_metadata) {
++      if (!error && store_infoschema_metadata && err_no == 0) {
+         error = dd::info_schema::store_dynamic_plugin_I_S_metadata(thd, tmp);
+         if (error) {
+           report_error(REPORT_TO_USER, ER_DA_PLUGIN_INSTALL_ERROR, name.str,
+@@ -2381,7 +2453,7 @@ static bool mysql_install_plugin(THD *thd, LEX_CSTRING name,
+       }
+       mysql_mutex_unlock(&LOCK_plugin);
+ 
+-      if (!error && store_infoschema_metadata) {
++      if (!error && store_infoschema_metadata && err_no == 0) {
+         Uncommitted_tables_guard uncommitted_tables(thd);
+         error = update_referencing_views_metadata(
+             thd, INFORMATION_SCHEMA_NAME.str, tmp->name.str, false,
 diff --git a/sql/sql_rename.cc b/sql/sql_rename.cc
 index 7bd705b4..b5e68b9d 100644
 --- a/sql/sql_rename.cc
@@ -3942,6 +3997,6 @@ index 19110c7a..131a4c69 100644
    ELSE()
      # This is a fall-back.
      FILE(WRITE ${INFO_SRC} "\nMySQL source ${VERSION}\n")
-+    FILE(APPEND ${INFO_SRC} "\nCantian patch source 1.0.2\n")
++    FILE(APPEND ${INFO_SRC} "\nCantian patch source 1.0.3\n")
    ENDIF()
  ENDMACRO(CREATE_INFO_SRC)
