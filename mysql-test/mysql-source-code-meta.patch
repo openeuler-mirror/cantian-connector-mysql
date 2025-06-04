@@ -1786,7 +1786,7 @@ index c171f0bb..6fc75f7c 100644
    Initialize the transactional ddl context when executing CREATE TABLE ...
    SELECT command with engine which supports atomic DDL.
 diff --git a/sql/sql_class.h b/sql/sql_class.h
-index 9f68530b..8a767cd7 100644
+index 9f68530b..21598829 100644
 --- a/sql/sql_class.h
 +++ b/sql/sql_class.h
 @@ -841,6 +841,7 @@ class THD : public MDL_context_owner,
@@ -1805,7 +1805,16 @@ index 9f68530b..8a767cd7 100644
    /**
      Current query partial plans.
      @sa system_status_var::last_query_partial_plans
-@@ -4417,6 +4419,29 @@ class THD : public MDL_context_owner,
+@@ -2573,6 +2575,8 @@ class THD : public MDL_context_owner,
+     state here. This member is valid only when executing code during parsing.
+   */
+   Parser_state *m_parser_state;
++  
++  size_t before_semic_length;
+ 
+   Locked_tables_list locked_tables_list;
+ 
+@@ -4417,6 +4421,29 @@ class THD : public MDL_context_owner,
      @param thd parent session
    */
    void copy_table_access_properties(THD *thd);
@@ -2023,6 +2032,27 @@ index 70d9c1ff..c4a54c69 100644
    }
    return error;
  }
+diff --git a/sql/sql_parse.cc b/sql/sql_parse.cc
+index 15b1640f..88020d3c 100644
+--- a/sql/sql_parse.cc
++++ b/sql/sql_parse.cc
+@@ -4931,9 +4931,14 @@ void dispatch_sql_command(THD *thd, Parser_state *parser_state) {
+ 
+   if (!err) {
+     err = parse_sql(thd, parser_state, nullptr);
+-    if (!err) err = invoke_post_parse_rewrite_plugins(thd, false);
+-
+     found_semicolon = parser_state->m_lip.found_semicolon;
++    thd->before_semic_length = 0;
++    if (!err && !thd->is_error()) {
++      if (found_semicolon && (ulong)(found_semicolon - thd->query().str)) {
++        thd->before_semic_length = static_cast<size_t>(found_semicolon - thd->query().str - 1);
++      }
++    }
++    if (!err) err = invoke_post_parse_rewrite_plugins(thd, false);
+   }
+ 
+   DEBUG_SYNC_C("sql_parse_before_rewrite");
 diff --git a/sql/sql_plugin.cc b/sql/sql_plugin.cc
 index 3860d342..a8c14830 100644
 --- a/sql/sql_plugin.cc
@@ -3990,13 +4020,13 @@ index e949235a..d46fca83 100644
  
    opened_table_validate();
 diff --git a/cmake/info_macros.cmake.in b/cmake/info_macros.cmake.in
-index 19110c7a..131a4c69 100644
+index 19110c7a..a9e35b58 100644
 --- a/cmake/info_macros.cmake.in
 +++ b/cmake/info_macros.cmake.in
 @@ -106,6 +106,7 @@ MACRO(CREATE_INFO_SRC target_dir)
    ELSE()
      # This is a fall-back.
      FILE(WRITE ${INFO_SRC} "\nMySQL source ${VERSION}\n")
-+    FILE(APPEND ${INFO_SRC} "\nCantian patch source 1.0.3\n")
++    FILE(APPEND ${INFO_SRC} "\nCantian patch source 1.0.4\n")
    ENDIF()
  ENDMACRO(CREATE_INFO_SRC)

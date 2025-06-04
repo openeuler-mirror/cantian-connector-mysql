@@ -1148,7 +1148,11 @@ int ctc_record_sql(MYSQL_THD thd, bool need_select_db) {
 
   broadcast_req.options |= CTC_NOT_NEED_CANTIAN_EXECUTE;
   broadcast_req.options |= (thd->lex->contains_plaintext_password ? CTC_CURRENT_SQL_CONTAIN_PLAINTEXT_PASSWORD : 0);
-  string sql = string(thd->query().str).substr(0, thd->query().length);
+  size_t len = thd->query().length;
+#ifdef METADATA_NORMALIZED
+  len = thd->before_semic_length == 0 ? thd->query().length : thd->before_semic_length;
+#endif
+  string sql = string(thd->query().str).substr(0, len);
 
   FILL_BROADCAST_BASE_REQ(broadcast_req, sql.c_str(), thd->m_main_security_ctx.priv_user().str,
     thd->m_main_security_ctx.priv_host().str, ctc_instance_id, (uint8_t)thd->lex->sql_command);
