@@ -1094,6 +1094,7 @@ int alloc_str_mysql_mem(ctc_cbo_stats_t *cbo_stats, uint32_t part_num, TABLE *ta
 void free_columns_cbo_stats(ctc_cbo_stats_column_t *ctc_cbo_stats_columns, bool *is_str_first_addr, TABLE *table);
 int32_t ctc_get_shm_file_num(uint32_t *shm_file_num);
 int32_t ctc_get_shm_usage(uint32_t *ctc_shm_usage);
+bool is_work_flow();
 
 #pragma GCC visibility pop
 #endif
