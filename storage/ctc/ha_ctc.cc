@@ -4612,6 +4612,7 @@ EXTER_ATTACK bool ctc_drop_database_with_err(handlerton *hton, char *path) {
     ret, db_name, error_code, error_message);
   if (ret != CT_SUCCESS) {
     ctc_log_error("drop database failed with error code: %d", convert_ctc_error_code_to_mysql((ct_errno_t)ret));
+    my_printf_error(ER_BAD_DB_ERROR, "%s", MYF(0), error_message);
     END_RECORD_STATS(EVENT_TYPE_DROP_DB)
     return true;
   }
