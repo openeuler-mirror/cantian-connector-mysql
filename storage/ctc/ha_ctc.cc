@@ -1602,8 +1602,8 @@ static int ctc_commit(handlerton *hton, THD *thd, bool commit_trx) {
 
   if (is_alter_copy && commit_trx) {
     tch.part_id = INVALID_PART_ID;
-    return ctc_analyze_table(&tch, thd->lex->query_tables->get_db_name(),
-                             thd->lex->query_tables->table_name, 100.0); // 100.0% sample-ratio
+    (void)ctc_analyze_table(&tch, thd->lex->query_tables->get_db_name(),
+                            thd->lex->query_tables->table_name, 100.0); // 100.0% sample-ratio
   }
 
   END_RECORD_STATS(EVENT_TYPE_COMMIT)
