@@ -1520,10 +1520,13 @@ bool is_dml_cmd(const String& sql)
 static int ctc_commit(handlerton *hton, THD *thd, bool commit_trx) {
   DBUG_TRACE;
   BEGIN_RECORD_STATS
-  bool is_alter_copy = is_alter_table_copy(thd);
-  if (engine_ddl_passthru(thd) && (is_alter_copy || is_create_table_check(thd) || is_lock_table(thd))) {
-    END_RECORD_STATS(EVENT_TYPE_COMMIT)
-    return 0;
+  bool is_alter_copy = false;
+  if (engine_ddl_passthru(thd)) {
+    is_alter_copy = is_alter_table_copy(thd);
+    if (is_alter_copy || is_create_table_check(thd) || is_lock_table(thd)) {
+      END_RECORD_STATS(EVENT_TYPE_COMMIT)
+      return 0;
+    }
   }
 
   ctc_handler_t tch;
