@@ -430,6 +430,10 @@ template <typename T>
 static typename std::enable_if<CHECK_HAS_MEMBER_FUNC(T, invalidates), int>::type
   ctc_invalidate_mysql_dd_cache_impl(ctc_handler_t *tch, ctc_invalidate_broadcast_request *broadcast_req, int *err_code) {
   UNUSED_PARAM(err_code);
+  if (!is_work_flow()) {
+    ctc_log_system("[ctc_invalidate_mysql_dd_cache_impl]: mysqld is not started.");
+    return 0;
+  }
   // 相同节点不用执行
   if (broadcast_req->mysql_inst_id == ctc_instance_id) {
     ctc_log_note("ctc_invalidate_mysql_dd_cache curnode not need execute,mysql_inst_id:%u", broadcast_req->mysql_inst_id);
@@ -618,6 +622,10 @@ static void ctc_init_mdl_request(ctc_lock_table_info *lock_info, MDL_request *md
 }
  
 int ctc_mdl_lock_thd(ctc_handler_t *tch, ctc_lock_table_info *lock_info, int *err_code) {
+  if (!is_work_flow()) {
+    ctc_log_system("[ctc_mdl_lock_thd]: mysqld is not started.");
+    return false;
+  }
   bool is_same_node = (tch->inst_id == ctc_instance_id);
   uint64_t mdl_thd_key = ctc_get_conn_key(tch->inst_id, tch->thd_id, true);
  
@@ -754,6 +762,10 @@ void ctc_mdl_unlock_tables_thd(ctc_handler_t *tch, MDL_request *mdl_request)
 }
 
 void ctc_mdl_unlock_thd(ctc_handler_t *tch, ctc_lock_table_info *lock_info) {
+  if (!is_work_flow()) {
+    ctc_log_system("[ctc_mdl_unlock_thd]: mysqld is not started.");
+    return;
+  }
   bool is_same_node = (tch->inst_id == ctc_instance_id);
   uint64_t mdl_thd_key = ctc_get_conn_key(tch->inst_id, tch->thd_id, true);
 
